@@ -1,0 +1,90 @@
+name: Data sync
+
+# 每天從 Google Sheet 匯入；資料有變動就開（或更新）`data-sync` 分支的 PR，
+# 由維護者確認後合併，合併後才部署。main 受保護，這裡不直接推 main。
+on:
+  schedule:
+    # 每天台灣時間 03:00
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: data-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: data-sync
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Import from Google Sheet
+        run: npm run import
+
+      - name: Open or update the data-sync PR
+        run: |
+          if git diff --quiet public/data; then
+            echo "資料與 main 相同"
+            # 之前開的同步 PR 已經沒有差異（例如 Sheet 改回原狀），關掉它
+            if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+              gh pr close "$BRANCH" --delete-branch --comment "Sheet 的資料已與 main 相同，關閉這個同步 PR。"
+            fi
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add public/data
+
+          TODAY=$(TZ=Asia/Taipei date +%Y-%m-%d)
+          mkdir -p .cache
+          {
+            echo "資料同步：Google Sheet（$TODAY）"
+            if [ -f .cache/import-notes.txt ]; then echo; cat .cache/import-notes.txt; fi
+          } > .cache/commit-msg.txt
+          git commit -F .cache/commit-msg.txt
+          # data-sync 分支每次都從最新的 main 重建，只含一個資料 commit
+          git push --force origin "$BRANCH"
+
+          {
+            echo "## 目的"
+            echo "同步 Google Sheet（$TODAY）的路線資料。"
+            echo
+            echo "## 改動"
+            echo "- \`public/data/longdong.json\`"
+            if [ -f .cache/import-notes.txt ]; then echo; cat .cache/import-notes.txt; fi
+            echo
+            echo "## 驗證"
+            echo "- 匯入程式的檢查（路線ID、Sheet 版面、資料格式）已通過，否則不會開這個 PR"
+            echo "- CI 會再跑一次測試與 build"
+            echo
+            echo "確認無誤後合併，網站會自動部署。"
+          } > .cache/pr-body.md
+
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --title "資料同步：Google Sheet（$TODAY）" --body-file .cache/pr-body.md
+          else
+            gh pr create --base main --head "$BRANCH" --title "資料同步：Google Sheet（$TODAY）" --body-file .cache/pr-body.md --label data-sync || \
+            gh pr create --base main --head "$BRANCH" --title "資料同步：Google Sheet（$TODAY）" --body-file .cache/pr-body.md
+          fi
+
+          # GITHUB_TOKEN 推送與開 PR 不會觸發 pull_request 事件，手動觸發 CI
+          gh workflow run ci.yml --ref "$BRANCH"

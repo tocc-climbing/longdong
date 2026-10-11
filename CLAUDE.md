@@ -44,7 +44,16 @@
 - **變更範圍隔離**：每一行 diff 都對應明確需求，禁止順手重構或美化無關程式碼。
 - **無副作用**：無關的死碼只提醒不刪除；自己改動產生的孤兒（import、變數、樣式、函式）須清理乾淨。
 - **Commit 只提交明確路徑**（可能有多個 session 並行）：使用 `git commit -- <明確路徑>`，**禁止** `git add <file>` 後接 `git commit`（會把其他 session 暫存的半成品一起提交）。提交前以 `git diff --cached --name-only` 確認索引，提交後以 `git show --name-only` 驗證檔案清單。
-- **推送前先同步遠端**：每日同步排程會自動 commit 資料檔，推送前先 `git pull --rebase`；`public/data/longdong.json` 衝突時以目前程式重新匯入，不手動合併。
+- **資料檔衝突以重新匯入解決**：`public/data/longdong.json` 衝突時以目前程式重新匯入，不手動合併。
+
+## 分支、PR 與合併
+流程見 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
+- **不直接推 `main`**（受保護）：從最新的 `main` 開分支（`feat/`、`fix/`、`docs/`、`chore/`），推上分支後開 PR，依 `.github/pull_request_template.md` 填寫。
+- **CI（`ci`）必須通過**；引入新行為的 PR 依審查規範審查。
+- **合併等於上線**（合併後自動部署）：Claude 開好 PR、CI 通過後回報 PR 連結，**由使用者決定是否合併**；使用者要求合併時以 squash 合併。
+- **重構與新行為分開成不同 PR**（規範 7.5）。
+- **每日資料同步**由 `.github/workflows/sync.yml` 開 `data-sync` PR，不直接推 `main`。
 
 ## 自動化驗證閉環
 - **先寫可驗證的目標**：把需求轉成會失敗的測試或腳本，再實作使之通過。

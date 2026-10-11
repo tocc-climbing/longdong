@@ -52,7 +52,7 @@ export function AboutPage({ data }: { data: LoadedData }) {
 
           <h2>資料來源</h2>
           <p>
-            路線與 Bolt 資料由{source}維護於{sheet}，本站每日自動同步。發現資料有誤，請聯絡協會更正。
+            路線與 Bolt 資料由{source}維護於{sheet}，本站每天檢查更新，經確認後上線。發現資料有誤，請聯絡協會更正。
           </p>
         </>
       ) : (
@@ -77,7 +77,7 @@ export function AboutPage({ data }: { data: LoadedData }) {
 
           <h2>Data source</h2>
           <p>
-            Route and bolt data are maintained by the {source} in a {sheet} and synced daily. Report errors to TOCC. Route descriptions
+            Route and bolt data are maintained by the {source} in a {sheet} and checked for updates daily, then published after review. Report errors to TOCC. Route descriptions
             and notes are available in Chinese only.
           </p>
         </>

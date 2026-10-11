@@ -4,7 +4,7 @@
 
 龍洞攀岩路線與 Bolt 資訊的離線優先 Web App（PWA）。龍洞很多岩場沒有手機訊號，所以 App 和全部路線資料會在第一次開啟時存到手機上，之後不用網路也能查詢。
 
-路線與 Bolt 資料由 [臺灣戶外攀岩協會（TOCC）固定點更新計畫](https://www.tocc-climbing.org/rebolting-project) 維護於 [Google Sheet](https://docs.google.com/spreadsheets/d/1QHFNQSPgKgQrTNnYn246wfotOYqOkzHjLltZ26keBgg/edit)，本專案每天自動同步。
+路線與 Bolt 資料由 [臺灣戶外攀岩協會（TOCC）固定點更新計畫](https://www.tocc-climbing.org/rebolting-project) 維護於 [Google Sheet](https://docs.google.com/spreadsheets/d/1QHFNQSPgKgQrTNnYn246wfotOYqOkzHjLltZ26keBgg/edit)，每天自動檢查並開成同步 PR，確認後上線。
 
 > 資料僅供參考。岩壁與固定點狀況隨時可能改變，攀登前請自行檢查現場。
 
@@ -24,7 +24,8 @@ public/data/longdong.json（commit 進 repo，每次變動都有 diff 可查）
 ```
 
 - 沒有後端、沒有資料庫，只有靜態檔案。
-- `.github/workflows/deploy.yml` 每天台灣時間 03:00 匯入一次；資料有變動才 commit。也可以在 Actions 頁面手動執行。
+- `.github/workflows/sync.yml` 每天台灣時間 03:00 匯入；資料有變動就開（或更新）`data-sync` 分支的 PR，合併後才部署。也可以在 Actions 頁面手動執行。
+- `.github/workflows/ci.yml` 是 PR 的必要檢查；`.github/workflows/deploy.yml` 在合併進 `main` 後部署。
 - 資料內容沒變時 `version` 和 `updatedAt` 不會改，不會產生多餘的 commit。
 
 ## 路線 ID
@@ -81,7 +82,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 ### Sheet 版面變動時
 
-匯入程式會在以下情況失敗或提出警告，排程就不會部署錯誤的資料：
+匯入程式會在以下情況失敗或提出警告，同步就不會開 PR，網站維持上一版資料：
 
 - 分頁標題和 `sheet.config.ts` 的區域名稱對不上（gid 錯了）
 - 找不到必要欄位（欄位被改名）
@@ -92,13 +93,14 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 ## 開發規範
 
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)：貢獻流程——分支、commit 與 PR、驗證、審查、每日資料同步。
 - [`CLAUDE.md`](CLAUDE.md)：開發原則、提交方式與各類改動的驗證清單（也是 Claude Code 在本 repo 的指示）。
 - [`docs/review_and_implementation_protocol.md`](docs/review_and_implementation_protocol.md)：審查與實作規範——權責分界、檢查與回報的成立條件、判定順序、審查時機。
 
 ## 部署
 
 1. 在 GitHub repo 的 **Settings → Pages** 把 Source 設為 **GitHub Actions**。
-2. push 到 `main` 就會 build 並部署。
+2. `main` 受保護，改動經由 PR 合併；合併後自動 build 並部署。流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 網址用相對路徑、路由用 hash，所以放在 GitHub Pages 子路徑或自訂網域都可以。
 

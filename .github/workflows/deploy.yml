@@ -1,15 +1,13 @@
-name: Import & deploy
+name: Deploy
 
+# main 只能經由 PR 合併；合併後 build 並部署到 GitHub Pages。
 on:
   push:
     branches: [main]
-  schedule:
-    # 每天台灣時間 03:00 從 Google Sheet 同步
-    - cron: '0 19 * * *'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -29,29 +27,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-
-      - name: Import from Google Sheet
-        if: github.event_name != 'push'
-        run: npm run import
-
-      - name: Commit updated data
-        if: github.event_name != 'push'
-        run: |
-          if git diff --quiet public/data; then
-            echo "資料沒有變動"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add public/data
-            mkdir -p .cache
-            echo "data: sync from Google Sheet" > .cache/commit-msg.txt
-            if [ -f .cache/import-notes.txt ]; then
-              echo >> .cache/commit-msg.txt
-              cat .cache/import-notes.txt >> .cache/commit-msg.txt
-            fi
-            git commit -F .cache/commit-msg.txt
-            git push
-          fi
 
       - run: npm test
 
