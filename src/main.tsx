@@ -1,3 +1,5 @@
+// 必須最早載入：瀏覽器的安裝事件可能在畫面出現前就發出
+import './install'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'

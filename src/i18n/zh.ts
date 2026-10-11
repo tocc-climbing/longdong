@@ -214,4 +214,9 @@ export const zh = {
   'search.try': '試試看：',
 
   'about.title': '關於',
+
+  'install.title': '安裝到主畫面',
+  'install.desc': '像 App 一樣從主畫面打開，在龍洞沒有訊號也能使用。',
+  'install.button': '安裝 App',
+  'install.later': '以後再說',
 }

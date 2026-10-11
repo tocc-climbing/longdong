@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { GradePyramid, MonthlyChart } from '../components/Charts'
 import { GradePill } from '../components/GradePill'
+import { InstallButton } from '../components/InstallPrompt'
 import { RouteRow } from '../components/RouteRow'
 import { FACEBOOK_LOGIN_ENABLED, SignInPrompt } from '../components/SignInPrompt'
 import { relativeTime } from '../format'
@@ -44,8 +45,9 @@ export function MePage({ data }: { data: LoadedData }) {
         />
       </section>
       {/* 語言設定不需要登入 */}
-      <section className="card">
+      <section className="card settings">
         <LanguagePicker />
+        <InstallButton />
       </section>
       <p className="center small">
         <a href={href.about()}>{t('footer.about')}</a>
@@ -214,6 +216,7 @@ function Settings({ uid, email }: { uid: string; email: string }) {
       <NameEditor uid={uid} />
       <p className="muted small">{t('me.emailPrivate', { email })}</p>
       <LanguagePicker />
+      <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
         <button className="link-button" onClick={() => confirm(t('me.confirmSignOut')) && void signOut()}>

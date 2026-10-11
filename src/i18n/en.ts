@@ -218,4 +218,9 @@ export const en: Record<keyof typeof zh, string> = {
   'search.try': 'Try:',
 
   'about.title': 'About',
+
+  'install.title': 'Add to home screen',
+  'install.desc': 'Open it like an app from your home screen — works without signal at Long Dong.',
+  'install.button': 'Install app',
+  'install.later': 'Not now',
 }

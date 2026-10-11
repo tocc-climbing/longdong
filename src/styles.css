@@ -1678,3 +1678,30 @@ main {
   background: var(--surface-2);
   color: var(--text);
 }
+
+/* ---------- 安裝提示 ---------- */
+
+.install-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 14px;
+  align-items: center;
+  margin: 4px 0 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--brand-soft);
+}
+
+.install-banner img {
+  border-radius: 12px;
+  background: #fff;
+}
+
+.install-text {
+  display: grid;
+  gap: 2px;
+}
+
+.install-banner .actions {
+  grid-column: 1 / -1;
+}
