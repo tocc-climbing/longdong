@@ -223,4 +223,12 @@ export const en: Record<keyof typeof zh, string> = {
   'install.desc': 'Open it like an app from your home screen — works without signal at Long Dong.',
   'install.button': 'Install app',
   'install.later': 'Not now',
+  'install.gotIt': 'Got it',
+  'install.howTo': 'How to add to home screen',
+  'install.iosStep1': 'Tap the Share button in Safari',
+  'install.iosStep2': 'Scroll down and choose “Add to Home Screen”',
+  'install.iosAdd': 'Add',
+  'install.iosStep3': 'Tap “Add” in the top-right corner',
+  'install.inAppDesc':
+    "You're in an app's built-in browser, which can't add to the home screen. Open the menu in the top-right, choose “Open in Safari”, then add it from the Share button.",
 }

@@ -1705,3 +1705,57 @@ main {
 .install-banner .actions {
   grid-column: 1 / -1;
 }
+
+.install-steps {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  font-size: 0.9rem;
+  counter-reset: step;
+}
+
+.install-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  counter-increment: step;
+}
+
+.install-steps li::before {
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex: none;
+}
+
+.step-icon {
+  color: #007aff;
+  flex: none;
+}
+
+.step-badge {
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: #007aff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex: none;
+}
+
+.install-inline {
+  display: grid;
+  gap: 8px;
+}

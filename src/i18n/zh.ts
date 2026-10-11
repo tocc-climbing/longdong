@@ -219,4 +219,11 @@ export const zh = {
   'install.desc': '像 App 一樣從主畫面打開，在龍洞沒有訊號也能使用。',
   'install.button': '安裝 App',
   'install.later': '以後再說',
+  'install.gotIt': '知道了',
+  'install.howTo': '如何加入主畫面',
+  'install.iosStep1': '點 Safari 的「分享」按鈕',
+  'install.iosStep2': '往下滑，選「加入主畫面」',
+  'install.iosAdd': '新增',
+  'install.iosStep3': '按右上角的「新增」',
+  'install.inAppDesc': '目前是在 App 的內建瀏覽器裡，無法加入主畫面。請點右上角的選單，選「用 Safari 開啟」，再從分享按鈕加入主畫面。',
 }
