@@ -62,6 +62,7 @@ export const zh = {
   'time.years': '{n} 年',
 
   'route.closedAlert': '此路線標示為「{label}」，請勿攀登。',
+  'route.signInHint': '登入後可以收藏、記錄攀登、評分和留言。',
   'route.status': '路線狀態',
   'route.notRecorded': '未記錄',
   'route.lastTested': '最近拉測',
@@ -110,7 +111,6 @@ export const zh = {
   'rating.starsFirst': '先選星等',
   'rating.delete': '刪除我的評分',
   'rating.youFeel': '你覺得難度{feel}',
-  'rating.signIn': '登入後可以替路線評分。',
   'rating.saveError': '無法儲存評分（{error}）',
   'rating.deleteError': '無法刪除評分（{error}）',
   'rating.aria': '評分',

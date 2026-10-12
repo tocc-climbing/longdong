@@ -4,6 +4,7 @@ import { CommentsSection } from '../components/CommentsSection'
 import { GradePill } from '../components/GradePill'
 import { PersonalPanel } from '../components/PersonalPanel'
 import { RatingSection } from '../components/RatingSection'
+import { SignInPrompt } from '../components/SignInPrompt'
 import { SafetyLight } from '../components/SafetyLight'
 import { StarsBadge } from '../components/Stars'
 import { useCloud } from '../personal/sync'
@@ -19,7 +20,8 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
   const ref = data.routeById.get(id)
   const { lang, t } = useLang()
   const { link } = useRouteLink()
-  const signedIn = useCloud().status === 'signed-in'
+  const cloudStatus = useCloud().status
+  const signedIn = cloudStatus === 'signed-in'
   const rating = summarize(useSocial().ratings[routeKey(id)])
   if (!ref) return <NotFound />
   const { route, sector, area } = ref
@@ -174,6 +176,13 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
       )}
 
       <CommentsSection routeId={route.id} />
+
+      {/* 未登入時只在頁尾提醒一次，不打斷路線資料 */}
+      {!signedIn && cloudStatus !== 'loading' && (
+        <div className="signin-hint">
+          <SignInPrompt compact message={route.isFixture ? t('comments.signIn') : t('route.signInHint')} />
+        </div>
+      )}
     </article>
   )
 }

@@ -2144,3 +2144,11 @@ main {
 .shell main.roomy > section.card {
   max-width: 720px;
 }
+
+/* 路線頁尾的登入提醒：一行淡色文字 */
+.signin-hint {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}

@@ -4,7 +4,6 @@ import { postComment, removeComment, report } from '../social/actions'
 import { useLang } from '../i18n'
 import { COMMENT_MAX } from '../social/model'
 import { displayName, useComments, useSocial } from '../social/store'
-import { SignInPrompt } from './SignInPrompt'
 
 export function CommentsSection({ routeId }: { routeId: string }) {
   const comments = useComments(routeId)
@@ -57,7 +56,7 @@ export function CommentsSection({ routeId }: { routeId: string }) {
     <section className="comments">
       <h2>{t('comments.title')}{comments && comments.length > 0 && <span className="muted small"> {comments.length}</span>}</h2>
 
-      {uid ? (
+      {uid && (
         <form
           className="comment-form"
           onSubmit={(e) => {
@@ -82,8 +81,6 @@ export function CommentsSection({ routeId }: { routeId: string }) {
           </div>
           {error && <p className="small error">{error}</p>}
         </form>
-      ) : (
-        cloud.status !== 'loading' && <SignInPrompt compact message={t('comments.signIn')} />
       )}
 
       {comments === undefined ? (

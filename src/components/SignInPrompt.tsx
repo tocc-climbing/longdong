@@ -14,14 +14,17 @@ export function SignInPrompt({ message, compact = false }: { message: string; co
   const offline = typeof navigator !== 'undefined' && !navigator.onLine
   if (compact) {
     return (
-      <p className="muted small">
-        {message}
-        {!offline && (
-          <button className="link-button inline" onClick={() => void signIn()} disabled={cloud.status === 'loading'}>
-            {t('signin.link')}
-          </button>
-        )}
-      </p>
+      <>
+        <p className="muted small">
+          {message}
+          {!offline && (
+            <button className="link-button inline" onClick={() => void signIn()} disabled={cloud.status === 'loading'}>
+              {t('signin.link')}
+            </button>
+          )}
+        </p>
+        {cloud.error && <p className="small error">{cloud.error}</p>}
+      </>
     )
   }
   return (

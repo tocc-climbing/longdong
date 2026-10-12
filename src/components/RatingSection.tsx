@@ -4,7 +4,6 @@ import { rate } from '../social/actions'
 import { useLang } from '../i18n'
 import { FEELS, routeKey, summarize, type Feel } from '../social/model'
 import { useSocial } from '../social/store'
-import { SignInPrompt } from './SignInPrompt'
 import { StarPicker } from './Stars'
 
 export function RatingSection({ routeId }: { routeId: string }) {
@@ -77,7 +76,7 @@ export function RatingSection({ routeId }: { routeId: string }) {
         <p className="muted small">{social.ratingsLoaded ? t('rating.none') : t('app.loading')}</p>
       )}
 
-      {cloud.status === 'signed-in' ? (
+      {cloud.status === 'signed-in' && (
         <div className="my-rating">
           <p className="small">{mine ? t('rating.yours') : t('rating.ask')}</p>
           <StarPicker value={mine?.stars ?? 0} disabled={busy} onChange={(stars) => void save(stars, mine?.feel)} />
@@ -103,8 +102,6 @@ export function RatingSection({ routeId }: { routeId: string }) {
           {mine?.feel && <p className="muted small">{t('rating.youFeel', { feel: t(`feel.${mine.feel}`) })}</p>}
           {error && <p className="small error">{error}</p>}
         </div>
-      ) : (
-        cloud.status !== 'loading' && <SignInPrompt message={t('rating.signIn')} />
       )}
     </section>
   )

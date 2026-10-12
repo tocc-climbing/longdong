@@ -64,6 +64,7 @@ export const en: Record<keyof typeof zh, string> = {
   'time.years': '{n} y',
 
   'route.closedAlert': 'This route is marked “{label}”. Do not climb it.',
+  'route.signInHint': 'Sign in to save favorites, log climbs, rate and comment.',
   'route.status': 'Status',
   'route.notRecorded': 'Not recorded',
   'route.lastTested': 'Last pull test',
@@ -112,7 +113,6 @@ export const en: Record<keyof typeof zh, string> = {
   'rating.starsFirst': 'Pick stars first',
   'rating.delete': 'Delete my rating',
   'rating.youFeel': 'You felt it was {feel}',
-  'rating.signIn': 'Sign in to rate routes.',
   'rating.saveError': "Couldn't save rating ({error})",
   'rating.deleteError': "Couldn't delete rating ({error})",
   'rating.aria': 'Rating',
