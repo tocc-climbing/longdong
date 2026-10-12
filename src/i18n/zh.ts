@@ -27,6 +27,7 @@ export const zh = {
   'swipe.prevRoute': '上一條',
   'swipe.nextRoute': '下一條',
   'swipe.hint': '左右滑動也可以切換',
+  'swipe.hintFiltered': '左右滑動也可以切換（只在符合篩選條件的路線之間）',
   'layout.pickRoute': '從左邊的清單選一條路線，詳細內容會顯示在這裡。',
   'layout.keys': '鍵盤：↑↓ 上下切換 · ←→ 切換大區域／區域／路線 · Esc 關閉 · / 搜尋',
   'layout.detail': '路線內容',

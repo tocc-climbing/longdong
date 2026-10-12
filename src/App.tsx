@@ -13,8 +13,10 @@ import { HomePage } from './pages/HomePage'
 import { MePage } from './pages/MePage'
 import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
-import { loadRatings } from './social/store'
+import { loadRatings, useSocial } from './social/store'
 import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
+import { useListView } from './listView'
+import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Neighbor, type Neighbors } from './swipe'
 
 export function App() {
@@ -45,7 +47,12 @@ export function App() {
   const kbdLevel = useDesktopKeys(wide, view, page, data)
 
   // 手機版：區域頁左右滑動切換區域；slide 讓新頁面從滑動的方向進來
-  const near = data && !wide && !page.detail ? neighbors(page, data) : undefined
+  const listView = useListView()
+  const ratings = useSocial().ratings
+  const near =
+    data && !wide && !page.detail
+      ? neighbors(page, data, { view: listView, ratingOf: (id) => summarize(ratings[routeKey(id)])?.average })
+      : undefined
   const [slide, setSlide] = useState<{ dir: 'next' | 'prev'; n: number }>()
   const go = (dir: 'next' | 'prev') => setSlide((s) => ({ dir, n: (s?.n ?? 0) + 1 }))
   useSwipe(!!near, (dir) => {
@@ -183,7 +190,7 @@ function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: 'next' | 'prev') =
       ) : (
         <span />
       )}
-      <p className="pager-hint muted small">{t('swipe.hint')}</p>
+      <p className="pager-hint muted small">{t(near.filtered ? 'swipe.hintFiltered' : 'swipe.hint')}</p>
     </nav>
   )
 }

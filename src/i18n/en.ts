@@ -29,6 +29,7 @@ export const en: Record<keyof typeof zh, string> = {
   'swipe.prevRoute': 'Previous route',
   'swipe.nextRoute': 'Next route',
   'swipe.hint': 'You can also swipe left or right',
+  'swipe.hintFiltered': 'You can also swipe left or right (only between routes matching your filters)',
   'layout.pickRoute': 'Pick a route from the list to see its details here.',
   'layout.keys': 'Keyboard: ↑↓ move · ←→ switch between area / sector / route · Esc close · / search',
   'layout.detail': 'Route details',

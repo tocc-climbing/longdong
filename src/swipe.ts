@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react'
 import type { LoadedData } from './data/dataset'
 import type { LocalizedName } from './data/schema'
+import { applyView, filterCount, type ListView } from './listView'
 import { href, type Page } from './router'
 
 /**
  * 手機版左右滑動切換區域與路線：
  * - 區域頁（含只有一個區域的大區域）：依序走過整個岩場的區域，大區域的最後一區接到下一個大區域
  * - 有多個區域的大區域頁：切換大區域
- * - 路線頁：依岩場內的順序切換路線，區域的最後一條接到下一區的第一條
+ * - 路線頁：依岩場內的順序切換路線，區域的最後一條接到下一區的第一條；
+ *   有設定清單的篩選條件時，只在符合條件的路線之間切換，順序與各區域清單的排序相同
  */
 
 export interface Neighbor {
@@ -23,17 +25,42 @@ export interface Neighbors {
   kind: 'area' | 'route'
   prev?: Neighbor
   next?: Neighbor
+  /** 路線依篩選條件切換 */
+  filtered?: boolean
+}
+
+/** 切換路線時套用的清單篩選與排序；ratingOf 給依評分排序用 */
+export interface RouteOrder {
+  view: ListView
+  ratingOf: (id: string) => number | undefined
 }
 
 type NavData = Pick<LoadedData, 'dataset' | 'areaById' | 'sectorById' | 'routes'>
 
-export function neighbors(page: Page, data: NavData): Neighbors | undefined {
+/** 各區域分別套用篩選與排序（和區域頁的清單一樣），再依區域順序接起來 */
+function routeSequence(data: NavData, order: RouteOrder): NavData['routes'] {
+  const out: NavData['routes'] = []
+  for (let i = 0; i < data.routes.length; ) {
+    let j = i
+    while (j < data.routes.length && data.routes[j].sector.id === data.routes[i].sector.id) j++
+    out.push(...applyView(data.routes.slice(i, j), order.view, order.ratingOf))
+    i = j
+  }
+  return out
+}
+
+export function neighbors(page: Page, data: NavData, order?: RouteOrder): Neighbors | undefined {
   if (page.name === 'route') {
-    const at = data.routes.findIndex((r) => r.route.id === page.id)
+    // 目前的路線不符合篩選條件時（例如從搜尋點進來），照原本的順序切換
+    const custom = order && (filterCount(order.view.filter) > 0 || order.view.sort !== 'default' || order.view.desc)
+    const ordered = custom ? routeSequence(data, order) : undefined
+    const useOrdered = !!ordered?.some((r) => r.route.id === page.id)
+    const list = useOrdered ? ordered! : data.routes
+    const at = list.findIndex((r) => r.route.id === page.id)
     if (at < 0) return undefined
-    const here = data.routes[at].sector.id
+    const here = list[at].sector.id
     const pick = (i: number): Neighbor | undefined => {
-      const ref = data.routes[i]
+      const ref = list[i]
       if (!ref) return undefined
       return {
         hash: href.route(ref.route.id),
@@ -42,7 +69,7 @@ export function neighbors(page: Page, data: NavData): Neighbors | undefined {
         sector: ref.sector.id === here ? undefined : ref.sector.name,
       }
     }
-    return { kind: 'route', prev: pick(at - 1), next: pick(at + 1) }
+    return { kind: 'route', prev: pick(at - 1), next: pick(at + 1), filtered: useOrdered && filterCount(order!.view.filter) > 0 }
   }
 
   let list: (Neighbor & { id: string })[]
