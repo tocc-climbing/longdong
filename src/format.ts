@@ -12,8 +12,6 @@ export const STATUS_TONE: Record<RouteStatus, 'ok' | 'warn' | 'danger' | 'muted'
   unknown: 'muted',
 }
 
-export const ROUTE_TYPES: RouteType[] = ['sport', 'trad', 'toprope', 'boulder', 'mixed']
-
 export function typeLabel(type: RouteType, t: Translate): string {
   return t(`type.${type}`)
 }

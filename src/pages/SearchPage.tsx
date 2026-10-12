@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { LoadedData } from '../data/dataset'
-import { RouteRow } from '../components/RouteRow'
+import { RouteList } from '../components/RouteList'
 import { useWide } from '../layout'
 import { href, replaceHash } from '../router'
 import { buildIndex, search } from '../search'
@@ -46,16 +46,8 @@ export function SearchPage({ data, query, detail }: { data: LoadedData; query: s
 
       {query.trim() ? (
         <section>
-          <p className="muted small">
-            {results.length === 0
-              ? t('search.none')
-              : t('search.results', { n: results.length }) + (results.length > MAX_RESULTS ? t('search.limited', { max: MAX_RESULTS }) : '')}
-          </p>
-          <ul className="route-list">
-            {results.slice(0, MAX_RESULTS).map((item) => (
-              <RouteRow key={item.route.id} item={item} showPlace />
-            ))}
-          </ul>
+          <p className="muted small">{results.length === 0 ? t('search.none') : t('search.results', { n: results.length })}</p>
+          {results.length > 0 && <RouteList items={results} showPlace defaultLabel="list.sort.relevance" limit={MAX_RESULTS} />}
         </section>
       ) : (
         <div className="search-hints">

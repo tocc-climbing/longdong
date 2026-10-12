@@ -12,7 +12,8 @@ import { SafetyLight } from './SafetyLight'
 import { StarsBadge } from './Stars'
 import { StatusBadge } from './StatusBadge'
 
-export function RouteRow({ item, showPlace = false }: { item: RouteRef; showPlace?: boolean }) {
+/** 路線清單的一列；table 為電腦版的表格欄位（與 RouteList 的欄位標題對齊） */
+export function RouteRow({ item, showPlace = false, table = false }: { item: RouteRef; showPlace?: boolean; table?: boolean }) {
   const { route, sector, area } = item
   const { lang, t } = useLang()
   const name = localName(route.name, lang)
@@ -23,39 +24,68 @@ export function RouteRow({ item, showPlace = false }: { item: RouteRef; showPlac
   const { link, selected } = useRouteLink()
   const sent = signedIn && personal.ticks.some((t) => t.routeId === route.id && isSent(t.style))
 
-  return (
-    <li>
-      <a
-        className={`route-row${selected === route.id ? ' selected' : ''}`}
-        href={link(route.id)}
-        aria-current={selected === route.id ? 'true' : undefined}
-      >
-        <span className="route-no">{route.number ? `#${route.number}` : '—'}</span>
-        <span className="route-name">
-          <span className="zh">
-            {name.main}
-            {(favorite || sent) && (
-              <span className="marks">
-                {sent && (
-                  <span title={t('mark.sent')} aria-label={t('mark.sent')}>
-                    ✓
-                  </span>
-                )}
-                {favorite && (
-                  <span title={t('mark.fav')} aria-label={t('mark.fav')}>
-                    ★
-                  </span>
-                )}
+  const selectedRow = selected === route.id
+  const nameCell = (
+    <span className="route-name">
+      <span className="zh">
+        {name.main}
+        {(favorite || sent) && (
+          <span className="marks">
+            {sent && (
+              <span title={t('mark.sent')} aria-label={t('mark.sent')}>
+                ✓
+              </span>
+            )}
+            {favorite && (
+              <span title={t('mark.fav')} aria-label={t('mark.fav')}>
+                ★
               </span>
             )}
           </span>
-          {name.sub && <span className="en">{name.sub}</span>}
-          {showPlace && (
-            <span className="place">
-              {localName(area.name, lang).main} · {localName(sector.name, lang).main}
-            </span>
-          )}
+        )}
+      </span>
+      {name.sub && <span className="en">{name.sub}</span>}
+      {showPlace && (
+        <span className="place">
+          {localName(area.name, lang).main} · {localName(sector.name, lang).main}
         </span>
+      )}
+    </span>
+  )
+
+  if (table) {
+    return (
+      <li>
+        <a className={`route-row rt-row${selectedRow ? ' selected' : ''}`} href={link(route.id)} aria-current={selectedRow ? 'true' : undefined}>
+          <span className="route-no">{route.number ? `#${route.number}` : '—'}</span>
+          <span className="rt-name">
+            {nameCell}
+            <span className="rt-type-inline">{typeText(route, t)}</span>
+            {route.status && <StatusBadge status={route.status} compact />}
+          </span>
+          {/* 每一格都包一層，沒有內容時欄位也對齊 */}
+          <span>
+            <GradePill grade={route.grade} value={route.gradeValue} />
+          </span>
+          <span className="type">{typeText(route, t)}</span>
+          <span>{!route.isFixture && <SafetyLight safety={route.safety} />}</span>
+          <span>
+            <StarsBadge summary={rating} />
+          </span>
+        </a>
+      </li>
+    )
+  }
+
+  return (
+    <li>
+      <a
+        className={`route-row${selectedRow ? ' selected' : ''}`}
+        href={link(route.id)}
+        aria-current={selectedRow ? 'true' : undefined}
+      >
+        <span className="route-no">{route.number ? `#${route.number}` : '—'}</span>
+        {nameCell}
         <span className="route-meta">
           <span className="grade-line">
             {!route.isFixture && <SafetyLight safety={route.safety} />}

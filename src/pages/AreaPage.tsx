@@ -1,9 +1,9 @@
-import { useState, type CSSProperties } from 'react'
+import type { CSSProperties } from 'react'
 import type { LoadedData } from '../data/dataset'
-import type { Area, LocalizedName, Route, RouteType, Sector } from '../data/schema'
+import type { Area, LocalizedName, Route, Sector } from '../data/schema'
 import { GradeDistribution } from '../components/Charts'
-import { RouteRow } from '../components/RouteRow'
-import { ROUTE_TYPES, gradeDistribution, sectorColor, typeLabel, typeSummary } from '../format'
+import { RouteList } from '../components/RouteList'
+import { gradeDistribution, sectorColor, typeSummary } from '../format'
 import { localName, useLang } from '../i18n'
 import { href } from '../router'
 
@@ -74,7 +74,7 @@ export function areaSectorColor(area: Area, sector: Sector): string | undefined 
   return sectorColor(area.color, area.sectors.indexOf(sector), area.sectors.length)
 }
 
-/** 分區頁：路線清單，可依種類篩選 */
+/** 分區頁：路線清單，可排序、篩選 */
 export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
   const { lang } = useLang()
   const found = data.sectorById.get(id)
@@ -91,31 +91,8 @@ export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
   )
 }
 
-type Filter = RouteType | 'all'
-
 function SectorRoutes({ data, sector }: { data: LoadedData; sector: Sector }) {
-  const { t } = useLang()
-  const [filter, setFilter] = useState<Filter>('all')
-  const types = ROUTE_TYPES.filter((type) => sector.routes.some((r) => r.type === type))
-  const routes = sector.routes.filter((r) => filter === 'all' || r.type === filter)
-  return (
-    <>
-      {types.length > 1 && (
-        <div className="chips" role="group" aria-label={t('type.filter')}>
-          {(['all', ...types] as Filter[]).map((f) => (
-            <button key={f} className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-              {f === 'all' ? t('type.all') : typeLabel(f, t)}
-            </button>
-          ))}
-        </div>
-      )}
-      <ul className="route-list">
-        {routes.map((route) => (
-          <RouteRow key={route.id} item={data.routeById.get(route.id)!} />
-        ))}
-      </ul>
-    </>
-  )
+  return <RouteList items={sector.routes.map((r) => data.routeById.get(r.id)!)} defaultLabel="list.sort.number" />
 }
 
 /** 「5.7–5.12a」；只有一種難度時只顯示一個 */

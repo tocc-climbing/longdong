@@ -23,6 +23,14 @@ describe('i18n', () => {
     expect(translate('en', 'count.routes', { n: 12 })).toBe('12 routes')
   })
 
+  it('英文單複數', () => {
+    expect(translate('en', 'search.results', { n: 1 })).toBe('1 result')
+    expect(translate('en', 'search.results', { n: 0 })).toBe('0 results')
+    expect(translate('en', 'count.routes', { n: 1 })).toBe('1 route')
+    expect(translate('en', 'rating.badgeAria', { avg: '4.0', n: 1 })).toBe('Average 4.0 stars from 1 rating')
+    expect(translate('zh', 'search.results', { n: 1 })).toBe('1 條結果')
+  })
+
   it('名稱：英文模式以英文為主，沒有英文名時用中文', () => {
     expect(localName({ zh: '後門', en: 'Back Door' }, 'en')).toEqual({ main: 'Back Door', sub: '後門' })
     expect(localName({ zh: '後門', en: 'Back Door' }, 'zh')).toEqual({ main: '後門', sub: 'Back Door' })

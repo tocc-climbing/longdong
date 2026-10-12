@@ -108,104 +108,111 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
 
       {settings && <Settings uid={uid} email={email} />}
 
-      <section className="stat-row">
-        <div>
-          <strong>{sentRoutes.size}</strong>
-          <span>{t('me.stat.sent')}</span>
+      {/* 寬度夠時（電腦版）統計在左、紀錄在右 */}
+      <div className="me-grid">
+        <div className="me-stats">
+          <section className="stat-row">
+            <div>
+              <strong>{sentRoutes.size}</strong>
+              <span>{t('me.stat.sent')}</span>
+            </div>
+            <div>
+              <strong>{personal.ticks.length}</strong>
+              <span>{t('me.stat.ticks')}</span>
+            </div>
+            <div>
+              <strong>{hardest?.grade ?? '—'}</strong>
+              <span>{t('me.stat.hardest')}</span>
+            </div>
+          </section>
+
+          <section className="card">
+            <h2>{t('me.pyramid')}</h2>
+            <GradePyramid rows={pyramid} />
+          </section>
+
+          <section className="card">
+            <h2>{t('me.months')}</h2>
+            <MonthlyChart months={monthlyCounts(personal.ticks)} />
+          </section>
         </div>
-        <div>
-          <strong>{personal.ticks.length}</strong>
-          <span>{t('me.stat.ticks')}</span>
-        </div>
-        <div>
-          <strong>{hardest?.grade ?? '—'}</strong>
-          <span>{t('me.stat.hardest')}</span>
-        </div>
-      </section>
 
-      <section className="card">
-        <h2>{t('me.pyramid')}</h2>
-        <GradePyramid rows={pyramid} />
-      </section>
+        <div className="me-log">
+          <div className="segmented" role="tablist">
+            <button role="tab" aria-selected={tab === 'ticks'} onClick={() => setTab('ticks')}>
+              {t('me.tab.ticks')}
+            </button>
+            <button role="tab" aria-selected={tab === 'favorites'} onClick={() => setTab('favorites')}>
+              {t('me.tab.favs')}
+              {personal.favorites.size > 0 && ` ${personal.favorites.size}`}
+            </button>
+          </div>
 
-      <section className="card">
-        <h2>{t('me.months')}</h2>
-        <MonthlyChart months={monthlyCounts(personal.ticks)} />
-      </section>
+          {tab === 'ticks' &&
+            (personal.ticks.length === 0 ? (
+              <p className="empty muted">{t('me.noTicks')}</p>
+            ) : (
+              groupByMonth(personal.ticks).map((g) => (
+                <section key={g.key} className="timeline">
+                  <h3>{monthTitle(g.key, lang)}</h3>
+                  <ul className="list-card">
+                    {g.ticks.map((tick) => {
+                      const r = lookup(tick.routeId)?.route
+                      return (
+                        <li key={tick.id} className="timeline-item">
+                          <span className="timeline-day">
+                            <strong>{Number(tick.date.slice(8, 10))}</strong>
+                            {t('me.dayUnit') && <span>{t('me.dayUnit')}</span>}
+                          </span>
+                          <a className="timeline-body" href={link(tick.routeId)}>
+                            <span className="timeline-title">
+                              {r
+                                ? `${r.number ? `#${r.number} ` : ''}${localName(r.name, lang).main}`
+                                : t('me.routeMissing', { id: tick.routeId })}
+                            </span>
+                            <span className="timeline-meta">
+                              <span className={`style-tag style-${tick.style}`}>{t(`style.${tick.style}`)}</span>
+                              {tick.note && <span className="muted">{tick.note}</span>}
+                            </span>
+                          </a>
+                          <GradePill grade={r?.grade} value={r?.gradeValue} size="sm" />
+                          <button
+                            className="icon-button small"
+                            aria-label={t('tick.deleteAria')}
+                            onClick={() => confirm(t('tick.confirmDelete')) && deleteTick(tick.id)}
+                          >
+                            ×
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              ))
+            ))}
 
-      <div className="segmented" role="tablist">
-        <button role="tab" aria-selected={tab === 'ticks'} onClick={() => setTab('ticks')}>
-          {t('me.tab.ticks')}
-        </button>
-        <button role="tab" aria-selected={tab === 'favorites'} onClick={() => setTab('favorites')}>
-          {t('me.tab.favs')}
-          {personal.favorites.size > 0 && ` ${personal.favorites.size}`}
-        </button>
-      </div>
-
-      {tab === 'ticks' &&
-        (personal.ticks.length === 0 ? (
-          <p className="empty muted">{t('me.noTicks')}</p>
-        ) : (
-          groupByMonth(personal.ticks).map((g) => (
-            <section key={g.key} className="timeline">
-              <h3>{monthTitle(g.key, lang)}</h3>
+          {tab === 'favorites' &&
+            (personal.favorites.size === 0 ? (
+              <p className="empty muted">{t('me.noFavs')}</p>
+            ) : (
               <ul className="list-card">
-                {g.ticks.map((tick) => {
-                  const r = lookup(tick.routeId)?.route
-                  return (
-                    <li key={tick.id} className="timeline-item">
-                      <span className="timeline-day">
-                        <strong>{Number(tick.date.slice(8, 10))}</strong>
-                        {t('me.dayUnit') && <span>{t('me.dayUnit')}</span>}
-                      </span>
-                      <a className="timeline-body" href={link(tick.routeId)}>
-                        <span className="timeline-title">
-                          {r
-                            ? `${r.number ? `#${r.number} ` : ''}${localName(r.name, lang).main}`
-                            : t('me.routeMissing', { id: tick.routeId })}
-                        </span>
-                        <span className="timeline-meta">
-                          <span className={`style-tag style-${tick.style}`}>{t(`style.${tick.style}`)}</span>
-                          {tick.note && <span className="muted">{tick.note}</span>}
-                        </span>
-                      </a>
-                      <GradePill grade={r?.grade} value={r?.gradeValue} size="sm" />
-                      <button
-                        className="icon-button small"
-                        aria-label={t('tick.deleteAria')}
-                        onClick={() => confirm(t('tick.confirmDelete')) && deleteTick(tick.id)}
-                      >
+                {[...personal.favorites].map((id) => {
+                  const ref = lookup(id)
+                  return ref ? (
+                    <RouteRow key={id} item={ref} showPlace />
+                  ) : (
+                    <li key={id} className="timeline-item">
+                      <span className="timeline-body muted small">{t('me.routeMissing', { id })}</span>
+                      <button className="icon-button small" aria-label={t('me.removeFav')} onClick={() => setFavorite(id, false)}>
                         ×
                       </button>
                     </li>
                   )
                 })}
               </ul>
-            </section>
-          ))
-        ))}
-
-      {tab === 'favorites' &&
-        (personal.favorites.size === 0 ? (
-          <p className="empty muted">{t('me.noFavs')}</p>
-        ) : (
-          <ul className="list-card">
-            {[...personal.favorites].map((id) => {
-              const ref = lookup(id)
-              return ref ? (
-                <RouteRow key={id} item={ref} showPlace />
-              ) : (
-                <li key={id} className="timeline-item">
-                  <span className="timeline-body muted small">{t('me.routeMissing', { id })}</span>
-                  <button className="icon-button small" aria-label={t('me.removeFav')} onClick={() => setFavorite(id, false)}>
-                    ×
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        ))}
+            ))}
+        </div>
+      </div>
     </>
   )
 }

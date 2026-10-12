@@ -60,9 +60,17 @@ export function getLang(): Lang {
   return lang
 }
 
+/**
+ * 代入變數：{n} 換成值；{n|單數|複數} 依 n 是否為 1 選一個（英文的 1 route／2 routes）。
+ */
 export function translate(l: Lang, key: MessageKey, vars?: Record<string, string | number>): string {
   const text = DICTS[l][key] ?? DICTS.zh[key] ?? key
-  return vars ? text.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m)) : text
+  if (!vars) return text
+  return text
+    .replace(/\{(\w+)\|([^|}]*)\|([^}]*)\}/g, (m, name: string, one: string, other: string) =>
+      name in vars ? (Number(vars[name]) === 1 ? one : other) : m,
+    )
+    .replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m))
 }
 
 export const t: Translate = (key, vars) => translate(lang, key, vars)

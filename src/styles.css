@@ -1910,7 +1910,7 @@ main {
 .shell main.split {
   max-width: 1440px;
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.15fr);
+  grid-template-columns: minmax(380px, 1.2fr) minmax(400px, 1fr);
   gap: 28px;
   align-items: start;
 }
@@ -1963,4 +1963,184 @@ main {
 .area-tree a.kbd {
   box-shadow: inset 0 0 0 2px var(--brand);
   color: var(--text);
+}
+
+/* ---------- 路線清單：排序、篩選、電腦版表格 ---------- */
+/* 表格欄寬用 rem：標題列與資料列字級不同，用 em 會對不齊 */
+
+.list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 4px 0 8px;
+}
+
+.list-tools:empty {
+  display: none;
+}
+
+.sort-select select {
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+}
+
+.count-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.filter-panel .chips {
+  margin: 0 0 8px;
+  gap: 6px;
+}
+
+.filter-panel .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+}
+
+.filter-panel .light {
+  opacity: 1;
+}
+
+.chip-sep {
+  width: 1px;
+  margin: 4px 4px;
+  background: var(--border);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.route-table {
+  --rt-cols: 3.4rem minmax(0, 1fr) 4.4rem 6.8rem 2.8rem 3.8rem;
+  container-type: inline-size;
+}
+
+.rt-head,
+.rt-row {
+  display: grid;
+  grid-template-columns: var(--rt-cols);
+  gap: 10px;
+  align-items: center;
+}
+
+.rt-head {
+  /* 多 1px 對齊下方清單的外框 */
+  padding: 0 15px 6px;
+  font-size: 0.75rem;
+  color: var(--faint);
+  font-weight: 600;
+}
+
+.rt-sort {
+  font: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rt-sort:hover,
+.rt-sort.on {
+  color: var(--text);
+}
+
+.rt-row {
+  min-height: 52px;
+  padding: 8px 14px;
+}
+
+.rt-name {
+  display: grid;
+  gap: 2px;
+  justify-items: stretch;
+  min-width: 0;
+}
+
+.rt-name .badge {
+  justify-self: start;
+}
+
+.rt-type-inline {
+  display: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* 清單欄較窄時（例如 1024–1280px 的螢幕）拿掉「類型」欄，改顯示在名稱下方 */
+@container (max-width: 560px) {
+  .rt-head,
+  .rt-row {
+    grid-template-columns: 3.2rem minmax(0, 1fr) 4.4rem 2.8rem 3.8rem;
+  }
+
+  .rt-head > :nth-child(4),
+  .rt-row > .type {
+    display: none;
+  }
+
+  .rt-type-inline {
+    display: block;
+  }
+}
+
+.rt-row .type {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* ---------- 我的：寬度夠時統計在左、紀錄在右（不夠時自動換行成單欄，手機版不變） ---------- */
+
+.me-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 28px;
+}
+
+.me-stats {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+.me-log {
+  flex: 1.4 1 420px;
+  min-width: 0;
+}
+
+.me-log > .segmented:first-child {
+  margin-top: 16px;
+}
+
+.shell main.roomy > section.card {
+  max-width: 720px;
 }
