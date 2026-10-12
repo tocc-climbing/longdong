@@ -1,9 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { BottomNav } from './components/BottomNav'
-import { useData } from './data/dataset'
+import { Sidebar } from './components/Sidebar'
+import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
 import { useLang } from './i18n'
+import { useWide } from './layout'
 import { AboutPage } from './pages/AboutPage'
 import { AreaPage, SectorPage } from './pages/AreaPage'
 import { HomePage } from './pages/HomePage'
@@ -11,11 +13,12 @@ import { MePage } from './pages/MePage'
 import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
 import { loadRatings } from './social/store'
-import { href, usePage } from './router'
+import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 
 export function App() {
   const page = usePage()
   const state = useData()
+  const wide = useWide()
   const { t } = useLang()
   const {
     offlineReady: [offlineReady],
@@ -28,8 +31,77 @@ export function App() {
     void loadRatings()
   }, [])
 
+  const data = state.status === 'ready' ? state.data : undefined
+  const view = useMemo(() => (data && wide ? desktopView(page, data) : undefined), [page, data, wide])
+  const routeLink = useMemo<RouteLink>(
+    () =>
+      view
+        ? { link: (id) => (page.name === 'route' ? href.route(id) : withDetail(location.hash || '#/', id)), selected: view.detail }
+        : { link: href.route },
+    [view, page],
+  )
+  useDesktopKeys(wide, view)
+
+  const banner = needRefresh && (
+    <div className="banner">
+      {t('app.updateAvailable')}
+      <button onClick={() => updateServiceWorker(true)}>{t('app.update')}</button>
+    </div>
+  )
+
+  const content: ReactNode =
+    state.status === 'loading' ? (
+      <p className="empty muted">{t('app.loading')}</p>
+    ) : state.status === 'error' ? (
+      <div className="empty">
+        <p>{t('app.loadError', { error: state.error })}</p>
+        <p className="muted small">{t('app.firstUseNeedsNetwork')}</p>
+      </div>
+    ) : view?.split ? (
+      <>
+        <div className="list-pane">
+          <PageView page={view.list} data={state.data} />
+        </div>
+        <DetailPane data={state.data} id={view.detail} closeHref={view.closeHref} />
+      </>
+    ) : !wide && page.detail ? (
+      // 電腦版分享的「清單＋路線」網址，在手機上直接顯示路線頁
+      <RoutePage data={state.data} id={page.detail} />
+    ) : (
+      <PageView page={page} data={state.data} />
+    )
+
+  const footer = data && page.name === 'home' && (
+    <footer className="footer muted small">
+      {t('footer.updated', { time: relativeTime(data.dataset.updatedAt, t) })}
+      {offlineReady || navigator.serviceWorker?.controller ? ` · ${t('footer.offlineReady')}` : ''}
+      <br />
+      {t('footer.source')}
+      <a href={data.dataset.source.projectUrl} target="_blank" rel="noreferrer">
+        {data.dataset.source.attribution}
+      </a>
+      <br />
+      {t('footer.disclaimer')} · <a href={href.about()}>{t('footer.about')}</a>
+    </footer>
+  )
+
+  if (wide) {
+    return (
+      <RouteLinkContext.Provider value={routeLink}>
+        <div className="shell">
+          <Sidebar page={page} data={data} />
+          <div className="shell-main">
+            {banner}
+            <main className={view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
+            {footer}
+          </div>
+        </div>
+      </RouteLinkContext.Provider>
+    )
+  }
+
   return (
-    <>
+    <RouteLinkContext.Provider value={routeLink}>
       <header className="topbar">
         <a className="brand" href={href.home()}>
           <span className="brand-mark" aria-hidden>
@@ -38,55 +110,126 @@ export function App() {
           {t('app.title')}
         </a>
       </header>
-
-      {needRefresh && (
-        <div className="banner">
-          {t('app.updateAvailable')}
-          <button onClick={() => updateServiceWorker(true)}>{t('app.update')}</button>
-        </div>
-      )}
-
-      <main>
-        {state.status === 'loading' && <p className="empty muted">{t('app.loading')}</p>}
-        {state.status === 'error' && (
-          <div className="empty">
-            <p>{t('app.loadError', { error: state.error })}</p>
-            <p className="muted small">{t('app.firstUseNeedsNetwork')}</p>
-          </div>
-        )}
-        {state.status === 'ready' &&
-          (page.name === 'area' ? (
-            <AreaPage key={page.id} data={state.data} id={page.id} />
-          ) : page.name === 'sector' ? (
-            <SectorPage key={page.id} data={state.data} id={page.id} />
-          ) : page.name === 'route' ? (
-            <RoutePage data={state.data} id={page.id} />
-          ) : page.name === 'search' ? (
-            <SearchPage data={state.data} />
-          ) : page.name === 'me' ? (
-            <MePage data={state.data} />
-          ) : page.name === 'about' ? (
-            <AboutPage data={state.data} />
-          ) : (
-            <HomePage data={state.data} />
-          ))}
-      </main>
-
-      {state.status === 'ready' && page.name === 'home' && (
-        <footer className="footer muted small">
-          {t('footer.updated', { time: relativeTime(state.data.dataset.updatedAt, t) })}
-          {offlineReady || navigator.serviceWorker?.controller ? ` · ${t('footer.offlineReady')}` : ''}
-          <br />
-          {t('footer.source')}
-          <a href={state.data.dataset.source.projectUrl} target="_blank" rel="noreferrer">
-            {state.data.dataset.source.attribution}
-          </a>
-          <br />
-          {t('footer.disclaimer')} · <a href={href.about()}>{t('footer.about')}</a>
-        </footer>
-      )}
-
+      {banner}
+      <main>{content}</main>
+      {footer}
       <BottomNav page={page} />
-    </>
+    </RouteLinkContext.Provider>
   )
+}
+
+function PageView({ page, data }: { page: Page; data: LoadedData }) {
+  switch (page.name) {
+    case 'area':
+      return <AreaPage key={page.id} data={data} id={page.id} />
+    case 'sector':
+      return <SectorPage key={page.id} data={data} id={page.id} />
+    case 'route':
+      return <RoutePage data={data} id={page.id} />
+    case 'search':
+      return <SearchPage data={data} query={page.q} detail={page.detail} />
+    case 'me':
+      return <MePage data={data} />
+    case 'about':
+      return <AboutPage data={data} />
+    default:
+      return <HomePage data={data} />
+  }
+}
+
+interface DesktopView {
+  /** 清單與路線並排 */
+  split: boolean
+  /** 左邊的清單 */
+  list: Page
+  /** 右邊的路線；沒有時顯示提示 */
+  detail?: string
+  /** 關閉右邊路線的連結 */
+  closeHref: string
+  /** 不並排時用較寬的版面（首頁、分區卡片） */
+  roomy: boolean
+}
+
+/**
+ * 電腦版的版面：
+ * - 分區、只有一個分區的區域：路線清單＋右邊的路線（沒選時顯示提示）
+ * - 路線頁：該路線所在的分區清單＋右邊的路線
+ * - 搜尋、我的：選了路線（?r=）才並排
+ */
+function desktopView(page: Page, data: LoadedData): DesktopView {
+  const plain = (roomy: boolean): DesktopView => ({ split: false, list: page, closeHref: '', roomy })
+  if (page.name === 'route') {
+    const ref = data.routeById.get(page.id)
+    if (!ref) return plain(false)
+    return { split: true, list: { name: 'sector', id: ref.sector.id }, detail: page.id, closeHref: href.sector(ref.sector.id), roomy: false }
+  }
+  const closeHref = withDetail(location.hash || '#/', undefined)
+  const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
+  if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
+  return plain(page.name === 'home' || page.name === 'area')
+}
+
+function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {
+  const { t } = useLang()
+  const pane = useRef<HTMLElement>(null)
+  useEffect(() => {
+    pane.current?.scrollTo(0, 0)
+  }, [id])
+
+  if (!id) {
+    return (
+      <aside className="detail-pane detail-empty">
+        <p className="muted">{t('layout.pickRoute')}</p>
+        <p className="muted small">{t('layout.keys')}</p>
+      </aside>
+    )
+  }
+  return (
+    <aside className="detail-pane" ref={pane} aria-label={t('layout.detail')}>
+      <a className="icon-button detail-close" href={closeHref} aria-label={t('layout.close')} title={t('layout.close')}>
+        ×
+      </a>
+      <RoutePage data={data} id={id} />
+    </aside>
+  )
+}
+
+function typing(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+}
+
+/** 電腦版快捷鍵：/ 搜尋、Esc 關閉右邊的路線、↑↓ 在清單中切換路線 */
+function useDesktopKeys(wide: boolean, view: DesktopView | undefined) {
+  const current = useRef(view)
+  current.current = view
+  useEffect(() => {
+    if (!wide) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const v = current.current
+      if (e.key === 'Escape') {
+        if (typing(e.target)) (e.target as HTMLElement).blur()
+        else if (v?.detail) location.hash = v.closeHref
+        return
+      }
+      if (typing(e.target)) return
+      if (e.key === '/') {
+        e.preventDefault()
+        document.getElementById('sidebar-search')?.focus()
+        return
+      }
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && v?.split) {
+        const rows = [...document.querySelectorAll<HTMLAnchorElement>('.list-pane a.route-row')]
+        if (rows.length === 0) return
+        e.preventDefault()
+        const at = rows.findIndex((r) => r.getAttribute('aria-current') === 'true')
+        const next = at < 0 ? 0 : Math.min(rows.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)))
+        rows[next].scrollIntoView({ block: 'nearest' })
+        location.replace(rows[next].getAttribute('href')!)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [wide])
 }

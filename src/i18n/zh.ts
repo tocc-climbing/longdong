@@ -19,6 +19,11 @@ export const zh = {
   'nav.crags': '岩場',
   'nav.search': '搜尋',
   'nav.me': '我的',
+  'nav.areas': '區域',
+  'layout.pickRoute': '從左邊的清單選一條路線，詳細內容會顯示在這裡。',
+  'layout.keys': '鍵盤：↑↓ 切換路線 · Esc 關閉 · / 搜尋',
+  'layout.detail': '路線內容',
+  'layout.close': '關閉',
 
   'count.routes': '{n} 條路線',
   'count.routesShort': '{n} 條',

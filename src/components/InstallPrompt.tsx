@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { useLang } from '../i18n'
 import { dismissInstall, install, useInstall, type IosMode } from '../install'
+import { useWide } from '../layout'
 
 /**
  * 首頁的安裝提示卡，30 天內沒按過「以後再說」時才顯示：
  * - Android 等支援安裝事件的瀏覽器：「安裝 App」按鈕
  * - iPhone／iPad：加入主畫面的圖示教學
+ * 電腦版不主動提示（安裝入口留在「我的」頁）
  */
 export function InstallBanner() {
   const { canInstall, dismissed, ios } = useInstall()
+  const wide = useWide()
   const { t } = useLang()
-  if (dismissed || (!canInstall && !ios)) return null
+  if (dismissed || !(ios || (canInstall && !wide))) return null
 
   return (
     <section className="install-banner" aria-label={t('install.title')}>

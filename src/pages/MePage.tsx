@@ -14,7 +14,7 @@ import { signOut, useCloud } from '../personal/sync'
 import { deleteMyAccount, rename } from '../social/actions'
 import { NAME_MAX } from '../social/model'
 import { displayName, useSocial } from '../social/store'
-import { href } from '../router'
+import { href, useRouteLink } from '../router'
 
 type Tab = 'ticks' | 'favorites'
 
@@ -63,6 +63,7 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
   const { lang, t } = useLang()
   const [tab, setTab] = useState<Tab>('ticks')
   const [settings, setSettings] = useState(false)
+  const { link } = useRouteLink()
 
   const lookup = (id: string) => data.routeById.get(id)
   const name = displayName(social.profiles, uid)
@@ -158,7 +159,7 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
                         <strong>{Number(tick.date.slice(8, 10))}</strong>
                         {t('me.dayUnit') && <span>{t('me.dayUnit')}</span>}
                       </span>
-                      <a className="timeline-body" href={href.route(tick.routeId)}>
+                      <a className="timeline-body" href={link(tick.routeId)}>
                         <span className="timeline-title">
                           {r
                             ? `${r.number ? `#${r.number} ` : ''}${localName(r.name, lang).main}`

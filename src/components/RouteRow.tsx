@@ -5,7 +5,7 @@ import { usePersonal } from '../personal/store'
 import { useCloud } from '../personal/sync'
 import { routeKey, summarize } from '../social/model'
 import { useSocial } from '../social/store'
-import { href } from '../router'
+import { useRouteLink } from '../router'
 import { localName, useLang } from '../i18n'
 import { GradePill } from './GradePill'
 import { SafetyLight } from './SafetyLight'
@@ -20,11 +20,16 @@ export function RouteRow({ item, showPlace = false }: { item: RouteRef; showPlac
   const signedIn = useCloud().status === 'signed-in'
   const rating = summarize(useSocial().ratings[routeKey(route.id)])
   const favorite = signedIn && personal.favorites.has(route.id)
+  const { link, selected } = useRouteLink()
   const sent = signedIn && personal.ticks.some((t) => t.routeId === route.id && isSent(t.style))
 
   return (
     <li>
-      <a className="route-row" href={href.route(route.id)}>
+      <a
+        className={`route-row${selected === route.id ? ' selected' : ''}`}
+        href={link(route.id)}
+        aria-current={selected === route.id ? 'true' : undefined}
+      >
         <span className="route-no">{route.number ? `#${route.number}` : '—'}</span>
         <span className="route-name">
           <span className="zh">

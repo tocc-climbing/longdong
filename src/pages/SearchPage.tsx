@@ -1,21 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { RouteRow } from '../components/RouteRow'
-import { href } from '../router'
+import { useWide } from '../layout'
+import { href, replaceHash } from '../router'
 import { buildIndex, search } from '../search'
 import { useLang } from '../i18n'
 
 const MAX_RESULTS = 100
 const EXAMPLES = { zh: ['5.10a', '黃金谷', 'Olive Branch', '523'], en: ['5.10a', 'Golden Valley', 'Olive Branch', '523'] }
 
-function readQuery(): string {
-  const m = location.hash.match(/[?&]q=([^&]*)/)
-  return m ? decodeURIComponent(m[1]) : ''
-}
-
-export function SearchPage({ data }: { data: LoadedData }) {
+/** 搜尋字串放在網址（#/search?q=），從路線頁按返回時結果還在；電腦版的搜尋框在左側欄 */
+export function SearchPage({ data, query, detail }: { data: LoadedData; query: string; detail?: string }) {
   const { lang, t } = useLang()
-  const [query, setQuery] = useState(readQuery)
+  const wide = useWide()
   const input = useRef<HTMLInputElement>(null)
   const index = useMemo(() => buildIndex(data.routes), [data])
   const results = useMemo(() => {
@@ -26,28 +23,26 @@ export function SearchPage({ data }: { data: LoadedData }) {
   }, [index, query, data])
 
   useEffect(() => {
-    if (!query) input.current?.focus()
-  }, [query])
+    if (!query) (wide ? document.getElementById('sidebar-search') : input.current)?.focus()
+  }, [query, wide])
 
-  const onChange = (q: string) => {
-    setQuery(q)
-    // 搜尋字串放進網址，從路線頁按返回時結果還在
-    history.replaceState(null, '', href.search(q))
-  }
+  const onChange = (q: string) => replaceHash(href.search(q, detail))
 
   return (
     <>
-      <div className="search">
-        <input
-          ref={input}
-          type="search"
-          inputMode="search"
-          placeholder={t('search.placeholder')}
-          aria-label={t('search.aria')}
-          value={query}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </div>
+      {!wide && (
+        <div className="search">
+          <input
+            ref={input}
+            type="search"
+            inputMode="search"
+            placeholder={t('search.placeholder')}
+            aria-label={t('search.aria')}
+            value={query}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      )}
 
       {query.trim() ? (
         <section>

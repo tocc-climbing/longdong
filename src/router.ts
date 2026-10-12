@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { isWide } from './layout'
 
-/** 極簡 hash 路由：#/、#/search?q=、#/area/<id>、#/route/<id>、#/me、#/about（id 本身含 "/"） */
-export type Page =
+/**
+ * 極簡 hash 路由：#/、#/search?q=、#/area/<id>、#/sector/<id>、#/route/<id>、#/me、#/about（id 本身含 "/"）。
+ * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
+ */
+export type Page = (
   | { name: 'home' }
-  | { name: 'search' }
+  | { name: 'search'; q: string }
   | { name: 'area'; id: string }
   | { name: 'sector'; id: string }
   | { name: 'route'; id: string }
   | { name: 'me' }
   | { name: 'about' }
+) & { detail?: string }
 
 const DEFAULT_CRAG = 'longdong'
 
@@ -23,13 +28,16 @@ export function upgradeId(kind: 'area' | 'route', id: string): string {
 }
 
 export function parseHash(hash: string): Page {
-  const path = decodeURIComponent(hash.replace(/^#/, '')).split('?')[0]
-  const [, kind, ...rest] = path.split('/')
+  const [rawPath, query = ''] = hash.replace(/^#/, '').split('?')
+  const params = new URLSearchParams(query)
+  const r = params.get('r')
+  const extra = r ? { detail: upgradeId('route', r) } : {}
+  const [, kind, ...rest] = decodeURIComponent(rawPath).split('/')
   const id = rest.join('/')
-  if ((kind === 'area' || kind === 'route') && id) return { name: kind, id: upgradeId(kind, id) }
-  if (kind === 'sector' && id) return { name: 'sector', id }
-  if (kind === 'search') return { name: 'search' }
-  if (kind === 'me') return { name: 'me' }
+  if ((kind === 'area' || kind === 'route') && id) return { name: kind, id: upgradeId(kind, id), ...(kind === 'area' ? extra : {}) }
+  if (kind === 'sector' && id) return { name: 'sector', id, ...extra }
+  if (kind === 'search') return { name: 'search', q: params.get('q') ?? '', ...extra }
+  if (kind === 'me') return { name: 'me', ...extra }
   if (kind === 'about') return { name: 'about' }
   return { name: 'home' }
 }
@@ -37,7 +45,7 @@ export function parseHash(hash: string): Page {
 // ID 只含 [a-z0-9./-]，不需要編碼
 export const href = {
   home: () => '#/',
-  search: (q = '') => (q ? `#/search?q=${encodeURIComponent(q)}` : '#/search'),
+  search: (q = '', detail?: string) => withDetail(q ? `#/search?q=${encodeURIComponent(q)}` : '#/search', detail),
   area: (id: string) => `#/area/${id}`,
   sector: (id: string) => `#/sector/${id}`,
   route: (id: string) => `#/route/${id}`,
@@ -45,17 +53,53 @@ export const href = {
   about: () => '#/about',
 }
 
+/** 在網址加上（或拿掉）?r=<路線 id>，其他參數不變 */
+export function withDetail(hash: string, id?: string): string {
+  const [path, query = ''] = hash.split('?')
+  const params = new URLSearchParams(query)
+  if (id) params.set('r', id)
+  else params.delete('r')
+  const s = params.toString().replace(/%2F/g, '/')
+  return s ? `${path}?${s}` : path
+}
+
+/** 換網址但不新增瀏覽紀錄（例如輸入搜尋字串），並通知 usePage 更新 */
+export function replaceHash(hash: string): void {
+  history.replaceState(null, '', hash)
+  window.dispatchEvent(new Event('hashchange'))
+}
+
+/** 是否還在同一頁（只換了搜尋字串或右側的路線）：這時不捲回頂端 */
+function samePlace(a: Page, b: Page): boolean {
+  if (a.name !== b.name) return false
+  if (a.name === 'route' && b.name === 'route') return a.id === b.id || isWide()
+  return !('id' in a) || a.id === (b as { id: string }).id
+}
+
 export function usePage(): Page {
   const [page, setPage] = useState(() => parseHash(location.hash))
+  const current = useRef(page)
   useEffect(() => {
     const onChange = () => {
       const next = parseHash(location.hash)
-      // 只換搜尋字串時不捲回頂端
-      setPage((prev) => (prev.name === next.name && next.name === 'search' ? prev : next))
-      if (next.name !== 'search') window.scrollTo(0, 0)
+      if (!samePlace(current.current, next)) window.scrollTo(0, 0)
+      current.current = next
+      setPage(next)
     }
     window.addEventListener('hashchange', onChange)
     return () => window.removeEventListener('hashchange', onChange)
   }, [])
   return page
+}
+
+/** 路線連結要指向哪裡：手機版是路線頁；電腦版是目前清單＋右側的路線 */
+export interface RouteLink {
+  link: (id: string) => string
+  selected?: string
+}
+
+export const RouteLinkContext = createContext<RouteLink>({ link: href.route })
+
+export function useRouteLink(): RouteLink {
+  return useContext(RouteLinkContext)
 }

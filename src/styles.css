@@ -1759,3 +1759,202 @@ main {
   display: grid;
   gap: 8px;
 }
+
+/* ---------- 電腦版：左側欄＋清單／路線並排（寬度 ≥ 1024px 時由 App 改用這套結構） ---------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 14px 16px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidebar .brand {
+  padding: 0 6px;
+}
+
+.sidebar-search {
+  margin: 0;
+}
+
+.sidebar-search input {
+  font-size: 0.9rem;
+  padding: 9px 34px 9px 38px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--bg);
+}
+
+.sidebar-search::before {
+  left: 13px;
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-search kbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  color: var(--faint);
+  font: 600 0.72rem ui-monospace, Consolas, monospace;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.sidebar-search input:focus + kbd {
+  display: none;
+}
+
+.side-nav,
+.area-tree ul {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.side-nav a,
+.area-tree a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.side-nav a:hover,
+.area-tree a:hover {
+  text-decoration: none;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.side-nav a.active,
+.area-tree a.active {
+  background: var(--brand-soft);
+  color: var(--text);
+}
+
+.side-nav a.active svg {
+  color: var(--brand);
+}
+
+.area-tree {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.area-tree a {
+  padding: 6px 10px;
+  font-weight: 500;
+}
+
+.area-tree ul ul {
+  margin: 2px 0 6px 14px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.area-tree ul ul a {
+  font-size: 0.85rem;
+}
+
+.area-tree .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.side-about {
+  margin-top: auto;
+  padding: 0 10px;
+}
+
+.shell-main {
+  min-width: 0;
+}
+
+.shell main {
+  max-width: 760px;
+  padding: 24px 32px 48px;
+}
+
+.shell main.roomy {
+  max-width: 1120px;
+}
+
+.shell main.roomy .area-list {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
+.shell main.split {
+  max-width: 1440px;
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.15fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.shell .footer {
+  padding-bottom: 32px;
+}
+
+.list-pane {
+  min-width: 0;
+}
+
+.detail-pane {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 4px 24px 28px;
+  border-left: 1px solid var(--border);
+}
+
+.detail-close {
+  position: sticky;
+  top: 0;
+  float: right;
+  z-index: 1;
+  margin: 4px 0 0 12px;
+  font-size: 1.4rem;
+}
+
+.detail-close:hover {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.detail-empty {
+  display: grid;
+  place-content: center;
+  min-height: 320px;
+  text-align: center;
+}
+
+.route-row.selected {
+  background: var(--brand-soft);
+  box-shadow: inset 3px 0 0 var(--brand);
+}

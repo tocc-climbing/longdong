@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseHash } from '../src/router'
+import { href, parseHash, withDetail } from '../src/router'
 
 describe('parseHash', () => {
   it('ID 可以含 "/"', () => {
@@ -16,8 +16,32 @@ describe('parseHash', () => {
 
   it('其他頁面', () => {
     expect(parseHash('#/me')).toEqual({ name: 'me' })
-    expect(parseHash('#/search?q=5.12')).toEqual({ name: 'search' })
+    expect(parseHash('#/search?q=5.12')).toEqual({ name: 'search', q: '5.12' })
+    expect(parseHash('#/search')).toEqual({ name: 'search', q: '' })
     expect(parseHash('#/?q=5.12')).toEqual({ name: 'home' })
     expect(parseHash('')).toEqual({ name: 'home' })
+  })
+
+  it('?r= 是右側（或手機上直接顯示）的路線', () => {
+    expect(parseHash('#/sector/longdong/back-door-s1?r=longdong/100')).toEqual({
+      name: 'sector',
+      id: 'longdong/back-door-s1',
+      detail: 'longdong/100',
+    })
+    expect(parseHash('#/search?q=%E9%BB%83%E9%87%91&r=longdong/523')).toEqual({ name: 'search', q: '黃金', detail: 'longdong/523' })
+    expect(parseHash('#/me?r=r523')).toEqual({ name: 'me', detail: 'longdong/523' })
+    // 路線頁本身不帶右側路線
+    expect(parseHash('#/route/longdong/1?r=longdong/2')).toEqual({ name: 'route', id: 'longdong/1' })
+  })
+})
+
+describe('withDetail', () => {
+  it('加上、替換、拿掉 ?r=，搜尋字串保留', () => {
+    expect(withDetail('#/sector/longdong/a', 'longdong/1')).toBe('#/sector/longdong/a?r=longdong/1')
+    expect(withDetail('#/sector/longdong/a?r=longdong/1', 'longdong/2')).toBe('#/sector/longdong/a?r=longdong/2')
+    expect(withDetail('#/sector/longdong/a?r=longdong/1', undefined)).toBe('#/sector/longdong/a')
+    const h = withDetail(href.search('5.10 黃金'), 'longdong/9')
+    expect(parseHash(h)).toEqual({ name: 'search', q: '5.10 黃金', detail: 'longdong/9' })
+    expect(parseHash(withDetail(h, undefined))).toEqual({ name: 'search', q: '5.10 黃金' })
   })
 })

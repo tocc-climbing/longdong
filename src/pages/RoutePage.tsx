@@ -12,12 +12,13 @@ import { localName, useLang, type Translate } from '../i18n'
 import { useSocial } from '../social/store'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatDate, typeText, yearsSince } from '../format'
-import { href } from '../router'
+import { href, useRouteLink } from '../router'
 import { NotFound } from './AreaPage'
 
 export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
   const ref = data.routeById.get(id)
   const { lang, t } = useLang()
+  const { link } = useRouteLink()
   const signedIn = useCloud().status === 'signed-in'
   const rating = summarize(useSocial().ratings[routeKey(id)])
   if (!ref) return <NotFound />
@@ -116,7 +117,7 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
           <ul className="route-list">
             {pitches.map((p) => (
               <li key={p.id}>
-                <a className={`pitch-row${p.id === route.id ? ' current' : ''}`} href={href.route(p.id)}>
+                <a className={`pitch-row${p.id === route.id ? ' current' : ''}`} href={link(p.id)}>
                   <span className="pitch-no">P{p.pitch}</span>
                   <span className="route-name">
                     <span className="zh">{localName(p.name, lang).main}</span>
