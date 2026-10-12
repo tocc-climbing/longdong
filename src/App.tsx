@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { BottomNav } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
+import type { LocalizedName } from './data/schema'
 import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
-import { useLang } from './i18n'
+import { localName, useLang } from './i18n'
 import { defaultLevel, keyNav, type Level } from './keyboard'
 import { useWide } from './layout'
 import { AboutPage } from './pages/AboutPage'
@@ -15,6 +16,7 @@ import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
 import { loadRatings } from './social/store'
 import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
+import { neighbors, useSwipe, type Neighbor } from './swipe'
 
 export function App() {
   const page = usePage()
@@ -42,6 +44,17 @@ export function App() {
     [view, page],
   )
   const kbdLevel = useDesktopKeys(wide, view, page, data)
+
+  // 手機版：區域頁左右滑動切換區域；slide 讓新頁面從滑動的方向進來
+  const near = data && !wide && !page.detail ? neighbors(page, data) : undefined
+  const [slide, setSlide] = useState<{ dir: 'next' | 'prev'; n: number }>()
+  const go = (dir: 'next' | 'prev') => setSlide((s) => ({ dir, n: (s?.n ?? 0) + 1 }))
+  useSwipe(!!near, (dir) => {
+    const target = near?.[dir]
+    if (!target) return
+    go(dir)
+    location.hash = target.hash
+  })
 
   const banner = needRefresh && (
     <div className="banner">
@@ -112,7 +125,12 @@ export function App() {
         </a>
       </header>
       {banner}
-      <main>{content}</main>
+      <main>
+        <div key={slide?.n} className={slide ? `slide-${slide.dir}` : undefined}>
+          {content}
+          {near && <Pager prev={near.prev} next={near.next} onGo={go} />}
+        </div>
+      </main>
       {footer}
       <BottomNav page={page} />
     </RouteLinkContext.Provider>
@@ -136,6 +154,33 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
     default:
       return <HomePage data={data} />
   }
+}
+
+/** 手機版區域頁底部的上一區／下一區；也提示可以左右滑動 */
+function Pager({ prev, next, onGo }: { prev?: Neighbor; next?: Neighbor; onGo: (dir: 'next' | 'prev') => void }) {
+  const { lang, t } = useLang()
+  const label = (name: LocalizedName) => localName(name, lang).main
+  return (
+    <nav className="pager" aria-label={t('swipe.aria')}>
+      {prev ? (
+        <a href={prev.hash} onClick={() => onGo('prev')}>
+          <span className="muted small">‹ {t('swipe.prev')}</span>
+          <span className="pager-name">{label(prev.name)}</span>
+        </a>
+      ) : (
+        <span />
+      )}
+      {next ? (
+        <a href={next.hash} className="next" onClick={() => onGo('next')}>
+          <span className="muted small">{t('swipe.next')} ›</span>
+          <span className="pager-name">{label(next.name)}</span>
+        </a>
+      ) : (
+        <span />
+      )}
+      <p className="pager-hint muted small">{t('swipe.hint')}</p>
+    </nav>
+  )
 }
 
 interface DesktopView {

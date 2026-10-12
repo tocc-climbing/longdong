@@ -2188,3 +2188,74 @@ main {
   border-top: 1px solid var(--border);
   text-align: center;
 }
+
+/* ---------- 手機版：上一區／下一區、左右滑動的轉場 ---------- */
+
+.pager {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.pager a {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  font-weight: 600;
+  min-width: 0;
+}
+
+.pager-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pager a:hover {
+  text-decoration: none;
+}
+
+.pager a.next {
+  text-align: right;
+}
+
+.pager-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: center;
+}
+
+.slide-next {
+  animation: slide-from-right 0.22s ease-out;
+}
+
+.slide-prev {
+  animation: slide-from-left 0.22s ease-out;
+}
+
+@keyframes slide-from-right {
+  from {
+    transform: translateX(32px);
+    opacity: 0.4;
+  }
+}
+
+@keyframes slide-from-left {
+  from {
+    transform: translateX(-32px);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-next,
+  .slide-prev {
+    animation: none;
+  }
+}
