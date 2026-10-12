@@ -1802,16 +1802,17 @@ main {
 
 /* ---------- 電腦版：左側欄＋清單／路線並排（寬度 ≥ 1024px 時由 App 改用這套結構） ---------- */
 
+/* 整頁不捲動，側欄、內容（並排時為清單、路線）各自捲動：捲軸都貼在欄位的分隔線上 */
 .shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1932,6 +1933,15 @@ main {
 
 .shell-main {
   min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* 並排時內容區本身不捲動，交給清單與路線兩欄 */
+.shell-main.split {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .shell main {
@@ -1948,29 +1958,47 @@ main {
 }
 
 .shell main.split {
-  max-width: 1440px;
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
   display: grid;
   grid-template-columns: minmax(380px, 1.2fr) minmax(400px, 1fr);
-  gap: 28px;
-  align-items: start;
+}
+
+/* 很寬的螢幕：清單最寬 760px，其餘給路線（路線欄延伸到視窗右緣） */
+@media (min-width: 1650px) {
+  .shell main.split {
+    grid-template-columns: 760px minmax(400px, 1fr);
+  }
 }
 
 .shell .footer {
   padding-bottom: 32px;
 }
 
-.list-pane {
+.list-pane,
+.detail-pane {
   min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.list-pane {
+  padding: 24px 24px 48px 32px;
 }
 
 .detail-pane {
-  position: sticky;
-  top: 24px;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 4px 24px 28px;
+  padding: 24px 32px 48px 28px;
   border-left: 1px solid var(--border);
+}
+
+/* 很寬的螢幕上路線內容不要拉得太開 */
+.detail-pane > .route,
+.detail-pane > .detail-close {
+  max-width: 760px;
 }
 
 .detail-close {
@@ -2315,24 +2343,23 @@ main {
   background: var(--brand-soft);
 }
 
-/* ---------- 電腦版捲軸：細、淡；側欄與右側路線平常隱藏，滑鼠移上去才顯示 ---------- */
+/* ---------- 電腦版捲軸：細、淡，平常隱藏，滑鼠移上去（或鍵盤焦點在裡面）才顯示 ---------- */
 
-@media (min-width: 1024px) {
-  html {
-    scrollbar-width: thin;
-    scrollbar-color: var(--faint) transparent;
-  }
+.sidebar,
+.shell-main,
+.list-pane,
+.detail-pane {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
 
-  .sidebar,
-  .detail-pane {
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-  }
-
-  .sidebar:hover,
-  .detail-pane:hover,
-  .sidebar:focus-within,
-  .detail-pane:focus-within {
-    scrollbar-color: var(--faint) transparent;
-  }
+.sidebar:hover,
+.shell-main:hover,
+.list-pane:hover,
+.detail-pane:hover,
+.sidebar:focus-within,
+.shell-main:focus-within,
+.list-pane:focus-within,
+.detail-pane:focus-within {
+  scrollbar-color: var(--faint) transparent;
 }

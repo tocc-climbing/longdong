@@ -76,13 +76,19 @@ function samePlace(a: Page, b: Page): boolean {
   return !('id' in a) || a.id === (b as { id: string }).id
 }
 
+/** 換頁時捲回頂端：手機版是整頁；電腦版是內容區與清單欄（各自捲動） */
+function scrollToTop() {
+  window.scrollTo(0, 0)
+  for (const el of document.querySelectorAll('.shell-main, .list-pane')) el.scrollTo(0, 0)
+}
+
 export function usePage(): Page {
   const [page, setPage] = useState(() => parseHash(location.hash))
   const current = useRef(page)
   useEffect(() => {
     const onChange = () => {
       const next = parseHash(location.hash)
-      if (!samePlace(current.current, next)) window.scrollTo(0, 0)
+      if (!samePlace(current.current, next)) scrollToTop()
       current.current = next
       setPage(next)
     }

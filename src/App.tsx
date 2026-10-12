@@ -121,7 +121,7 @@ export function App() {
       <RouteLinkContext.Provider value={routeLink}>
         <div className="shell">
           <Sidebar page={page} data={data} kbdLevel={kbdLevel} />
-          <div className="shell-main">
+          <div className={`shell-main${view?.split ? ' split' : ''}`}>
             {banner}
             <main className={view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
             {footer}
