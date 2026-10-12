@@ -2314,3 +2314,25 @@ main {
 .bottom-nav a:active svg {
   background: var(--brand-soft);
 }
+
+/* ---------- 電腦版捲軸：細、淡；側欄與右側路線平常隱藏，滑鼠移上去才顯示 ---------- */
+
+@media (min-width: 1024px) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--faint) transparent;
+  }
+
+  .sidebar,
+  .detail-pane {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .sidebar:hover,
+  .detail-pane:hover,
+  .sidebar:focus-within,
+  .detail-pane:focus-within {
+    scrollbar-color: var(--faint) transparent;
+  }
+}
