@@ -1,14 +1,23 @@
+import { useEffect, useRef } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { sectorColor } from '../format'
 import { localName, useLang } from '../i18n'
 import { href, replaceHash, type Page } from '../router'
+import type { Level } from '../keyboard'
 import { TABS, activeTab } from './BottomNav'
 
-/** 電腦版的左側欄：品牌、搜尋框、主選單，以及龍洞的區域／分區（目前所在的區域展開分區） */
-export function Sidebar({ page, data }: { page: Page; data?: LoadedData }) {
+/**
+ * 電腦版的左側欄：品牌、搜尋框、主選單，以及龍洞的區域／分區（目前所在的區域展開分區）。
+ * 用方向鍵切換到大區域或區域層級時（kbdLevel），標示目前所在的那一項。
+ */
+export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedData; kbdLevel: Level | null }) {
   const { lang, t } = useLang()
   const active = activeTab(page)
   const here = data ? currentPlace(page, data) : {}
+  const tree = useRef<HTMLElement>(null)
+  useEffect(() => {
+    tree.current?.querySelector('.kbd')?.scrollIntoView({ block: 'nearest' })
+  }, [kbdLevel, here.area, here.sector])
 
   const onSearch = (q: string) => {
     if (page.name === 'search') replaceHash(href.search(q, page.detail))
@@ -49,13 +58,13 @@ export function Sidebar({ page, data }: { page: Page; data?: LoadedData }) {
       </nav>
 
       {data && (
-        <nav className="area-tree" aria-label={t('nav.areas')}>
+        <nav className="area-tree" aria-label={t('nav.areas')} ref={tree}>
           <ul>
             {data.dataset.areas.map((area) => (
               <li key={area.id}>
                 <a
                   href={href.area(area.id)}
-                  className={here.area === area.id && !here.sector ? 'active' : ''}
+                  className={cls(here.area === area.id && !here.sector, here.area === area.id && kbdLevel === 'area')}
                   aria-current={here.area === area.id && !here.sector ? 'page' : undefined}
                 >
                   <span className="dot" style={{ background: area.color }} aria-hidden />
@@ -67,7 +76,7 @@ export function Sidebar({ page, data }: { page: Page; data?: LoadedData }) {
                       <li key={sector.id}>
                         <a
                           href={href.sector(sector.id)}
-                          className={here.sector === sector.id ? 'active' : ''}
+                          className={cls(here.sector === sector.id, here.sector === sector.id && kbdLevel === 'sector')}
                           aria-current={here.sector === sector.id ? 'page' : undefined}
                         >
                           <span className="dot" style={{ background: sectorColor(area.color, i, area.sectors.length) }} aria-hidden />
@@ -88,6 +97,10 @@ export function Sidebar({ page, data }: { page: Page; data?: LoadedData }) {
       </a>
     </aside>
   )
+}
+
+function cls(active: boolean, kbd: boolean): string {
+  return [active && 'active', kbd && 'kbd'].filter(Boolean).join(' ')
 }
 
 /** 目前所在的區域與分區（路線頁依該路線所在位置；單一分區的區域不標分區） */

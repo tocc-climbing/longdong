@@ -23,7 +23,7 @@ export const en: Record<keyof typeof zh, string> = {
   'nav.me': 'Me',
   'nav.areas': 'Areas',
   'layout.pickRoute': 'Pick a route from the list to see its details here.',
-  'layout.keys': 'Keyboard: ↑↓ switch routes · Esc close · / search',
+  'layout.keys': 'Keyboard: ↑↓ move · ←→ switch between area / sector / route · Esc close · / search',
   'layout.detail': 'Route details',
   'layout.close': 'Close',
 

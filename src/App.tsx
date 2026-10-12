@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { BottomNav } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
 import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
 import { useLang } from './i18n'
+import { defaultLevel, keyNav, type Level } from './keyboard'
 import { useWide } from './layout'
 import { AboutPage } from './pages/AboutPage'
 import { AreaPage, SectorPage } from './pages/AreaPage'
@@ -40,7 +41,7 @@ export function App() {
         : { link: href.route },
     [view, page],
   )
-  useDesktopKeys(wide, view)
+  const kbdLevel = useDesktopKeys(wide, view, page, data)
 
   const banner = needRefresh && (
     <div className="banner">
@@ -89,7 +90,7 @@ export function App() {
     return (
       <RouteLinkContext.Provider value={routeLink}>
         <div className="shell">
-          <Sidebar page={page} data={data} />
+          <Sidebar page={page} data={data} kbdLevel={kbdLevel} />
           <div className="shell-main">
             {banner}
             <main className={view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
@@ -199,15 +200,26 @@ function typing(target: EventTarget | null): boolean {
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
 }
 
-/** 電腦版快捷鍵：/ 搜尋、Esc 關閉右邊的路線、↑↓ 在清單中切換路線 */
-function useDesktopKeys(wide: boolean, view: DesktopView | undefined) {
-  const current = useRef(view)
-  current.current = view
+/**
+ * 電腦版快捷鍵：/ 搜尋、Esc 關閉右邊的路線、↑↓ 在目前層級內移動、←→ 切換層級（大區域／區域／路線）。
+ * 回傳用鍵盤選定的層級（用滑鼠點選或換頁後清除），側欄依此標示目前的位置。
+ */
+function useDesktopKeys(wide: boolean, view: DesktopView | undefined, page: Page, data: LoadedData | undefined): Level | null {
+  const [level, setLevel] = useState<Level | null>(null)
+  const current = useRef({ view, page, data, level })
+  current.current = { view, page, data, level }
+  // 方向鍵造成的換頁不清除層級；其他換頁（點選、Esc、返回）清除
+  const fromKeys = useRef(false)
+  useEffect(() => {
+    if (fromKeys.current) fromKeys.current = false
+    else setLevel(null)
+  }, [page])
+
   useEffect(() => {
     if (!wide) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return
-      const v = current.current
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+      const { view: v, page: p, data: d, level: l } = current.current
       if (e.key === 'Escape') {
         if (typing(e.target)) (e.target as HTMLElement).blur()
         else if (v?.detail) location.hash = v.closeHref
@@ -219,17 +231,27 @@ function useDesktopKeys(wide: boolean, view: DesktopView | undefined) {
         document.getElementById('sidebar-search')?.focus()
         return
       }
-      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && v?.split) {
-        const rows = [...document.querySelectorAll<HTMLAnchorElement>('.list-pane a.route-row')]
-        if (rows.length === 0) return
-        e.preventDefault()
-        const at = rows.findIndex((r) => r.getAttribute('aria-current') === 'true')
-        const next = at < 0 ? 0 : Math.min(rows.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)))
-        rows[next].scrollIntoView({ block: 'nearest' })
-        location.replace(rows[next].getAttribute('href')!)
+      if (!d || !e.key.startsWith('Arrow')) return
+      const rows = [...document.querySelectorAll<HTMLAnchorElement>('main a.route-row')]
+      const result = keyNav(e.key, {
+        page: p,
+        level: l ?? defaultLevel(p, d),
+        data: d,
+        rows: rows.map((r) => r.getAttribute('href')!),
+        selected: rows.findIndex((r) => r.getAttribute('aria-current') === 'true'),
+      })
+      if (!result) return
+      e.preventDefault()
+      setLevel(result.level)
+      if (result.row !== undefined) rows[result.row].scrollIntoView({ block: 'nearest' })
+      if (result.hash && result.hash !== location.hash) {
+        fromKeys.current = true
+        location.replace(result.hash)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [wide])
+
+  return wide ? level : null
 }
