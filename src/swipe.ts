@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import type { LoadedData } from './data/dataset'
 import type { LocalizedName } from './data/schema'
 import { applyView, filterCount, type ListView } from './listView'
@@ -100,54 +100,148 @@ export function neighbors(page: Page, data: NavData, order?: RouteOrder): Neighb
 /** 螢幕左右邊緣這個寬度內起滑的不算：留給 iOS／Android 的「返回」手勢 */
 const EDGE = 24
 
-/**
- * 判斷一次觸控是不是左右滑動：水平距離夠長、明顯比垂直距離大、時間夠短。
- * 回傳 next（往左滑，看下一個）、prev（往右滑）或 undefined。
- */
-export function classifySwipe(
-  start: { x: number; y: number; t: number },
-  end: { x: number; y: number; t: number },
-  viewportWidth: number,
-): 'next' | 'prev' | undefined {
-  if (start.x < EDGE || start.x > viewportWidth - EDGE) return undefined
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.5 || end.t - start.t > 700) return undefined
-  return dx < 0 ? 'next' : 'prev'
+export type Dir = 'next' | 'prev'
+
+/** 手指移動超過 10px 後判斷方向：水平距離至少是垂直的 1.5 倍才算左右滑，否則交給頁面上下捲動 */
+export function lockAxis(dx: number, dy: number): 'h' | 'v' | undefined {
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 10) return undefined
+  return Math.abs(dx) >= 1.5 * Math.abs(dy) ? 'h' : 'v'
 }
 
-/** 從觸控點往上找：在可以橫向捲動的元素（例如 Bolt 表格）或表單欄位裡的滑動，留給該元素 */
-function insideHorizontalScroller(target: EventTarget | null): boolean {
+/** 拖曳時畫面的位移：有下一個時跟著手指（阻尼 0.35）；沒有時只小幅回彈（最多 24px） */
+export function dragOffset(dx: number, canGo: boolean): number {
+  return canGo ? 0.35 * dx : Math.max(-24, Math.min(24, 0.12 * dx))
+}
+
+/** 放開時切換的距離門檻：螢幕寬的 1/6，介於 60–90px；慢慢拖超過這個距離也會切換 */
+export function commitDistance(viewportWidth: number): number {
+  return Math.min(90, Math.max(60, viewportWidth / 6))
+}
+
+/**
+ * 放開時是否切換：拖得夠遠，或快速往同方向撥（至少 30px、0.5 px/ms）。
+ * 最後往反方向撥回、或過程中頁面上下捲動了，就不切換。
+ */
+export function shouldCommit(dx: number, velocity: number, viewportWidth: number, scrolled: number): boolean {
+  if (Math.abs(scrolled) > 10) return false
+  const reversed = Math.sign(velocity) === -Math.sign(dx) && Math.abs(velocity) >= 0.15
+  if (reversed) return false
+  const far = Math.abs(dx) >= commitDistance(viewportWidth)
+  const flick = Math.abs(dx) >= 30 && Math.sign(velocity) === Math.sign(dx) && Math.abs(velocity) >= 0.5
+  return far || flick
+}
+
+/** 從觸控點往上找：表單欄位、可以橫向捲動的元素（例如 Bolt 表格）裡的滑動，留給該元素 */
+function ignoreTouch(target: EventTarget | null, x: number): boolean {
+  if (x < EDGE || x > window.innerWidth - EDGE) return true
+  if ((window.visualViewport?.scale ?? 1) > 1.01) return true // 放大檢視時留給平移
   for (let el = target as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
-    if (el.matches('input, textarea, select')) return true
-    if (el.scrollWidth > el.clientWidth && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true
+    if (el.matches('input, textarea, select, [contenteditable], [data-noswipe]')) return true
+    if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true
   }
   return false
 }
 
-/** 在整個頁面監聽左右滑動；enabled 為 false（例如電腦版）時不監聽 */
-export function useSwipe(enabled: boolean, onSwipe: (dir: 'next' | 'prev') => void): void {
-  const handler = useRef(onSwipe)
-  handler.current = onSwipe
+export interface SwipeHandlers {
+  /** 這個方向有沒有下一個 */
+  can: (dir: Dir) => boolean
+  /** 判斷為左右滑時（dir）與結束時（null）：顯示／隱藏「下一個」的提示 */
+  onLock: (dir: Dir | null) => void
+  /** 拖曳距離是否已超過門檻（放開就會切換） */
+  onArmed: (armed: boolean) => void
+  onCommit: (dir: Dir) => void
+}
+
+/**
+ * 左右滑動：手指拖動時 moving 元素跟著移動，放開時依距離與速度決定切換或彈回。
+ * 只監聽 area 元素內開始的觸控；enabled 為 false（例如電腦版）時不監聽。
+ */
+export function useSwipe(
+  enabled: boolean,
+  area: RefObject<HTMLElement | null>,
+  moving: RefObject<HTMLElement | null>,
+  handlers: SwipeHandlers,
+): void {
+  const h = useRef(handlers)
+  h.current = handlers
   useEffect(() => {
-    if (!enabled) return
-    let start: { x: number; y: number; t: number } | undefined
+    const root = area.current
+    if (!enabled || !root) return
+    const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    let g:
+      | { x0: number; y0: number; sy0: number; lock?: 'h' | 'v'; dir: Dir; dx: number; armed: boolean; samples: { x: number; t: number }[] }
+      | undefined
+
+    const place = (offset: number, animate: boolean) => {
+      const el = moving.current
+      if (!el) return
+      el.style.transition = animate && !reduced() ? 'transform 0.18s ease-out' : ''
+      el.style.transform = offset ? `translateX(${offset.toFixed(1)}px)` : ''
+    }
+    const end = (animateBack: boolean) => {
+      const locked = g?.lock === 'h'
+      g = undefined
+      place(0, animateBack)
+      if (locked) {
+        h.current.onArmed(false)
+        h.current.onLock(null)
+      }
+    }
+
     const onStart = (e: TouchEvent) => {
+      if (e.touches.length > 1) return end(true)
       const p = e.touches[0]
-      start = e.touches.length === 1 && !insideHorizontalScroller(e.target) ? { x: p.clientX, y: p.clientY, t: e.timeStamp } : undefined
+      g = ignoreTouch(e.target, p.clientX)
+        ? undefined
+        : { x0: p.clientX, y0: p.clientY, sy0: window.scrollY, dir: 'next', dx: 0, armed: false, samples: [{ x: p.clientX, t: e.timeStamp }] }
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!g) return
+      if (e.touches.length > 1) return end(true)
+      const p = e.touches[0]
+      const dx = p.clientX - g.x0
+      if (!g.lock) {
+        g.lock = lockAxis(dx, p.clientY - g.y0)
+        if (!g.lock) return
+        if (g.lock === 'v') return
+        g.dir = dx < 0 ? 'next' : 'prev'
+        h.current.onLock(g.dir)
+      }
+      if (g.lock !== 'h') return
+      if (e.cancelable) e.preventDefault() // 左右滑時不讓頁面跟著上下晃
+      g.dx = dx
+      g.samples.push({ x: p.clientX, t: e.timeStamp })
+      while (g.samples.length > 2 && e.timeStamp - g.samples[0].t > 100) g.samples.shift()
+      const dir: Dir = dx < 0 ? 'next' : 'prev'
+      const can = dir === g.dir && h.current.can(dir)
+      place(dragOffset(dx, can), false)
+      const armed = can && Math.abs(dx) >= commitDistance(window.innerWidth)
+      if (armed !== g.armed) h.current.onArmed((g.armed = armed))
     }
     const onEnd = (e: TouchEvent) => {
-      if (!start) return
-      const p = e.changedTouches[0]
-      const dir = classifySwipe(start, { x: p.clientX, y: p.clientY, t: e.timeStamp }, window.innerWidth)
-      start = undefined
-      if (dir) handler.current(dir)
+      if (!g || e.touches.length > 0) return
+      if (g.lock !== 'h') return end(false)
+      const recent = g.samples.filter((s) => e.timeStamp - s.t <= 100)
+      const first = recent[0]
+      const last = recent[recent.length - 1]
+      const velocity = first && last !== first ? (last.x - first.x) / Math.max(1, e.timeStamp - first.t) : 0
+      const dir: Dir = g.dx < 0 ? 'next' : 'prev'
+      const commit = dir === g.dir && h.current.can(dir) && shouldCommit(g.dx, velocity, window.innerWidth, window.scrollY - g.sy0)
+      end(!commit)
+      if (commit) h.current.onCommit(dir)
     }
-    window.addEventListener('touchstart', onStart, { passive: true })
-    window.addEventListener('touchend', onEnd, { passive: true })
+    const onCancel = () => end(true)
+
+    root.addEventListener('touchstart', onStart, { passive: true })
+    root.addEventListener('touchmove', onMove, { passive: false })
+    root.addEventListener('touchend', onEnd, { passive: true })
+    root.addEventListener('touchcancel', onCancel, { passive: true })
     return () => {
-      window.removeEventListener('touchstart', onStart)
-      window.removeEventListener('touchend', onEnd)
+      end(false)
+      root.removeEventListener('touchstart', onStart)
+      root.removeEventListener('touchmove', onMove)
+      root.removeEventListener('touchend', onEnd)
+      root.removeEventListener('touchcancel', onCancel)
     }
-  }, [enabled])
+  }, [enabled, area, moving])
 }

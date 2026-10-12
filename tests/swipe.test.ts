@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EMPTY_FILTER } from '../src/listView'
-import { classifySwipe, neighbors } from '../src/swipe'
+import { commitDistance, dragOffset, lockAxis, neighbors, shouldCommit } from '../src/swipe'
 
 // 大區域 A 有兩個區域（a1、a2），B 只有一個區域，C 有兩個區域（c1、c2）
 const sector = (id: string) => ({ id, name: { zh: id }, routes: [] })
@@ -73,21 +73,35 @@ describe('左右滑動的上一區／下一區', () => {
   })
 })
 
-describe('判斷左右滑動', () => {
-  const at = (x: number, y = 300, t = 0) => ({ x, y, t })
-  it('往左滑看下一區、往右滑看上一區', () => {
-    expect(classifySwipe(at(300), at(150, 310, 200), 390)).toBe('next')
-    expect(classifySwipe(at(100), at(250, 290, 200), 390)).toBe('prev')
+describe('左右滑動的手勢', () => {
+  it('移動 10px 後判斷方向：水平至少是垂直的 1.5 倍才算左右滑', () => {
+    expect(lockAxis(6, 2)).toBeUndefined()
+    expect(lockAxis(-30, 10)).toBe('h')
+    expect(lockAxis(20, 20)).toBe('v')
+    expect(lockAxis(2, -15)).toBe('v')
   })
 
-  it('太短、太斜、太慢都不算', () => {
-    expect(classifySwipe(at(200), at(160, 300, 100), 390)).toBeUndefined()
-    expect(classifySwipe(at(300), at(150, 400, 200), 390)).toBeUndefined()
-    expect(classifySwipe(at(300), at(150, 300, 900), 390)).toBeUndefined()
+  it('拖曳時畫面跟著手指；沒有下一個時只小幅回彈', () => {
+    expect(dragOffset(-100, true)).toBeCloseTo(-35)
+    expect(dragOffset(-100, false)).toBeCloseTo(-12)
+    expect(dragOffset(-400, false)).toBe(-24)
   })
 
-  it('從螢幕邊緣起滑的留給系統的返回手勢', () => {
-    expect(classifySwipe(at(10), at(200, 300, 200), 390)).toBeUndefined()
-    expect(classifySwipe(at(380), at(200, 300, 200), 390)).toBeUndefined()
+  it('距離門檻：螢幕寬的 1/6，介於 60–90px', () => {
+    expect(commitDistance(390)).toBe(65)
+    expect(commitDistance(300)).toBe(60)
+    expect(commitDistance(800)).toBe(90)
+  })
+
+  it('慢慢拖超過門檻也會切換', () => {
+    expect(shouldCommit(-70, -0.05, 390, 0)).toBe(true)
+    expect(shouldCommit(-50, -0.05, 390, 0)).toBe(false)
+  })
+
+  it('快速撥動 30px 就切換；最後往回撥、或頁面上下捲動了就不切換', () => {
+    expect(shouldCommit(-35, -0.8, 390, 0)).toBe(true)
+    expect(shouldCommit(-35, -0.3, 390, 0)).toBe(false)
+    expect(shouldCommit(-120, 0.3, 390, 0)).toBe(false)
+    expect(shouldCommit(-120, -0.5, 390, 40)).toBe(false)
   })
 })

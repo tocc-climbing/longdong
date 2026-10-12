@@ -4,7 +4,7 @@ import { BottomNav } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
 import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
-import { localName, useLang } from './i18n'
+import { localName, useLang, type Lang } from './i18n'
 import { defaultLevel, keyNav, type Level } from './keyboard'
 import { useWide } from './layout'
 import { AboutPage } from './pages/AboutPage'
@@ -17,13 +17,13 @@ import { loadRatings, useSocial } from './social/store'
 import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 import { useListView } from './listView'
 import { routeKey, summarize } from './social/model'
-import { neighbors, useSwipe, type Neighbor, type Neighbors } from './swipe'
+import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './swipe'
 
 export function App() {
   const page = usePage()
   const state = useData()
   const wide = useWide()
-  const { t } = useLang()
+  const { lang, t } = useLang()
   const {
     offlineReady: [offlineReady],
     needRefresh: [needRefresh],
@@ -46,21 +46,32 @@ export function App() {
   )
   const kbdLevel = useDesktopKeys(wide, view, page, data)
 
-  // 手機版：區域頁左右滑動切換區域；slide 讓新頁面從滑動的方向進來
+  // 手機版：區域頁、路線頁左右滑動切換；拖曳時畫面跟著手指，側邊提示放開後會去哪裡；
+  // slide 讓新頁面從滑動的方向進來
   const listView = useListView()
   const ratings = useSocial().ratings
   const near =
     data && !wide && !page.detail
       ? neighbors(page, data, { view: listView, ratingOf: (id) => summarize(ratings[routeKey(id)])?.average })
       : undefined
-  const [slide, setSlide] = useState<{ dir: 'next' | 'prev'; n: number }>()
-  const go = (dir: 'next' | 'prev') => setSlide((s) => ({ dir, n: (s?.n ?? 0) + 1 }))
-  useSwipe(!!near, (dir) => {
-    const target = near?.[dir]
-    if (!target) return
-    go(dir)
-    location.hash = target.hash
+  const [slide, setSlide] = useState<{ dir: Dir; n: number }>()
+  const go = (dir: Dir) => setSlide((s) => ({ dir, n: (s?.n ?? 0) + 1 }))
+  const swipeArea = useRef<HTMLElement>(null)
+  const swipeMoving = useRef<HTMLDivElement>(null)
+  const [dragDir, setDragDir] = useState<Dir | null>(null)
+  const [armed, setArmed] = useState(false)
+  useSwipe(!!near, swipeArea, swipeMoving, {
+    can: (dir) => !!near?.[dir],
+    onLock: setDragDir,
+    onArmed: setArmed,
+    onCommit: (dir) => {
+      const target = near?.[dir]
+      if (!target) return
+      go(dir)
+      location.hash = target.hash
+    },
   })
+  const dragTarget = dragDir ? near?.[dragDir] : undefined
 
   const banner = needRefresh && (
     <div className="banner">
@@ -131,12 +142,17 @@ export function App() {
         </a>
       </header>
       {banner}
-      <main>
-        <div key={slide?.n} className={slide ? `slide-${slide.dir}` : undefined}>
+      <main ref={swipeArea}>
+        <div ref={swipeMoving} key={slide?.n} className={slide ? `slide-${slide.dir}` : undefined}>
           {content}
           {near && <Pager near={near} onGo={go} />}
         </div>
       </main>
+      {dragDir && dragTarget && (
+        <div className={`swipe-hint ${dragDir}${armed ? ' armed' : ''}`} aria-hidden>
+          {dragDir === 'prev' ? `‹ ${neighborLabel(dragTarget, lang)}` : `${neighborLabel(dragTarget, lang)} ›`}
+        </div>
+      )}
       {footer}
       <BottomNav page={page} />
     </RouteLinkContext.Provider>
@@ -162,11 +178,16 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
   }
 }
 
+/** 上一個／下一個的名稱；路線加上編號 */
+function neighborLabel(n: Neighbor, lang: Lang): string {
+  return `${n.number ? `#${n.number} ` : ''}${localName(n.name, lang).main}`
+}
+
 /** 手機版區域頁、路線頁底部的上一個／下一個；也提示可以左右滑動 */
-function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: 'next' | 'prev') => void }) {
+function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: Dir) => void }) {
   const { lang, t } = useLang()
   const route = near.kind === 'route'
-  const label = (n: Neighbor) => `${n.number ? `#${n.number} ` : ''}${localName(n.name, lang).main}`
+  const label = (n: Neighbor) => neighborLabel(n, lang)
   const caption = (dir: 'prev' | 'next', n: Neighbor) => {
     const text = t(route ? (dir === 'prev' ? 'swipe.prevRoute' : 'swipe.nextRoute') : dir === 'prev' ? 'swipe.prev' : 'swipe.next')
     const where = n.sector ? ` · ${localName(n.sector, lang).main}` : ''

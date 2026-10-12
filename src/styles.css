@@ -260,6 +260,8 @@ main {
   max-width: 720px;
   margin: 0 auto;
   padding: 12px 16px calc(88px + env(safe-area-inset-bottom));
+  /* 左右滑動時內容跟著手指移動，不讓頁面出現水平捲軸（clip 不影響 sticky） */
+  overflow-x: clip;
 }
 
 .bottom-nav {
@@ -2258,4 +2260,41 @@ main {
   .slide-prev {
     animation: none;
   }
+}
+
+/* 拖曳時側邊的提示：放開後會去哪裡；超過門檻（放開就會切換）時變成主色 */
+.swipe-hint {
+  position: fixed;
+  top: 50%;
+  z-index: 30;
+  max-width: 45%;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition:
+    background 0.12s,
+    transform 0.12s;
+}
+
+.swipe-hint.prev {
+  left: 8px;
+}
+
+.swipe-hint.next {
+  right: 8px;
+}
+
+.swipe-hint.armed {
+  background: var(--brand);
+  color: var(--on-brand);
+  transform: translateY(-50%) scale(1.06);
 }
