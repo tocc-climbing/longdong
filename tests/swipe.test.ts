@@ -6,10 +6,18 @@ const sector = (id: string) => ({ id, name: { zh: id }, routes: [] })
 const A = { id: 'A', name: { zh: 'A' }, sectors: [sector('a1'), sector('a2')] }
 const B = { id: 'B', name: { zh: 'B' }, sectors: [sector('b1')] }
 const C = { id: 'C', name: { zh: 'C' }, sectors: [sector('c1'), sector('c2')] }
+// 路線：a2 有 r1、r2，b1 有 r3
+const route = (id: string, number: string) => ({ id, number, name: { zh: id } })
+const routes = [
+  { route: route('r1', '1'), sector: A.sectors[1], area: A },
+  { route: route('r2', '2'), sector: A.sectors[1], area: A },
+  { route: route('r3', '3'), sector: B.sectors[0], area: B },
+]
 const data = {
   dataset: { areas: [A, B, C] },
   areaById: new Map([['A', A], ['B', B], ['C', C]]),
   sectorById: new Map(),
+  routes,
 } as unknown as Parameters<typeof neighbors>[1]
 
 const hashes = (n: ReturnType<typeof neighbors>) => [n?.prev?.hash, n?.next?.hash]
@@ -26,6 +34,16 @@ describe('左右滑動的上一區／下一區', () => {
   it('有多個區域的大區域頁：切換大區域', () => {
     expect(hashes(neighbors({ name: 'area', id: 'A' }, data))).toEqual([undefined, '#/area/B'])
     expect(hashes(neighbors({ name: 'area', id: 'C' }, data))).toEqual(['#/area/B', undefined])
+  })
+
+  it('路線頁：依序切換路線，跨區域時標出區域名稱', () => {
+    expect(neighbors({ name: 'route', id: 'r1' }, data)).toEqual({
+      kind: 'route',
+      prev: undefined,
+      next: { hash: '#/route/r2', name: { zh: 'r2' }, number: '2', sector: undefined },
+    })
+    expect(neighbors({ name: 'route', id: 'r2' }, data)?.next).toEqual({ hash: '#/route/r3', name: { zh: 'r3' }, number: '3', sector: { zh: 'b1' } })
+    expect(neighbors({ name: 'route', id: 'r3' }, data)?.next).toBeUndefined()
   })
 
   it('其他頁面不切換', () => {

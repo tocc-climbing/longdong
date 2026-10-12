@@ -4,19 +4,47 @@ import type { LocalizedName } from './data/schema'
 import { href, type Page } from './router'
 
 /**
- * 手機版左右滑動切換區域：
+ * 手機版左右滑動切換區域與路線：
  * - 區域頁（含只有一個區域的大區域）：依序走過整個岩場的區域，大區域的最後一區接到下一個大區域
  * - 有多個區域的大區域頁：切換大區域
+ * - 路線頁：依岩場內的順序切換路線，區域的最後一條接到下一區的第一條
  */
 
 export interface Neighbor {
   hash: string
   name: LocalizedName
+  /** 路線編號（切換路線時） */
+  number?: string
+  /** 跨到另一個區域時，那個區域的名稱 */
+  sector?: LocalizedName
 }
 
-type NavData = Pick<LoadedData, 'dataset' | 'areaById' | 'sectorById'>
+export interface Neighbors {
+  kind: 'area' | 'route'
+  prev?: Neighbor
+  next?: Neighbor
+}
 
-export function neighbors(page: Page, data: NavData): { prev?: Neighbor; next?: Neighbor } | undefined {
+type NavData = Pick<LoadedData, 'dataset' | 'areaById' | 'sectorById' | 'routes'>
+
+export function neighbors(page: Page, data: NavData): Neighbors | undefined {
+  if (page.name === 'route') {
+    const at = data.routes.findIndex((r) => r.route.id === page.id)
+    if (at < 0) return undefined
+    const here = data.routes[at].sector.id
+    const pick = (i: number): Neighbor | undefined => {
+      const ref = data.routes[i]
+      if (!ref) return undefined
+      return {
+        hash: href.route(ref.route.id),
+        name: ref.route.name,
+        number: ref.route.number,
+        sector: ref.sector.id === here ? undefined : ref.sector.name,
+      }
+    }
+    return { kind: 'route', prev: pick(at - 1), next: pick(at + 1) }
+  }
+
   let list: (Neighbor & { id: string })[]
   let current: string
   const area = page.name === 'area' ? data.areaById.get(page.id) : undefined
@@ -39,7 +67,7 @@ export function neighbors(page: Page, data: NavData): { prev?: Neighbor; next?: 
   const at = list.findIndex((x) => x.id === current)
   if (at < 0) return undefined
   const pick = (i: number) => (list[i] ? { hash: list[i].hash, name: list[i].name } : undefined)
-  return { prev: pick(at - 1), next: pick(at + 1) }
+  return { kind: 'area', prev: pick(at - 1), next: pick(at + 1) }
 }
 
 /** 螢幕左右邊緣這個寬度內起滑的不算：留給 iOS／Android 的「返回」手勢 */

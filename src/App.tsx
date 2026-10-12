@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { BottomNav } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
-import type { LocalizedName } from './data/schema'
 import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
 import { localName, useLang } from './i18n'
@@ -16,7 +15,7 @@ import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
 import { loadRatings } from './social/store'
 import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
-import { neighbors, useSwipe, type Neighbor } from './swipe'
+import { neighbors, useSwipe, type Neighbor, type Neighbors } from './swipe'
 
 export function App() {
   const page = usePage()
@@ -128,7 +127,7 @@ export function App() {
       <main>
         <div key={slide?.n} className={slide ? `slide-${slide.dir}` : undefined}>
           {content}
-          {near && <Pager prev={near.prev} next={near.next} onGo={go} />}
+          {near && <Pager near={near} onGo={go} />}
         </div>
       </main>
       {footer}
@@ -156,24 +155,30 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
   }
 }
 
-/** 手機版區域頁底部的上一區／下一區；也提示可以左右滑動 */
-function Pager({ prev, next, onGo }: { prev?: Neighbor; next?: Neighbor; onGo: (dir: 'next' | 'prev') => void }) {
+/** 手機版區域頁、路線頁底部的上一個／下一個；也提示可以左右滑動 */
+function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: 'next' | 'prev') => void }) {
   const { lang, t } = useLang()
-  const label = (name: LocalizedName) => localName(name, lang).main
+  const route = near.kind === 'route'
+  const label = (n: Neighbor) => `${n.number ? `#${n.number} ` : ''}${localName(n.name, lang).main}`
+  const caption = (dir: 'prev' | 'next', n: Neighbor) => {
+    const text = t(route ? (dir === 'prev' ? 'swipe.prevRoute' : 'swipe.nextRoute') : dir === 'prev' ? 'swipe.prev' : 'swipe.next')
+    const where = n.sector ? ` · ${localName(n.sector, lang).main}` : ''
+    return dir === 'prev' ? `‹ ${text}${where}` : `${text}${where} ›`
+  }
   return (
-    <nav className="pager" aria-label={t('swipe.aria')}>
-      {prev ? (
-        <a href={prev.hash} onClick={() => onGo('prev')}>
-          <span className="muted small">‹ {t('swipe.prev')}</span>
-          <span className="pager-name">{label(prev.name)}</span>
+    <nav className="pager" aria-label={t(route ? 'swipe.ariaRoute' : 'swipe.aria')}>
+      {near.prev ? (
+        <a href={near.prev.hash} onClick={() => onGo('prev')}>
+          <span className="pager-name muted small">{caption('prev', near.prev)}</span>
+          <span className="pager-name">{label(near.prev)}</span>
         </a>
       ) : (
         <span />
       )}
-      {next ? (
-        <a href={next.hash} className="next" onClick={() => onGo('next')}>
-          <span className="muted small">{t('swipe.next')} ›</span>
-          <span className="pager-name">{label(next.name)}</span>
+      {near.next ? (
+        <a href={near.next.hash} className="next" onClick={() => onGo('next')}>
+          <span className="pager-name muted small">{caption('next', near.next)}</span>
+          <span className="pager-name">{label(near.next)}</span>
         </a>
       ) : (
         <span />
