@@ -42,8 +42,9 @@
   color-scheme: light;
 }
 
+/* 深色：系統是深色且沒有手動選淺色，或在「我的」手動選了深色（data-theme 由 src/theme.ts 設定） */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0d1113;
     --surface: #161c1f;
     --surface-2: #1e2629;
@@ -77,6 +78,41 @@
 
     color-scheme: dark;
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0d1113;
+  --surface: #161c1f;
+  --surface-2: #1e2629;
+  --text: #edf1f2;
+  --muted: #97a3a8;
+  --faint: #66737a;
+  --border: #253034;
+
+  --brand: #119db3;
+  --brand-soft: #12343a;
+  --on-brand: #ffffff;
+  --link: #5cc8d8;
+
+  --ok: #6cc28e;
+  --warn: #e0b04f;
+  --danger: #f08a80;
+  --star: #f2c14e;
+
+  --band-easy: #1c3a26;
+  --band-g10: #3a3216;
+  --band-g11: #432a1a;
+  --band-g12: #462124;
+  --band-g13: #33284c;
+
+  --chart: #119db3;
+  --chart-track: #1e2629;
+
+  --shadow: none;
+  --card-border: #253034;
+  --bar-bg: rgba(13, 17, 19, 0.82);
+
+  color-scheme: dark;
 }
 
 /* ---------- 基礎 ---------- */

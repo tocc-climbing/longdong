@@ -8,6 +8,13 @@
     <link rel="icon" href="./icons/favicon-48.png" type="image/png" sizes="48x48" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <title>龍洞攀岩資料庫</title>
+    <script>
+      // 外觀設定（淺色／深色）在畫面出現前套用，避免閃一下另一種顏色；與 src/theme.ts 相同
+      try {
+        var theme = localStorage.getItem('longdong.theme')
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

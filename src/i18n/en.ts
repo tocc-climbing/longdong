@@ -186,6 +186,7 @@ export const en: Record<keyof typeof zh, string> = {
   'me.nicknameHint': 'shown on your ratings and comments',
   'me.emailPrivate': '{email} (private)',
   'me.language': 'Language',
+  'me.theme': 'Appearance',
   'me.signOut': 'Sign out',
   'me.confirmSignOut': 'Sign out? Your data on this device is cleared and reloads from the cloud when you sign in again.',
   'me.deleteAccount': 'Delete account',
@@ -201,6 +202,9 @@ export const en: Record<keyof typeof zh, string> = {
   'name.tooLong': 'Nickname can be at most {n} characters',
   'name.default': 'Climber',
 
+  'theme.auto': 'Automatic (system setting)',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
   'lang.auto': 'Automatic (system language)',
   'lang.zh': '中文',
   'lang.en': 'English',

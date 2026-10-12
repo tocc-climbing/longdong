@@ -11,6 +11,7 @@ import { isSent } from '../personal/model'
 import { gradePyramid, groupByMonth, monthlyCounts } from '../personal/stats'
 import { deleteTick, setFavorite, usePersonal } from '../personal/store'
 import { signOut, useCloud } from '../personal/sync'
+import { setThemeSetting, useThemeSetting, type ThemeSetting } from '../theme'
 import { deleteMyAccount, rename } from '../social/actions'
 import { NAME_MAX } from '../social/model'
 import { displayName, useSocial } from '../social/store'
@@ -44,9 +45,10 @@ export function MePage({ data }: { data: LoadedData }) {
           message={t('me.signInMessage', { providers: FACEBOOK_LOGIN_ENABLED ? `Google${t('me.or')}Facebook` : 'Google' })}
         />
       </section>
-      {/* 語言設定不需要登入 */}
+      {/* 語言、外觀設定不需要登入 */}
       <section className="card settings">
         <LanguagePicker />
+        <ThemePicker />
         <InstallButton />
       </section>
       <p className="center small">
@@ -224,6 +226,7 @@ function Settings({ uid, email }: { uid: string; email: string }) {
       <NameEditor uid={uid} />
       <p className="muted small">{t('me.emailPrivate', { email })}</p>
       <LanguagePicker />
+      <ThemePicker />
       <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
@@ -246,6 +249,22 @@ function LanguagePicker() {
         <option value="auto">{t('lang.auto')}</option>
         <option value="zh">{t('lang.zh')}</option>
         <option value="en">{t('lang.en')}</option>
+      </select>
+    </label>
+  )
+}
+
+/** 外觀：自動（依系統設定）、淺色、深色；選擇存在這台裝置上 */
+function ThemePicker() {
+  const { t } = useLang()
+  const setting = useThemeSetting()
+  return (
+    <label className="lang-picker">
+      <span>{t('me.theme')}</span>
+      <select value={setting} onChange={(e) => setThemeSetting(e.target.value as ThemeSetting)}>
+        <option value="auto">{t('theme.auto')}</option>
+        <option value="light">{t('theme.light')}</option>
+        <option value="dark">{t('theme.dark')}</option>
       </select>
     </label>
   )
