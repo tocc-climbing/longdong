@@ -123,6 +123,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* 手機瀏覽器預設的點擊反白是直角，不跟著圓角；改用各元素自己的 :active 效果 */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -2297,4 +2299,18 @@ main {
   background: var(--brand);
   color: var(--on-brand);
   transform: translateY(-50%) scale(1.06);
+}
+
+/* 觸控按下的效果（取代瀏覽器預設的直角反白），背景跟著元素本身的圓角 */
+.pager a:active,
+.area-row:active,
+.route-row:active,
+.pitch-row:active,
+.timeline-body:active,
+.chip:not([aria-pressed='true']):active {
+  background: var(--surface-2);
+}
+
+.bottom-nav a:active svg {
+  background: var(--brand-soft);
 }
