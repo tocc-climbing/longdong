@@ -71,6 +71,10 @@ export const zh = {
 
   'route.closedAlert': '此路線標示為「{label}」，請勿攀登。',
   'route.signInHint': '登入後可以收藏、記錄攀登、評分和留言。',
+  'share.button': '分享',
+  'share.copied': '已複製連結',
+  'share.failed': '無法分享',
+  'share.crag': '龍洞',
   'route.status': '路線狀態',
   'route.notRecorded': '未記錄',
   'route.lastTested': '最近拉測',

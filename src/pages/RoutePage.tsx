@@ -6,6 +6,7 @@ import { PersonalPanel } from '../components/PersonalPanel'
 import { RatingSection } from '../components/RatingSection'
 import { SignInPrompt } from '../components/SignInPrompt'
 import { SafetyLight } from '../components/SafetyLight'
+import { ShareButton } from '../components/ShareButton'
 import { StarsBadge } from '../components/Stars'
 import { useCloud } from '../personal/sync'
 import { feelConsensus, routeKey, summarize } from '../social/model'
@@ -52,6 +53,7 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
           <GradePill grade={route.grade} value={route.gradeValue} size="lg" />
           {(route.type || route.isFixture) && <span className="fact">{typeText(route, t)}</span>}
           {route.heightM && <span className="fact">{route.heightM} m</span>}
+          <ShareButton item={ref} />
         </div>
         {!route.isFixture && (
           <div className="safety-row">

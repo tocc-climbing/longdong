@@ -73,6 +73,10 @@ export const en: Record<keyof typeof zh, string> = {
 
   'route.closedAlert': 'This route is marked “{label}”. Do not climb it.',
   'route.signInHint': 'Sign in to save favorites, log climbs, rate and comment.',
+  'share.button': 'Share',
+  'share.copied': 'Link copied',
+  'share.failed': "Couldn't share",
+  'share.crag': 'Long Dong',
   'route.status': 'Status',
   'route.notRecorded': 'Not recorded',
   'route.lastTested': 'Last pull test',

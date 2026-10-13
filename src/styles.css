@@ -852,6 +852,23 @@ main {
   font-weight: 500;
 }
 
+.share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.share-button:hover,
+.share-button:active {
+  background: var(--surface-2);
+}
+
 .safety-row {
   display: flex;
   align-items: center;
