@@ -30,7 +30,7 @@
 | 任何程式碼 | `npm run typecheck`、`npm test` |
 | 匯入程式、Sheet 解析 | `npm run import -- --check`，看警告清單與各區路線數 |
 | 介面 | `npm run build` 後以瀏覽器實際檢查：手機寬度、淺色與深色、中文與英文 |
-| 資料庫規則 | `firebase deploy --only database --dry-run`；PR 描述附上與線上規則的差異 |
+| 資料庫規則 | `npm run test:rules`（Database 模擬器，需要 Java；CI 也會跑）；`firebase deploy --only database --dry-run`；PR 描述附上與線上規則的差異 |
 | 離線行為 | 以 build 結果測試：載入後斷網、重新整理，頁面與資料仍可用 |
 
 PR 描述的「驗證」寫實際做了什麼、結果如何；沒做的寫沒做。

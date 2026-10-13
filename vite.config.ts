@@ -48,5 +48,7 @@ export default defineConfig({
   ],
   test: {
     include: ['tests/**/*.test.ts'],
+    // 資料庫規則測試需要模擬器，另外以 npm run test:rules 執行（vitest.rules.config.ts）
+    exclude: ['tests/rules/**'],
   },
 })

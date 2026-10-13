@@ -8,7 +8,7 @@
           ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.hasChildren(['name', 'updatedAt'])",
           "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30" },
-          "updatedAt": { ".validate": "newData.isString()" },
+          "updatedAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$/)" },
           "$other": { ".validate": false }
         }
       },
@@ -20,7 +20,7 @@
             ".validate": "newData.hasChildren(['stars', 'updatedAt'])",
             "stars": { ".validate": "newData.val() === 1 || newData.val() === 2 || newData.val() === 3 || newData.val() === 4 || newData.val() === 5" },
             "feel": { ".validate": "newData.isString() && newData.val().matches(/^(soft|fair|hard)$/)" },
-            "updatedAt": { ".validate": "newData.isString()" },
+            "updatedAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$/)" },
             "$other": { ".validate": false }
           }
         }
@@ -40,6 +40,7 @@
         }
       },
       "reports": {
+        ".read": "auth != null && root.child('role').child(auth.uid).exists()",
         "$id": {
           ".write": "auth != null && !data.exists()",
           ".validate": "newData.hasChildren(['path', 'uid', 'createdAt']) && newData.child('uid').val() === auth.uid",
@@ -72,43 +73,30 @@
     },
 
 
-    ".read": "root.child('role').child(auth.uid).exists()",
-    ".write": "root.child('role').child(auth.uid).exists()",
-
     "routes": {
-      ".read": true,
-      "$route_id": {
-        "bolts": {
-          ".write": "auth.uid !== null"
-        }
-      }        
+      ".read": true
     },
     "role": {
       ".read": true
     },
 
     "comments": {
-      ".read": true,
-      ".write": "auth.uid !== null"
+      ".read": true
     },
     "tags": {
-      ".read": true,
-      ".write": "auth.uid !== null"
+      ".read": true
     },
 
     "topos": {
-      ".read": true,
-      ".write": "auth.uid !== null"
+      ".read": true
     },
 
     "tests": {
-      ".read": true,
-      ".write": "auth.uid !== null"
+      ".read": true
     },
 
     "tasks": {
-      ".read": true,
-      ".write": "auth.uid !== null"
+      ".read": true
     },
 
     "devices": {

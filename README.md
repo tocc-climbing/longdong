@@ -54,7 +54,9 @@ public/data/longdong.json（commit 進 repo，每次變動都有 diff 可查）
 - 收藏與攀登紀錄需要登入。本機（IndexedDB）是主要資料來源，離線也能記錄；連上雲端時雙向合併，同一筆以 `updatedAt` 較新者為準（`src/personal/`）。登出會清除裝置上的副本。
 - 評分、留言、暱稱以 REST 讀取（不需載入 Firebase SDK），Service Worker 快取最後一次讀到的內容；寫入需登入（`src/social/`）。
 - Firebase SDK 只在登入過的裝置載入。
-- 舊站規則中 `role` 底下的帳號對整個資料庫有讀寫權，可用來隱藏不當留言（設 `hidden: true`）。
+- 舊站的節點（`comments`、`tags`、`topos`、`tests`、`tasks`、`routes`）保留為公開唯讀。
+- 管理員（`role` 底下的帳號）只能從網頁端讀取檢舉，不能讀寫別人的私人資料；審核（例如隱藏不當留言，設 `hidden: true`）在 Firebase 主控台進行，主控台不受規則限制。
+- 規則測試：`npm run test:rules`（在 Database 模擬器上跑 `tests/rules/`，需要 Java；CI 也會跑）。
 
 ## 開發
 

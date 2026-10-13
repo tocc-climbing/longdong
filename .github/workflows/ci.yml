@@ -32,4 +32,12 @@ jobs:
 
       - run: npm test
 
+      # 資料庫規則測試：Database 模擬器需要 Java
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm run test:rules
+
       - run: npm run build
