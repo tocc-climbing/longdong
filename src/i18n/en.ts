@@ -96,6 +96,7 @@ export const en: Record<keyof typeof zh, string> = {
   'rescue.noCoords': 'No coordinates',
   'rescue.copy': 'Copy',
   'rescue.copied': 'Copied',
+  'rescue.copyFailed': "Couldn't copy",
   'rescue.openMap': 'Map',
   'rescue.ems': 'EMS equipment locations',
   'rescue.emsDesc': 'Each location has a sealed blue barrel (bleeding control, bandages, fracture splints, cervical collars, resuscitation equipment, etc.) and a dark green canvas bag with a spinal board. Some advanced equipment and medication is for trained personnel only.',

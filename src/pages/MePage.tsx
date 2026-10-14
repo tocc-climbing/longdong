@@ -29,32 +29,33 @@ export function MePage({ data }: { data: LoadedData }) {
   if (cloud.status === 'loading') return <p className="empty muted">{t('app.loading')}</p>
 
   return (
-    <>
-      <h1>{t('me.title')}</h1>
-      <section className="card intro-card">
-        <h2>{t('me.introTitle')}</h2>
-        <ul className="feature-list">
-          {(['log', 'fav', 'social', 'sync'] as const).map((f) => (
-            <li key={f}>
-              <strong>{t(`me.feature.${f}`)}</strong>
-              <span>{t(`me.feature.${f}Desc`)}</span>
-            </li>
-          ))}
-        </ul>
-        <SignInPrompt
-          message={t('me.signInMessage', { providers: FACEBOOK_LOGIN_ENABLED ? `Google${t('me.or')}Facebook` : 'Google' })}
-        />
-      </section>
-      {/* 語言、外觀設定不需要登入 */}
-      <section className="card settings">
-        <LanguagePicker />
-        <ThemePicker />
-        <InstallButton />
-      </section>
-      <p className="center small">
-        <a href={href.about()}>{t('footer.about')}</a>
-      </p>
-    </>
+    // 電腦版寬版面中置中，不要只佔左邊一欄
+    <div className="me-signed-out">
+        <h1>{t('me.title')}</h1>
+        <section className="card intro-card">
+          <h2>{t('me.introTitle')}</h2>
+          <ul className="feature-list">
+            {(['log', 'fav', 'social', 'sync'] as const).map((f) => (
+              <li key={f}>
+                <strong>{t(`me.feature.${f}`)}</strong>
+                <span>{t(`me.feature.${f}Desc`)}</span>
+              </li>
+            ))}
+          </ul>
+          <SignInPrompt
+            message={t('me.signInMessage', { providers: FACEBOOK_LOGIN_ENABLED ? `Google${t('me.or')}Facebook` : 'Google' })}
+          />
+        </section>
+        {/* 語言、外觀設定不需要登入 */}
+        <section className="card settings">
+          <LanguagePicker />
+          <ThemePicker />
+          <InstallButton />
+        </section>
+        <p className="center small">
+          <a href={href.about()}>{t('footer.about')}</a>
+        </p>
+    </div>
   )
 }
 

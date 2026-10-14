@@ -94,6 +94,7 @@ export const zh = {
   'rescue.noCoords': '無座標',
   'rescue.copy': '複製',
   'rescue.copied': '已複製',
+  'rescue.copyFailed': '無法複製',
   'rescue.openMap': '地圖',
   'rescue.ems': '急救器材設置點',
   'rescue.emsDesc': '每處有一個藍色密封桶（止血、包紮、骨折固定、頸圈、人工呼吸器材等）與一個墨綠色帆布袋（長背板）。部分進階醫材與藥品僅限專業人員使用。',

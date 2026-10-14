@@ -38,6 +38,8 @@ const QUALITY = 80
 
 const file = process.argv[2]
 if (!file) throw new Error('用法：npm run rescue-map -- <救援資訊圖.ai 或 .pdf>')
+// pdf.js 6 需要 Promise.withResolvers（Node.js 22 起）
+if (!('withResolvers' in Promise)) throw new Error(`需要 Node.js 22 以上（目前是 ${process.version}）`)
 
 const pdf = await getDocument({ data: new Uint8Array(readFileSync(file)) }).promise
 const page = await pdf.getPage(1)

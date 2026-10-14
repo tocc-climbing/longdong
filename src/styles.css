@@ -2342,6 +2342,12 @@ main {
   max-width: 720px;
 }
 
+/* 未登入的「我的」：介紹與設定在寬版面中置中 */
+.shell main.roomy > .me-signed-out {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 /* 路線頁尾的登入提醒：一行淡色文字 */
 .signin-hint {
   margin-top: 24px;

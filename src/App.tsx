@@ -98,7 +98,7 @@ export function App() {
       </>
     ) : !wide && page.detail ? (
       // 電腦版分享的「清單＋路線」網址，在手機上直接顯示路線頁
-      <RoutePage data={state.data} id={page.detail} />
+      <RoutePage key={page.detail} data={state.data} id={page.detail} />
     ) : (
       <PageView page={page} data={state.data} />
     )
@@ -167,7 +167,7 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
     case 'sector':
       return <SectorPage key={page.id} data={data} id={page.id} />
     case 'route':
-      return <RoutePage data={data} id={page.id} />
+      return <RoutePage key={page.id} data={data} id={page.id} />
     case 'search':
       return <SearchPage data={data} query={page.q} detail={page.detail} />
     case 'me':
@@ -271,7 +271,7 @@ function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; cl
       <a className="icon-button detail-close" href={closeHref} aria-label={t('layout.close')} title={t('layout.close')}>
         ×
       </a>
-      <RoutePage data={data} id={id} />
+      <RoutePage key={id} data={data} id={id} />
     </aside>
   )
 }

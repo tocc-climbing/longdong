@@ -89,7 +89,7 @@ export function replaceHash(hash: string): void {
 }
 
 /** 是否還在同一頁（只換了搜尋字串或右側的路線）：這時不捲回頂端 */
-function samePlace(a: Page, b: Page): boolean {
+export function samePlace(a: Page, b: Page): boolean {
   if (a.name !== b.name) return false
   if (a.name === 'route' && b.name === 'route') return a.id === b.id || isWide()
   // 沒有 id 的頁面兩邊都是 undefined；#/rescue 換到 #/rescue/<大區域> 算換頁

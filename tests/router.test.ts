@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { href, parseHash, withDetail } from '../src/router'
+import { href, parseHash, samePlace, withDetail } from '../src/router'
 
 describe('parseHash', () => {
   it('ID 可以含 "/"', () => {
@@ -43,5 +43,18 @@ describe('withDetail', () => {
     const h = withDetail(href.search('5.10 黃金'), 'longdong/9')
     expect(parseHash(h)).toEqual({ name: 'search', q: '5.10 黃金', detail: 'longdong/9' })
     expect(parseHash(withDetail(h, undefined))).toEqual({ name: 'search', q: '5.10 黃金' })
+  })
+})
+
+describe('samePlace：換頁時要不要捲回頂端', () => {
+  it('同一頁只換搜尋字串或右側路線：不捲動', () => {
+    expect(samePlace({ name: 'search', q: 'a' }, { name: 'search', q: 'ab' })).toBe(true)
+    expect(samePlace({ name: 'sector', id: 's', detail: 'r1' }, { name: 'sector', id: 's', detail: 'r2' })).toBe(true)
+  })
+
+  it('從沒有 id 換到有 id 的同名頁面算換頁（#/rescue → #/rescue/golden-valley）', () => {
+    expect(samePlace({ name: 'rescue' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
+    expect(samePlace({ name: 'rescue', id: 'back-door' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
+    expect(samePlace({ name: 'sector', id: 'a' }, { name: 'sector', id: 'b' })).toBe(false)
   })
 })

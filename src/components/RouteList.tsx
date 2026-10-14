@@ -123,7 +123,8 @@ const SORT_OPTIONS = ['default', 'grade-asc', 'grade-desc', 'rating-desc'] as co
 
 function SortSelect({ view, defaultLabel }: { view: ListView; defaultLabel: MessageKey }) {
   const { t } = useLang()
-  const value = view.sort === 'default' ? 'default' : `${view.sort}-${view.desc ? 'desc' : 'asc'}`
+  // 依編號但反向（電腦版點兩次「編號」）時不是選單裡的選項，顯示為「其他排序」，選「依編號」才會恢復
+  const value = view.sort === 'default' && !view.desc ? 'default' : `${view.sort}-${view.desc ? 'desc' : 'asc'}`
   return (
     <label className="sort-select">
       <span className="visually-hidden">{t('list.sort')}</span>

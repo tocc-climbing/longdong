@@ -113,12 +113,22 @@ function PointList({ points }: { points: RescuePoint[] }) {
 
 function PointItem({ point }: { point: RescuePoint }) {
   const { lang, t } = useLang()
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<'copied' | 'failed'>()
   useEffect(() => {
     if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 2000)
+    const timer = setTimeout(() => setCopied(undefined), 2000)
     return () => clearTimeout(timer)
   }, [copied])
+
+  // 剪貼簿不可用或被拒絕時（部分 App 內建瀏覽器）明確告知，不要讓人以為已經複製
+  const copy = async (coords: [number, number]) => {
+    try {
+      await navigator.clipboard.writeText(formatCoords(coords))
+      setCopied('copied')
+    } catch {
+      setCopied('failed')
+    }
+  }
 
   return (
     <li className="point-item">
@@ -137,9 +147,9 @@ function PointItem({ point }: { point: RescuePoint }) {
           <button
             type="button"
             className="chip"
-            onClick={() => void navigator.clipboard.writeText(formatCoords(point.coords!)).then(() => setCopied(true))}
+            onClick={() => void copy(point.coords!)}
           >
-            {copied ? t('rescue.copied') : t('rescue.copy')}
+            {copied === 'copied' ? t('rescue.copied') : copied === 'failed' ? t('rescue.copyFailed') : t('rescue.copy')}
           </button>
           <a className="chip" href={mapUrl(point.coords)} target="_blank" rel="noreferrer">
             {t('rescue.openMap')}

@@ -87,7 +87,8 @@ export const AREA_RESCUE: Record<string, { points: number[]; ems: number }> = {
   'music-hall': { points: [7], ems: 3 },
   'grand-auditorium': { points: [8], ems: 4 },
   'first-cave': { points: [8], ems: 4 },
-  'second-cave': { points: [9], ems: 4 },
+  // #9 在地圖上標示無座標，一併列出緊鄰、有座標的 #8（北側）與 #10（南側）
+  'second-cave': { points: [8, 9, 10], ems: 4 },
   'golden-valley': { points: [10], ems: 5 },
   'back-door': { points: [11, 12, 13, 14], ems: 6 },
 }
