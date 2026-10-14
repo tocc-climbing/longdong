@@ -80,111 +80,116 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
 
       {!route.isFixture && signedIn && <PersonalPanel route={route} />}
 
-      <section className="panel">
-        <dl className="kv">
-          <dt>{t('route.status')}</dt>
-          <dd>
-            {route.status ? <StatusBadge status={route.status} /> : <span className="muted">{t('route.notRecorded')}</span>}
-            {route.statusDate && <span className="muted"> {formatDate(route.statusDate)}</span>}
-          </dd>
-          <dt>{t('route.lastTested')}</dt>
-          <dd>
-            {route.lastTested ? (
+      {/* 路線欄夠寬時分成兩欄：左邊狀態與路線資訊，右邊 Bolt、評分、留言（手機上依序排列，順序不變） */}
+      <div className="route-main">
+        <section className="panel">
+          <dl className="kv">
+            <dt>{t('route.status')}</dt>
+            <dd>
+              {route.status ? <StatusBadge status={route.status} /> : <span className="muted">{t('route.notRecorded')}</span>}
+              {route.statusDate && <span className="muted"> {formatDate(route.statusDate)}</span>}
+            </dd>
+            <dt>{t('route.lastTested')}</dt>
+            <dd>
+              {route.lastTested ? (
+                <>
+                  {formatDate(route.lastTested)} <span className="muted">({ageText(route.lastTested, t)})</span>
+                </>
+              ) : (
+                <span className="muted">{t('route.noRecord')}</span>
+              )}
+            </dd>
+            {route.boltCount !== undefined && route.boltCount > 0 && (
               <>
-                {formatDate(route.lastTested)} <span className="muted">({ageText(route.lastTested, t)})</span>
+                <dt>{t('route.boltCount')}</dt>
+                <dd>{route.boltCount}</dd>
               </>
-            ) : (
-              <span className="muted">{t('route.noRecord')}</span>
             )}
-          </dd>
-          {route.boltCount !== undefined && route.boltCount > 0 && (
-            <>
-              <dt>{t('route.boltCount')}</dt>
-              <dd>{route.boltCount}</dd>
-            </>
-          )}
-          {route.firstAscent && (
-            <>
-              <dt>{t('route.firstAscent')}</dt>
-              <dd className="pre">
-                {route.firstAscent}
-                {route.firstAscentDate && <span className="muted">{'\n'}{formatDate(route.firstAscentDate)}</span>}
-              </dd>
-            </>
-          )}
-        </dl>
-      </section>
-
-      {pitches.length > 1 && (
-        <section>
-          <h2>{t('route.pitches')}</h2>
-          <ul className="route-list">
-            {pitches.map((p) => (
-              <li key={p.id}>
-                <a className={`pitch-row${p.id === route.id ? ' current' : ''}`} href={link(p.id)}>
-                  <span className="pitch-no">P{p.pitch}</span>
-                  <span className="route-name">
-                    <span className="zh">{localName(p.name, lang).main}</span>
-                    {p.heightM && <span className="en">{p.heightM} m</span>}
-                  </span>
-                  <span className="grade-line">
-                    <SafetyLight safety={p.safety} />
-                    <GradePill grade={p.grade} value={p.gradeValue} size="sm" />
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
+            {route.firstAscent && (
+              <>
+                <dt>{t('route.firstAscent')}</dt>
+                <dd className="pre">
+                  {route.firstAscent}
+                  {route.firstAscentDate && <span className="muted">{'\n'}{formatDate(route.firstAscentDate)}</span>}
+                </dd>
+              </>
+            )}
+          </dl>
         </section>
-      )}
 
-      {route.description && (
-        <section>
-          <h2>{t('route.info')}</h2>
-          <p className="pre">{route.description}</p>
-        </section>
-      )}
+        {pitches.length > 1 && (
+          <section>
+            <h2>{t('route.pitches')}</h2>
+            <ul className="route-list">
+              {pitches.map((p) => (
+                <li key={p.id}>
+                  <a className={`pitch-row${p.id === route.id ? ' current' : ''}`} href={link(p.id)}>
+                    <span className="pitch-no">P{p.pitch}</span>
+                    <span className="route-name">
+                      <span className="zh">{localName(p.name, lang).main}</span>
+                      {p.heightM && <span className="en">{p.heightM} m</span>}
+                    </span>
+                    <span className="grade-line">
+                      <SafetyLight safety={p.safety} />
+                      <GradePill grade={p.grade} value={p.gradeValue} size="sm" />
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-      {route.bolts.length > 0 && <BoltTable title="Bolt" bolts={route.bolts} data={data} />}
-      {route.anchors.length > 0 && <BoltTable title="Anchor" bolts={route.anchors} data={data} />}
+        {route.description && (
+          <section>
+            <h2>{t('route.info')}</h2>
+            <p className="pre">{route.description}</p>
+          </section>
+        )}
+      </div>
 
-      {route.anchorHardware.length > 0 && (
-        <section>
-          <h2>{t('route.anchorHardware')}</h2>
-          <ul className="plain">
-            {route.anchorHardware.map((h, i) => (
-              <li key={i}>
-                {h.item}
-                {h.quantity && ` ×${h.quantity}`}
-                {h.spec && <span className="muted"> {h.spec}</span>}
-                {h.installed && <span className="muted"> · {t('route.installedOn', { date: formatDate(h.installed) })}</span>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <div className="route-side">
+        {route.bolts.length > 0 && <BoltTable title="Bolt" bolts={route.bolts} data={data} />}
+        {route.anchors.length > 0 && <BoltTable title="Anchor" bolts={route.anchors} data={data} />}
 
-      {route.notes && (
-        <section>
-          <h2>{t('route.notes')}</h2>
-          <p className="pre small">{route.notes}</p>
-        </section>
-      )}
+        {route.anchorHardware.length > 0 && (
+          <section>
+            <h2>{t('route.anchorHardware')}</h2>
+            <ul className="plain">
+              {route.anchorHardware.map((h, i) => (
+                <li key={i}>
+                  {h.item}
+                  {h.quantity && ` ×${h.quantity}`}
+                  {h.spec && <span className="muted"> {h.spec}</span>}
+                  {h.installed && <span className="muted"> · {t('route.installedOn', { date: formatDate(h.installed) })}</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-      {!route.isFixture && (
-        <div id="rating">
-          <RatingSection routeId={route.id} />
-        </div>
-      )}
+        {route.notes && (
+          <section>
+            <h2>{t('route.notes')}</h2>
+            <p className="pre small">{route.notes}</p>
+          </section>
+        )}
 
-      <CommentsSection routeId={route.id} />
+        {!route.isFixture && (
+          <div id="rating">
+            <RatingSection routeId={route.id} />
+          </div>
+        )}
 
-      {/* 未登入時只在頁尾提醒一次，不打斷路線資料 */}
-      {!signedIn && cloudStatus !== 'loading' && (
-        <div className="signin-hint">
-          <SignInPrompt compact message={route.isFixture ? t('comments.signIn') : t('route.signInHint')} />
-        </div>
-      )}
+        <CommentsSection routeId={route.id} />
+
+        {/* 未登入時只在頁尾提醒一次，不打斷路線資料 */}
+        {!signedIn && cloudStatus !== 'loading' && (
+          <div className="signin-hint">
+            <SignInPrompt compact message={route.isFixture ? t('comments.signIn') : t('route.signInHint')} />
+          </div>
+        )}
+      </div>
     </article>
   )
 }

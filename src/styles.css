@@ -2052,7 +2052,7 @@ main {
 }
 
 .shell main.roomy {
-  max-width: 1120px;
+  max-width: 1600px;
 }
 
 .shell main.roomy .area-list {
@@ -2062,10 +2062,9 @@ main {
 .shell main.split {
   flex: 1;
   min-height: 0;
-  width: 100%;
-  /* 和其他頁面一樣置中；很寬的螢幕上清單與路線不要散到兩邊 */
-  max-width: 1560px;
-  margin: 0 auto;
+  /* 像郵件 App 的三欄：側欄、清單固定寬度，路線欄填滿到視窗右緣 */
+  max-width: none;
+  margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: minmax(380px, 1.2fr) minmax(400px, 1fr);
@@ -2075,13 +2074,6 @@ main {
 @media (min-width: 1650px) {
   .shell main.split {
     grid-template-columns: 760px minmax(400px, 1fr);
-  }
-}
-
-/* 兩欄置中、右邊還有空間時，路線欄右側也畫一條線，和左邊的分隔線對稱 */
-@media (min-width: 1808px) {
-  .shell main.split .detail-pane {
-    border-right: 1px solid var(--border);
   }
 }
 
@@ -2106,10 +2098,36 @@ main {
   border-left: 1px solid var(--border);
 }
 
-/* 很寬的螢幕上路線內容不要拉得太開 */
-.detail-pane > .route,
-.detail-pane > .detail-close {
-  max-width: 760px;
+/* 路線欄依自己的寬度排版：夠寬時路線內容分成兩欄（見下方 @container） */
+.detail-pane {
+  container: detail / inline-size;
+}
+
+@container detail (min-width: 1000px) {
+  .detail-pane > .route {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 32px;
+    align-items: start;
+    max-width: 1400px;
+  }
+
+  .detail-pane > .route > * {
+    grid-column: 1 / -1;
+  }
+
+  .detail-pane > .route > .route-main {
+    grid-column: 1;
+  }
+
+  .detail-pane > .route > .route-side {
+    grid-column: 2;
+  }
+
+  /* 右欄第一個標題和左欄第一張卡片對齊 */
+  .detail-pane > .route > .route-side > section:first-child h2 {
+    margin-top: 12px;
+  }
 }
 
 .detail-close {
