@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && tsx scripts/gen-share-pages.ts",
     "preview": "vite preview",
     "import": "tsx scripts/import-sheet.ts",
     "test": "vitest run",

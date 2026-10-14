@@ -16,7 +16,7 @@ export interface LoadedData {
   hardwareByCode: Map<string, string>
 }
 
-function index(dataset: Dataset): LoadedData {
+export function indexDataset(dataset: Dataset): LoadedData {
   const routes: RouteRef[] = []
   for (const area of dataset.areas)
     for (const sector of area.sectors) for (const route of sector.routes) routes.push({ route, sector, area })
@@ -39,7 +39,7 @@ function load(): Promise<LoadedData> {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json() as Promise<Dataset>
     })
-    .then(index)
+    .then(indexDataset)
     .catch((err) => {
       cache = undefined
       throw err

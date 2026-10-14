@@ -31,6 +31,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,json}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
+        // 路線分享頁（route/<路線ID>/）是建置後產生的靜態頁，交給網路，不要換成 App 本身
+        navigateFallbackDenylist: [/\/route\//],
         // 評分、留言、暱稱：有網路時讀最新，離線時用最後一次讀到的
         runtimeCaching: [
           {

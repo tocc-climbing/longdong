@@ -40,3 +40,6 @@ export const PROJECT_URL = 'https://www.tocc-climbing.org/rebolting-project'
 export function csvUrl(gid: string): string {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`
 }
+
+/** 網站的正式網址（結尾有 /）：分享頁的 og:url、og:image 需要完整網址 */
+export const SITE_URL = 'https://tocc-climbing.github.io/longdong/'

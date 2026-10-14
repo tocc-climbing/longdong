@@ -106,6 +106,8 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 網址用相對路徑、路由用 hash，所以放在 GitHub Pages 子路徑或自訂網域都可以。
 
+分享路線用的網址是 `route/<路線ID>/`：`npm run build` 最後替每條路線產生一個小頁面（`scripts/gen-share-pages.ts`），帶有這條路線的預覽資訊（Facebook、LINE 的預覽卡片），開啟時轉到 App 的路線頁。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
+
 ## 舊網址轉址
 
 舊站 `longdong.web.app` 與 `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）都在舊 Firebase 專案的 Hosting 上，
