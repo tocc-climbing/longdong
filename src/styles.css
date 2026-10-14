@@ -869,6 +869,91 @@ main {
   background: var(--surface-2);
 }
 
+/* 分享選單：從按鈕下方展開；按鈕靠右時往左展開 */
+.share {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.share-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 25;
+  display: grid;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+}
+
+.share-menu.right {
+  left: auto;
+  right: 0;
+}
+
+.share-menu button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.share-menu button:hover,
+.share-menu button:active {
+  background: var(--surface-2);
+}
+
+.share-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  flex: none;
+}
+
+.share-badge.line {
+  background: #06c755;
+}
+
+.share-badge.facebook {
+  background: #1877f2;
+  font-family: Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.share-badge.messenger {
+  background: linear-gradient(135deg, #0a7cff, #a033ff 60%, #ff5c87);
+}
+
+.share-badge.plain {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 .safety-row {
   display: flex;
   align-items: center;

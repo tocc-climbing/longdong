@@ -76,6 +76,8 @@ export const en: Record<keyof typeof zh, string> = {
   'share.button': 'Share',
   'share.copied': 'Link copied',
   'share.failed': "Couldn't share",
+  'share.copy': 'Copy link',
+  'share.more': 'More…',
   'share.crag': 'Long Dong',
   'route.status': 'Status',
   'route.notRecorded': 'Not recorded',

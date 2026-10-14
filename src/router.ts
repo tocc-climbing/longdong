@@ -27,6 +27,15 @@ export function upgradeId(kind: 'area' | 'route', id: string): string {
   return `${DEFAULT_CRAG}/${id}`
 }
 
+/**
+ * 分享出去的網址用查詢字串（…/longdong/?route=<路線ID>）：Facebook、Messenger 轉址時可能丟掉 # 後面的部分。
+ * 開啟時轉成 #/route/<路線ID>，順便去掉 fbclid 等查詢字串。
+ */
+export function routeFromSearch(search: string): string | undefined {
+  const id = new URLSearchParams(search).get('route')
+  return id ? upgradeId('route', id) : undefined
+}
+
 export function parseHash(hash: string): Page {
   const [rawPath, query = ''] = hash.replace(/^#/, '').split('?')
   const params = new URLSearchParams(query)
@@ -51,6 +60,12 @@ export const href = {
   route: (id: string) => `#/route/${id}`,
   me: () => '#/me',
   about: () => '#/about',
+}
+
+// 開啟分享出去的網址時轉成路線頁（必須在 href 定義之後、usePage 第一次讀網址之前）
+if (typeof location !== 'undefined') {
+  const shared = routeFromSearch(location.search)
+  if (shared) history.replaceState(null, '', location.pathname + href.route(shared))
 }
 
 /** 在網址加上（或拿掉）?r=<路線 id>，其他參數不變 */

@@ -74,6 +74,8 @@ export const zh = {
   'share.button': '分享',
   'share.copied': '已複製連結',
   'share.failed': '無法分享',
+  'share.copy': '複製連結',
+  'share.more': '更多…',
   'share.crag': '龍洞',
   'route.status': '路線狀態',
   'route.notRecorded': '未記錄',
