@@ -2062,17 +2062,26 @@ main {
 .shell main.split {
   flex: 1;
   min-height: 0;
-  max-width: none;
-  margin: 0;
+  width: 100%;
+  /* 和其他頁面一樣置中；很寬的螢幕上清單與路線不要散到兩邊 */
+  max-width: 1560px;
+  margin: 0 auto;
   padding: 0;
   display: grid;
   grid-template-columns: minmax(380px, 1.2fr) minmax(400px, 1fr);
 }
 
-/* 很寬的螢幕：清單最寬 760px，其餘給路線（路線欄延伸到視窗右緣） */
+/* 很寬的螢幕：清單最寬 760px，其餘給路線 */
 @media (min-width: 1650px) {
   .shell main.split {
     grid-template-columns: 760px minmax(400px, 1fr);
+  }
+}
+
+/* 兩欄置中、右邊還有空間時，路線欄右側也畫一條線，和左邊的分隔線對稱 */
+@media (min-width: 1808px) {
+  .shell main.split .detail-pane {
+    border-right: 1px solid var(--border);
   }
 }
 
