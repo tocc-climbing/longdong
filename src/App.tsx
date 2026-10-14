@@ -228,7 +228,7 @@ interface DesktopView {
   detail?: string
   /** 關閉右邊路線的連結 */
   closeHref: string
-  /** 不並排時用較寬的版面（首頁、分區卡片、我的） */
+  /** 不並排時用較寬的版面（首頁、分區卡片、我的、救援資訊） */
   roomy: boolean
 }
 
@@ -248,7 +248,7 @@ function desktopView(page: Page, data: LoadedData): DesktopView {
   const closeHref = withDetail(location.hash || '#/', undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
   if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me')
+  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue')
 }
 
 function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {

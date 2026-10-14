@@ -2716,3 +2716,31 @@ main {
   width: 260%;
   max-width: none;
 }
+
+/* 電腦版救援資訊：兩欄，左邊電話、該區資訊、救援點、急救器材，右邊整張救援資訊圖（捲動時固定） */
+.shell main.roomy .rescue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 28px;
+  align-items: start;
+}
+
+.shell main.roomy .rescue > * {
+  grid-column: 1;
+}
+
+.shell main.roomy .rescue > h1 {
+  grid-column: 1 / -1;
+}
+
+.shell main.roomy .rescue > .rescue-map-section {
+  grid-column: 2;
+  grid-row: 2 / span 20;
+  position: sticky;
+  top: 0;
+  margin-top: 0;
+}
+
+.shell main.roomy .rescue-map-section .map-frame {
+  max-height: calc(100vh - 120px);
+}

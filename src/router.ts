@@ -92,7 +92,8 @@ export function replaceHash(hash: string): void {
 function samePlace(a: Page, b: Page): boolean {
   if (a.name !== b.name) return false
   if (a.name === 'route' && b.name === 'route') return a.id === b.id || isWide()
-  return !('id' in a) || a.id === (b as { id: string }).id
+  // 沒有 id 的頁面兩邊都是 undefined；#/rescue 換到 #/rescue/<大區域> 算換頁
+  return (a as { id?: string }).id === (b as { id?: string }).id
 }
 
 /** 換頁時捲回頂端：手機版是整頁；電腦版是內容區與清單欄（各自捲動） */

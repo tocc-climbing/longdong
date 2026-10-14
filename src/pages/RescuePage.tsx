@@ -171,7 +171,7 @@ function FullMap() {
   const { t } = useLang()
   const [zoom, setZoom] = useState(false)
   return (
-    <section aria-labelledby="rescue-map">
+    <section className="rescue-map-section" aria-labelledby="rescue-map">
       <div className="section-head">
         <h2 id="rescue-map">{t('rescue.map')}</h2>
         <button type="button" className="chip" aria-pressed={zoom} onClick={() => setZoom((z) => !z)}>
