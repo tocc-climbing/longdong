@@ -28,7 +28,7 @@ export default defineConfig({
       },
       workbox: {
         // App 和完整路線資料一起預先快取，沒有訊號也能使用
-        globPatterns: ['**/*.{js,css,html,svg,png,json}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,json}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         // 路線分享頁（route/<路線ID>/）是建置後產生的靜態頁，交給網路，不要換成 App 本身

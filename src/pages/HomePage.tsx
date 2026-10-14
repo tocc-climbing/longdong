@@ -1,6 +1,7 @@
 import type { LoadedData } from '../data/dataset'
 import { GradeDistribution } from '../components/Charts'
 import { InstallBanner } from '../components/InstallPrompt'
+import { RescueEntry } from '../components/RescueButton'
 import { gradeDistribution, typeSummary } from '../format'
 import { href } from '../router'
 import { localName, useLang } from '../i18n'
@@ -11,6 +12,7 @@ export function HomePage({ data }: { data: LoadedData }) {
   return (
     <>
       <InstallBanner />
+      <RescueEntry />
       <ul className="area-list">
         {data.dataset.areas.map((area) => {
           const routes = area.sectors.flatMap((s) => s.routes).filter((r) => !r.isFixture)

@@ -11,6 +11,7 @@ import { AboutPage } from './pages/AboutPage'
 import { AreaPage, SectorPage } from './pages/AreaPage'
 import { HomePage } from './pages/HomePage'
 import { MePage } from './pages/MePage'
+import { RescuePage } from './pages/RescuePage'
 import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
 import { loadRatings, useSocial } from './social/store'
@@ -171,6 +172,8 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
       return <SearchPage data={data} query={page.q} detail={page.detail} />
     case 'me':
       return <MePage data={data} />
+    case 'rescue':
+      return <RescuePage data={data} areaKey={page.id} />
     case 'about':
       return <AboutPage data={data} />
     default:

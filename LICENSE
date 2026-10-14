@@ -29,3 +29,7 @@ under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
 
 The TOCC logo (`assets/tocc-logo.png` and the app icons derived from it in
 `public/icons/`) belongs to TOCC and is not covered by the MIT license.
+
+The Long Dong rescue map and the images derived from it (`public/rescue/`), and
+the rescue information in `src/data/rescue.ts`, come from the TOCC Long Dong EMS
+Project, belong to TOCC and are not covered by the MIT license.

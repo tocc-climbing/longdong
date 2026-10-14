@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Area, LocalizedName, Route, Sector } from '../data/schema'
 import { GradeDistribution } from '../components/Charts'
+import { RescueButton } from '../components/RescueButton'
 import { RouteList } from '../components/RouteList'
 import { gradeDistribution, sectorColor, typeSummary } from '../format'
 import { localName, useLang } from '../i18n'
@@ -16,7 +17,7 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
 
   return (
     <>
-      <Title name={area.name} color={area.color} />
+      <Title name={area.name} color={area.color} areaId={area.id} />
       <p className="muted small page-sub">
         {area.sectors.length > 1 && `${t('count.sectors', { n: area.sectors.length })} · `}
         {t('count.routes', { n: routeCount })}
@@ -58,15 +59,18 @@ function SectorCard({ sector, color }: { sector: Sector; color?: string }) {
   )
 }
 
-/** 區域、分區頁的標題：識別色圓點＋依語言排列的名稱 */
-function Title({ name, color }: { name: LocalizedName; color?: string }) {
+/** 區域、分區頁的標題：識別色圓點＋依語言排列的名稱，右側是所在大區域的「救援」按鈕 */
+function Title({ name, color, areaId }: { name: LocalizedName; color?: string; areaId: string }) {
   const { lang } = useLang()
   const n = localName(name, lang)
   return (
-    <h1>
-      {color && <span className="color-dot" style={{ background: color }} aria-hidden />}
-      {n.main} {n.sub && <span className="en">{n.sub}</span>}
-    </h1>
+    <div className="page-title">
+      <h1>
+        {color && <span className="color-dot" style={{ background: color }} aria-hidden />}
+        {n.main} {n.sub && <span className="en">{n.sub}</span>}
+      </h1>
+      <RescueButton areaId={areaId} />
+    </div>
   )
 }
 
@@ -85,7 +89,7 @@ export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
       <nav className="crumbs">
         <a href={href.area(area.id)}>{localName(area.name, lang).main}</a>
       </nav>
-      <Title name={sector.name} color={areaSectorColor(area, sector)} />
+      <Title name={sector.name} color={areaSectorColor(area, sector)} areaId={area.id} />
       <SectorRoutes data={data} sector={sector} />
     </>
   )

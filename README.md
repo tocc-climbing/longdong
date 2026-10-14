@@ -108,6 +108,18 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 分享路線用的網址是 `route/<路線ID>/`：`npm run build` 最後替每條路線產生一個小頁面（`scripts/gen-share-pages.ts`），帶有這條路線的預覽資訊（Facebook、LINE 的預覽卡片），開啟時轉到 App 的路線頁。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
 
+## 救援資訊
+
+首頁與各區域頁的「救援」按鈕進入救援資訊（`#/rescue`、`#/rescue/<大區域>`）：緊急電話、通報群組、該區的救援局部圖與就近救援點、整張救援資訊圖、救援點 GPS 座標、急救器材位置，全部在離線快取裡。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
+
+救援資訊圖改版時，用新的 `.ai`（或 `.pdf`）重新產生圖片（需要 Node.js 22 以上）：
+
+```bash
+npm run rescue-map -- <救援資訊圖.ai>
+```
+
+版面若有變動，腳本會停下來，調整 `scripts/gen-rescue-map.ts` 裡各大區域的裁切範圍；救援點座標改了要一併更新 `src/data/rescue.ts`。
+
 ## 舊網址轉址
 
 舊站 `longdong.web.app` 與 `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）都在舊 Firebase 專案的 Hosting 上，
@@ -118,4 +130,5 @@ Firebase 保留路徑（`/__/auth/handler` 等）不受影響，登入照常運�
 
 - 程式碼：[MIT](LICENSE)
 - TOCC 標誌與由其產生的 App 圖示（`assets/`、`public/icons/`）：屬臺灣戶外攀岩協會所有，不適用 MIT
+- 龍洞岩場救援資訊圖與由其產生的圖片（`public/rescue/`）、救援資訊（`src/data/rescue.ts`）：來自 TOCC 龍洞岩場救援計畫，屬臺灣戶外攀岩協會所有，不適用 MIT
 - 路線資料（`public/data/`）：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)，© 臺灣戶外攀岩協會（TOCC）固定點更新計畫
