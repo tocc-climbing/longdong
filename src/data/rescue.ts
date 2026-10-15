@@ -58,7 +58,11 @@ export interface EmsLocation {
   where: LocalizedName
 }
 
-/** 6 處急救器材設置點：每處有藍色密封桶（急救器材）與墨綠色帆布袋（長背板） */
+/**
+ * 6 處急救器材設置點：每處有藍色密封桶（急救器材）與墨綠色帆布袋（長背板）。
+ * 2026-10-15 依救援團隊更新：#3 由音樂廳演奏臺移到長巷最深處、#5 改為黃金谷中央區小木屋
+ * （TOCC 救援計畫頁與救援資訊圖可能仍是舊位置）。
+ */
 export const EMS_LOCATIONS: EmsLocation[] = [
   { no: 1, name: { zh: '校門口', en: 'School Gate' }, where: { zh: '左側洞穴內', en: 'Inside the boulder cave at the left side' } },
   {
@@ -66,13 +70,9 @@ export const EMS_LOCATIONS: EmsLocation[] = [
     name: { zh: '鐘塔', en: 'Clocktower' },
     where: { zh: '總統頭像山後方洞穴內', en: 'Inside the tunnel at the left side to the base of Four Presidents' },
   },
-  { no: 3, name: { zh: '音樂廳', en: 'Music Hall' }, where: { zh: '演奏臺', en: 'On the Recital Hall' } },
+  { no: 3, name: { zh: '長巷', en: 'Long Lane' }, where: { zh: '最深處', en: 'At the far end of the lane' } },
   { no: 4, name: { zh: '第一洞', en: 'First Cave' }, where: { zh: '洞內最深處', en: 'At the end of the cave' } },
-  {
-    no: 5,
-    name: { zh: '黃金谷', en: 'Golden Valley' },
-    where: { zh: '黃金谷小徑下切到底後左轉的石塊與林投下方', en: 'Underneath the boulders and bushes on the left side of Golden Valley trail' },
-  },
+  { no: 5, name: { zh: '黃金谷', en: 'Golden Valley' }, where: { zh: '中央區小木屋', en: 'In the small cabin in the central area' } },
   { no: 6, name: { zh: '後門', en: 'Back Door' }, where: { zh: '鱷魚岬與老人牆內角洞穴內', en: 'In the alcove between Crocodile Cape and Old Man Wall' } },
 ]
 
