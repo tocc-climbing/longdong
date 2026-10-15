@@ -4,6 +4,7 @@ import { BottomNav } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
 import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
+import { whenActive } from './freshness'
 import { localName, useLang, type Lang } from './i18n'
 import { defaultLevel, keyNav, type Level } from './keyboard'
 import { useWide } from './layout'
@@ -29,11 +30,18 @@ export function App() {
     offlineReady: [offlineReady],
     needRefresh: [needRefresh],
     updateServiceWorker,
-  } = useRegisterSW()
+  } = useRegisterSW({
+    // 回到前景、恢復網路、使用中每小時檢查新版本（App 從背景回來不會重新載入，只在載入時檢查會一直收不到）
+    onRegisteredSW(_url, registration) {
+      if (registration) whenActive(() => void registration.update().catch(() => {}), { gapMs: 60_000, intervalMs: 60 * 60_000 })
+    },
+  })
 
-  // 評分（路線清單顯示平均星等）在背景載入；離線時用 Service Worker 快取的上一份
+  // 評分（路線清單顯示平均星等）在背景載入；離線時用 Service Worker 快取的上一份。
+  // 從背景回來時重新讀取，看得到別人新的評分
   useEffect(() => {
     void loadRatings()
+    return whenActive(() => void loadRatings(true), { gapMs: 5 * 60_000, intervalMs: 30 * 60_000 })
   }, [])
 
   const data = state.status === 'ready' ? state.data : undefined

@@ -6,7 +6,7 @@ export const en: Record<keyof typeof zh, string> = {
   'app.loading': 'Loading…',
   'app.loadError': "Couldn't load route data ({error}).",
   'app.firstUseNeedsNetwork': 'The first visit needs a connection; after that the app works offline.',
-  'app.updateAvailable': 'New route data available',
+  'app.updateAvailable': 'A new version is available',
   'app.update': 'Update',
   'app.notFound': 'Page not found.',
   'app.backHome': 'Back to home',
