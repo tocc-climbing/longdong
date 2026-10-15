@@ -2777,3 +2777,29 @@ main {
 .shell main.roomy .rescue-map-section .map-frame {
   max-height: calc(100vh - 120px);
 }
+
+/* 救援頁「我的位置」 */
+.my-location h2 {
+  margin-top: 0;
+}
+
+.my-coords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.my-coords .mono {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.warn {
+  color: var(--warn);
+}
+
+.near-item {
+  grid-template-columns: 2rem minmax(0, 1fr);
+}

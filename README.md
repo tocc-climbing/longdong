@@ -110,7 +110,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 ## 救援資訊
 
-首頁與各區域頁的「救援」按鈕進入救援資訊（`#/rescue`、`#/rescue/<大區域>`）：緊急電話、通報群組、該區的救援局部圖與就近救援點、整張救援資訊圖、救援點 GPS 座標、急救器材位置，全部在離線快取裡。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
+首頁與各區域頁的「救援」按鈕進入救援資訊（`#/rescue`、`#/rescue/<大區域>`）：緊急電話、通報群組、該區的救援局部圖與就近救援點、整張救援資訊圖、救援點 GPS 座標、急救器材位置，全部在離線快取裡。「我的位置」用手機 GPS 取得目前座標（可複製唸給 119），並列出最近的救援點、距離與方位（`src/geo.ts`）；GPS 不需要網路。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
 
 救援資訊圖改版時，用新的 `.ai`（或 `.pdf`）重新產生圖片（需要 Node.js 22 以上）：
 

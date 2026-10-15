@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { CopyButton } from '../components/CopyButton'
+import { MyLocation } from '../components/MyLocation'
 import type { LoadedData } from '../data/dataset'
 import {
   AREA_RESCUE,
@@ -49,6 +51,8 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
           </li>
         </ul>
       </section>
+
+      <MyLocation />
 
       {area && local && areaKey && (
         <section className="rescue-area" aria-labelledby="rescue-area">
@@ -113,23 +117,6 @@ function PointList({ points }: { points: RescuePoint[] }) {
 
 function PointItem({ point }: { point: RescuePoint }) {
   const { lang, t } = useLang()
-  const [copied, setCopied] = useState<'copied' | 'failed'>()
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(undefined), 2000)
-    return () => clearTimeout(timer)
-  }, [copied])
-
-  // 剪貼簿不可用或被拒絕時（部分 App 內建瀏覽器）明確告知，不要讓人以為已經複製
-  const copy = async (coords: [number, number]) => {
-    try {
-      await navigator.clipboard.writeText(formatCoords(coords))
-      setCopied('copied')
-    } catch {
-      setCopied('failed')
-    }
-  }
-
   return (
     <li className="point-item">
       <span className="point-no" aria-hidden>
@@ -144,13 +131,7 @@ function PointItem({ point }: { point: RescuePoint }) {
       </span>
       {point.coords && (
         <span className="point-actions">
-          <button
-            type="button"
-            className="chip"
-            onClick={() => void copy(point.coords!)}
-          >
-            {copied === 'copied' ? t('rescue.copied') : copied === 'failed' ? t('rescue.copyFailed') : t('rescue.copy')}
-          </button>
+          <CopyButton text={formatCoords(point.coords)} />
           <a className="chip" href={mapUrl(point.coords)} target="_blank" rel="noreferrer">
             {t('rescue.openMap')}
           </a>
