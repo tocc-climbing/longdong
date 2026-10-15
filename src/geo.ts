@@ -35,6 +35,12 @@ export interface NearbyPoint {
   direction: Direction
 }
 
+/**
+ * 離最近的救援點超過這個距離，就不在龍洞岩場附近：救援點涵蓋的範圍南北約 1.3 公里，
+ * 在步道、停車場、龍洞村都在 1 公里內。
+ */
+export const NEAR_CRAG_M = 1000
+
 /** 最近的幾個救援點（只算有座標的），由近到遠 */
 export function nearestPoints(here: LatLng, points: RescuePoint[], count: number): NearbyPoint[] {
   return points

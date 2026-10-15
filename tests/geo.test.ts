@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RESCUE_POINTS } from '../src/data/rescue'
-import { bearingDeg, direction, distanceM, nearestPoints } from '../src/geo'
+import { NEAR_CRAG_M, bearingDeg, direction, distanceM, nearestPoints } from '../src/geo'
 
 describe('距離與方位', () => {
   it('距離：緯度差 0.001 度約 111 公尺；同一點為 0', () => {
@@ -43,3 +43,17 @@ describe('最近的救援點', () => {
     expect(near.map((n) => n.point.no)).not.toContain(13)
   })
 })
+
+describe('是否在龍洞岩場附近', () => {
+  const nearest = (lat: number, lng: number) => nearestPoints([lat, lng], RESCUE_POINTS, 1)[0].distance
+  it('岩場、龍洞村、步道入口都在範圍內', () => {
+    expect(nearest(25.1067, 121.922483)).toBeLessThan(NEAR_CRAG_M) // 黃金谷
+    expect(nearest(25.1105, 121.9135)).toBeLessThan(NEAR_CRAG_M) // 龍洞村（安檢所西南方約 220 公尺）
+  })
+
+  it('台北、福隆都不在範圍內', () => {
+    expect(nearest(25.033, 121.5654)).toBeGreaterThan(NEAR_CRAG_M)
+    expect(nearest(25.0163, 121.9446)).toBeGreaterThan(NEAR_CRAG_M)
+  })
+})
+

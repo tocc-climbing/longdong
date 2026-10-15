@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
-import { nearestPoints, type LatLng } from '../geo'
+import { NEAR_CRAG_M, nearestPoints, type LatLng } from '../geo'
 import { localName, useLang, type Translate } from '../i18n'
 import { CopyButton } from './CopyButton'
 
@@ -102,25 +102,39 @@ export function MyLocation() {
           </p>
           {geo.accuracy > POOR_ACCURACY_M && <p className="small warn">{t('myloc.poor')}</p>}
 
-          <h3>{t('myloc.nearest')}</h3>
-          <ul className="list-card point-list">
-            {nearestPoints(geo.coords, RESCUE_POINTS, 3).map(({ point, distance, direction }) => (
-              <li key={`${point.no}-${point.name.zh}`} className="point-item near-item">
-                <span className="point-no" aria-hidden>
-                  {point.no}
-                </span>
-                <span className="point-body">
-                  <span className="point-name">
-                    <span className="visually-hidden">#{point.no} </span>
-                    {localName(point.name, lang).main}
-                  </span>
-                  <span className="small">{t('myloc.away', { dir: t(`dir.${direction}`), dist: formatDistance(distance, t) })}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <NearestPoints here={geo.coords} />
         </>
       )}
     </section>
+  )
+}
+
+/** 最近的救援點；不在龍洞岩場附近（最近的救援點超過 1 公里）時不列出，只說明距離 */
+function NearestPoints({ here }: { here: LatLng }) {
+  const { lang, t } = useLang()
+  const near = nearestPoints(here, RESCUE_POINTS, 3)
+  if (near.length === 0 || near[0].distance > NEAR_CRAG_M) {
+    return <p className="muted small">{t('myloc.outside', { dist: near[0] ? formatDistance(near[0].distance, t) : '' })}</p>
+  }
+  return (
+    <>
+      <h3>{t('myloc.nearest')}</h3>
+      <ul className="list-card point-list">
+        {near.map(({ point, distance, direction }) => (
+          <li key={`${point.no}-${point.name.zh}`} className="point-item near-item">
+            <span className="point-no" aria-hidden>
+              {point.no}
+            </span>
+            <span className="point-body">
+              <span className="point-name">
+                <span className="visually-hidden">#{point.no} </span>
+                {localName(point.name, lang).main}
+              </span>
+              <span className="small">{t('myloc.away', { dir: t(`dir.${direction}`), dist: formatDistance(distance, t) })}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }
