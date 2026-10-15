@@ -104,7 +104,7 @@ export const zh = {
   'rescue.call119': '消防、救護',
   'rescue.call112': '自家電信沒訊號也能撥',
   'rescue.call118': '海巡',
-  'rescue.line': '龍洞岩場意外事故通報 LINE 群組',
+  'rescue.line': '龍洞岩場意外事故通報 LINE 社群',
   'rescue.linePassword': '加入密碼：{password}',
   'rescue.report': '意外事件回報表單',
   'rescue.areaTitle': '{area}的救援資訊',

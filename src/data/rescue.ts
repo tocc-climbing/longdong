@@ -11,7 +11,8 @@ export const RESCUE_SOURCE = {
   projectUrl: 'https://www.tocc-climbing.org/ems-project',
   /** 救援計畫書（約 100MB 的 PDF，不放進離線資料） */
   handbookUrl: 'https://www.tocc-climbing.org/_files/ugd/a65be6_7d036a2bf7574815b8870cc0d5788610.pdf',
-  lineGroupUrl: 'http://line.me/ti/g/90rbYfRpwN',
+  /** 「龍洞岩場意外事故通報社群(新)」；TOCC 救援計畫頁上的是舊群組（2026-10-15 更新） */
+  lineGroupUrl: 'https://line.me/ti/g2/yNQP-eP_OiI7Ja292782IKVPjtHuySCZgbKWjQ',
   lineGroupPassword: 'TOCC',
   reportFormUrl: 'https://forms.gle/XsEMmdx1hjF8RVyd8',
 }

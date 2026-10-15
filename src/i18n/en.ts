@@ -106,7 +106,7 @@ export const en: Record<keyof typeof zh, string> = {
   'rescue.call119': 'Fire & ambulance',
   'rescue.call112': 'Works without your own carrier’s signal',
   'rescue.call118': 'Coast Guard',
-  'rescue.line': 'LINE group for Long Dong accident reports',
+  'rescue.line': 'LINE community for Long Dong accident reports',
   'rescue.linePassword': 'Password: {password}',
   'rescue.report': 'Accident report form',
   'rescue.areaTitle': 'Rescue information: {area}',
