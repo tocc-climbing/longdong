@@ -60,8 +60,8 @@ export interface EmsLocation {
 
 /**
  * 6 處急救器材設置點：每處有藍色密封桶（急救器材）與墨綠色帆布袋（長背板）。
- * 2026-10-15 依救援團隊更新：#3 由音樂廳演奏臺移到長巷最深處、#5 改為黃金谷中央區小木屋
- * （TOCC 救援計畫頁與救援資訊圖可能仍是舊位置）。
+ * 2026-10-15 依救援團隊更新：#3 由音樂廳演奏臺移到長巷最深處、#5 改為黃金谷中央區小木屋，
+ * 與救援資訊圖 2026 年 7 月版的器材位置一致（TOCC 救援計畫頁的文字仍是舊位置）。
  */
 export const EMS_LOCATIONS: EmsLocation[] = [
   { no: 1, name: { zh: '校門口', en: 'School Gate' }, where: { zh: '左側洞穴內', en: 'Inside the boulder cave at the left side' } },
