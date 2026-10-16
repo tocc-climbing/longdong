@@ -66,10 +66,10 @@ describe('gradeDistribution', () => {
 import { sectorColor, typeSummary } from '../src/format'
 
 describe('typeSummary', () => {
-  it('簡化為運攀與傳攀/其他，固定點不計', () => {
+  it('簡化為運攀與傳攀／其他，固定點不計', () => {
     expect(
       typeSummary([{ type: 'sport' }, { type: 'sport' }, { type: 'trad' }, { type: 'boulder' }, { type: 'toprope' }, { isFixture: true }], tz),
-    ).toBe('運攀 2 · 傳攀/其他 3')
+    ).toBe('運攀 2 · 傳攀／其他 3')
     expect(typeSummary([{ type: 'trad' }], te)).toBe('Trad/other 1')
     expect(typeSummary([], tz)).toBe('')
   })
