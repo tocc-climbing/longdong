@@ -72,3 +72,31 @@ export function feelConsensus(summary: RatingSummary | undefined): Feel | undefi
 
 export const COMMENT_MAX = 1000
 export const NAME_MAX = 30
+
+/**
+ * 暱稱的標準寫法：相容字元正規化（全形英數字、全形空白轉半形）、去掉看不見的零寬字元、
+ * 連續空白合併成一個、去掉頭尾空白。存進資料庫的一律是這個寫法。
+ */
+export function normalizeName(input: string): string {
+  return input
+    .normalize('NFKC')
+    .replace(/[​-‍⁠﻿]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * 比對暱稱是否重複用的 key：標準寫法轉小寫，再把 Realtime Database key 不能用的字元轉成 %XX。
+ * 算法必須和 firebase/database.rules.json 裡的完全相同（規則測試會檢查）。
+ */
+export function nameKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/%/g, '%25')
+    .replace(/\./g, '%2E')
+    .replace(/\$/g, '%24')
+    .replace(/#/g, '%23')
+    .replace(/\[/g, '%5B')
+    .replace(/\]/g, '%5D')
+    .replace(/\//g, '%2F')
+}

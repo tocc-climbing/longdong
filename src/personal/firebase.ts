@@ -22,7 +22,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { get, getDatabase, onValue, push, ref, remove, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
-import { routeKey, type Feel } from '../social/model'
+import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
 
 const app = initializeApp({
   // 前端用的公開設定（不是密鑰）；存取權限由 Realtime Database 規則控管
@@ -113,18 +113,61 @@ export function watchConnected(callback: (connected: boolean) => void): Unsubscr
 
 /* ---------- 社群：評分、留言、暱稱（讀取走 REST，見 social/store.ts） ---------- */
 
-/** 第一次登入時建立暱稱（預設 Google 名稱），已有就不動。回傳目前的暱稱 */
-export async function ensureProfile(uid: string, fallbackName: string): Promise<{ name: string; updatedAt: string }> {
-  const r = ref(db, `v2/profiles/${uid}`)
-  const snap = await get(r)
-  if (snap.exists()) return snap.val()
-  const profile = { name: (fallbackName || '岩友').slice(0, 30), updatedAt: new Date().toISOString() }
-  await set(r, profile)
+/** 暱稱已經有人使用（比對方式見 social/model 的 nameKey） */
+export class NameTakenError extends Error {
+  constructor() {
+    super('name taken')
+  }
+}
+
+type Profile = { name: string; updatedAt: string }
+
+async function nameOwner(key: string): Promise<string | null> {
+  return (await get(ref(db, `v2/names/${key}`))).val()
+}
+
+/**
+ * 登記暱稱並更新個人資料（v2/names 與 v2/profiles 一次寫入，資料庫規則保證不重複）；
+ * 改名時同時釋放舊的暱稱。name 必須是 normalizeName 之後的寫法。
+ */
+export async function claimName(uid: string, name: string): Promise<Profile> {
+  const key = nameKey(name)
+  const owner = await nameOwner(key)
+  if (owner && owner !== uid) throw new NameTakenError()
+  const profile = { name, updatedAt: new Date().toISOString() }
+  const paths: Record<string, unknown> = { [`v2/profiles/${uid}`]: profile }
+  // 已經是自己的（例如只改大小寫）就不用再登記
+  if (owner !== uid) paths[`v2/names/${key}`] = uid
+  const current: Profile | null = (await get(ref(db, `v2/profiles/${uid}`))).val()
+  if (current) {
+    const oldKey = nameKey(current.name)
+    if (oldKey !== key && (await nameOwner(oldKey)) === uid) paths[`v2/names/${oldKey}`] = null
+  }
+  try {
+    await update(ref(db), paths)
+  } catch (err) {
+    // 預先檢查之後才被別人搶先登記：資料庫規則拒絕
+    if (/permission_denied/i.test(String((err as Error).message))) throw new NameTakenError()
+    throw err
+  }
   return profile
 }
 
-export function saveProfile(uid: string, name: string): Promise<void> {
-  return set(ref(db, `v2/profiles/${uid}`), { name, updatedAt: new Date().toISOString() })
+/** 第一次登入時建立暱稱（預設 Google 名稱），已有就不動；名稱已有人使用時依序加上 2、3…。回傳目前的暱稱 */
+export async function ensureProfile(uid: string, fallbackName: string): Promise<Profile> {
+  const snap = await get(ref(db, `v2/profiles/${uid}`))
+  if (snap.exists()) return snap.val()
+  const base = normalizeName(fallbackName) || '岩友'
+  for (let n = 1; n <= 50; n++) {
+    const suffix = n === 1 ? '' : ` ${n}`
+    const name = normalizeName(base.slice(0, NAME_MAX - suffix.length)) + suffix
+    try {
+      return await claimName(uid, name)
+    } catch (err) {
+      if (!(err instanceof NameTakenError)) throw err
+    }
+  }
+  throw new NameTakenError()
 }
 
 export function saveRating(uid: string, routeId: string, rating: { stars: number; feel?: Feel; updatedAt: string } | null): Promise<void> {

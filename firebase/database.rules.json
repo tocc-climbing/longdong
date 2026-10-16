@@ -1,15 +1,27 @@
 {
   "rules": {
-
     "v2": {
       "profiles": {
         ".read": true,
         "$uid": {
           ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.hasChildren(['name', 'updatedAt'])",
-          "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30" },
-          "updatedAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$/)" },
-          "$other": { ".validate": false }
+          "name": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30 && !newData.val().beginsWith(' ') && !newData.val().endsWith(' ') && !newData.val().contains('  ') && !newData.val().contains('\u200b') && !newData.val().contains('\u200c') && !newData.val().contains('\u200d') && !newData.val().contains('\u2060') && !newData.val().contains('\ufeff') && !newData.val().contains('\u3000') && !newData.val().contains('\u00a0') && !newData.val().matches(/[\uff01-\uff5e]/) && newData.parent().parent().parent().child('names').child(newData.val().toLowerCase().replace('%', '%25').replace('.', '%2E').replace('$', '%24').replace('#', '%23').replace('[', '%5B').replace(']', '%5D').replace('/', '%2F')).val() === $uid && (!data.exists() || data.val().toLowerCase().replace('%', '%25').replace('.', '%2E').replace('$', '%24').replace('#', '%23').replace('[', '%5B').replace(']', '%5D').replace('/', '%2F') === newData.val().toLowerCase().replace('%', '%25').replace('.', '%2E').replace('$', '%24').replace('#', '%23').replace('[', '%5B').replace(']', '%5D').replace('/', '%2F') || newData.parent().parent().parent().child('names').child(data.val().toLowerCase().replace('%', '%25').replace('.', '%2E').replace('$', '%24').replace('#', '%23').replace('[', '%5B').replace(']', '%5D').replace('/', '%2F')).val() !== $uid)"
+          },
+          "updatedAt": {
+            ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$/)"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "names": {
+        ".read": true,
+        "$key": {
+          ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || (data.exists() && data.val() === auth.uid && !newData.exists()))",
+          ".validate": "newData.isString() && newData.parent().parent().child('profiles').child(auth.uid).child('name').val().toLowerCase().replace('%', '%25').replace('.', '%2E').replace('$', '%24').replace('#', '%23').replace('[', '%5B').replace(']', '%5D').replace('/', '%2F') === $key"
         }
       },
       "ratings": {
@@ -18,10 +30,18 @@
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && $route.length <= 100",
             ".validate": "newData.hasChildren(['stars', 'updatedAt'])",
-            "stars": { ".validate": "newData.val() === 1 || newData.val() === 2 || newData.val() === 3 || newData.val() === 4 || newData.val() === 5" },
-            "feel": { ".validate": "newData.isString() && newData.val().matches(/^(soft|fair|hard)$/)" },
-            "updatedAt": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$/)" },
-            "$other": { ".validate": false }
+            "stars": {
+              ".validate": "newData.val() === 1 || newData.val() === 2 || newData.val() === 3 || newData.val() === 4 || newData.val() === 5"
+            },
+            "feel": {
+              ".validate": "newData.isString() && newData.val().matches(/^(soft|fair|hard)$/)"
+            },
+            "updatedAt": {
+              ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$/)"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         }
       },
@@ -31,11 +51,21 @@
           "$id": {
             ".write": "auth != null && $route.length <= 100 && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('uid').val() === auth.uid))",
             ".validate": "newData.hasChildren(['uid', 'text', 'createdAt'])",
-            "uid": { ".validate": "newData.isString()" },
-            "text": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1000" },
-            "createdAt": { ".validate": "newData.val() === now || (data.exists() && newData.val() === data.val())" },
-            "hidden": { ".validate": "newData.isBoolean()" },
-            "$other": { ".validate": false }
+            "uid": {
+              ".validate": "newData.isString()"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1000"
+            },
+            "createdAt": {
+              ".validate": "newData.val() === now || (data.exists() && newData.val() === data.val())"
+            },
+            "hidden": {
+              ".validate": "newData.isBoolean()"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         }
       },
@@ -44,11 +74,21 @@
         "$id": {
           ".write": "auth != null && !data.exists()",
           ".validate": "newData.hasChildren(['path', 'uid', 'createdAt']) && newData.child('uid').val() === auth.uid",
-          "path": { ".validate": "newData.isString() && newData.val().length <= 200" },
-          "uid": { ".validate": "newData.isString()" },
-          "reason": { ".validate": "newData.isString() && newData.val().length <= 500" },
-          "createdAt": { ".validate": "newData.val() === now" },
-          "$other": { ".validate": false }
+          "path": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          },
+          "uid": {
+            ".validate": "newData.isString()"
+          },
+          "reason": {
+            ".validate": "newData.isString() && newData.val().length <= 500"
+          },
+          "createdAt": {
+            ".validate": "newData.val() === now"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       },
       "personal": {
@@ -71,41 +111,33 @@
         }
       }
     },
-
-
     "routes": {
       ".read": true
     },
     "role": {
       ".read": true
     },
-
     "comments": {
       ".read": true
     },
     "tags": {
       ".read": true
     },
-
     "topos": {
       ".read": true
     },
-
     "tests": {
       ".read": true
     },
-
     "tasks": {
       ".read": true
     },
-
     "devices": {
       "$user_id": {
         ".read": "$user_id === auth.uid",
         ".write": "$user_id === auth.uid"
       }
     },
-
     "users": {
       "$user_id": {
         ".read": "$user_id === auth.uid",

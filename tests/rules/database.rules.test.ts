@@ -9,6 +9,7 @@
 import { readFileSync } from 'node:fs'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestContext, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
+import { nameKey } from '../../src/social/model'
 
 /** context.database() 是相容版（compat）的 Database */
 type Database = ReturnType<RulesTestContext['database']>
@@ -61,7 +62,9 @@ beforeEach(async () => {
       devices: { alice: { d1: true } },
       v2: {
         personal: { alice: { ticks: { t1: tick('t1') } } },
-        profiles: { alice: { name: 'Alice', updatedAt: iso() } },
+        // carol 是暱稱不重複之前建立的，沒有登記在 names
+        profiles: { alice: { name: 'Alice', updatedAt: iso() }, carol: { name: 'Carol', updatedAt: iso() } },
+        names: { alice: 'alice' },
         ratings: { [ROUTE]: { alice: { stars: 4, updatedAt: iso() } } },
         comments: { [ROUTE]: { m1: { uid: 'alice', text: '好爬', createdAt: 1 } } },
         reports: { rep1: { path: `v2/comments/${ROUTE}/m1`, uid: 'mallory', createdAt: 1 } },
@@ -120,9 +123,10 @@ describe('公開欄位的 updatedAt 只接受 toISOString() 格式', () => {
   const huge = 'x'.repeat(100_000)
 
   it('暱稱：拒絕巨大字串與其他格式', async () => {
-    await assertFails(set(mallory, 'v2/profiles/mallory', { name: 'M', updatedAt: huge }))
-    await assertFails(set(mallory, 'v2/profiles/mallory', { name: 'M', updatedAt: '2026-10-12' }))
-    await assertSucceeds(set(mallory, 'v2/profiles/mallory', { name: 'M', updatedAt: iso() }))
+    const profile = (updatedAt: string) => update(mallory, { 'v2/names/m': 'mallory', 'v2/profiles/mallory': { name: 'M', updatedAt } })
+    await assertFails(profile(huge))
+    await assertFails(profile('2026-10-12'))
+    await assertSucceeds(profile(iso()))
   })
 
   it('評分：拒絕巨大字串，接受 App 寫入的格式', async () => {
@@ -167,9 +171,57 @@ describe('既有行為不變', () => {
       update(alice, {
         'v2/personal/alice': null,
         'v2/profiles/alice': null,
+        'v2/names/alice': null,
         [`v2/ratings/${ROUTE}/alice`]: null,
         [`v2/comments/${ROUTE}/m1`]: null,
       }),
     )
   })
 })
+
+describe('暱稱不能重複（不分大小寫、看起來一樣的寫法視為相同）', () => {
+  /** App 的寫法：同時登記 names 與更新 profile；release 為要釋放的舊暱稱 */
+  const claim = (db: Database, uid: string, name: string, release?: string) =>
+    update(db, {
+      [`v2/names/${nameKey(name)}`]: uid,
+      [`v2/profiles/${uid}`]: { name, updatedAt: iso() },
+      ...(release ? { [`v2/names/${nameKey(release)}`]: null } : {}),
+    })
+
+  it('新暱稱可以登記；別人的暱稱不能用（大小寫不同也算重複）', async () => {
+    await assertSucceeds(claim(mallory, 'mallory', 'Mallory'))
+    await assertFails(claim(mallory, 'mallory', 'ALICE'))
+  })
+
+  it('個人資料的暱稱必須登記在 names；不能只佔用 names 而不使用', async () => {
+    await assertFails(set(mallory, 'v2/profiles/mallory', { name: 'Mallory', updatedAt: iso() }))
+    await assertFails(set(mallory, 'v2/names/somebody', 'mallory'))
+  })
+
+  it('不能存看起來一樣的寫法：頭尾空白、連續空白、零寬字元、全形英數字、全形空白', async () => {
+    for (const name of ['Mallory ', ' Mallory', 'Mal  lory', 'Mal\u200blory', '\uff2dallory', 'Mal\u3000lory', 'Mal\u00a0lory']) {
+      await assertFails(claim(mallory, 'mallory', name))
+    }
+  })
+
+  it('改暱稱時必須釋放舊的；只改大小寫不用重新登記', async () => {
+    await assertFails(claim(alice, 'alice', 'Alicia'))
+    await assertSucceeds(claim(alice, 'alice', 'Alicia', 'Alice'))
+    await assertSucceeds(update(alice, { 'v2/profiles/alice': { name: 'ALICIA', updatedAt: iso() } }))
+  })
+
+  it('不能刪除別人的登記；自己的可以', async () => {
+    await assertFails(remove(mallory, 'v2/names/alice'))
+    await assertSucceeds(update(alice, { 'v2/names/alice': null, 'v2/profiles/alice': null }))
+  })
+
+  it('舊帳號（沒有登記 names）改暱稱：登記新的即可', async () => {
+    const carol = env.authenticatedContext('carol').database()
+    await assertSucceeds(claim(carol, 'carol', 'Caroline'))
+  })
+
+  it('App 與資料庫規則算出的 key 相同（含資料庫 key 不能用的字元）', async () => {
+    await assertSucceeds(claim(mallory, 'mallory', 'a.b$c#d[e]f/g%h'))
+  })
+})
+

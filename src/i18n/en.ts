@@ -253,7 +253,7 @@ export const en: Record<keyof typeof zh, string> = {
   'me.dayUnit': '',
   'me.removeFav': 'Remove favorite',
   'me.nickname': 'Nickname',
-  'me.nicknameHint': 'shown on your ratings and comments',
+  'me.nicknameHint': 'shown on your comments; must be unique',
   'me.emailPrivate': '{email} (private)',
   'me.language': 'Language',
   'me.theme': 'Appearance',
@@ -270,6 +270,7 @@ export const en: Record<keyof typeof zh, string> = {
   'me.deleteError': 'Delete failed ({error})',
   'name.empty': "Nickname can't be empty",
   'name.tooLong': 'Nickname can be at most {n} characters',
+  'name.taken': 'That nickname is already taken — please choose another',
   'name.default': 'Climber',
 
   'theme.auto': 'Automatic (system setting)',

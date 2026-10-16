@@ -1,5 +1,5 @@
 import { deleteAccount, withCloud } from '../personal/sync'
-import { COMMENT_MAX, NAME_MAX, type Comment, type Feel, type Rating } from './model'
+import { COMMENT_MAX, NAME_MAX, nameKey, normalizeName, type Comment, type Feel, type Rating } from './model'
 import { t } from '../i18n'
 import { get, loadComments, loadRatings, setLocalProfile, setLocalRating } from './store'
 
@@ -31,13 +31,19 @@ export async function report(routeId: string, id: string, reason: string): Promi
   await m.reportComment(uid, routeId, id, reason.trim())
 }
 
-export async function rename(name: string): Promise<void> {
-  const value = name.trim()
+/** 改暱稱：整理成標準寫法（去掉多餘空白、全形轉半形等），不能和別人的重複（不分大小寫）；回傳實際存下的暱稱 */
+export async function rename(name: string): Promise<string> {
+  const value = normalizeName(name)
   if (!value) throw new Error(t('name.empty'))
   if (value.length > NAME_MAX) throw new Error(t('name.tooLong', { n: NAME_MAX }))
   const { m, uid } = await withCloud()
-  await m.saveProfile(uid, value)
-  setLocalProfile(uid, { name: value, updatedAt: new Date().toISOString() })
+  try {
+    setLocalProfile(uid, await m.claimName(uid, value))
+  } catch (err) {
+    if (err instanceof m.NameTakenError) throw new Error(t('name.taken'))
+    throw err
+  }
+  return value
 }
 
 /**
@@ -46,13 +52,19 @@ export async function rename(name: string): Promise<void> {
  */
 export async function deleteMyAccount(): Promise<void> {
   const { uid } = await withCloud()
-  const [ratings, comments] = await Promise.all([
+  const [ratings, comments, profile] = await Promise.all([
     get<Record<string, Record<string, Rating>>>('v2/ratings'),
     get<Record<string, Record<string, Omit<Comment, 'id'>>>>('v2/comments'),
+    get<{ name: string }>(`v2/profiles/${uid}`),
   ])
   const paths: Record<string, null> = {
     [`v2/personal/${uid}`]: null,
     [`v2/profiles/${uid}`]: null,
+  }
+  // 釋放暱稱，讓別人可以使用
+  if (profile) {
+    const key = nameKey(profile.name)
+    if ((await get<string>(`v2/names/${key}`)) === uid) paths[`v2/names/${key}`] = null
   }
   for (const [route, byUser] of Object.entries(ratings ?? {})) {
     if (byUser[uid]) paths[`v2/ratings/${route}/${uid}`] = null

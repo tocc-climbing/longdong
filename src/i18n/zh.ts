@@ -250,7 +250,7 @@ export const zh = {
   'me.dayUnit': '日',
   'me.removeFav': '移除收藏',
   'me.nickname': '暱稱',
-  'me.nicknameHint': '留言和評分會顯示',
+  'me.nicknameHint': '留言時會顯示，不能和別人重複',
   'me.emailPrivate': '{email}（不公開）',
   'me.language': '語言',
   'me.theme': '外觀',
@@ -266,6 +266,7 @@ export const zh = {
   'me.deleteError': '刪除失敗（{error}）',
   'name.empty': '暱稱不能空白',
   'name.tooLong': '暱稱最多 {n} 字',
+  'name.taken': '這個暱稱已經有人使用，請換一個',
   'name.default': '岩友',
 
   'theme.auto': '自動（依系統設定）',

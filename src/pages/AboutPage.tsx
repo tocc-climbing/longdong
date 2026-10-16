@@ -46,7 +46,7 @@ export function AboutPage({ data }: { data: LoadedData }) {
 
           <h2>帳號與隱私</h2>
           <p>
-            登入使用 Google 帳號。收藏和攀登紀錄只有你自己看得到；評分和留言會公開，顯示你設定的暱稱，Email 不會公開。
+            登入使用 Google 帳號。收藏和攀登紀錄只有你自己看得到；留言會公開並顯示你設定的暱稱；評分在畫面上只顯示平均與人數。Email 不會公開。
             資料存放在臺灣戶外攀岩協會的 Firebase 專案。不當留言可以按「檢舉」，由管理員處理。{legal}
           </p>
 
@@ -70,8 +70,8 @@ export function AboutPage({ data }: { data: LoadedData }) {
 
           <h2>Account & privacy</h2>
           <p>
-            Sign in with Google. Your climb log and favorites are private; ratings and comments are public under your nickname, and your
-            email is never shown. Data is stored in TOCC's Firebase project. Use “Report” on inappropriate comments and a moderator will
+            Sign in with Google. Your climb log and favorites are private; comments are public under your nickname, and ratings are
+            shown only as an average and count. Your email is never shown. Data is stored in TOCC's Firebase project. Use “Report” on inappropriate comments and a moderator will
             review them. {legal}
           </p>
 

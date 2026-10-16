@@ -283,7 +283,8 @@ function NameEditor({ uid }: { uid: string }) {
         e.preventDefault()
         setState({ busy: true })
         try {
-          await rename(value)
+          // 存下的是整理過的寫法（去掉多餘空白、全形轉半形），輸入框也換成那個寫法
+          setValue(await rename(value))
           setState({ saved: true })
         } catch (err) {
           setState({ error: (err as Error).message })
