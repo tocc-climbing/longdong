@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { RouteRef } from '../src/data/dataset'
 import { translate } from '../src/i18n'
+import { en } from '../src/i18n/en'
+import { zh } from '../src/i18n/zh'
 import { routeFromSearch } from '../src/router'
 import { routeUrl, shareText, targetUrl } from '../src/share'
 
@@ -38,14 +40,14 @@ ${url}`)
   })
 
   it('分享文字：編號、名稱、難度、岩場與區域', () => {
-    const zh = (k: Parameters<typeof translate>[1]) => translate('zh', k)
-    const en = (k: Parameters<typeof translate>[1]) => translate('en', k)
-    expect(shareText(ref(10, '102', '5.9'), 'zh', zh)).toBe('#102 拉斯塔法里海鳥 5.9｜龍洞 黃金谷 · 貓屋')
-    expect(shareText(ref(10, '102', '5.9'), 'en', en)).toBe('#102 Rastafarian Seabirds 5.9｜Long Dong Golden Valley · The Cathouse')
+    const tz = (k: Parameters<typeof translate>[1]) => translate(zh, k)
+    const te = (k: Parameters<typeof translate>[1]) => translate(en, k)
+    expect(shareText(ref(10, '102', '5.9'), 'zh', tz)).toBe('#102 拉斯塔法里海鳥 5.9｜龍洞 黃金谷 · 貓屋')
+    expect(shareText(ref(10, '102', '5.9'), 'en', te)).toBe('#102 Rastafarian Seabirds 5.9｜Long Dong Golden Valley · The Cathouse')
   })
 
   it('沒有編號、難度時省略；只有一個區域的大區域不重複區域名', () => {
-    const zh = (k: Parameters<typeof translate>[1]) => translate('zh', k)
-    expect(shareText(ref(1), 'zh', zh)).toBe('拉斯塔法里海鳥｜龍洞 黃金谷')
+    const tz = (k: Parameters<typeof translate>[1]) => translate(zh, k)
+    expect(shareText(ref(1), 'zh', tz)).toBe('拉斯塔法里海鳥｜龍洞 黃金谷')
   })
 })

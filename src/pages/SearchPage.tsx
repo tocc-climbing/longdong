@@ -4,10 +4,15 @@ import { RouteList } from '../components/RouteList'
 import { useWide } from '../layout'
 import { href, replaceHash } from '../router'
 import { buildIndex, search } from '../search'
-import { useLang } from '../i18n'
+import { useLang, type Lang } from '../i18n'
 
 const MAX_RESULTS = 100
-const EXAMPLES = { zh: ['5.10a', '黃金谷', 'Olive Branch', '523'], en: ['5.10a', 'Golden Valley', 'Olive Branch', '523'] }
+const EXAMPLES: Record<Lang, string[]> = {
+  zh: ['5.10a', '黃金谷', 'Olive Branch', '523'],
+  en: ['5.10a', 'Golden Valley', 'Olive Branch', '523'],
+  // 日文的「黄」與路線資料的「黃」是不同字，用英文名稱當例子
+  ja: ['5.10a', 'Golden Valley', 'Olive Branch', '523'],
+}
 
 /** 搜尋字串放在網址（#/search?q=），從路線頁按返回時結果還在；電腦版的搜尋框在左側欄 */
 export function SearchPage({ data, query, detail }: { data: LoadedData; query: string; detail?: string }) {

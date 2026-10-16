@@ -41,3 +41,8 @@ jobs:
       - run: npm run test:rules
 
       - run: npm run build
+
+      # 各語言的文字有沒有超出元件（用 runner 內建的 Chrome 打開 production build）
+      - run: npm run check:text
+        env:
+          BROWSER_CHANNEL: chrome

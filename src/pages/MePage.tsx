@@ -6,7 +6,7 @@ import { InstallButton } from '../components/InstallPrompt'
 import { RouteRow } from '../components/RouteRow'
 import { FACEBOOK_LOGIN_ENABLED, SignInPrompt } from '../components/SignInPrompt'
 import { relativeTime } from '../format'
-import { localName, monthTitle, setLangSetting, useLang, type LangSetting } from '../i18n'
+import { LANGS, localName, monthTitle, setLangSetting, useLang, type LangSetting } from '../i18n'
 import { isSent } from '../personal/model'
 import { gradePyramid, groupByMonth, monthlyCounts } from '../personal/stats'
 import { deleteTick, setFavorite, usePersonal } from '../personal/store'
@@ -246,10 +246,13 @@ function LanguagePicker() {
   return (
     <label className="lang-picker">
       <span>{t('me.language')}</span>
-      <select value={setting} onChange={(e) => setLangSetting(e.target.value as LangSetting)}>
+      <select value={setting} onChange={(e) => void setLangSetting(e.target.value as LangSetting)}>
         <option value="auto">{t('lang.auto')}</option>
-        <option value="zh">{t('lang.zh')}</option>
-        <option value="en">{t('lang.en')}</option>
+        {LANGS.map((l) => (
+          <option key={l} value={l}>
+            {t(`lang.${l}`)}
+          </option>
+        ))}
       </select>
     </label>
   )

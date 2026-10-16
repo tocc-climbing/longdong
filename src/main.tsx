@@ -4,6 +4,7 @@ import './theme'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { initI18n } from './i18n'
 import { startCloud } from './personal/sync'
 import './styles.css'
 
@@ -13,8 +14,11 @@ navigator.storage?.persist?.().catch(() => {})
 // 曾經登入過的裝置，自動恢復雲端同步（沒登入過的不會載入 Firebase）
 startCloud()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+// 先載入目前語言的語言包再顯示畫面（語言包分開打包，只載入用到的那一個）
+void initI18n().then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  ),
 )

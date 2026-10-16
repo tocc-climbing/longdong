@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { NEAR_CRAG_M, nearestPoints, type LatLng } from '../geo'
-import { localName, useLang, type Translate } from '../i18n'
+import { LOCALES, localName, useLang, type Translate } from '../i18n'
 import { CopyButton } from './CopyButton'
 
 /** 誤差超過這個距離（公尺）時提醒到開闊處 */
@@ -97,7 +97,7 @@ export function MyLocation() {
           <p className="muted small" role="status">
             {t('myloc.accuracy', {
               m: Math.round(geo.accuracy),
-              time: new Date(geo.time).toLocaleTimeString(lang === 'zh' ? 'zh-TW' : 'en', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              time: new Date(geo.time).toLocaleTimeString(LOCALES[lang], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             })}
           </p>
           {geo.accuracy > POOR_ACCURACY_M && <p className="small warn">{t('myloc.poor')}</p>}

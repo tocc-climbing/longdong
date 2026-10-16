@@ -1,7 +1,7 @@
-import type { zh } from './zh'
+import type { Messages } from '.'
 
-/** English UI text. Must have exactly the same keys as zh.ts (enforced by the type). */
-export const en: Record<keyof typeof zh, string> = {
+/** English UI text. Must have exactly the same keys as zh.ts (enforced by the Messages type). */
+export const en: Messages = {
   'app.title': 'Long Dong Climbing',
   'app.loading': 'Loading…',
   'app.loadError': 'Couldn’t load route data ({error})',
@@ -279,6 +279,7 @@ export const en: Record<keyof typeof zh, string> = {
   'lang.auto': 'Automatic (system language)',
   'lang.zh': '中文',
   'lang.en': 'English',
+  'lang.ja': '日本語',
 
   'chart.pyramidEmpty': 'Your sends by grade will appear here',
   'chart.pyramidAria': 'Routes sent by grade',
@@ -314,6 +315,12 @@ export const en: Record<keyof typeof zh, string> = {
   'search.try': 'Try:',
 
   'about.title': 'About',
+  'about.dataUpdated': 'Data updated',
+  'about.dataVersion': 'Data version',
+  'about.dataLicense': 'Data license',
+  'about.codeLicense': 'Code license',
+  'about.safety': 'Safety rating',
+  'about.materials': 'Bolt material codes',
 
   'install.title': 'Add to home screen',
   'install.desc': 'Open it from your home screen like an app — works without signal at Long Dong',

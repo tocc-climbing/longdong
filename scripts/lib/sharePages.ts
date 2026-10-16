@@ -1,6 +1,7 @@
 import type { RouteRef } from '../../src/data/dataset'
 import { typeText } from '../../src/format'
 import { localName, translate } from '../../src/i18n'
+import { zh } from '../../src/i18n/zh'
 import { href } from '../../src/router'
 import { sharePagePath } from '../../src/share'
 
@@ -10,7 +11,8 @@ import { sharePagePath } from '../../src/share'
  * 裡面放這條路線的預覽資訊（Open Graph），開啟時立刻轉到 App 的路線頁。
  */
 
-const t = (key: Parameters<typeof translate>[1], vars?: Record<string, string | number>) => translate('zh', key, vars)
+// 預覽卡片用中文
+const t = (key: Parameters<typeof translate>[1], vars?: Record<string, string | number>) => translate(zh, key, vars)
 
 const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 

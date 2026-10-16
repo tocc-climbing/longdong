@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { Bolt, Route } from '../src/data/schema'
 import { quickdraws, typeText } from '../src/format'
 import { translate } from '../src/i18n'
+import { en } from '../src/i18n/en'
+import { zh } from '../src/i18n/zh'
 
-const tz = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate('zh', k, v)
-const te = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate('en', k, v)
+const tz = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate(zh, k, v)
+const te = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate(en, k, v)
 
 const bolt = (position: string, material = '316-TW'): Bolt => ({ position, material, tests: [] })
 const route = (over: Partial<Route>): Route => ({

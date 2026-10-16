@@ -1,4 +1,4 @@
-/** 中文介面文字。英文版（en.ts）必須有完全相同的 key，型別檢查會確保沒有漏翻。 */
+/** 中文介面文字。這份的 key 是所有語言的標準：其他語言（en.ts、ja.ts）的型別是 Messages，型別檢查會確保沒有漏翻或多出 key。 */
 export const zh = {
   'app.title': '龍洞攀岩資料庫',
   'app.loading': '載入中…',
@@ -275,6 +275,7 @@ export const zh = {
   'lang.auto': '自動（依系統語言）',
   'lang.zh': '中文',
   'lang.en': 'English',
+  'lang.ja': '日本語',
 
   'chart.pyramidEmpty': '完攀路線後，這裡會依難度顯示完攀數量',
   'chart.pyramidAria': '各難度完攀路線數',
@@ -310,6 +311,12 @@ export const zh = {
   'search.try': '試試看：',
 
   'about.title': '關於',
+  'about.dataUpdated': '資料更新',
+  'about.dataVersion': '資料版本',
+  'about.dataLicense': '資料授權',
+  'about.codeLicense': '程式授權',
+  'about.safety': '安全評級',
+  'about.materials': '材質代號',
 
   'install.title': '安裝到主畫面',
   'install.desc': '從主畫面像 App 一樣開啟，在龍洞沒有訊號也能使用',

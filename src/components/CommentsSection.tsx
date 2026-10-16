@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useCloud } from '../personal/sync'
 import { postComment, removeComment, report } from '../social/actions'
-import { useLang } from '../i18n'
+import { LOCALES, useLang } from '../i18n'
 import { COMMENT_MAX } from '../social/model'
 import { displayName, useComments, useSocial } from '../social/store'
 
@@ -93,7 +93,7 @@ export function CommentsSection({ routeId }: { routeId: string }) {
             <li key={c.id}>
               <div className="comment-meta">
                 <strong>{displayName(social.profiles, c.uid)}</strong>
-                <span className="muted small">{new Date(c.createdAt).toLocaleDateString(lang === 'zh' ? 'zh-TW' : 'en')}</span>
+                <span className="muted small">{new Date(c.createdAt).toLocaleDateString(LOCALES[lang])}</span>
                 {uid === c.uid ? (
                   <button className="link-button" onClick={() => void onDelete(c.id)}>
                     {t('comments.delete')}

@@ -109,6 +109,14 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 分享路線用的網址是 `route/<路線ID>/`：`npm run build` 最後替每條路線產生一個小頁面（`scripts/gen-share-pages.ts`），帶有這條路線的預覽資訊（Facebook、LINE 的預覽卡片），開啟時轉到 App 的路線頁。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
 
+## 介面語言
+
+中文、English、日本語。預設依系統語言，可在「我的」設定切換。語言包分開打包（`src/i18n/<語言>.ts`），只載入目前使用的那一個；關於頁的長篇說明也依語言分檔（`src/pages/about/`）。
+
+- 新增語言：見 `src/i18n/index.ts` 開頭的說明；新語言包的型別為 `Messages`，key 和中文不一致時型別檢查會失敗
+- 用詞：區域（area）、分區（sector）；按鈕、標題與單句訊息不加句號，兩句以上的說明才加
+- `npm run check:text`：用瀏覽器打開各語言 × 手機與電腦寬度 × 主要頁面，檢查文字有沒有超出元件或把按鈕擠成兩行
+
 ## 救援資訊
 
 首頁與各區域頁的「救援」按鈕進入救援資訊（`#/rescue`、`#/rescue/<大區域>`）：緊急電話、通報群組、該區的救援局部圖與就近救援點、整張救援資訊圖、救援點 GPS 座標、急救器材位置，全部在離線快取裡。「我的位置」用手機 GPS 取得目前座標（可複製唸給 119），並列出最近的救援點、距離與方位（`src/geo.ts`）；GPS 不需要網路。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
