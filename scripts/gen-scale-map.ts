@@ -90,8 +90,18 @@ const AREA_FILLS: Record<string, string> = {
   '#e2b2b2': 'back-door',
 }
 
-/** 簡化線條的容許誤差（點，約 0.3 公尺） */
-const SIMPLIFY_PT = 0.4
+/**
+ * 線條的點：換算是逐點做的，兩點之間的長邊在換算後仍是直線，不會跟著彎；
+ * 所以先把每條邊切成不超過 DENSIFY_PT 的小段再換算，換算後再以 SIMPLIFY_M 去掉多餘的點（放大後也平滑）。
+ */
+const DENSIFY_PT = 3
+const SIMPLIFY_M = 0.15
+/** 9 個區域放大看得最多，去點更細 */
+const AREA_SIMPLIFY_M = 0.04
+/** 曲線切成幾段：控制點折線每 CURVE_STEP_PT 一段，至少 8 段、最多 64 段 */
+const CURVE_STEP_PT = 1.5
+/** 陸地超出頁面的部分是圖面裁切的邊，不是海岸：往外推這麼遠（點），讓陸地自然延伸出畫面 */
+const OFF_PAGE_PUSH_PT = 3000
 
 // ── 讀出向量圖形 ──────────────────────────────────────────────
 
@@ -161,8 +171,10 @@ function readShapes(fnArray: number[], argsArray: unknown[][]): Shape[] {
           j += 3
         } else if (op === 2) {
           const [x0, y0] = last
-          for (let k = 1; k <= 8; k++) {
-            const t = k / 8
+          const hull = Math.hypot(data[j + 1] - x0, data[j + 2] - y0) + Math.hypot(data[j + 3] - data[j + 1], data[j + 4] - data[j + 2]) + Math.hypot(data[j + 5] - data[j + 3], data[j + 6] - data[j + 4])
+          const steps = Math.min(64, Math.max(8, Math.ceil((hull * Math.hypot(m[0], m[1])) / CURVE_STEP_PT)))
+          for (let k = 1; k <= steps; k++) {
+            const t = k / steps
             const u = 1 - t
             const bez = (p0: number, p1: number, p2: number, p3: number) => u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3
             current.push(toPage(bez(x0, data[j + 1], data[j + 3], data[j + 5]), bez(y0, data[j + 2], data[j + 4], data[j + 6])))
@@ -392,11 +404,62 @@ for (let round = 0; round < 2; round++) {
 for (const m of CURVE_MATCHES) console.log(`沿線參考點：${m.note} 取樣 ${m.samples.length} 個`)
 console.log(`沿線參考點共 ${curvePoints.length} 個`)
 const warp = buildWarp([...CONTROL_POINTS, ...curvePoints])
-/** 圖上位置 → GeoJSON 的 [經度, 緯度]（小數 6 位，約 0.1 公尺） */
-const toLngLat = (p: Pt): Pt => {
-  const [e, n] = warp(p)
-  return [+(lng0 + e / metersPerDegLng).toFixed(6), +(lat0 + n / metersPerDegLat).toFixed(6)]
+/** 換算後的公尺座標 → GeoJSON 的 [經度, 緯度]（小數 6 位，約 0.1 公尺） */
+const metersToLngLat = ([e, n]: Pt): Pt => [+(lng0 + e / metersPerDegLng).toFixed(6), +(lat0 + n / metersPerDegLat).toFixed(6)]
+/** 圖上位置 → GeoJSON 的 [經度, 緯度] */
+const toLngLat = (p: Pt): Pt => metersToLngLat(warp(p))
+
+/** 把每條邊切成不超過 step 的小段 */
+function densify(points: Pt[], step: number): Pt[] {
+  const out: Pt[] = [points[0]]
+  for (let i = 1; i < points.length; i++) {
+    const [a, b] = [points[i - 1], points[i]]
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step))
+    for (let k = 1; k <= n; k++) out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n])
+  }
+  return out
 }
+
+/**
+ * 圓滑：救援資訊圖的區域與海岸多半是直線段組成的多邊形，放大後轉角很生硬。
+ * 用向心 Catmull–Rom 樣條通過原本的每個頂點（形狀不變），頂點之間改成平滑曲線；向心參數化不會在尖角處繞圈。
+ */
+function smoothRing(ring: Pt[], step: number): Pt[] {
+  const closed = ring.length > 2 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]
+  const pts = closed ? ring.slice(0, -1) : ring
+  const n = pts.length
+  if (n < 3) return ring
+  const at = (i: number) => (closed ? pts[(i + n) % n] : pts[Math.max(0, Math.min(n - 1, i))])
+  const out: Pt[] = []
+  const segments = closed ? n : n - 1
+  for (let i = 0; i < segments; i++) {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)]
+    const knot = (a: Pt, b: Pt) => Math.max(1e-6, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])))
+    const t1 = knot(p0, p1)
+    const t2 = t1 + knot(p1, p2)
+    const t3 = t2 + knot(p2, p3)
+    const k = Math.max(1, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / step))
+    out.push(p1)
+    for (let j = 1; j < k; j++) {
+      const t = t1 + ((t2 - t1) * j) / k
+      const lerp = (a: Pt, b: Pt, ta: number, tb: number): Pt => [((tb - t) * a[0] + (t - ta) * b[0]) / (tb - ta), ((tb - t) * a[1] + (t - ta) * b[1]) / (tb - ta)]
+      const a1 = lerp(p0, p1, 0, t1)
+      const a2 = lerp(p1, p2, t1, t2)
+      const a3 = lerp(p2, p3, t2, t3)
+      const b1 = lerp(a1, a2, 0, t2)
+      const b2 = lerp(a2, a3, t1, t3)
+      out.push(lerp(b1, b2, t1, t2))
+    }
+  }
+  out.push(closed ? pts[0] : pts[n - 1])
+  return out
+}
+/** 圓滑時每段不超過幾點 */
+const SMOOTH_STEP_PT = 1.5
+
+/** 陸地的頁面外頂點往外推（見 OFF_PAGE_PUSH_PT） */
+const pushOffPage = (ring: Pt[]): Pt[] =>
+  ring.map(([x, y]) => [x < 0 ? x - OFF_PAGE_PUSH_PT : x, y > PAGE_SIZE[1] ? y + OFF_PAGE_PUSH_PT : y])
 
 /** Douglas–Peucker 簡化折線 */
 function simplify(points: Pt[], tolerance: number): Pt[] {
@@ -414,14 +477,14 @@ function simplify(points: Pt[], tolerance: number): Pt[] {
   return [...simplify(points.slice(0, index + 1), tolerance).slice(0, -1), ...simplify(points.slice(index), tolerance)]
 }
 
-const line = (s: Pt[]) => simplify(s, SIMPLIFY_PT).map(toLngLat)
-const ring = (s: Pt[]) => {
-  const r = line(s)
+const line = (s: Pt[], tolerance = SIMPLIFY_M) => simplify(densify(s, DENSIFY_PT).map(warp), tolerance).map(metersToLngLat)
+const ring = (s: Pt[], tolerance = SIMPLIFY_M) => {
+  const r = line(s, tolerance)
   if (r[0][0] !== r[r.length - 1][0] || r[0][1] !== r[r.length - 1][1]) r.push(r[0])
   return r
 }
 const polygons = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(p)]))
-const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).map(line))
+const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).map((p) => line(p)))
 const feature = (properties: Record<string, string | number>, geometry: object) => ({ type: 'Feature', properties, geometry })
 const point = (properties: Record<string, string | number>, at: Pt) => feature(properties, { type: 'Point', coordinates: toLngLat(at) })
 
@@ -440,7 +503,7 @@ const scaleMap = {
   type: 'FeatureCollection',
   source,
   features: [
-    feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: polygons(land) }),
+    feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)))])) }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
     feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed)) }),
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
@@ -458,7 +521,7 @@ const areas = {
   type: 'FeatureCollection',
   source,
   features: Object.entries(AREA_FILLS).map(([fill, key]) =>
-    feature({ id: key }, { type: 'MultiPolygon', coordinates: polygons(areaShapes.filter((s) => s.fill === fill)) }),
+    feature({ id: key }, { type: 'MultiPolygon', coordinates: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M)])) }),
   ),
 }
 
