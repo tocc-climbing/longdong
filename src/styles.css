@@ -2925,22 +2925,42 @@ main.map > div {
   position: absolute;
   top: 12px;
   left: 12px;
+  right: 68px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .sm-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  height: 36px;
+  padding: 0 14px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #a86a00;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  background: #ffffff;
+  color: #3c4043;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.sm-chip.beta {
+  color: #a86a00;
+}
+
+.sm-chip.report {
+  background: #1a73e8;
+  color: #ffffff;
+}
+
+.sm-chip.on {
+  color: #1a73e8;
+  box-shadow: inset 0 0 0 2px #1a73e8, 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .sm-chip-dot {
@@ -2983,51 +3003,48 @@ main.map > div {
   }
 }
 
-.sm-bottom-left {
+.scale-map-legend {
   position: absolute;
   left: 12px;
   bottom: var(--map-bottom, 16px);
   display: flex;
-  gap: 8px;
-}
-
-.sm-report {
-  background: #1a73e8;
-  color: #ffffff;
-  height: 52px;
-  padding: 0 20px;
-  font-size: 1rem;
-}
-
-.sm-track {
-  height: 52px;
-}
-
-.scale-map-legend {
-  position: absolute;
-  left: 50%;
-  bottom: calc(var(--map-bottom, 16px) + 64px);
-  transform: translateX(-50%);
-  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
+  gap: 4px;
+  padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
-  font-size: 0.75rem;
-  color: #231815;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: #3c4043;
   pointer-events: none;
 }
 
+.sm-attribution {
+  position: absolute;
+  top: 60px;
+  right: 8px;
+  margin: 0;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.75);
+  color: #5f6368;
+  font-size: 0.625rem;
+  line-height: 1.4;
+}
+
+.sm-attribution a {
+  color: inherit;
+}
+
 .sm-bar {
-  height: 3px;
-  background: #231815;
+  height: 2px;
+  background: #3c4043;
 }
 
 /* 回報後的提示、定位錯誤 */
 .map-toast {
   position: absolute;
-  top: 64px;
+  top: 104px;
   left: 50%;
   transform: translateX(-50%);
   width: max-content;

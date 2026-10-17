@@ -116,17 +116,15 @@ export function MapPage({ data }: { data: LoadedData }) {
           track={records.track.map((f) => f.coords)}
           onLocate={() => geo.status !== 'ok' && geo.status !== 'locating' && start()}
           topLeft={
-            <button type="button" className="sm-chip" onClick={() => setIntro(true)}>
-              {t('map.beta')}
-              {pending && <span className="sm-chip-dot" aria-label={t('map.pending')} />}
-            </button>
-          }
-          bottomLeft={
             <>
-              <button type="button" className="sm-control sm-report" onClick={() => setReporting(true)}>
+              <button type="button" className="sm-chip beta" onClick={() => setIntro(true)}>
+                {t('map.beta')}
+                {pending && <span className="sm-chip-dot" aria-label={t('map.pending')} />}
+              </button>
+              <button type="button" className="sm-chip report" onClick={() => setReporting(true)}>
                 {t('map.report')}
               </button>
-              <button type="button" className={`sm-control sm-track${tracking ? ' on' : ''}`} onClick={toggleTrack} aria-pressed={tracking}>
+              <button type="button" className={`sm-chip${tracking ? ' on' : ''}`} onClick={toggleTrack} aria-pressed={tracking}>
                 {t(tracking ? 'map.trackStop' : 'map.trackStart')}
               </button>
             </>

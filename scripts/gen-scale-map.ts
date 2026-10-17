@@ -43,13 +43,38 @@ const RESCUE_PINS: { name: string; at: Pt }[] = [
 /** 現場校正加入的控制點（圖上位置 ↔ 現場量到的 GPS），note 寫明是哪裡、誰量的 */
 const FIELD_POINTS: { note: string; at: Pt; gps: Pt }[] = []
 
-const CONTROL_POINTS: { at: Pt; gps: Pt }[] = [
+/**
+ * 參考點：圖上容易對應的地物 ↔ OpenStreetMap 的座標（© OpenStreetMap contributors，ODbL），校正岩場以外的道路與停車場。
+ * 救援資訊圖本身是示意圖、OSM 也有幾公尺誤差，所以不要求完全通過，允許 REFERENCE_SLACK 的鬆弛。
+ * 圖上位置：隧道為台二線虛線段的兩端；停車場為 P 字中心；台二線轉彎為該段道路往東西南北最突出的一點。
+ */
+const REFERENCE_POINTS: { note: string; at: Pt; gps: Pt }[] = [
+  { note: '龍洞隧道北口（OSM way 208987647）', at: [891.6, 1709.5], gps: [25.107389, 121.919594] },
+  { note: '龍洞隧道南口（OSM way 208987647）', at: [922.9, 2000.9], gps: [25.105493, 121.919877] },
+  { note: '龍洞街旁停車場（OSM way 696363002 中心）', at: [773, 902.5], gps: [25.112369, 121.918948] },
+  { note: '環狀道路停車場（OSM way 973252376 中心）', at: [1066, 1214.5], gps: [25.110402, 121.920756] },
+  { note: '龍洞灣岬步道停車場（OSM way 696363004 中心）', at: [1268, 2049.5], gps: [25.105203, 121.922119] },
+  { note: '台二線第一個彎的最東點', at: [926, 1348], gps: [25.110438, 121.920114] },
+  { note: '台二線第一個彎的最北點', at: [914, 1160], gps: [25.11074, 121.919727] },
+  { note: '台二線兩個彎之間的最南點', at: [764, 1357], gps: [25.109489, 121.918545] },
+  { note: '台二線第二個彎的最北點', at: [630, 1340], gps: [25.109596, 121.917987] },
+  { note: '台二線第二個彎的最南點', at: [383, 1500], gps: [25.108609, 121.916313] },
+  { note: '台二線第二個彎的最西點', at: [336, 1399], gps: [25.109008, 121.915892] },
+  { note: '台二線第二個彎之後的最東點', at: [441, 1161], gps: [25.110499, 121.916673] },
+]
+/** 參考點的鬆弛（薄板樣條的平滑係數）；救援點與現場點為 0（完全通過） */
+const REFERENCE_SLACK = Number(process.env.SLACK ?? 1000)
+/** 參考點換算後與 OSM 座標的差距上限（公尺）；超過代表對應錯了 */
+const REFERENCE_TOLERANCE_M = 20
+
+const CONTROL_POINTS: { at: Pt; gps: Pt; slack: number; note?: string }[] = [
   ...RESCUE_PINS.map(({ name, at }) => {
     const gps = RESCUE_POINTS.find((p) => p.name.zh === name)?.coords
     if (!gps) throw new Error(`src/data/rescue.ts 找不到有座標的救援點「${name}」`)
-    return { at, gps }
+    return { at, gps, slack: 0 }
   }),
-  ...FIELD_POINTS,
+  ...FIELD_POINTS.map((p) => ({ ...p, slack: 0 })),
+  ...REFERENCE_POINTS.map((p) => ({ ...p, slack: REFERENCE_SLACK })),
 ]
 
 /** 9 個大區域在圖上的填色 → 大區域 key（同 src/data/rescue.ts 的 AREA_RESCUE） */
@@ -268,8 +293,8 @@ function solve(matrix: number[][], rhs: number[]): number[] {
   return m.map((row, i) => row[n] / row[i])
 }
 
-/** 薄板樣條：通過每個控制點，其餘平滑內插；控制點範圍外近似仿射 */
-function thinPlateSpline(from: Pt[], to: Pt[]): (p: Pt) => Pt {
+/** 薄板樣條：通過每個控制點（slack 大於 0 的點允許偏離，越大越鬆），其餘平滑內插；控制點範圍外近似仿射 */
+function thinPlateSpline(from: Pt[], to: Pt[], slack: number[]): (p: Pt) => Pt {
   const n = from.length
   const U = (a: Pt, b: Pt) => {
     const r2 = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
@@ -278,6 +303,7 @@ function thinPlateSpline(from: Pt[], to: Pt[]): (p: Pt) => Pt {
   const L = Array.from({ length: n + 3 }, () => new Array<number>(n + 3).fill(0))
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) L[i][j] = U(from[i], from[j])
+    L[i][i] = slack[i]
     L[i][n] = L[n][i] = 1
     L[i][n + 1] = L[n + 1][i] = from[i][0]
     L[i][n + 2] = L[n + 2][i] = from[i][1]
@@ -292,10 +318,80 @@ function thinPlateSpline(from: Pt[], to: Pt[]): (p: Pt) => Pt {
 }
 
 const toMeters = ([lat, lng]: Pt): Pt => [(lng - lng0) * metersPerDegLng, (lat - lat0) * metersPerDegLat]
-const warp = thinPlateSpline(
-  CONTROL_POINTS.map((c) => c.at),
-  CONTROL_POINTS.map((c) => toMeters(c.gps)),
-)
+const buildWarp = (points: { at: Pt; gps: Pt; slack: number }[]) =>
+  thinPlateSpline(
+    points.map((c) => c.at),
+    points.map((c) => toMeters(c.gps)),
+    points.map((c) => c.slack),
+  )
+
+/**
+ * 沿線對應：救援資訊圖在岩場以外畫得較隨意（例如南邊海灣的海岸差 60–80 公尺），
+ * 沿圖上的海岸線、台二線每隔一段取一點，對到 OpenStreetMap 同一條線上最近的位置，當作參考點；
+ * 對應後重新校正、再對一次（兩輪），讓對應收斂。岩場附近的岩岸太複雜、容易對錯，不在範圍內。
+ * 參考資料：scripts/data/osm-reference.json（© OpenStreetMap contributors，ODbL）。
+ */
+const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json', import.meta.url), 'utf8')) as { coastline: Pt[][]; highway: Pt[][] }
+const OSM_LINES = { coastline: osmReference.coastline.map((l) => l.map(toMeters)), highway: osmReference.highway.map((l) => l.map(toMeters)) }
+
+type Box = [number, number, number, number]
+const inBox = (p: Pt, [x0, y0, x1, y1]: Box) => p[0] > x0 && p[0] < x1 && p[1] > y0 && p[1] < y1
+/** 沿折線每隔 step 點取一點（只取 box 範圍內的） */
+function sampleAlong(lines: Pt[][], box: Box, step: number): Pt[] {
+  const picked: Pt[] = []
+  for (const line of lines) {
+    let last: Pt | undefined
+    for (const p of line) {
+      if (!inBox(p, box)) continue
+      if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) >= step) picked.push((last = p))
+    }
+  }
+  return picked
+}
+
+const PAGE: Box = [0, 0, PAGE_SIZE[0], PAGE_SIZE[1]]
+const CURVE_MATCHES: { note: string; target: keyof typeof OSM_LINES; samples: Pt[]; slack: number }[] = [
+  { note: '海岸：南邊海灣（龍洞南口海洋公園）', target: 'coastline', samples: sampleAlong([land[0].subpaths[0]], [820, 2150, 1420, 2600], 40), slack: 5000 },
+  { note: '海岸：北邊漁港', target: 'coastline', samples: sampleAlong([land[0].subpaths[0]], [150, 650, 1000, 1000], 40), slack: 5000 },
+  { note: '台二線', target: 'highway', samples: sampleAlong(highways.flatMap((s) => s.subpaths), PAGE, 60), slack: 3000 },
+]
+/** 對到的點超過這個距離就不用（公尺），避免對到另一段 */
+const CURVE_MAX_M = 150
+
+/** 點到一組折線上最近的位置（公尺座標） */
+function nearestOn(lines: Pt[][], q: Pt): Pt {
+  let best: Pt = lines[0][0]
+  let bestD = Infinity
+  for (const line of lines) {
+    for (let i = 0; i < line.length - 1; i++) {
+      const [a, b] = [line[i], line[i + 1]]
+      const dx = b[0] - a[0]
+      const dy = b[1] - a[1]
+      const len2 = dx * dx + dy * dy
+      const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / len2))
+      const p: Pt = [a[0] + t * dx, a[1] + t * dy]
+      const d = Math.hypot(p[0] - q[0], p[1] - q[1])
+      if (d < bestD) [best, bestD] = [p, d]
+    }
+  }
+  return best
+}
+const fromMeters = ([e, n]: Pt): Pt => [lat0 + n / metersPerDegLat, lng0 + e / metersPerDegLng]
+
+let curvePoints: { at: Pt; gps: Pt; slack: number }[] = []
+for (let round = 0; round < 2; round++) {
+  const current = buildWarp([...CONTROL_POINTS, ...curvePoints])
+  curvePoints = CURVE_MATCHES.flatMap(({ target, samples, slack }) =>
+    samples.flatMap((at) => {
+      const here = current(at)
+      const to = nearestOn(OSM_LINES[target], here)
+      return Math.hypot(to[0] - here[0], to[1] - here[1]) <= CURVE_MAX_M ? [{ at, gps: fromMeters(to), slack }] : []
+    }),
+  )
+}
+for (const m of CURVE_MATCHES) console.log(`沿線參考點：${m.note} 取樣 ${m.samples.length} 個`)
+console.log(`沿線參考點共 ${curvePoints.length} 個`)
+const warp = buildWarp([...CONTROL_POINTS, ...curvePoints])
 /** 圖上位置 → GeoJSON 的 [經度, 緯度]（小數 6 位，約 0.1 公尺） */
 const toLngLat = (p: Pt): Pt => {
   const [e, n] = warp(p)
@@ -329,14 +425,16 @@ const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.
 const feature = (properties: Record<string, string | number>, geometry: object) => ({ type: 'Feature', properties, geometry })
 const point = (properties: Record<string, string | number>, at: Pt) => feature(properties, { type: 'Point', coordinates: toLngLat(at) })
 
-// 誤差檢查：每個控制點換算回來都必須落在原本的座標上
-for (const { at, gps } of CONTROL_POINTS) {
+// 誤差檢查：救援點、現場點換算回來必須落在原本的座標上；參考點在容許範圍內
+for (const { at, gps, slack, note } of CONTROL_POINTS) {
   const [lng, lat] = toLngLat(at)
   const err = Math.hypot((lng - gps[1]) * metersPerDegLng, (lat - gps[0]) * metersPerDegLat)
-  if (err > 0.5) throw new Error(`控制點 ${gps} 換算後偏了 ${err.toFixed(1)} 公尺`)
+  const limit = slack ? REFERENCE_TOLERANCE_M : 0.5
+  if (process.env.SLACK !== undefined && slack) console.log(`參考點 ${note}：偏 ${err.toFixed(1)} 公尺`)
+  if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點）；© 臺灣戶外攀岩協會`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 道路參考點、${curvePoints.length} 個沿線參考點）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 const scaleMap = {
   type: 'FeatureCollection',

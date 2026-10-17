@@ -20,8 +20,10 @@ import {
 import { project, type Marker, type ScaleMapData } from '../scaleMap'
 import { useLang } from '../i18n'
 
-/** 比例尺的長度（公尺）：選畫面上不超過 90px 的最長一個 */
+/** 比例尺的長度（公尺）：選畫面上不超過 SCALE_BAR_PX 的最長一個 */
 const SCALE_BARS = [10, 20, 50, 100, 200, 500]
+/** 比例尺最長幾個像素 */
+const SCALE_BAR_PX = 60
 /** 地圖範圍：所有救援點外加這個距離（公尺）；岩場在東邊海岸，右邊多留一些海面 */
 const PADDING_M = { west: 80, east: 220, north: 80, south: 80 }
 /** 按「＋」「－」、雙擊一次縮放的倍數 */
@@ -104,9 +106,7 @@ interface Props {
   track: LatLng[]
   /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去 */
   onLocate: () => void
-  /** 左下角的按鈕（回報、記錄軌跡） */
-  bottomLeft?: ReactNode
-  /** 左上角（測試版說明） */
+  /** 左上角的按鈕（測試版說明、回報、記錄軌跡） */
   topLeft?: ReactNode
 }
 
@@ -118,7 +118,7 @@ type Point = { x: number; y: number }
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, track, onLocate, bottomLeft, topLeft }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, track, onLocate, topLeft }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -262,7 +262,7 @@ export function ScaleMap({ map, areaNames, here, marks, track, onLocate, bottomL
 
   const trailDash = dashLength(3, px)
   const tunnelDash = dashLength(6, px)
-  const bar = SCALE_BARS.filter((m) => m / px <= 90).pop() ?? SCALE_BARS[0]
+  const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
   const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang)
   const trackPath = track.length >= 2 ? 'M' + track.map((c) => project(c).join(' ')).join('L') : ''
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
@@ -386,7 +386,14 @@ export function ScaleMap({ map, areaNames, here, marks, track, onLocate, bottomL
         </button>
       </div>
 
-      {bottomLeft && <div className="sm-bottom-left">{bottomLeft}</div>}
+
+      {/* 圖形來自 TOCC 救援資訊圖；道路與海岸以 OpenStreetMap 校正（ODbL 要求在地圖上標示） */}
+      <p className="sm-attribution">
+        © TOCC ·{' '}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          © OpenStreetMap
+        </a>
+      </p>
 
       <div className="scale-map-legend" aria-hidden>
         <span className="sm-bar" style={{ width: bar / px }} />

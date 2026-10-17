@@ -140,6 +140,12 @@ npm run rescue-map -- <救援資訊圖.ai>
 - `public/rescue/scale-map.geojson`：陸地、建物、道路、步道，以及停車場、急救器材、船艇接駁點、直升機吊掛點、地名
 - `public/rescue/areas.geojson`：9 個大區域的範圍（之後也可用在路線分區的介面）
 
+**校正來源**：控制點是 13 個救援點（完全通過）。另外用 OpenStreetMap 校正岩場以外的地方，以參考點的方式加入，允許一點偏差：
+- 12 個對應點：隧道兩端、3 個停車場、台二線的轉彎
+- 沿台二線與海岸線（南邊海灣、北邊漁港）自動對應的取樣點
+
+OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetMap contributors，ODbL），地圖右上會標示出處。成果用內政部國土測繪中心的正射影像目視核對過；影像只用來核對，沒有從影像取資料。
+
 控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`#/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），打開就開始定位；
 第一次使用會說明地圖還在校正、可能有誤差。左下「回報」依目前位置列出附近的區域、救援點與標示（`src/reportOptions.ts`），「記錄軌跡」記錄走過的路；
 記錄先存在手機上，登入且連上網路時自動上傳到 `v2/calibration/<uid>`（只有本人與管理員讀得到）。校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
@@ -155,4 +161,5 @@ Firebase 保留路徑（`/__/auth/handler` 等）不受影響，登入照常運�
 - 程式碼：[MIT](LICENSE)
 - TOCC 標誌與由其產生的 App 圖示（`assets/`、`public/icons/`）：屬臺灣戶外攀岩協會所有，不適用 MIT
 - 龍洞岩場救援資訊圖與由其產生的圖片（`public/rescue/`）、救援資訊（`src/data/rescue.ts`）：來自 TOCC 龍洞岩場救援計畫，屬臺灣戶外攀岩協會所有，不適用 MIT
+- 比例尺地圖的道路與海岸校正參考（`scripts/data/osm-reference.json`）：© OpenStreetMap contributors，[ODbL](https://opendatacommons.org/licenses/odbl/)
 - 路線資料（`public/data/`）：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)，© 臺灣戶外攀岩協會（TOCC）固定點更新計畫
