@@ -192,6 +192,11 @@ export async function reportComment(uid: string, routeId: string, id: string, re
   })
 }
 
+/** 上傳比例尺地圖的現場校正記錄（GeoJSON 文字）；只有本人與管理員讀得到 */
+export async function uploadCalibration(uid: string, geojson: string): Promise<void> {
+  await push(ref(db, `v2/calibration/${uid}`), { geojson, createdAt: serverTimestamp() })
+}
+
 /**
  * 刪除帳號：先刪除資料庫中屬於這個使用者的資料（paths 由呼叫端整理，值為 null），再刪除登入帳號。
  * 太久沒登入時 Firebase 會要求重新驗證，自動跳出登入視窗。

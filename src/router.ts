@@ -66,6 +66,8 @@ export const href = {
   about: () => '#/about',
   /** 救援資訊；area 為大區域的救援 key（golden-valley），會先顯示該區的資訊 */
   rescue: (area?: string) => (area ? `#/rescue/${area}` : '#/rescue'),
+  /** 比例尺地圖的現場校正（測試中） */
+  calibrate: () => '#/calibrate',
 }
 
 // 開啟分享出去的網址時轉成路線頁（必須在 href 定義之後、usePage 第一次讀網址之前）

@@ -1,8 +1,10 @@
 import { distanceM, type LatLng } from './geo'
+import { withCloud } from './personal/sync'
 
 /**
  * 比例尺地圖的現場校正記錄：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明，
- * 走步道時可記錄軌跡。記錄只存在這支手機上，匯出成 GeoJSON 傳回來，再加進 scripts/gen-scale-map.ts 的控制點。
+ * 走步道時可記錄軌跡。記錄存在這支手機上，登入後上傳到資料庫（v2/calibration/<uid>，只有本人與管理員讀得到），
+ * 再把校正點加進 scripts/gen-scale-map.ts 的控制點。
  */
 
 export interface Fix {
@@ -19,6 +21,23 @@ export interface Mark extends Fix {
 export interface Calibration {
   marks: Mark[]
   track: Fix[]
+  /** 最後一次上傳的時間，與當時的點數（之後有新增記錄時提醒還沒上傳） */
+  uploaded?: { time: number; marks: number; track: number }
+  /** 沒有網路時按了上傳：連上網路後自動上傳 */
+  queued?: boolean
+}
+
+/** 有記錄還沒上傳（從沒上傳過，或上傳後點數有變） */
+export function hasUnuploaded({ marks, track, uploaded }: Calibration): boolean {
+  if (marks.length === 0 && track.length === 0) return false
+  return !uploaded || uploaded.marks !== marks.length || uploaded.track !== track.length
+}
+
+/** 上傳目前的全部記錄（每次上傳都是完整的一份，新的一份取代舊的） */
+export async function uploadCalibration(data: Calibration): Promise<Calibration['uploaded']> {
+  const { m, uid } = await withCloud()
+  await m.uploadCalibration(uid, JSON.stringify(toGeoJSON(data)))
+  return { time: Date.now(), marks: data.marks.length, track: data.track.length }
 }
 
 /** 軌跡只收誤差在這以內的點：岩壁下的 GPS 常飄幾十公尺，畫進軌跡只會誤導 */

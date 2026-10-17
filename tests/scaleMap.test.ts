@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { TRACK_MAX_ACCURACY_M, appendTrack, toGeoJSON, type Fix } from '../src/calibration'
+import { TRACK_MAX_ACCURACY_M, appendTrack, hasUnuploaded, toGeoJSON, type Fix } from '../src/calibration'
 import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseHash } from '../src/router'
@@ -19,6 +19,16 @@ describe('校正軌跡', () => {
     // 緯度 0.00003 度約 3.3 公尺、0.0001 度約 11 公尺
     expect(appendTrack(start, fix(25.11003, 121.92))).toBe(start)
     expect(appendTrack(start, fix(25.1101, 121.92))).toHaveLength(2)
+  })
+})
+
+describe('上傳狀態', () => {
+  it('沒有記錄不算未上傳；上傳後點數有變才算未上傳', () => {
+    const mark = { ...fix(25.11, 121.92), note: '鐘塔' }
+    expect(hasUnuploaded({ marks: [], track: [] })).toBe(false)
+    expect(hasUnuploaded({ marks: [mark], track: [] })).toBe(true)
+    expect(hasUnuploaded({ marks: [mark], track: [], uploaded: { time: 0, marks: 1, track: 0 } })).toBe(false)
+    expect(hasUnuploaded({ marks: [mark], track: [fix(25.1, 121.9)], uploaded: { time: 0, marks: 1, track: 0 } })).toBe(true)
   })
 })
 

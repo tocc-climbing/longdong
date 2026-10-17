@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { CopyButton } from '../components/CopyButton'
+import { SignInPrompt } from '../components/SignInPrompt'
 import { ScaleMap } from '../components/ScaleMap'
 import type { LoadedData } from '../data/dataset'
 import { AREA_RESCUE, formatCoords } from '../data/rescue'
-import { appendTrack, loadCalibration, saveCalibration, toGeoJSON, type Calibration } from '../calibration'
+import { appendTrack, hasUnuploaded, loadCalibration, saveCalibration, toGeoJSON, uploadCalibration, type Calibration } from '../calibration'
+import { useCloud } from '../personal/sync'
 import { useScaleMap } from '../scaleMap'
 import { useGeolocation } from '../components/MyLocation'
 
@@ -13,7 +15,7 @@ const QUICK_NOTES = ['步道岔路', '岩壁底', '區域邊界', '救援點']
 
 /**
  * 比例尺地圖的現場校正（#/calibrate，測試中，沒有放在選單裡）：
- * 在地圖上看 GPS 的位置對不對，在明確的地點記下座標與說明，匯出 GeoJSON 傳回來校正地圖。
+ * 在地圖上看 GPS 的位置對不對，在明確的地點記下座標與說明，上傳到資料庫用來校正地圖。
  * 只給到現場幫忙校正的岩友使用，介面只有中文。
  */
 export function CalibratePage({ data }: { data: LoadedData }) {
@@ -52,7 +54,7 @@ export function CalibratePage({ data }: { data: LoadedData }) {
     if (confirm(`刪除第 ${i + 1} 點「${records.marks[i].note}」？`)) setRecords((r) => ({ ...r, marks: r.marks.filter((_, j) => j !== i) }))
   }
   const clearAll = () => {
-    if (confirm('清除所有記錄點與軌跡？請先確認已經傳出去。')) setRecords({ marks: [], track: [] })
+    if (confirm(hasUnuploaded(records) ? '還有記錄沒上傳，確定清除所有記錄點與軌跡？' : '清除所有記錄點與軌跡？')) setRecords({ marks: [], track: [] })
   }
 
   const text = JSON.stringify(toGeoJSON(records), null, 1)
@@ -63,7 +65,7 @@ export function CalibratePage({ data }: { data: LoadedData }) {
       <h1>比例尺地圖・現場校正</h1>
       <p className="muted small">
         這張圖由救援資訊圖依救援點的 GPS 座標拉成實際比例，救援點之間可能還有幾十公尺的誤差（測試中）。
-        到龍洞時，請在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下位置與說明，走步道時可以記錄軌跡，最後把檔案傳回來。
+        到龍洞時，請在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下位置與說明，走步道時可以記錄軌跡，最後登入並上傳。
       </p>
 
       <section className="card" aria-labelledby="cal-gps">
@@ -160,41 +162,102 @@ export function CalibratePage({ data }: { data: LoadedData }) {
         </section>
       )}
 
-      <section className="card" aria-labelledby="cal-send">
-        <h2 id="cal-send">傳回記錄</h2>
-        {saveError && <p className="small error">這支手機存不了記錄（可能是私密瀏覽）：離開頁面前請先傳出去。</p>}
-        <p className="muted small">記錄只存在這支手機上。傳出 GeoJSON 檔案（LINE 可以直接傳檔案），或複製文字貼上。</p>
-        <div className="actions">
-          <button type="button" className="action primary" onClick={() => void shareFile(text)} disabled={empty}>
-            傳送檔案
-          </button>
+      <UploadSection
+        records={records}
+        onUploaded={(uploaded) => setRecords((r) => ({ ...r, uploaded, queued: false }))}
+        onQueue={() => setRecords((r) => ({ ...r, queued: true }))}
+        saveError={saveError}
+        empty={empty}
+      />
+
+      {!empty && (
+        <p className="actions">
           <CopyButton text={text} className="action" />
-          <button type="button" className="action danger" onClick={clearAll} disabled={empty}>
+          <button type="button" className="action danger" onClick={clearAll}>
             清除
           </button>
-        </div>
-      </section>
+        </p>
+      )}
     </article>
   )
 }
 
-/** 用系統分享傳出檔案；不支援分享檔案的瀏覽器改成下載 */
-async function shareFile(text: string) {
-  const name = `longdong-calibration-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}.geojson`
-  const file = new File([text], name, { type: 'application/json' })
-  if (navigator.canShare?.({ files: [file] })) {
+/** 上傳到資料庫：需要登入；沒有網路時記錄留在手機上，按了上傳就排隊，連上網路（且開著這一頁）時自動上傳 */
+function UploadSection({
+  records,
+  onUploaded,
+  onQueue,
+  saveError,
+  empty,
+}: {
+  records: Calibration
+  onUploaded: (uploaded: Calibration['uploaded']) => void
+  onQueue: () => void
+  saveError: boolean
+  empty: boolean
+}) {
+  const cloud = useCloud()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string>()
+  const { uploaded } = records
+  const pending = hasUnuploaded(records)
+  const signedIn = cloud.status === 'signed-in'
+  const online = signedIn && cloud.connected
+
+  useEffect(() => {
+    if (records.queued && online && !busy) void upload()
+    // 只在連線狀態改變、或剛排隊時檢查
+  }, [records.queued, online])
+
+  const upload = async () => {
+    setBusy(true)
+    setError(undefined)
     try {
-      await navigator.share({ files: [file], title: '龍洞比例尺地圖校正記錄' })
-      return
+      onUploaded(await uploadCalibration(records))
     } catch (err) {
-      if ((err as DOMException).name === 'AbortError') return
-      // 分享失敗時改成下載
+      setError(`上傳失敗：${(err as Error).message}`)
+    } finally {
+      setBusy(false)
     }
   }
-  const url = URL.createObjectURL(file)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
+
+  return (
+    <section className="card" aria-labelledby="cal-send">
+      <h2 id="cal-send">上傳記錄</h2>
+      {saveError && <p className="small error">這支手機存不了記錄（可能是私密瀏覽）：離開頁面前請先上傳。</p>}
+      {!signedIn ? (
+        <SignInPrompt message="上傳前請先登入。記錄會連同帳號存到資料庫，只有你和管理員看得到，用來校正地圖；刪除帳號時一併刪除。" />
+      ) : (
+        <>
+          <p className="muted small">
+            記錄會連同帳號（{cloud.user?.name}）存到資料庫，只有你和管理員看得到。每次上傳都是完整的一份，可以重複上傳。
+          </p>
+          {!online && (
+            <p className="small warn">
+              {records.queued ? '沒有網路：已排隊，連上網路時會自動上傳（請開著這一頁）。' : '沒有網路：記錄會留在這支手機上。按「上傳記錄」排隊，連上網路時自動上傳。'}
+            </p>
+          )}
+          <button
+            type="button"
+            className="action primary"
+            onClick={() => (online ? void upload() : onQueue())}
+            disabled={empty || busy || (!online && records.queued)}
+          >
+            {busy ? '上傳中…' : !online && records.queued ? '等待網路…' : '上傳記錄'}
+          </button>
+        </>
+      )}
+      {uploaded && (
+        <p className={`small ${pending ? 'warn' : 'muted'}`} role="status">
+          已上傳 {new Date(uploaded.time).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}（{uploaded.marks} 點、軌跡 {uploaded.track} 點）
+          {pending && '，之後新增的記錄還沒上傳'}
+        </p>
+      )}
+      {error && (
+        <p className="small error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  )
 }

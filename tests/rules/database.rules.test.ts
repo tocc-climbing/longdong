@@ -166,16 +166,53 @@ describe('既有行為不變', () => {
     )
   })
 
-  it('刪除帳號：一次刪除自己的紀錄、暱稱、評分、留言', async () => {
+  it('刪除帳號：一次刪除自己的紀錄、暱稱、評分、留言、校正記錄', async () => {
     await assertSucceeds(
       update(alice, {
         'v2/personal/alice': null,
         'v2/profiles/alice': null,
+        'v2/calibration/alice': null,
         'v2/names/alice': null,
         [`v2/ratings/${ROUTE}/alice`]: null,
         [`v2/comments/${ROUTE}/m1`]: null,
       }),
     )
+  })
+})
+
+describe('比例尺地圖的現場校正記錄', () => {
+  const upload = (db: Database, uid: string, geojson = '{"type":"FeatureCollection","features":[]}') =>
+    push(db, `v2/calibration/${uid}`, { geojson, createdAt: serverTimestamp() })
+
+  it('登入者可以上傳到自己的路徑；不能上傳到別人的，訪客不能上傳', async () => {
+    await assertSucceeds(upload(alice, 'alice'))
+    await assertFails(upload(mallory, 'alice'))
+    await assertFails(upload(guest, 'alice'))
+  })
+
+  it('格式：必須有 geojson 與伺服器時間，不能有其他欄位、不能是空字串或超過 1MB', async () => {
+    await assertFails(push(alice, 'v2/calibration/alice', { geojson: '{}', createdAt: 1 }))
+    await assertFails(push(alice, 'v2/calibration/alice', { geojson: '{}', createdAt: serverTimestamp(), name: 'x' }))
+    await assertFails(upload(alice, 'alice', ''))
+    await assertFails(upload(alice, 'alice', 'x'.repeat(1_000_001)))
+  })
+
+  it('上傳後不能修改；本人可以刪除', async () => {
+    await env.withSecurityRulesDisabled((ctx) => ctx.database().ref('v2/calibration/alice/u1').set({ geojson: '{}', createdAt: 1 }))
+    await assertFails(set(alice, 'v2/calibration/alice/u1', { geojson: '{"changed":1}', createdAt: serverTimestamp() }))
+    await assertSucceeds(remove(alice, 'v2/calibration/alice/u1'))
+  })
+
+  it('只有本人與管理員讀得到', async () => {
+    await assertSucceeds(get(alice, 'v2/calibration/alice'))
+    await assertSucceeds(get(admin, 'v2/calibration'))
+    await assertFails(get(mallory, 'v2/calibration/alice'))
+    await assertFails(get(mallory, 'v2/calibration'))
+    await assertFails(get(guest, 'v2/calibration/alice'))
+  })
+
+  it('不能整個刪掉別人的校正記錄', async () => {
+    await assertFails(remove(mallory, 'v2/calibration/alice'))
   })
 })
 

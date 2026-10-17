@@ -60,6 +60,7 @@ export async function deleteMyAccount(): Promise<void> {
   const paths: Record<string, null> = {
     [`v2/personal/${uid}`]: null,
     [`v2/profiles/${uid}`]: null,
+    [`v2/calibration/${uid}`]: null,
   }
   // 釋放暱稱，讓別人可以使用
   if (profile) {

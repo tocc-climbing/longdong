@@ -79,6 +79,7 @@ export const zh = {
   'myloc.accuracy': '誤差約 ±{m} 公尺 · {time} 更新',
   'myloc.poor': '誤差較大：請到開闊處稍候，座標會自動更新。',
   'myloc.nearest': '最近的救援點',
+  'myloc.calibrate': '比例尺地圖（測試中，協助現場校正）',
   'myloc.outside': '你不在龍洞岩場附近（離最近的救援點約 {dist}），不顯示救援點。',
   'myloc.away': '{dir}方 {dist}',
   'myloc.m': '{n} 公尺',
