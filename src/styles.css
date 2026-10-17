@@ -2822,6 +2822,8 @@ main {
 
 .scale-map-frame {
   height: 70vh;
+  /* 手機網址列收合時 vh 可能跟著變，用最小的可視高度，地圖才不會一直改大小 */
+  height: 70svh;
   overflow: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);

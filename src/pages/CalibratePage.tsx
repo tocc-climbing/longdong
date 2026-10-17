@@ -89,8 +89,8 @@ export function CalibratePage({ data }: { data: LoadedData }) {
         {geo.status === 'ok' && (
           <p className="small" role="status">
             <span className="mono">{formatCoords(geo.coords)}</span>
+            {/* 誤差每秒都在變：只換顏色、不增減文字，避免整頁跟著跳動 */}
             <span className={geo.accuracy <= GOOD_ACCURACY_M ? 'muted' : 'warn'}> · 誤差約 {Math.round(geo.accuracy)} 公尺</span>
-            {geo.accuracy > GOOD_ACCURACY_M && <span className="warn">（等到 {GOOD_ACCURACY_M} 公尺以內再記錄比較準）</span>}
           </p>
         )}
       </section>
@@ -128,7 +128,7 @@ export function CalibratePage({ data }: { data: LoadedData }) {
         </div>
         <p className="muted small">
           {!fix ? '先開始定位。' : !note.trim() ? '先寫下這裡是哪裡。' : `會記錄目前的位置（誤差約 ${Math.round(fix.accuracy)} 公尺）。`}
-          站在原地等誤差變小再按，比較準。
+          站在原地，等誤差在 {GOOD_ACCURACY_M} 公尺以內再按比較準。
         </p>
 
         <div className="actions">
