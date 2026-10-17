@@ -2824,18 +2824,24 @@ main {
   height: 70vh;
   /* 手機網址列收合時 vh 可能跟著變，用最小的可視高度，地圖才不會一直改大小 */
   height: 70svh;
-  overflow: auto;
+  overflow: hidden;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: #ffffff;
-  overscroll-behavior: contain;
+  /* 拖曳、雙指縮放由地圖自己處理，不要捲動或縮放整頁 */
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.scale-map-frame:active {
+  cursor: grabbing;
 }
 
 .scale-map-frame svg {
   display: block;
-  max-width: none;
-  height: auto;
-  margin: 0 auto;
+  width: 100%;
+  height: 100%;
 }
 
 .scale-map-legend {

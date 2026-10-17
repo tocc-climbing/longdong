@@ -1,32 +1,26 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
+import { MIN_SCALE, clampScale, clampView, fitView, maxScale, panBy, viewBox, zoomAt, type MapView, type Rect, type Size } from '../mapView'
 import { project, type ScaleMapData } from '../scaleMap'
 
-const ZOOMS = [1, 2, 4, 8]
 /** 比例尺的長度（公尺）：選畫面上不超過 90px 的最長一個 */
-const SCALE_BARS = [10, 20, 50, 100, 200]
-/** 地圖範圍：所有救援點外加這個距離（公尺） */
-const PADDING_M = 80
+const SCALE_BARS = [10, 20, 50, 100, 200, 500]
+/** 地圖範圍：所有救援點外加這個距離（公尺）；岩場在東邊海岸，右邊多留一些海面 */
+const PADDING_M = { west: 80, east: 220, north: 80, south: 80 }
+/** 按「＋」「－」、雙擊一次縮放的倍數 */
+const STEP = 2
+/** 「移到我的位置」至少放大到每像素幾公尺 */
+const ME_SCALE = 0.5
 
 const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ no: p.no, at: project(p.coords!) }))
 const xs = located.map((p) => p.at[0])
 const ys = located.map((p) => p.at[1])
-const BOUNDS = {
-  x: Math.min(...xs) - PADDING_M,
-  y: Math.min(...ys) - PADDING_M,
-  w: Math.max(...xs) - Math.min(...xs) + 2 * PADDING_M,
-  h: Math.max(...ys) - Math.min(...ys) + 2 * PADDING_M,
-}
-
-/** 顯示範圍：涵蓋所有救援點，再往左右或上下延伸到和框一樣的比例，最小一級時整個框都是地圖 */
-function viewFor(frame: { w: number; h: number }) {
-  const ratio = frame.w / frame.h
-  const cx = BOUNDS.x + BOUNDS.w / 2
-  const cy = BOUNDS.y + BOUNDS.h / 2
-  const w = Math.max(BOUNDS.w, BOUNDS.h * ratio)
-  const h = w / ratio
-  return { x: cx - w / 2, y: cy - h / 2, w, h }
+const BOUNDS: Rect = {
+  x: Math.min(...xs) - PADDING_M.west,
+  y: Math.min(...ys) - PADDING_M.north,
+  w: Math.max(...xs) - Math.min(...xs) + PADDING_M.west + PADDING_M.east,
+  h: Math.max(...ys) - Math.min(...ys) + PADDING_M.north + PADDING_M.south,
 }
 
 const LABEL_PX = 12
@@ -58,97 +52,140 @@ interface Props {
   track: LatLng[]
 }
 
+type Point = { x: number; y: number }
+
 /**
- * 照比例尺的龍洞簡圖：北方朝上，配色與救援資訊圖相同；最小一級顯示整張圖，放大後可捲動；圓點、文字維持固定的螢幕大小，誤差圈是實際大小。
+ * 照比例尺的龍洞簡圖：北方朝上，配色與救援資訊圖相同。
+ * 像 Google 地圖一樣拖曳平移、雙指或滾輪縮放、雙擊放大，最小縮到整張圖；
+ * 圓點、文字維持固定的螢幕大小，誤差圈是實際大小。
  */
 export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
   const box = useRef<HTMLDivElement>(null)
-  const svg = useRef<SVGSVGElement>(null)
-  const [zoom, setZoom] = useState(1)
-  const [frame, setFrame] = useState({ w: 360, h: 500 })
-  const pending = useRef<[number, number]>(undefined)
+  const [frame, setFrame] = useState<Size>()
+  const [view, setView] = useState<MapView>()
+  // 事件處理只註冊一次，從這裡讀最新的狀態
+  const latest = useRef({ frame, view })
+  latest.current = { frame, view }
 
+  /** 套用新的畫面狀態（限制在縮放與平移範圍內） */
+  const apply = (next: (v: MapView, f: Size) => MapView) => {
+    const { frame: f, view: v } = latest.current
+    if (!f || !v) return
+    const clamped = clampView(next(v, f), BOUNDS, f)
+    latest.current = { frame: f, view: clamped }
+    setView(clamped)
+  }
+  /** 以框內一點（預設為中心）為準縮放到每像素 s 公尺 */
+  const zoomTo = (s: number, at?: Point) =>
+    apply((v, f) => zoomAt(v, f, at ?? { x: f.w / 2, y: f.h / 2 }, clampScale(s, BOUNDS, f)))
+
+  // 框的大小只由版面決定（地圖填滿框，沒有捲軸），不會因為地圖本身改變而來回重算
   useLayoutEffect(() => {
     const el = box.current!
-    // 還沒排版（寬度 0）時不更新，避免換算出無限大
-    const observer = new ResizeObserver(() => el.clientWidth > 0 && el.clientHeight > 0 && setFrame({ w: el.clientWidth, h: el.clientHeight }))
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === 0 || el.clientHeight === 0) return
+      const f = { w: el.clientWidth, h: el.clientHeight }
+      setFrame(f)
+      setView((v) => clampView(v ?? fitView(BOUNDS, f), BOUNDS, f))
+    })
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
 
-  /** 地圖在畫面上的位置（相對於可捲動內容的左上角） */
-  const mapRect = () => {
-    const f = box.current!
-    const r = svg.current!.getBoundingClientRect()
-    const fr = f.getBoundingClientRect()
-    return { left: r.left - fr.left + f.scrollLeft, top: r.top - fr.top + f.scrollTop, width: r.width, height: r.height }
-  }
-
-  /** 把地圖上的某一點（以寬高的比例表示）捲到畫面中央 */
-  const scrollToFraction = ([fx, fy]: [number, number], smooth: boolean) => {
-    const f = box.current!
-    const r = mapRect()
-    f.scrollTo({ left: r.left + fx * r.width - f.clientWidth / 2, top: r.top + fy * r.height - f.clientHeight / 2, behavior: smooth ? 'smooth' : 'auto' })
-  }
-
-  // 縮放後把記下的點捲到畫面中央
+  // 拖曳平移、雙指縮放：記下每根手指的位置，每次移動和上一次比較
   useLayoutEffect(() => {
-    if (!pending.current) return
-    scrollToFraction(pending.current, false)
-    pending.current = undefined
-  }, [zoom])
-
-  const VIEW = viewFor(frame)
-  /** 最小的一級是整張圖剛好放進框裡 */
-  const fitWidth = frame.w
-  /** 一個螢幕像素等於幾公尺：圓點、文字、線寬用它換算成固定的螢幕大小 */
-  const px = VIEW.w / (fitWidth * zoom)
-
-  const centerOn = (at: [number, number], nextZoom = zoom) => {
-    const target: [number, number] = [(at[0] - VIEW.x) / VIEW.w, (at[1] - VIEW.y) / VIEW.h]
-    if (nextZoom === zoom) scrollToFraction(target, true)
-    else {
-      pending.current = target
-      setZoom(nextZoom)
+    const el = box.current!
+    const pointers = new Map<number, Point>()
+    const local = (e: MouseEvent): Point => {
+      const r = el.getBoundingClientRect()
+      return { x: e.clientX - r.left, y: e.clientY - r.top }
     }
-  }
+    const pair = () => {
+      const [a, b] = [...pointers.values()]
+      return { mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.hypot(a.x - b.x, a.y - b.y) }
+    }
 
-  /** 以目前畫面中央為準縮放 */
-  const zoomBy = (step: 1 | -1) => {
-    const next = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, ZOOMS.indexOf(zoom) + step))]
-    const f = box.current!
-    const r = mapRect()
-    const fx = Math.min(1, Math.max(0, (f.scrollLeft + f.clientWidth / 2 - r.left) / r.width))
-    const fy = Math.min(1, Math.max(0, (f.scrollTop + f.clientHeight / 2 - r.top) / r.height))
-    centerOn([VIEW.x + fx * VIEW.w, VIEW.y + fy * VIEW.h], next)
-  }
+    const down = (e: PointerEvent) => {
+      el.setPointerCapture(e.pointerId)
+      pointers.set(e.pointerId, local(e))
+    }
+    const move = (e: PointerEvent) => {
+      const prev = pointers.get(e.pointerId)
+      if (!prev) return
+      if (pointers.size === 1) {
+        const p = local(e)
+        pointers.set(e.pointerId, p)
+        apply((v) => panBy(v, p.x - prev.x, p.y - prev.y))
+      } else if (pointers.size === 2) {
+        const before = pair()
+        pointers.set(e.pointerId, local(e))
+        const after = pair()
+        if (before.dist === 0 || after.dist === 0) return
+        // 跟著兩指的中點平移，再以中點為準依兩指距離縮放
+        apply((v, f) => zoomAt(panBy(v, after.mid.x - before.mid.x, after.mid.y - before.mid.y), f, after.mid, clampScale((v.s * before.dist) / after.dist, BOUNDS, f)))
+      }
+    }
+    const up = (e: PointerEvent) => {
+      pointers.delete(e.pointerId)
+    }
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const at = local(e)
+      apply((v, f) => zoomAt(v, f, at, clampScale(v.s * Math.exp(e.deltaY * 0.002), BOUNDS, f)))
+    }
+    const dblclick = (e: MouseEvent) => {
+      const at = local(e)
+      apply((v, f) => zoomAt(v, f, at, clampScale(v.s / STEP, BOUNDS, f)))
+    }
+
+    el.addEventListener('pointerdown', down)
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+    el.addEventListener('wheel', wheel, { passive: false })
+    el.addEventListener('dblclick', dblclick)
+    return () => {
+      el.removeEventListener('pointerdown', down)
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+      el.removeEventListener('wheel', wheel)
+      el.removeEventListener('dblclick', dblclick)
+    }
+    // apply 只透過 latest 讀狀態，註冊一次即可
+  }, [])
+
+  const me = here && project(here.coords)
+  const VIEW = frame && view ? viewBox(view, frame) : BOUNDS
+  /** 一個螢幕像素等於幾公尺：圓點、文字、線寬用它換算成固定的螢幕大小 */
+  const px = view?.s ?? 1
+  const atMax = !view || view.s <= MIN_SCALE * 1.0001
+  const atMin = !view || !frame || view.s >= maxScale(BOUNDS, frame) * 0.9999
 
   const bar = SCALE_BARS.filter((m) => m / px <= 90).pop() ?? SCALE_BARS[0]
   const labels = placeLabels(map.areas, areaNames, px)
-  const me = here && project(here.coords)
   const trackPath = track.length >= 2 ? 'M' + track.map((c) => project(c).join(' ')).join('L') : ''
 
   return (
     <div className="scale-map">
       <div className="scale-map-tools">
-        <button type="button" className="action" onClick={() => zoomBy(1)} disabled={zoom === ZOOMS[ZOOMS.length - 1]} aria-label="放大">
+        <button type="button" className="action" onClick={() => view && zoomTo(view.s / STEP)} disabled={atMax} aria-label="放大">
           ＋
         </button>
-        <button type="button" className="action" onClick={() => zoomBy(-1)} disabled={zoom === ZOOMS[0]} aria-label="縮小">
+        <button type="button" className="action" onClick={() => view && zoomTo(view.s * STEP)} disabled={atMin} aria-label="縮小">
           －
         </button>
-        <button type="button" className="action" onClick={() => me && centerOn(me, Math.max(zoom, 4))} disabled={!me}>
+        <button
+          type="button"
+          className="action"
+          onClick={() => me && apply((v) => ({ cx: me[0], cy: me[1], s: Math.min(v.s, ME_SCALE) }))}
+          disabled={!me}
+        >
           移到我的位置
         </button>
       </div>
       <div className="scale-map-frame" ref={box}>
-        <svg
-          ref={svg}
-          viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`}
-          style={{ width: fitWidth * zoom }}
-          role="img"
-          aria-label="龍洞岩場比例尺簡圖"
-        >
+        <svg viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="img" aria-label="龍洞岩場比例尺簡圖">
           <rect className="sm-sea" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} />
           <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
           <path className="sm-building" d={map.layers.building} />
@@ -194,12 +231,11 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
               <circle cx={me[0]} cy={me[1]} r={6 * px} strokeWidth={2 * px} />
             </g>
           )}
-
         </svg>
       </div>
       <div className="scale-map-legend" aria-hidden>
         <span className="sm-bar" style={{ width: bar / px }} />
-        {bar} 公尺 · 北方朝上
+        {bar} 公尺 · 北方朝上 · 拖曳移動、雙指或滾輪縮放
       </div>
     </div>
   )
