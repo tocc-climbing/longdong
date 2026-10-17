@@ -2820,54 +2820,198 @@ a.action {
   grid-template-columns: 2rem minmax(0, 1fr);
 }
 
-/* 比例尺地圖・現場校正（#/calibrate）：配色與救援資訊圖完全相同（取自 .ai 檔），深色模式也不換 */
-.calibrate h2 {
-  margin-top: 0;
+/* 地圖（#/map）：配色與救援資訊圖完全相同（取自 .ai 檔），深色模式也不換；
+   手機版填滿頂欄與底部分頁之間（分頁蓋在地圖上，按鈕留出它的高度），電腦版填滿右邊整欄 */
+main.map {
+  position: fixed;
+  top: calc(52px + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  --map-bottom: calc(76px + env(safe-area-inset-bottom));
 }
 
-.scale-map {
+/* 手機版的內容外面包著左右滑動用的一層 */
+main.map > div {
+  height: 100%;
+}
+
+.shell main.map {
   position: relative;
-  margin: 16px 0;
+  top: auto;
+  height: 100%;
+  max-width: none;
+  padding: 0;
+  --map-bottom: 16px;
 }
 
-.scale-map-tools {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+.shell-main:has(> main.map) {
+  overflow: hidden;
+}
+
+.map-page {
+  position: relative;
+  height: 100%;
+}
+
+.map-status {
+  padding: 16px;
 }
 
 .scale-map-frame {
-  height: 70vh;
-  /* 手機網址列收合時 vh 可能跟著變，用最小的可視高度，地圖才不會一直改大小 */
-  height: 70svh;
+  position: relative;
+  height: 100%;
   overflow: hidden;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
   background: #ffffff;
-  /* 拖曳、雙指縮放由地圖自己處理，不要捲動或縮放整頁 */
+  /* 拖曳、雙指縮放與旋轉由地圖自己處理，不要捲動或縮放整頁 */
   touch-action: none;
   cursor: grab;
   user-select: none;
+  -webkit-user-select: none;
 }
 
 .scale-map-frame:active {
   cursor: grabbing;
 }
 
-.scale-map-frame svg {
+.scale-map-frame > svg {
   display: block;
-  width: 100%;
-  height: 100%;
+}
+
+/* 地圖上的按鈕：白底圓角、陰影，像 Google 地圖 */
+.sm-control {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #3c4043;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sm-control:disabled {
+  color: #b0b4b8;
+  cursor: default;
+}
+
+.sm-control.on {
+  color: #1a73e8;
+}
+
+.sm-compass {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  padding: 0;
+}
+
+.sm-compass svg {
+  transition: transform 0.1s;
+}
+
+.sm-top-left {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+
+.sm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #a86a00;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sm-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e46300;
+}
+
+.sm-bottom-right {
+  position: absolute;
+  right: 12px;
+  bottom: var(--map-bottom, 16px);
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.sm-bottom-right .sm-locate {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+}
+
+.sm-zoom {
+  display: grid;
+  gap: 6px;
+}
+
+.sm-zoom .sm-control {
+  width: 44px;
+  padding: 0;
+  font-size: 1.2rem;
+}
+
+/* 觸控螢幕用雙指縮放，不顯示「＋」「－」 */
+@media (hover: none) {
+  .sm-zoom {
+    display: none;
+  }
+}
+
+.sm-bottom-left {
+  position: absolute;
+  left: 12px;
+  bottom: var(--map-bottom, 16px);
+  display: flex;
+  gap: 8px;
+}
+
+.sm-report {
+  background: #1a73e8;
+  color: #ffffff;
+  height: 52px;
+  padding: 0 20px;
+  font-size: 1rem;
+}
+
+.sm-track {
+  height: 52px;
 }
 
 .scale-map-legend {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
+  left: 50%;
+  bottom: calc(var(--map-bottom, 16px) + 64px);
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.85);
   font-size: 0.75rem;
@@ -2876,8 +3020,31 @@ a.action {
 }
 
 .sm-bar {
-  height: 4px;
+  height: 3px;
   background: #231815;
+}
+
+/* 回報後的提示、定位錯誤 */
+.map-toast {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: #303134;
+  color: #ffffff;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  pointer-events: none;
+}
+
+.map-toast.warn {
+  color: #fdd663;
 }
 
 .sm-sea {
@@ -2978,75 +3145,98 @@ a.action {
 .sm-rescue circle {
   fill: #b60005;
 }
-.sm-rescue text,
-.sm-mark text {
+.sm-rescue text {
   fill: #fff;
   font-weight: 700;
 }
-.sm-mark circle {
+.sm-mark {
   fill: #e46300;
+  stroke: #ffffff;
+  stroke-width: 1.5;
 }
-.sm-me circle {
+.sm-me {
   fill: #1a73e8;
   stroke: #fff;
 }
-.sm-me .sm-me-accuracy {
+.sm-me-accuracy {
   fill: rgba(26, 115, 232, 0.15);
-  stroke-width: 0;
 }
 
-.cal-note {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.cal-note input {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+/* 彈窗：手機從下方滑出、電腦置中 */
+.sheet {
+  width: min(520px, 100%);
+  max-width: 100%;
+  max-height: 85vh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
   background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
+}
+
+.sheet::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.sheet-body {
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+}
+
+.sheet h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+
+@media (min-width: 768px) {
+  .sheet {
+    margin: auto;
+    border-radius: var(--radius);
+  }
+}
+
+.map-warn {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(168, 106, 0, 0.12);
   color: var(--text);
 }
 
-.cal-count {
-  align-self: center;
+.map-how {
+  padding-left: 1.2em;
+  color: var(--muted);
 }
 
-.cal-marks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.map-question {
+  margin: 12px 0 4px;
+  font-weight: 600;
 }
 
-.cal-marks li {
-  display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 0;
+.chip-meta {
+  color: var(--muted);
+  font-size: 0.8em;
 }
 
-.cal-marks li + li {
-  border-top: 1px solid var(--border);
+.chip[aria-pressed='true'] .chip-meta {
+  color: inherit;
 }
 
-.cal-mark-no {
-  display: inline-grid;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 999px;
-  background: #e46300;
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
+.map-extra {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
 }
 
-.cal-mark-body {
-  display: grid;
-  overflow-wrap: anywhere;
+/* 岩場頁右上的搜尋 */
+.topbar-search {
+  margin-left: auto;
+  background: transparent;
+  color: var(--text);
 }

@@ -89,7 +89,8 @@ describe('比例尺地圖資料', () => {
     }
   })
 
-  it('#/calibrate 是校正頁', () => {
-    expect(parseHash('#/calibrate')).toEqual({ name: 'calibrate' })
+  it('#/map 是地圖；舊的校正頁網址轉到地圖', () => {
+    expect(parseHash('#/map')).toEqual({ name: 'map' })
+    expect(parseHash('#/calibrate')).toEqual({ name: 'map' })
   })
 })

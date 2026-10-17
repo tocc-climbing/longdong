@@ -10,7 +10,7 @@
   }
   const text = (el) => (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60)
   // 可以左右捲動或刻意隱藏的區域，裡面超出是正常的
-  const exempt = (el) => !!el.closest('.table-wrap, .map-frame, .scale-map-frame, .visually-hidden, [aria-hidden="true"]')
+  const exempt = (el) => !!el.closest('.table-wrap, .map-frame, .scale-map-frame > svg, .visually-hidden, [aria-hidden="true"]')
 
   const root = document.scrollingElement
   if (root.scrollWidth > window.innerWidth + 1) {
@@ -38,7 +38,7 @@
   }
   // 應該是單行的元件（按鈕、膠囊、欄位標題、分頁）：文字太長時會被擠成兩行，也算超出
   const SINGLE_LINE =
-    '.chip, .action, .fact, .share-button, .rescue-button, .rt-sort, .rt-head > span, .segmented button, ' +
+    '.chip, .action, .sm-control, .sm-chip, .fact, .share-button, .rescue-button, .rt-sort, .rt-head > span, .segmented button, ' +
     '.bottom-nav a > span, .side-nav a, .area-tree a, .grade-pill, .badge, .share-menu button, .call-button strong, .sort-select select'
   for (const el of document.querySelectorAll(SINGLE_LINE)) {
     if (!(el instanceof HTMLElement) || exempt(el) || !el.offsetParent || !el.textContent?.trim()) continue

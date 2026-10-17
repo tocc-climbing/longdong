@@ -54,9 +54,9 @@ function formatDistance(m: number, t: Translate): string {
 export function MyLocation() {
   const { lang, t } = useLang()
   const [geo, start] = useGeolocation()
-  const calibrate = (
-    <a className="action" href={href.calibrate()}>
-      {t('myloc.calibrate')}
+  const mapLink = (
+    <a className="action" href={href.map()}>
+      {t('myloc.map')}
     </a>
   )
 
@@ -71,7 +71,7 @@ export function MyLocation() {
             <button type="button" className="action primary" onClick={start}>
               {t('myloc.start')}
             </button>
-            {calibrate}
+            {mapLink}
           </div>
         </>
       )}
@@ -93,7 +93,7 @@ export function MyLocation() {
                 {t('myloc.retry')}
               </button>
             )}
-            {calibrate}
+            {mapLink}
           </div>
         </>
       )}
@@ -105,7 +105,7 @@ export function MyLocation() {
               {formatCoords(geo.coords)}
             </span>
             <CopyButton text={formatCoords(geo.coords)} className="action primary" />
-            {calibrate}
+            {mapLink}
           </div>
           <p className="muted small" role="status">
             {t('myloc.accuracy', {

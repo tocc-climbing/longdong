@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { BottomNav } from './components/BottomNav'
+import { BottomNav, activeTab } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
 import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
@@ -23,8 +23,8 @@ import type { AppVersion } from '../scripts/lib/appVersion'
 import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './swipe'
 
-/** 現場校正工具只有少數人用，分開打包 */
-const CalibratePage = lazy(() => import('./pages/CalibratePage').then((m) => ({ default: m.CalibratePage })))
+/** 地圖用到的程式與資料較多，分開打包，打開地圖時才載入 */
+const MapPage = lazy(() => import('./pages/MapPage').then((m) => ({ default: m.MapPage })))
 
 /** 開啟後這段時間內發現新版本就直接換上（毫秒） */
 const AUTO_UPDATE_MS = 10_000
@@ -165,7 +165,7 @@ export function App() {
           <Sidebar page={page} data={data} kbdLevel={kbdLevel} />
           <div className={`shell-main${view?.split ? ' split' : ''}`}>
             {banner}
-            <main className={view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
+            <main className={page.name === 'map' ? 'map' : view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
             {footer}
           </div>
         </div>
@@ -182,9 +182,20 @@ export function App() {
           </span>
           {t('app.title')}
         </a>
+        {/* 搜尋放在岩場頁的右上（下方的分頁換成地圖） */}
+        {activeTab(page) === 'crags' && (
+          <a className={`icon-button topbar-search${page.name === 'search' ? ' on' : ''}`} href={href.search()} aria-label={t('nav.search')} title={t('nav.search')}>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+              <path
+                d="M10.5 4a6.5 6.5 0 1 0 4.04 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"
+                fill="currentColor"
+              />
+            </svg>
+          </a>
+        )}
       </header>
       {banner}
-      <main ref={swipeArea}>
+      <main ref={swipeArea} className={page.name === 'map' ? 'map' : undefined}>
         <div ref={swipeMoving} key={slide?.n} className={slide ? `slide-${slide.dir}` : undefined}>
           {content}
           {near && <Pager near={near} onGo={go} />}
@@ -217,10 +228,10 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
       return <RescuePage data={data} areaKey={page.id} />
     case 'about':
       return <AboutPage data={data} />
-    case 'calibrate':
+    case 'map':
       return (
         <Suspense>
-          <CalibratePage data={data} />
+          <MapPage data={data} />
         </Suspense>
       )
     default:
@@ -295,7 +306,7 @@ function desktopView(page: Page, data: LoadedData): DesktopView {
   const closeHref = withDetail(location.hash || '#/', undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
   if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'calibrate')
+  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue')
 }
 
 function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {

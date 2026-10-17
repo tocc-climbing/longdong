@@ -1,7 +1,22 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
-import { MIN_SCALE, clampScale, dashLength, clampView, fitView, maxScale, panBy, viewBox, zoomAt, type MapView, type Rect, type Size } from '../mapView'
+import {
+  MIN_SCALE,
+  clampScale,
+  clampView,
+  dashLength,
+  fitView,
+  mapTransform,
+  maxScale,
+  panBy,
+  rotateAt,
+  toScreen,
+  zoomAt,
+  type MapView,
+  type Rect,
+  type Size,
+} from '../mapView'
 import { project, type Marker, type ScaleMapData } from '../scaleMap'
 import { useLang } from '../i18n'
 
@@ -11,54 +26,56 @@ const SCALE_BARS = [10, 20, 50, 100, 200, 500]
 const PADDING_M = { west: 80, east: 220, north: 80, south: 80 }
 /** 按「＋」「－」、雙擊一次縮放的倍數 */
 const STEP = 2
-/** 「移到我的位置」至少放大到每像素幾公尺 */
+/** 回到我的位置時至少放大到每像素幾公尺 */
 const ME_SCALE = 0.5
+/** 雙指轉動超過這個角度才開始旋轉（弧度），只想縮放時地圖不會跟著歪 */
+const ROTATE_START = 0.15
 
 const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ no: p.no, at: project(p.coords!) }))
 const xs = located.map((p) => p.at[0])
 const ys = located.map((p) => p.at[1])
-const BOUNDS: Rect = {
+export const BOUNDS: Rect = {
   x: Math.min(...xs) - PADDING_M.west,
   y: Math.min(...ys) - PADDING_M.north,
   w: Math.max(...xs) - Math.min(...xs) + PADDING_M.west + PADDING_M.east,
   h: Math.max(...ys) - Math.min(...ys) + PADDING_M.north + PADDING_M.south,
 }
+const inBounds = ([x, y]: [number, number]) => x >= BOUNDS.x && x <= BOUNDS.x + BOUNDS.w && y >= BOUNDS.y && y <= BOUNDS.y + BOUNDS.h
 
 const LABEL_PX = 12
 
+/** 螢幕上的範圍（像素） */
 type Box = [number, number, number, number]
+type Vec = [number, number]
 
 const overlaps = (a: Box, b: Box) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
 
 /** 文字在畫面上的寬度（像素，估計值）：中日文字約 1 個字高，英數約 0.6 */
 function textWidth(text: string, fontPx: number): number {
-  return [...text].reduce((w, c) => w + (/[\u3000-\u9fff\uff00-\uffef]/.test(c) ? 1 : 0.6) * fontPx, 0)
+  return [...text].reduce((w, c) => w + (/[　-鿿＀-￯]/.test(c) ? 1 : 0.6) * fontPx, 0)
 }
 
-/** 以 at 為中心、在畫面上半寬 hw、半高 hh 像素的範圍（換算成地圖公尺）；dy 為中心往下移的像素 */
-const around = (at: [number, number], hw: number, hh: number, px: number, dy = 0): Box => [
-  at[0] - hw * px,
-  at[1] + (dy - hh) * px,
-  at[0] + hw * px,
-  at[1] + (dy + hh) * px,
-]
+/** 以 at 為中心、半寬 hw、半高 hh 的範圍；dy 為中心往下移 */
+const around = ([x, y]: Vec, hw: number, hh: number, dy = 0): Box => [x - hw, y + dy - hh, x + hw, y + dy + hh]
 
 /** 圖示越前面越重要：重疊時先畫重要的，其他的等放大後空間夠了才出現 */
 const PRIORITY: Record<Marker['kind'], number> = { ems: 0, hoist: 1, parking: 2, boat: 3, place: 4 }
 
-function markerBox(m: Marker, px: number): Box {
-  if (m.kind === 'place') return around(m.at, textWidth(m.zh, 11) / 2 + 2, 7, px)
+const placeName = (m: Extract<Marker, { kind: 'place' }>, lang: string) => (lang === 'en' ? m.en : m.zh)
+
+function markerBox(m: Marker, at: Vec, lang: string): Box {
+  if (m.kind === 'place') return around(at, textWidth(placeName(m, lang), 11) / 2 + 2, 7)
   // 直升機圖釘的尖端在實際位置，圖示在上方
-  if (m.kind === 'hoist') return around(m.at, 6.5, 10, px, -10)
-  return around(m.at, 7.5, 7.5, px)
+  if (m.kind === 'hoist') return around(at, 6.5, 10, -10)
+  return around(at, 7.5, 7.5)
 }
 
 /**
- * 決定縮放到這個比例時要畫哪些圖示與區域名稱：救援點一定畫（救援時最重要），
+ * 決定要畫哪些圖示與區域名稱（都在螢幕座標上算，旋轉後也正確）：救援點一定畫（救援時最重要），
  * 其他依 PRIORITY、區域名稱依面積大小，和已畫的東西重疊就先不畫。
  */
-function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Record<string, string>, px: number, lang: string) {
-  const occupied: Box[] = located.map(({ at }) => around(at, 8, 8, px))
+function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Record<string, string>, screen: (p: Vec) => Vec, lang: string) {
+  const occupied: Box[] = located.map(({ at }) => around(screen(at), 8, 8))
   const fits = (box: Box) => {
     if (occupied.some((o) => overlaps(box, o))) return false
     occupied.push(box)
@@ -68,13 +85,13 @@ function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Recor
     markers
       .map((m, i) => ({ m, i }))
       .sort((a, b) => PRIORITY[a.m.kind] - PRIORITY[b.m.kind])
-      .filter(({ m }) => fits(m.kind === 'place' && lang === 'en' ? around(m.at, textWidth(m.en, 11) / 2 + 2, 7, px) : markerBox(m, px)))
+      .filter(({ m }) => fits(markerBox(m, screen(m.at), lang)))
       .map(({ i }) => i),
   )
   const labels = [...areas]
     .sort((x, y) => y.size - x.size)
-    .map((a) => ({ id: a.id, text: names[a.id] ?? a.id, at: a.label }))
-    .filter((l) => fits(around(l.at, textWidth(l.text, LABEL_PX) / 2 + 4, LABEL_PX / 2 + 2, px)))
+    .map((a) => ({ id: a.id, text: names[a.id] ?? a.id, at: screen(a.label) }))
+    .filter((l) => fits(around(l.at, textWidth(l.text, LABEL_PX) / 2 + 4, LABEL_PX / 2 + 2)))
   return { shown, labels }
 }
 
@@ -85,17 +102,23 @@ interface Props {
   here?: { coords: LatLng; accuracy: number }
   marks: LatLng[]
   track: LatLng[]
+  /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去 */
+  onLocate: () => void
+  /** 左下角的按鈕（回報、記錄軌跡） */
+  bottomLeft?: ReactNode
+  /** 左上角（測試版說明） */
+  topLeft?: ReactNode
 }
 
 type Point = { x: number; y: number }
 
 /**
- * 照比例尺的龍洞簡圖：北方朝上，配色與救援資訊圖相同。
- * 像 Google 地圖一樣拖曳平移、雙指或滾輪縮放、雙擊放大，最小縮到整張圖；
- * 圓點、文字維持固定的螢幕大小，誤差圈是實際大小。
+ * 照比例尺的龍洞地圖：配色與救援資訊圖相同，操作像 Google 地圖：
+ * 拖曳平移、雙指縮放與旋轉、滾輪縮放、雙擊放大；右上羅盤點一下回到北方朝上，右下回到我的位置。
+ * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
+ * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
-  // 地名：英文用英文名，其他語言用中文名（漢字）
+export function ScaleMap({ map, areaNames, here, marks, track, onLocate, bottomLeft, topLeft }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -112,9 +135,9 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
     latest.current = { frame: f, view: clamped }
     setView(clamped)
   }
+  const center = (f: Size): Point => ({ x: f.w / 2, y: f.h / 2 })
   /** 以框內一點（預設為中心）為準縮放到每像素 s 公尺 */
-  const zoomTo = (s: number, at?: Point) =>
-    apply((v, f) => zoomAt(v, f, at ?? { x: f.w / 2, y: f.h / 2 }, clampScale(s, BOUNDS, f)))
+  const zoomTo = (s: number, at?: Point) => apply((v, f) => zoomAt(v, f, at ?? center(f), clampScale(s, BOUNDS, f)))
 
   // 框的大小只由版面決定（地圖填滿框，沒有捲軸），不會因為地圖本身改變而來回重算
   useLayoutEffect(() => {
@@ -129,22 +152,29 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
     return () => observer.disconnect()
   }, [])
 
-  // 拖曳平移、雙指縮放：記下每根手指的位置，每次移動和上一次比較
+  // 拖曳平移；雙指縮放與旋轉：記下每根手指的位置，每次移動和上一次比較
   useLayoutEffect(() => {
     const el = box.current!
     const pointers = new Map<number, Point>()
+    /** 這次雙指操作累積轉了多少；超過 ROTATE_START 才開始旋轉 */
+    let twist = 0
+    let rotating = false
     const local = (e: MouseEvent): Point => {
       const r = el.getBoundingClientRect()
       return { x: e.clientX - r.left, y: e.clientY - r.top }
     }
     const pair = () => {
       const [a, b] = [...pointers.values()]
-      return { mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.hypot(a.x - b.x, a.y - b.y) }
+      return { mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.hypot(a.x - b.x, a.y - b.y), angle: Math.atan2(b.y - a.y, b.x - a.x) }
     }
 
     const down = (e: PointerEvent) => {
+      // 地圖上的按鈕照常點擊
+      if ((e.target as Element).closest('button, a')) return
       el.setPointerCapture(e.pointerId)
       pointers.set(e.pointerId, local(e))
+      twist = 0
+      rotating = false
     }
     const move = (e: PointerEvent) => {
       const prev = pointers.get(e.pointerId)
@@ -158,8 +188,16 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
         pointers.set(e.pointerId, local(e))
         const after = pair()
         if (before.dist === 0 || after.dist === 0) return
-        // 跟著兩指的中點平移，再以中點為準依兩指距離縮放
-        apply((v, f) => zoomAt(panBy(v, after.mid.x - before.mid.x, after.mid.y - before.mid.y), f, after.mid, clampScale((v.s * before.dist) / after.dist, BOUNDS, f)))
+        // 角度差換到 -π～π，避免跨過 ±180 度時跳一圈
+        const turn = Math.atan2(Math.sin(after.angle - before.angle), Math.cos(after.angle - before.angle))
+        twist += turn
+        if (!rotating && Math.abs(twist) > ROTATE_START) rotating = true
+        // 跟著兩指的中點平移，再以中點為準縮放、旋轉
+        apply((v, f) => {
+          const moved = panBy(v, after.mid.x - before.mid.x, after.mid.y - before.mid.y)
+          const zoomed = zoomAt(moved, f, after.mid, clampScale((v.s * before.dist) / after.dist, BOUNDS, f))
+          return rotating ? rotateAt(zoomed, f, after.mid, zoomed.r + turn) : zoomed
+        })
       }
     }
     const up = (e: PointerEvent) => {
@@ -171,6 +209,7 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
       apply((v, f) => zoomAt(v, f, at, clampScale(v.s * Math.exp(e.deltaY * 0.002), BOUNDS, f)))
     }
     const dblclick = (e: MouseEvent) => {
+      if ((e.target as Element).closest('button, a')) return
       const at = local(e)
       apply((v, f) => zoomAt(v, f, at, clampScale(v.s / STEP, BOUNDS, f)))
     }
@@ -193,39 +232,47 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
   }, [])
 
   const me = here && project(here.coords)
-  const VIEW = frame && view ? viewBox(view, frame) : BOUNDS
-  /** 一個螢幕像素等於幾公尺：圓點、文字、線寬用它換算成固定的螢幕大小 */
-  const px = view?.s ?? 1
-  const atMax = !view || view.s <= MIN_SCALE * 1.0001
-  const atMin = !view || !frame || view.s >= maxScale(BOUNDS, frame) * 0.9999
+
+  // 移到目前位置：第一次定位到（在龍洞範圍內）時自動移過去；按了「回到我的位置」但還沒定位時，定位到再移過去
+  const pendingCenter = useRef(true)
+  const goToMe = (at: Vec) => {
+    pendingCenter.current = false
+    apply((v) => ({ ...v, cx: at[0], cy: at[1], s: Math.min(v.s, ME_SCALE) }))
+  }
+  useEffect(() => {
+    if (pendingCenter.current && me && view && inBounds(me)) goToMe(me)
+  }, [me?.[0], me?.[1], !!view])
+
+  const locate = () => {
+    if (me) goToMe(me)
+    else pendingCenter.current = true
+    onLocate()
+  }
+
+  if (!frame || !view) {
+    return <div className="scale-map-frame" ref={box} />
+  }
+
+  const screen = (p: Vec) => toScreen(view, frame, p)
+  /** 一個螢幕像素等於幾公尺：地圖圖形的線寬、虛線用它換算成固定的螢幕大小 */
+  const px = view.s
+  const atMax = view.s <= MIN_SCALE * 1.0001
+  const atMin = view.s >= maxScale(BOUNDS, frame) * 0.9999
+  const north = (view.r * 180) / Math.PI
 
   const trailDash = dashLength(3, px)
   const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= 90).pop() ?? SCALE_BARS[0]
-  const { shown, labels } = declutter(map.markers, map.areas, areaNames, px, lang)
+  const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang)
   const trackPath = track.length >= 2 ? 'M' + track.map((c) => project(c).join(' ')).join('L') : ''
+  // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
+  const cover = Math.hypot(frame.w, frame.h) * px
 
   return (
-    <div className="scale-map">
-      <div className="scale-map-tools">
-        <button type="button" className="action" onClick={() => view && zoomTo(view.s / STEP)} disabled={atMax} aria-label={t('rescue.zoomIn')}>
-          ＋
-        </button>
-        <button type="button" className="action" onClick={() => view && zoomTo(view.s * STEP)} disabled={atMin} aria-label={t('rescue.zoomOut')}>
-          －
-        </button>
-        <button
-          type="button"
-          className="action"
-          onClick={() => me && apply((v) => ({ cx: me[0], cy: me[1], s: Math.min(v.s, ME_SCALE) }))}
-          disabled={!me}
-        >
-          {t('cal.toMe')}
-        </button>
-      </div>
-      <div className="scale-map-frame" ref={box}>
-        <svg viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="img" aria-label={t('cal.mapAria')}>
-          <rect className="sm-sea" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} />
+    <div className="scale-map-frame" ref={box}>
+      <svg width={frame.w} height={frame.h} role="img" aria-label={t('map.mapAria')}>
+        <g transform={mapTransform(view, frame)}>
+          <rect className="sm-sea" x={view.cx - cover} y={view.cy - cover} width={cover * 2} height={cover * 2} />
           <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
           <path className="sm-building" d={map.layers.building} />
           {map.areas.map((a) => (
@@ -235,81 +282,112 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
           <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
           <path className="sm-road" d={map.layers.road} strokeWidth={2.5 * px} />
           <path className="sm-trail" d={map.layers.trail} strokeWidth={2 * px} strokeDasharray={`${trailDash} ${trailDash}`} />
-          {trackPath && <path className="sm-track" d={trackPath} strokeWidth={2.5 * px} />}
+          {trackPath && <path className="sm-track" d={trackPath} strokeWidth={3 * px} />}
+          {me && here && <circle className="sm-me-accuracy" cx={me[0]} cy={me[1]} r={here.accuracy} />}
+        </g>
 
-          <g fontSize={LABEL_PX * px}>
-            {map.markers.map((m, i) =>
-              !shown.has(i) ? null : m.kind === 'place' ? (
-                <text key={i} className="sm-place" x={m.at[0]} y={m.at[1]} fontSize={11 * px} textAnchor="middle" dominantBaseline="central">
-                  {lang === 'en' ? m.en : m.zh}
+        <g fontSize={LABEL_PX}>
+          {map.markers.map((m, i) => {
+            if (!shown.has(i)) return null
+            const [x, y] = screen(m.at)
+            if (m.kind === 'place')
+              return (
+                <text key={i} className="sm-place" x={x} y={y} fontSize={11} textAnchor="middle" dominantBaseline="central">
+                  {placeName(m, lang)}
                 </text>
-              ) : m.kind === 'boat' ? (
+              )
+            if (m.kind === 'boat')
+              return (
                 <g key={i} className="sm-boat">
-                  <title>{t('cal.boat')}</title>
-                  <circle cx={m.at[0]} cy={m.at[1]} r={6 * px} strokeWidth={px} />
-                  <circle cx={m.at[0]} cy={m.at[1]} r={3.5 * px} strokeWidth={1.5 * px} />
-                  <circle className="sm-boat-dot" cx={m.at[0]} cy={m.at[1]} r={1.6 * px} />
+                  <title>{t('map.boat')}</title>
+                  <circle cx={x} cy={y} r={6} strokeWidth={1} />
+                  <circle cx={x} cy={y} r={3.5} strokeWidth={1.5} />
+                  <circle className="sm-boat-dot" cx={x} cy={y} r={1.6} />
                 </g>
-              ) : m.kind === 'hoist' ? (
+              )
+            if (m.kind === 'hoist')
+              return (
                 <g key={i} className="sm-hoist">
-                  <title>{t('cal.hoist')}</title>
+                  <title>{t('map.hoist')}</title>
                   {/* 圖釘：尖端在實際位置 */}
-                  <path
-                    d={`M${m.at[0]} ${m.at[1]}l${-5.5 * px} ${-9 * px}a${6.4 * px} ${6.4 * px} 0 1 1 ${11 * px} 0z`}
-                  />
-                  <text x={m.at[0]} y={m.at[1] - 12.5 * px} fontSize={8 * px} textAnchor="middle" dominantBaseline="central">
+                  <path d={`M${x} ${y}l-5.5 -9a6.4 6.4 0 1 1 11 0z`} />
+                  <text x={x} y={y - 12.5} fontSize={8} textAnchor="middle" dominantBaseline="central">
                     H
                   </text>
                 </g>
-              ) : m.kind === 'parking' ? (
+              )
+            if (m.kind === 'parking')
+              return (
                 <g key={i} className="sm-parking">
-                  <rect x={m.at[0] - 7 * px} y={m.at[1] - 7 * px} width={14 * px} height={14 * px} rx={3 * px} />
-                  <text x={m.at[0]} y={m.at[1]} fontSize={10 * px} textAnchor="middle" dominantBaseline="central">
+                  <rect x={x - 7} y={y - 7} width={14} height={14} rx={3} />
+                  <text x={x} y={y} fontSize={10} textAnchor="middle" dominantBaseline="central">
                     P
                   </text>
                 </g>
-              ) : (
-                <g key={i} className="sm-ems">
-                  <title>{t('cal.ems', { n: m.no })}</title>
-                  <rect x={m.at[0] - 6 * px} y={m.at[1] - 7 * px} width={12 * px} height={14 * px} rx={4 * px} />
-                  <path d={`M${m.at[0] - 3.5 * px} ${m.at[1]}h${7 * px}M${m.at[0]} ${m.at[1] - 3.5 * px}v${7 * px}`} strokeWidth={2 * px} />
-                </g>
-              ),
-            )}
-            {labels.map((l) => (
-              <text key={l.id} className={`sm-label sm-label-${l.id}`} x={l.at[0]} y={l.at[1]} textAnchor="middle" dominantBaseline="central">
-                {l.text}
-              </text>
-            ))}
-            {located.map((p, i) => (
+              )
+            return (
+              <g key={i} className="sm-ems">
+                <title>{t('map.ems', { n: m.no })}</title>
+                <rect x={x - 6} y={y - 7} width={12} height={14} rx={4} />
+                <path d={`M${x - 3.5} ${y}h7M${x} ${y - 3.5}v7`} strokeWidth={2} />
+              </g>
+            )
+          })}
+          {labels.map((l) => (
+            <text key={l.id} className={`sm-label sm-label-${l.id}`} x={l.at[0]} y={l.at[1]} textAnchor="middle" dominantBaseline="central">
+              {l.text}
+            </text>
+          ))}
+          {located.map((p, i) => {
+            const [x, y] = screen(p.at)
+            return (
               <g key={i} className="sm-rescue">
-                <circle cx={p.at[0]} cy={p.at[1]} r={7 * px} />
-                <text x={p.at[0]} y={p.at[1]} fontSize={9 * px} textAnchor="middle" dominantBaseline="central">
+                <circle cx={x} cy={y} r={7} />
+                <text x={x} y={y} fontSize={9} textAnchor="middle" dominantBaseline="central">
                   {p.no}
                 </text>
               </g>
-            ))}
-            {marks.map((c, i) => {
-              const [x, y] = project(c)
-              return (
-                <g key={i} className="sm-mark">
-                  <circle cx={x} cy={y} r={6 * px} />
-                  <text x={x} y={y} fontSize={8 * px} textAnchor="middle" dominantBaseline="central">
-                    {i + 1}
-                  </text>
-                </g>
-              )
-            })}
-          </g>
-
-          {me && here && (
-            <g className="sm-me">
-              <circle className="sm-me-accuracy" cx={me[0]} cy={me[1]} r={here.accuracy} />
-              <circle cx={me[0]} cy={me[1]} r={6 * px} strokeWidth={2 * px} />
-            </g>
+            )
+          })}
+          {marks.map((c, i) => {
+            const [x, y] = screen(project(c))
+            return <circle key={i} className="sm-mark" cx={x} cy={y} r={5} />
+          })}
+          {me && (
+            <circle className="sm-me" cx={screen(me)[0]} cy={screen(me)[1]} r={7} strokeWidth={2.5} />
           )}
+        </g>
+      </svg>
+
+      {topLeft && <div className="sm-top-left">{topLeft}</div>}
+
+      <button type="button" className="sm-control sm-compass" onClick={() => apply((v, f) => rotateAt(v, f, center(f), 0))} aria-label={t('map.north')} title={t('map.north')}>
+        <svg viewBox="-12 -12 24 24" width="24" height="24" aria-hidden style={{ transform: `rotate(${north}deg)` }}>
+          <path d="M0 -10l4 10h-8z" fill="#d93025" />
+          <path d="M0 10l4 -10h-8z" fill="currentColor" opacity="0.45" />
         </svg>
+      </button>
+
+      <div className="sm-bottom-right">
+        <div className="sm-zoom">
+          <button type="button" className="sm-control" onClick={() => zoomTo(view.s / STEP)} disabled={atMax} aria-label={t('rescue.zoomIn')}>
+            ＋
+          </button>
+          <button type="button" className="sm-control" onClick={() => zoomTo(view.s * STEP)} disabled={atMin} aria-label={t('rescue.zoomOut')}>
+            －
+          </button>
+        </div>
+        <button type="button" className={`sm-control sm-locate${me ? ' on' : ''}`} onClick={locate} aria-label={t('map.locate')} title={t('map.locate')}>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+            <circle cx="12" cy="12" r="4" fill="currentColor" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        </button>
       </div>
+
+      {bottomLeft && <div className="sm-bottom-left">{bottomLeft}</div>}
+
       <div className="scale-map-legend" aria-hidden>
         <span className="sm-bar" style={{ width: bar / px }} />
         {t('myloc.m', { n: bar })}

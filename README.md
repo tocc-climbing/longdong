@@ -140,8 +140,9 @@ npm run rescue-map -- <救援資訊圖.ai>
 - `public/rescue/scale-map.geojson`：陸地、建物、道路、步道，以及停車場、急救器材、船艇接駁點、直升機吊掛點、地名
 - `public/rescue/areas.geojson`：9 個大區域的範圍（之後也可用在路線分區的介面）
 
-控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。現場校正頁 `#/calibrate`（沒有放在選單裡）在這張圖上顯示 GPS 位置，可在明確的地點記下座標與說明、記錄步道軌跡，匯出 GeoJSON 傳回；
-校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
+控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`#/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），打開就開始定位；
+第一次使用會說明地圖還在校正、可能有誤差。左下「回報」依目前位置列出附近的區域、救援點與標示（`src/reportOptions.ts`），「記錄軌跡」記錄走過的路；
+記錄先存在手機上，登入且連上網路時自動上傳到 `v2/calibration/<uid>`（只有本人與管理員讀得到）。校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
 
 ## 舊網址轉址
 

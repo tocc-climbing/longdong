@@ -51,13 +51,21 @@ const PAGES: { name: string; hash: string; prepare?: (page: Page, mobile: boolea
     },
   },
   {
-    name: '比例尺地圖校正（含定位與記錄點）',
-    hash: '#/calibrate',
+    name: '地圖（第一次使用的說明）',
+    hash: '#/map',
     prepare: async (page) => {
-      await page.click('.calibrate .card .action.primary')
+      await page.waitForSelector('.sheet[open] .action.primary')
+    },
+  },
+  {
+    name: '地圖（定位後的回報彈窗）',
+    hash: '#/map',
+    prepare: async (page) => {
+      await page.evaluate(() => localStorage.setItem('longdong.map.intro', '1'))
+      await page.reload()
       await page.waitForSelector('.sm-me')
-      await page.fill('.cal-note input', 'Clocktower · north corner')
-      await page.click('.cal-note .action.primary')
+      await page.click('.sm-report')
+      await page.waitForSelector('.sheet[open] .chip')
     },
   },
   { name: '關於', hash: '#/about' },

@@ -31,7 +31,7 @@ export interface ScaleMapData {
   layers: Record<string, string>
   markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
-  areas: { id: string; path: string; label: [number, number]; size: number }[]
+  areas: { id: string; path: string; label: [number, number]; size: number; rings: [number, number][][] }[]
 }
 
 const ORIGIN: LatLng = [25.107, 121.92]
@@ -92,9 +92,16 @@ export async function loadScaleMap(): Promise<ScaleMapData> {
     ),
     markers: base.features.filter((f) => f.geometry.type === 'Point').map(toMarker),
     areas: areas.features.map((f) => {
-      const pieces = (f.geometry.coordinates as Position[][][]).map((rings) => centroid(rings[0].map(([lng, lat]) => project([lat, lng]))))
+      const rings = (f.geometry.coordinates as Position[][][]).map((polygon) => polygon[0].map(([lng, lat]) => project([lat, lng])))
+      const pieces = rings.map(centroid)
       const largest = pieces.reduce((a, b) => (b.size > a.size ? b : a))
-      return { id: f.properties.id!, path: toPath(f.geometry as Exclude<Feature['geometry'], { type: 'Point' }>), label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0) }
+      return {
+        id: f.properties.id!,
+        path: toPath(f.geometry as Exclude<Feature['geometry'], { type: 'Point' }>),
+        label: largest.at,
+        size: pieces.reduce((s, p) => s + p.size, 0),
+        rings,
+      }
     }),
   }
 }

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { isWide } from './layout'
 
 /**
- * 極簡 hash 路由：#/、#/search?q=、#/area/<id>、#/sector/<id>、#/route/<id>、#/me、#/about、#/rescue/<區域>、#/calibrate（id 本身含 "/"）。
+ * 極簡 hash 路由：#/、#/search?q=、#/area/<id>、#/sector/<id>、#/route/<id>、#/me、#/about、#/rescue/<區域>、#/map（id 本身含 "/"）。
  * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
  */
 export type Page = (
@@ -14,7 +14,7 @@ export type Page = (
   | { name: 'me' }
   | { name: 'about' }
   | { name: 'rescue'; id?: string }
-  | { name: 'calibrate' }
+  | { name: 'map' }
 ) & { detail?: string }
 
 const DEFAULT_CRAG = 'longdong'
@@ -50,7 +50,8 @@ export function parseHash(hash: string): Page {
   if (kind === 'search') return { name: 'search', q: params.get('q') ?? '', ...extra }
   if (kind === 'me') return { name: 'me', ...extra }
   if (kind === 'about') return { name: 'about' }
-  if (kind === 'calibrate') return { name: 'calibrate' }
+  // 舊的校正頁（#/calibrate）已併入地圖
+  if (kind === 'map' || kind === 'calibrate') return { name: 'map' }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
   return { name: 'home' }
 }
@@ -66,8 +67,8 @@ export const href = {
   about: () => '#/about',
   /** 救援資訊；area 為大區域的救援 key（golden-valley），會先顯示該區的資訊 */
   rescue: (area?: string) => (area ? `#/rescue/${area}` : '#/rescue'),
-  /** 比例尺地圖的現場校正（測試中） */
-  calibrate: () => '#/calibrate',
+  /** 照比例尺的龍洞地圖（測試版，可回報位置幫忙校正） */
+  map: () => '#/map',
 }
 
 // 開啟分享出去的網址時轉成路線頁（必須在 href 定義之後、usePage 第一次讀網址之前）

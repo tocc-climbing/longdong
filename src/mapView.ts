@@ -1,6 +1,7 @@
 /**
- * 比例尺地圖的平移與縮放（像 Google 地圖：拖曳平移、雙指或滾輪縮放）。
- * 畫面狀態用「中心點（公尺）＋每像素幾公尺」表示，框的大小改變時比例不變，不會因此重新排版而閃動。
+ * 比例尺地圖的平移、縮放與旋轉（像 Google 地圖：拖曳平移、雙指縮放與旋轉、滾輪縮放）。
+ * 畫面狀態用「中心點（公尺）＋每像素幾公尺＋旋轉角度」表示，框的大小改變時比例不變，不會因此重新排版而閃動。
+ * 地圖座標：x 向東、y 向南（公尺）；螢幕座標：框的左上角為原點（像素）。
  */
 
 export interface Rect {
@@ -16,6 +17,8 @@ export interface MapView {
   cy: number
   /** 每個螢幕像素幾公尺（越小越放大） */
   s: number
+  /** 地圖順時針旋轉的角度（弧度）；0 為北方朝上 */
+  r: number
 }
 
 export interface Size {
@@ -23,12 +26,33 @@ export interface Size {
   h: number
 }
 
+type Vec = [number, number]
+
 /** 放到最大時每像素幾公尺 */
 export const MIN_SCALE = 0.1
 
-/** 整個範圍剛好放進框裡 */
+const rotate = ([x, y]: Vec, a: number): Vec => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]
+
+/** 地圖座標 → 螢幕座標 */
+export function toScreen(v: MapView, frame: Size, [x, y]: Vec): Vec {
+  const [sx, sy] = rotate([x - v.cx, y - v.cy], v.r)
+  return [sx / v.s + frame.w / 2, sy / v.s + frame.h / 2]
+}
+
+/** 螢幕座標 → 地圖座標 */
+export function toMap(v: MapView, frame: Size, [x, y]: Vec): Vec {
+  const [mx, my] = rotate([x - frame.w / 2, y - frame.h / 2], -v.r)
+  return [v.cx + mx * v.s, v.cy + my * v.s]
+}
+
+/** SVG 的 transform：把地圖座標畫到螢幕上 */
+export function mapTransform(v: MapView, frame: Size): string {
+  return `translate(${frame.w / 2} ${frame.h / 2}) rotate(${(v.r * 180) / Math.PI}) scale(${1 / v.s}) translate(${-v.cx} ${-v.cy})`
+}
+
+/** 整個範圍剛好放進框裡、北方朝上 */
 export function fitView(bounds: Rect, frame: Size): MapView {
-  return { cx: bounds.x + bounds.w / 2, cy: bounds.y + bounds.h / 2, s: maxScale(bounds, frame) }
+  return { cx: bounds.x + bounds.w / 2, cy: bounds.y + bounds.h / 2, s: maxScale(bounds, frame), r: 0 }
 }
 
 /** 最多縮小到整個範圍放進框裡 */
@@ -45,21 +69,16 @@ export function clampScale(s: number, bounds: Rect, frame: Size): number {
 export function clampView(v: MapView, bounds: Rect, frame: Size): MapView {
   return {
     s: clampScale(v.s, bounds, frame),
+    r: v.r,
     cx: Math.min(bounds.x + bounds.w, Math.max(bounds.x, v.cx)),
     cy: Math.min(bounds.y + bounds.h, Math.max(bounds.y, v.cy)),
   }
 }
 
-/** SVG 的 viewBox */
-export function viewBox(v: MapView, frame: Size): Rect {
-  const w = v.s * frame.w
-  const h = v.s * frame.h
-  return { x: v.cx - w / 2, y: v.cy - h / 2, w, h }
-}
-
 /** 拖曳：畫面移動 (dx, dy) 像素，地圖跟著手指走 */
 export function panBy(v: MapView, dx: number, dy: number): MapView {
-  return { ...v, cx: v.cx - dx * v.s, cy: v.cy - dy * v.s }
+  const [mx, my] = rotate([dx, dy], -v.r)
+  return { ...v, cx: v.cx - mx * v.s, cy: v.cy - my * v.s }
 }
 
 /**
@@ -67,10 +86,16 @@ export function panBy(v: MapView, dx: number, dy: number): MapView {
  * s 先用 clampScale 限制好，到了極限時中心才不會跟著偏移。
  */
 export function zoomAt(v: MapView, frame: Size, at: { x: number; y: number }, s: number): MapView {
-  const ox = at.x - frame.w / 2
-  const oy = at.y - frame.h / 2
-  // 那一點的地圖座標：cx + ox * s，縮放前後要相同
-  return { s, cx: v.cx + ox * (v.s - s), cy: v.cy + oy * (v.s - s) }
+  const [mx, my] = toMap(v, frame, [at.x, at.y])
+  const [ox, oy] = rotate([at.x - frame.w / 2, at.y - frame.h / 2], -v.r)
+  return { ...v, s, cx: mx - ox * s, cy: my - oy * s }
+}
+
+/** 以框內的某一點為中心旋轉到角度 r：那一點下面的地圖位置不動（雙指的中點） */
+export function rotateAt(v: MapView, frame: Size, at: { x: number; y: number }, r: number): MapView {
+  const [mx, my] = toMap(v, frame, [at.x, at.y])
+  const [ox, oy] = rotate([at.x - frame.w / 2, at.y - frame.h / 2], -r)
+  return { ...v, r, cx: mx - ox * v.s, cy: my - oy * v.s }
 }
 
 /**
