@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
 import { MIN_SCALE, clampScale, dashLength, clampView, fitView, maxScale, panBy, viewBox, zoomAt, type MapView, type Rect, type Size } from '../mapView'
-import { project, type ScaleMapData } from '../scaleMap'
+import { project, type Marker, type ScaleMapData } from '../scaleMap'
 import { useLang } from '../i18n'
 
 /** 比例尺的長度（公尺）：選畫面上不超過 90px 的最長一個 */
@@ -28,20 +28,54 @@ const LABEL_PX = 12
 
 type Box = [number, number, number, number]
 
-/** 區域名稱放在最大一塊的重心；和救援點或已放的名稱重疊就不放（先放面積大的），放大後空間夠了才出現 */
-function placeLabels(areas: ScaleMapData['areas'], names: Record<string, string>, px: number) {
-  const placed: { id: string; text: string; at: [number, number]; box: Box }[] = []
-  const pins: Box[] = located.map(({ at }) => [at[0] - 8 * px, at[1] - 8 * px, at[0] + 8 * px, at[1] + 8 * px])
-  const overlaps = (a: Box, b: Box) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
-  for (const a of [...areas].sort((x, y) => y.size - x.size)) {
-    const text = names[a.id] ?? a.id
-    const halfW = ((text.length * LABEL_PX) / 2 + 4) * px
-    const halfH = (LABEL_PX / 2 + 2) * px
-    const box: Box = [a.label[0] - halfW, a.label[1] - halfH, a.label[0] + halfW, a.label[1] + halfH]
-    if (pins.some((b) => overlaps(box, b)) || placed.some((p) => overlaps(box, p.box))) continue
-    placed.push({ id: a.id, text, at: a.label, box })
+const overlaps = (a: Box, b: Box) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
+
+/** 文字在畫面上的寬度（像素，估計值）：中日文字約 1 個字高，英數約 0.6 */
+function textWidth(text: string, fontPx: number): number {
+  return [...text].reduce((w, c) => w + (/[\u3000-\u9fff\uff00-\uffef]/.test(c) ? 1 : 0.6) * fontPx, 0)
+}
+
+/** 以 at 為中心、在畫面上半寬 hw、半高 hh 像素的範圍（換算成地圖公尺）；dy 為中心往下移的像素 */
+const around = (at: [number, number], hw: number, hh: number, px: number, dy = 0): Box => [
+  at[0] - hw * px,
+  at[1] + (dy - hh) * px,
+  at[0] + hw * px,
+  at[1] + (dy + hh) * px,
+]
+
+/** 圖示越前面越重要：重疊時先畫重要的，其他的等放大後空間夠了才出現 */
+const PRIORITY: Record<Marker['kind'], number> = { ems: 0, hoist: 1, parking: 2, boat: 3, place: 4 }
+
+function markerBox(m: Marker, px: number): Box {
+  if (m.kind === 'place') return around(m.at, textWidth(m.zh, 11) / 2 + 2, 7, px)
+  // 直升機圖釘的尖端在實際位置，圖示在上方
+  if (m.kind === 'hoist') return around(m.at, 6.5, 10, px, -10)
+  return around(m.at, 7.5, 7.5, px)
+}
+
+/**
+ * 決定縮放到這個比例時要畫哪些圖示與區域名稱：救援點一定畫（救援時最重要），
+ * 其他依 PRIORITY、區域名稱依面積大小，和已畫的東西重疊就先不畫。
+ */
+function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Record<string, string>, px: number, lang: string) {
+  const occupied: Box[] = located.map(({ at }) => around(at, 8, 8, px))
+  const fits = (box: Box) => {
+    if (occupied.some((o) => overlaps(box, o))) return false
+    occupied.push(box)
+    return true
   }
-  return placed
+  const shown = new Set(
+    markers
+      .map((m, i) => ({ m, i }))
+      .sort((a, b) => PRIORITY[a.m.kind] - PRIORITY[b.m.kind])
+      .filter(({ m }) => fits(m.kind === 'place' && lang === 'en' ? around(m.at, textWidth(m.en, 11) / 2 + 2, 7, px) : markerBox(m, px)))
+      .map(({ i }) => i),
+  )
+  const labels = [...areas]
+    .sort((x, y) => y.size - x.size)
+    .map((a) => ({ id: a.id, text: names[a.id] ?? a.id, at: a.label }))
+    .filter((l) => fits(around(l.at, textWidth(l.text, LABEL_PX) / 2 + 4, LABEL_PX / 2 + 2, px)))
+  return { shown, labels }
 }
 
 interface Props {
@@ -168,7 +202,7 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
   const trailDash = dashLength(3, px)
   const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= 90).pop() ?? SCALE_BARS[0]
-  const labels = placeLabels(map.areas, areaNames, px)
+  const { shown, labels } = declutter(map.markers, map.areas, areaNames, px, lang)
   const trackPath = track.length >= 2 ? 'M' + track.map((c) => project(c).join(' ')).join('L') : ''
 
   return (
@@ -205,7 +239,7 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
 
           <g fontSize={LABEL_PX * px}>
             {map.markers.map((m, i) =>
-              m.kind === 'place' ? (
+              !shown.has(i) ? null : m.kind === 'place' ? (
                 <text key={i} className="sm-place" x={m.at[0]} y={m.at[1]} fontSize={11 * px} textAnchor="middle" dominantBaseline="central">
                   {lang === 'en' ? m.en : m.zh}
                 </text>
