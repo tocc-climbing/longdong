@@ -1433,6 +1433,8 @@ a.action {
 
 .settings {
   display: grid;
+  /* 欄寬固定為卡片寬度：選單裡較長的選項（各語言、各字型寬度不同）不會把整欄撐出畫面 */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -1825,6 +1827,7 @@ a.action {
 }
 
 .lang-picker select {
+  min-width: 0;
   font: inherit;
   font-weight: 500;
   padding: 8px 12px;
