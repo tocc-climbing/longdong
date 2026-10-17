@@ -1,6 +1,6 @@
 /**
  * 由 TOCC 龍洞岩場救援資訊圖（.ai／.pdf）的向量圖形產生照比例尺的地圖資料（GeoJSON，WGS84）：
- *   public/rescue/scale-map.geojson   陸地、建物、道路、步道、停車場、急救器材、船艇接駁點、直升機吊掛點、地名
+ *   public/rescue/scale-map.geojson   陸地、建物、道路、步道、停車場（範圍與 P 字位置）、急救器材、船艇接駁點、直升機吊掛點、地名
  *   public/rescue/areas.geojson       9 個大區域的範圍（之後也可用在路線分區的介面）
  *
  *   npm run scale-map -- <救援資訊圖.ai 或 .pdf>
@@ -46,7 +46,7 @@ const FIELD_POINTS: { note: string; at: Pt; gps: Pt }[] = []
 /**
  * 參考點：圖上容易對應的地物 ↔ OpenStreetMap 的座標（© OpenStreetMap contributors，ODbL），校正岩場以外的道路與停車場。
  * 救援資訊圖本身是示意圖、OSM 也有幾公尺誤差，所以不要求完全通過，允許 REFERENCE_SLACK 的鬆弛。
- * 圖上位置：隧道為台二線虛線段的兩端；停車場為 P 字中心；台二線轉彎為該段道路往東西南北最突出的一點。
+ * 圖上位置：隧道為台二線虛線段的兩端；停車場為 P 字中心。
  */
 const REFERENCE_POINTS: { note: string; at: Pt; gps: Pt }[] = [
   { note: '龍洞隧道北口（OSM way 208987647）', at: [891.6, 1709.5], gps: [25.107389, 121.919594] },
@@ -54,6 +54,14 @@ const REFERENCE_POINTS: { note: string; at: Pt; gps: Pt }[] = [
   { note: '龍洞街旁停車場（OSM way 696363002 中心）', at: [773, 902.5], gps: [25.112369, 121.918948] },
   { note: '環狀道路停車場（OSM way 973252376 中心）', at: [1066, 1214.5], gps: [25.110402, 121.920756] },
   { note: '龍洞灣岬步道停車場（OSM way 696363004 中心）', at: [1268, 2049.5], gps: [25.105203, 121.922119] },
+]
+
+/**
+ * 台二線轉彎的大略對應（該段道路往東西南北最突出的一點）：只用來先把兩個髮夾彎大致對齊，
+ * 讓沿線對應（見 CURVE_MATCHES）找最近的點時不會對到旁邊另一段平行的路；最後的地圖不用它們，
+ * 因為最突出的點只是大略對應，和沿線對應一起用會在轉彎處拉出小轉折。
+ */
+const HIGHWAY_BOOTSTRAP: { note: string; at: Pt; gps: Pt }[] = [
   { note: '台二線第一個彎的最東點', at: [926, 1348], gps: [25.110438, 121.920114] },
   { note: '台二線第一個彎的最北點', at: [914, 1160], gps: [25.11074, 121.919727] },
   { note: '台二線兩個彎之間的最南點', at: [764, 1357], gps: [25.109489, 121.918545] },
@@ -240,6 +248,23 @@ const near = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
 const parking = shapes.filter((s) => !s.stroke && s.fill === '#ffffff' && Math.abs(bbox(s).w - 12) < 1 && Math.abs(bbox(s).h - 17) < 1).map(centerOf)
 if (parking.length !== 3) throw new Error(`停車場應該有 3 處，找到 ${parking.length} 處：版面可能改了`)
 
+/** 點是否在多邊形內（射線法） */
+function inside([px, py]: Pt, ring: Pt[]): boolean {
+  let hit = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) hit = !hit
+  }
+  return hit
+}
+// 停車場的範圍：救援資訊圖把停車場畫成深藍色的形狀（沿路的長條、斜放的長方形、弧形），P 字在裡面
+const parkingAreas = parking.map((at) => {
+  const lot = shapes.find((s) => !s.stroke && s.fill === '#003f7e' && s.subpaths.some((p) => inside(at, p)))
+  if (!lot) throw new Error(`停車場 ${at} 找不到深藍色的範圍：版面可能改了`)
+  return lot.subpaths.find((p) => inside(at, p))!
+})
+
 // 急救器材：圖示旁的藍色箭頭（線＋三角形）指向實際位置，取三角形離箭頭起點最遠的一點；由北到南依序是 #1–#6
 const arrowHeads = shapes.filter((s) => !s.stroke && s.fill === '#0c4f8b' && bbox(s).w > 10 && bbox(s).w < 20 && bbox(s).h > 10 && bbox(s).h < 20)
 const emsTips = shapes
@@ -392,7 +417,9 @@ const fromMeters = ([e, n]: Pt): Pt => [lat0 + n / metersPerDegLat, lng0 + e / m
 
 let curvePoints: { at: Pt; gps: Pt; slack: number }[] = []
 for (let round = 0; round < 2; round++) {
-  const current = buildWarp([...CONTROL_POINTS, ...curvePoints])
+  // 第一輪用台二線轉彎的大略對應先對齊，之後只用沿線對應
+  const bootstrap = round === 0 ? HIGHWAY_BOOTSTRAP.map((p) => ({ ...p, slack: REFERENCE_SLACK })) : []
+  const current = buildWarp([...CONTROL_POINTS, ...bootstrap, ...curvePoints])
   curvePoints = CURVE_MATCHES.flatMap(({ target, samples, slack }) =>
     samples.flatMap((at) => {
       const here = current(at)
@@ -546,7 +573,7 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
   if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 道路參考點、${curvePoints.length} 個沿線參考點）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 const scaleMap = {
   type: 'FeatureCollection',
@@ -558,6 +585,7 @@ const scaleMap = {
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails) }),
+    feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingAreas.map((p) => [ring(p)]) }),
     ...parking.map((at) => point({ kind: 'parking' }, at)),
     ...emsTips.map((at, i) => point({ kind: 'ems', no: EMS_LOCATIONS[i].no }, at)),
     ...PLACES.map(({ zh, en, at }) => point({ kind: 'place', zh, en }, at)),

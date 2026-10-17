@@ -2874,6 +2874,8 @@ main.map > div {
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
+  /* 長按區域時不跳出 iOS 的放大鏡與選單 */
+  -webkit-touch-callout: none;
 }
 
 .scale-map-frame:active {
@@ -3127,12 +3129,17 @@ main.map > div {
   stroke-width: 0.3em;
   stroke-linejoin: round;
 }
-.sm-parking rect {
+.sm-parking-area {
   fill: #003f7e;
 }
-.sm-parking text {
+/* P 字：白色、外圍一圈深藍，範圍縮得很小時也看得清楚 */
+.sm-parking {
   fill: #ffffff;
   font-weight: 700;
+  paint-order: stroke;
+  stroke: #003f7e;
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 .sm-boat circle {
   fill: #ffffff;

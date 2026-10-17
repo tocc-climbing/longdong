@@ -11,6 +11,7 @@ import {
   maxScale,
   panBy,
   rotateAt,
+  toMap,
   toScreen,
   zoomAt,
   type MapView,
@@ -18,6 +19,7 @@ import {
   type Size,
 } from '../mapView'
 import { project, type Marker, type ScaleMapData } from '../scaleMap'
+import { insideRing } from '../reportOptions'
 import { useLang } from '../i18n'
 
 /** 比例尺的長度（公尺）：選畫面上不超過 SCALE_BAR_PX 的最長一個 */
@@ -30,6 +32,9 @@ const PADDING_M = { west: 80, east: 220, north: 80, south: 40 }
 const STEP = 2
 /** 回到我的位置時至少放大到每像素幾公尺 */
 const ME_SCALE = 0.5
+/** 長按多久（毫秒）、手指移動不超過多少像素，算長按區域 */
+const LONG_PRESS_MS = 500
+const LONG_PRESS_SLOP_PX = 8
 /** 雙指轉動超過這個角度才開始旋轉（弧度），只想縮放時地圖不會跟著歪 */
 const ROTATE_START = 0.15
 
@@ -112,6 +117,8 @@ interface Props {
   marks: LatLng[]
   /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去；在範圍外時地圖不動，由外層說明 */
   onLocate: () => void
+  /** 長按（電腦為按右鍵）區域時：大區域 key */
+  onAreaPress?: (area: string) => void
   /** 左上角的按鈕（測試版說明、回報） */
   topLeft?: ReactNode
 }
@@ -125,7 +132,7 @@ type Point = { x: number; y: number }
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, topLeft }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -133,6 +140,8 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
   // 事件處理只註冊一次，從這裡讀最新的狀態
   const latest = useRef({ frame, view })
   latest.current = { frame, view }
+  const areaPress = useRef({ areas: map.areas, onAreaPress })
+  areaPress.current = { areas: map.areas, onAreaPress }
 
   /** 套用新的畫面狀態（限制在縮放與平移範圍內） */
   const apply = (next: (v: MapView, f: Size) => MapView) => {
@@ -175,6 +184,27 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
       return { mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.hypot(a.x - b.x, a.y - b.y), angle: Math.atan2(b.y - a.y, b.x - a.x) }
     }
 
+    /** 螢幕上這一點落在哪個大區域 */
+    const areaAt = (p: Point) => {
+      const { frame: f, view: v } = latest.current
+      if (!f || !v) return undefined
+      const at = toMap(v, f, [p.x, p.y])
+      return areaPress.current.areas.find((a) => a.rings.some((r) => insideRing(at, r)))?.id
+    }
+    const pressArea = (p: Point) => {
+      const id = areaAt(p)
+      if (id) areaPress.current.onAreaPress?.(id)
+    }
+    // 長按：一根手指按住不動 LONG_PRESS_MS 就震一下，放開時才換頁。
+    // 若按住時就換頁，放開手指時手機補的一次點擊會落在新頁面的同一個位置（例如分區清單）；
+    // 放開時地圖還在，可以在 touchend 擋掉這次點擊。移動、第二根手指都取消
+    let press: { timer: number; at: Point } | undefined
+    let held: { id: string; at: Point } | undefined
+    const cancelPress = () => {
+      if (press) clearTimeout(press.timer)
+      press = undefined
+    }
+
     const down = (e: PointerEvent) => {
       // 地圖上的按鈕照常點擊
       if ((e.target as Element).closest('button, a')) return
@@ -182,15 +212,36 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
       pointers.set(e.pointerId, local(e))
       twist = 0
       rotating = false
+      cancelPress()
+      if (pointers.size === 1 && e.pointerType !== 'mouse') {
+        const at = local(e)
+        press = {
+          at,
+          timer: window.setTimeout(() => {
+            press = undefined
+            const id = areaAt(at)
+            if (!id) return
+            held = { id, at }
+            navigator.vibrate?.(20)
+          }, LONG_PRESS_MS),
+        }
+      }
     }
     const move = (e: PointerEvent) => {
       const prev = pointers.get(e.pointerId)
       if (!prev) return
       if (pointers.size === 1) {
         const p = local(e)
+        const start = press?.at ?? held?.at
+        if (start && Math.hypot(p.x - start.x, p.y - start.y) > LONG_PRESS_SLOP_PX) {
+          cancelPress()
+          held = undefined
+        }
         pointers.set(e.pointerId, p)
         apply((v) => panBy(v, p.x - prev.x, p.y - prev.y))
       } else if (pointers.size === 2) {
+        cancelPress()
+        held = undefined
         const before = pair()
         pointers.set(e.pointerId, local(e))
         const after = pair()
@@ -209,6 +260,27 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
     }
     const up = (e: PointerEvent) => {
       pointers.delete(e.pointerId)
+      cancelPress()
+      if (!held) return
+      if (e.type === 'pointerup') {
+        const { id } = held
+        // 等 touchend 擋掉補的點擊之後再換頁
+        setTimeout(() => areaPress.current.onAreaPress?.(id), 0)
+        // touchend 緊接在 pointerup 之後；held 留給它判斷要不要擋點擊
+      } else held = undefined
+    }
+    const touchend = (e: TouchEvent) => {
+      if (!held) return
+      held = undefined
+      e.preventDefault()
+    }
+    // 手機長按會跳出系統選單、電腦按右鍵：不顯示選單；電腦的右鍵直接當作長按
+    const contextmenu = (e: MouseEvent) => {
+      if ((e.target as Element).closest('button, a')) return
+      e.preventDefault()
+      // 觸控的長按已由計時處理，這裡只處理滑鼠右鍵（Safari 的 contextmenu 沒有 pointerType）
+      const type = (e as PointerEvent).pointerType
+      if (type ? type === 'mouse' : e.button === 2) pressArea(local(e))
     }
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
@@ -227,7 +299,12 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
     el.addEventListener('pointercancel', up)
     el.addEventListener('wheel', wheel, { passive: false })
     el.addEventListener('dblclick', dblclick)
+    el.addEventListener('contextmenu', contextmenu)
+    el.addEventListener('touchend', touchend, { passive: false })
     return () => {
+      el.removeEventListener('touchend', touchend)
+      cancelPress()
+      el.removeEventListener('contextmenu', contextmenu)
       el.removeEventListener('pointerdown', down)
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerup', up)
@@ -289,6 +366,8 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
           <path className="sm-highway" d={map.layers.highway} strokeWidth={5 * px} />
           <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
           <path className="sm-road" d={map.layers.road} strokeWidth={2.5 * px} />
+          {/* 停車場的範圍（深藍色），P 字畫在上面的圖示層 */}
+          <path className="sm-parking-area" d={map.layers.parking} />
           <path className="sm-trail" d={map.layers.trail} strokeWidth={2 * px} strokeDasharray={`${trailDash} ${trailDash}`} />
           {me && here && <circle className="sm-me-accuracy" cx={me[0]} cy={me[1]} r={here.accuracy} />}
         </g>
@@ -325,12 +404,9 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
               )
             if (m.kind === 'parking')
               return (
-                <g key={i} className="sm-parking">
-                  <rect x={x - 7} y={y - 7} width={14} height={14} rx={3} />
-                  <text x={x} y={y} fontSize={10} textAnchor="middle" dominantBaseline="central">
-                    P
-                  </text>
-                </g>
+                <text key={i} className="sm-parking" x={x} y={y} fontSize={12} textAnchor="middle" dominantBaseline="central">
+                  P
+                </text>
               )
             return (
               <g key={i} className="sm-ems">
