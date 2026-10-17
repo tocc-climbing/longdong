@@ -25,7 +25,7 @@ const SCALE_BARS = [10, 20, 50, 100, 200, 500]
 /** 比例尺最長幾個像素 */
 const SCALE_BAR_PX = 60
 /** 地圖範圍：所有救援點外加這個距離（公尺）；岩場在東邊海岸，右邊多留一些海面 */
-const PADDING_M = { west: 80, east: 220, north: 80, south: 80 }
+const PADDING_M = { west: 80, east: 220, north: 80, south: 40 }
 /** 按「＋」「－」、雙擊一次縮放的倍數 */
 const STEP = 2
 /** 回到我的位置時至少放大到每像素幾公尺 */
@@ -42,6 +42,11 @@ export const BOUNDS: Rect = {
   w: Math.max(...xs) - Math.min(...xs) + PADDING_M.west + PADDING_M.east,
   h: Math.max(...ys) - Math.min(...ys) + PADDING_M.north + PADDING_M.south,
 }
+/** 縮到最小時左右的中心：岩場（校門口到後門的救援點） */
+const CRAG_X = (() => {
+  const crag = located.filter((p) => p.no >= 3 && p.no <= 13).map((p) => p.at[0])
+  return (Math.min(...crag) + Math.max(...crag)) / 2
+})()
 const inBounds = ([x, y]: [number, number]) => x >= BOUNDS.x && x <= BOUNDS.x + BOUNDS.w && y >= BOUNDS.y && y <= BOUNDS.y + BOUNDS.h
 
 const LABEL_PX = 12
@@ -114,6 +119,7 @@ type Point = { x: number; y: number }
 /**
  * 照比例尺的龍洞地圖：配色與救援資訊圖相同，操作像 Google 地圖：
  * 拖曳平移、雙指縮放與旋轉、滾輪縮放、雙擊放大；右上羅盤點一下回到北方朝上，右下回到我的位置。
+ * 最多縮到範圍的上下填滿畫面，上下不露出範圍外的空白；一開始左右置中在岩場。
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
@@ -145,7 +151,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
       if (el.clientWidth === 0 || el.clientHeight === 0) return
       const f = { w: el.clientWidth, h: el.clientHeight }
       setFrame(f)
-      setView((v) => clampView(v ?? fitView(BOUNDS, f), BOUNDS, f))
+      setView((v) => clampView(v ?? fitView(BOUNDS, f, CRAG_X), BOUNDS, f))
     })
     observer.observe(el)
     return () => observer.disconnect()

@@ -2821,18 +2821,19 @@ a.action {
 }
 
 /* 地圖（#/map）：配色與救援資訊圖完全相同（取自 .ai 檔），深色模式也不換；
-   手機版填滿頂欄與底部分頁之間（分頁蓋在地圖上，按鈕留出它的高度），電腦版填滿右邊整欄 */
+   手機版填滿頂欄與底部分頁之間（地圖的下緣不被分頁蓋住，最南端的救援點也看得到），電腦版填滿右邊整欄 */
 main.map {
   position: fixed;
   top: calc(52px + env(safe-area-inset-top));
   left: 0;
   right: 0;
-  bottom: 0;
+  /* 底部分頁約 66px：少 2px 讓分頁蓋住接縫 */
+  bottom: calc(64px + env(safe-area-inset-bottom));
   max-width: none;
   margin: 0;
   padding: 0;
   overflow: hidden;
-  --map-bottom: calc(76px + env(safe-area-inset-bottom));
+  --map-bottom: 16px;
 }
 
 /* 手機版的內容外面包著左右滑動用的一層 */

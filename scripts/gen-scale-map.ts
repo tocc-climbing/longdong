@@ -484,7 +484,56 @@ const ring = (s: Pt[], tolerance = SIMPLIFY_M) => {
   return r
 }
 const polygons = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(p)]))
-const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).map((p) => line(p)))
+/**
+ * 道路、步道在頁面邊緣截斷：救援資訊圖有些線畫到頁面外，頁面外沒有控制點，換算出來是推測的（會多出不存在的彎）。
+ * 每段與頁面框求交（Liang–Barsky），只留頁面內的部分。
+ */
+function clipToPage(points: Pt[]): Pt[][] {
+  const [x0, y0, x1, y1] = PAGE
+  const pieces: Pt[][] = []
+  let current: Pt[] = []
+  for (let i = 1; i < points.length; i++) {
+    const [a, b] = [points[i - 1], points[i]]
+    const d: Pt = [b[0] - a[0], b[1] - a[1]]
+    let t0 = 0
+    let t1 = 1
+    const edges: [number, number][] = [
+      [-d[0], a[0] - x0],
+      [d[0], x1 - a[0]],
+      [-d[1], a[1] - y0],
+      [d[1], y1 - a[1]],
+    ]
+    let visible = true
+    for (const [p, q] of edges) {
+      if (p === 0) {
+        if (q < 0) visible = false
+      } else {
+        const t = q / p
+        if (p < 0) t0 = Math.max(t0, t)
+        else t1 = Math.min(t1, t)
+      }
+    }
+    if (!visible || t0 > t1) {
+      if (current.length >= 2) pieces.push(current)
+      current = []
+      continue
+    }
+    const from: Pt = [a[0] + d[0] * t0, a[1] + d[1] * t0]
+    const to: Pt = [a[0] + d[0] * t1, a[1] + d[1] * t1]
+    if (current.length === 0 || t0 > 0) {
+      if (current.length >= 2) pieces.push(current)
+      current = [from]
+    }
+    current.push(to)
+    if (t1 < 1) {
+      pieces.push(current)
+      current = []
+    }
+  }
+  if (current.length >= 2) pieces.push(current)
+  return pieces
+}
+const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).flatMap(clipToPage).map((p) => line(p)))
 const feature = (properties: Record<string, string | number>, geometry: object) => ({ type: 'Feature', properties, geometry })
 const point = (properties: Record<string, string | number>, at: Pt) => feature(properties, { type: 'Point', coordinates: toLngLat(at) })
 

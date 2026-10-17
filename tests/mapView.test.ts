@@ -37,6 +37,16 @@ describe('比例尺地圖的平移、縮放與旋轉', () => {
     close(toScreen(moved, frame, [520, 990]), [grab[0] + 15, grab[1] + 25])
   })
 
+  it('最多縮到範圍的上下剛好填滿框；北方朝上時畫面上下緣不超出範圍', () => {
+    const wide = { w: 800, h: 400 }
+    expect(maxScale(bounds, wide)).toBe(5)
+    // 每像素 1 公尺時畫面高 400 公尺：中心最多到範圍上緣往下 200 公尺
+    expect(clampView({ cx: 500, cy: -50, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 200, s: 1, r: 0 })
+    expect(clampView({ cx: 500, cy: 5000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 1800, s: 1, r: 0 })
+    // 縮到最小時上下剛好填滿，中心固定在範圍中間
+    expect(fitView(bounds, wide, 900)).toEqual({ cx: 900, cy: 1000, s: 5, r: 0 })
+  })
+
   it('縮放與平移都限制在範圍內', () => {
     expect(clampScale(0.01, bounds, frame)).toBe(MIN_SCALE)
     expect(clampScale(100, bounds, frame)).toBe(maxScale(bounds, frame))

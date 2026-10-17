@@ -50,14 +50,17 @@ export function mapTransform(v: MapView, frame: Size): string {
   return `translate(${frame.w / 2} ${frame.h / 2}) rotate(${(v.r * 180) / Math.PI}) scale(${1 / v.s}) translate(${-v.cx} ${-v.cy})`
 }
 
-/** 整個範圍剛好放進框裡、北方朝上 */
-export function fitView(bounds: Rect, frame: Size): MapView {
-  return { cx: bounds.x + bounds.w / 2, cy: bounds.y + bounds.h / 2, s: maxScale(bounds, frame), r: 0 }
+/** 縮到最小、北方朝上；左右的中心可以指定（例如岩場），超出範圍時拉回 */
+export function fitView(bounds: Rect, frame: Size, cx = bounds.x + bounds.w / 2): MapView {
+  return clampView({ cx, cy: bounds.y + bounds.h / 2, s: maxScale(bounds, frame), r: 0 }, bounds, frame)
 }
 
-/** 最多縮小到整個範圍放進框裡 */
+/**
+ * 最多縮小到範圍的上下剛好填滿框：上下不會露出範圍外的空白（範圍外沒有地圖資料）；
+ * 框比較窄（手機直拿）時左右放不下，左右拖曳即可。
+ */
 export function maxScale(bounds: Rect, frame: Size): number {
-  return Math.max(bounds.w / frame.w, bounds.h / frame.h)
+  return bounds.h / frame.h
 }
 
 /** 縮放範圍：放到最大（MIN_SCALE）到整個範圍放進框裡 */
@@ -65,13 +68,18 @@ export function clampScale(s: number, bounds: Rect, frame: Size): number {
   return Math.min(maxScale(bounds, frame), Math.max(MIN_SCALE, s))
 }
 
-/** 限制縮放範圍，中心點不離開範圍 */
+/**
+ * 限制縮放範圍，中心點不離開範圍；北方朝上時，畫面的上下緣也不超出範圍（不露出範圍外的空白）。
+ * 旋轉後畫面是斜的，只限制中心點。
+ */
 export function clampView(v: MapView, bounds: Rect, frame: Size): MapView {
+  const s = clampScale(v.s, bounds, frame)
+  const half = v.r === 0 ? Math.min(bounds.h / 2, (s * frame.h) / 2) : 0
   return {
-    s: clampScale(v.s, bounds, frame),
+    s,
     r: v.r,
     cx: Math.min(bounds.x + bounds.w, Math.max(bounds.x, v.cx)),
-    cy: Math.min(bounds.y + bounds.h, Math.max(bounds.y, v.cy)),
+    cy: Math.min(bounds.y + bounds.h - half, Math.max(bounds.y + half, v.cy)),
   }
 }
 
