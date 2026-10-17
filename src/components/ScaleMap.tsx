@@ -12,11 +12,21 @@ const PADDING_M = 80
 const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ no: p.no, at: project(p.coords!) }))
 const xs = located.map((p) => p.at[0])
 const ys = located.map((p) => p.at[1])
-const VIEW = {
+const BOUNDS = {
   x: Math.min(...xs) - PADDING_M,
   y: Math.min(...ys) - PADDING_M,
   w: Math.max(...xs) - Math.min(...xs) + 2 * PADDING_M,
   h: Math.max(...ys) - Math.min(...ys) + 2 * PADDING_M,
+}
+
+/** 顯示範圍：涵蓋所有救援點，再往左右或上下延伸到和框一樣的比例，最小一級時整個框都是地圖 */
+function viewFor(frame: { w: number; h: number }) {
+  const ratio = frame.w / frame.h
+  const cx = BOUNDS.x + BOUNDS.w / 2
+  const cy = BOUNDS.y + BOUNDS.h / 2
+  const w = Math.max(BOUNDS.w, BOUNDS.h * ratio)
+  const h = w / ratio
+  return { x: cx - w / 2, y: cy - h / 2, w, h }
 }
 
 const LABEL_PX = 12
@@ -49,50 +59,67 @@ interface Props {
 }
 
 /**
- * 照比例尺的龍洞簡圖：北方朝上，可放大後捲動；圓點、文字維持固定的螢幕大小，誤差圈是實際大小。
+ * 照比例尺的龍洞簡圖：北方朝上，配色與救援資訊圖相同；最小一級顯示整張圖，放大後可捲動；圓點、文字維持固定的螢幕大小，誤差圈是實際大小。
  */
 export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
   const box = useRef<HTMLDivElement>(null)
+  const svg = useRef<SVGSVGElement>(null)
   const [zoom, setZoom] = useState(1)
-  const [width, setWidth] = useState(360)
+  const [frame, setFrame] = useState({ w: 360, h: 500 })
   const pending = useRef<[number, number]>(undefined)
 
   useLayoutEffect(() => {
     const el = box.current!
     // 還沒排版（寬度 0）時不更新，避免換算出無限大
-    const observer = new ResizeObserver(() => el.clientWidth > 0 && setWidth(el.clientWidth))
+    const observer = new ResizeObserver(() => el.clientWidth > 0 && el.clientHeight > 0 && setFrame({ w: el.clientWidth, h: el.clientHeight }))
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
 
+  /** 地圖在畫面上的位置（相對於可捲動內容的左上角） */
+  const mapRect = () => {
+    const f = box.current!
+    const r = svg.current!.getBoundingClientRect()
+    const fr = f.getBoundingClientRect()
+    return { left: r.left - fr.left + f.scrollLeft, top: r.top - fr.top + f.scrollTop, width: r.width, height: r.height }
+  }
+
+  /** 把地圖上的某一點（以寬高的比例表示）捲到畫面中央 */
+  const scrollToFraction = ([fx, fy]: [number, number], smooth: boolean) => {
+    const f = box.current!
+    const r = mapRect()
+    f.scrollTo({ left: r.left + fx * r.width - f.clientWidth / 2, top: r.top + fy * r.height - f.clientHeight / 2, behavior: smooth ? 'smooth' : 'auto' })
+  }
+
   // 縮放後把記下的點捲到畫面中央
   useLayoutEffect(() => {
-    const el = box.current!
     if (!pending.current) return
-    const [fx, fy] = pending.current
+    scrollToFraction(pending.current, false)
     pending.current = undefined
-    el.scrollTo({ left: fx * el.scrollWidth - el.clientWidth / 2, top: fy * el.scrollHeight - el.clientHeight / 2 })
   }, [zoom])
 
+  const VIEW = viewFor(frame)
+  /** 最小的一級是整張圖剛好放進框裡 */
+  const fitWidth = frame.w
   /** 一個螢幕像素等於幾公尺：圓點、文字、線寬用它換算成固定的螢幕大小 */
-  const px = VIEW.w / (width * zoom)
+  const px = VIEW.w / (fitWidth * zoom)
 
   const centerOn = (at: [number, number], nextZoom = zoom) => {
-    pending.current = [(at[0] - VIEW.x) / VIEW.w, (at[1] - VIEW.y) / VIEW.h]
-    if (nextZoom === zoom) {
-      const el = box.current!
-      const [fx, fy] = pending.current
-      pending.current = undefined
-      el.scrollTo({ left: fx * el.scrollWidth - el.clientWidth / 2, top: fy * el.scrollHeight - el.clientHeight / 2, behavior: 'smooth' })
-    } else setZoom(nextZoom)
+    const target: [number, number] = [(at[0] - VIEW.x) / VIEW.w, (at[1] - VIEW.y) / VIEW.h]
+    if (nextZoom === zoom) scrollToFraction(target, true)
+    else {
+      pending.current = target
+      setZoom(nextZoom)
+    }
   }
 
   /** 以目前畫面中央為準縮放 */
   const zoomBy = (step: 1 | -1) => {
     const next = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, ZOOMS.indexOf(zoom) + step))]
-    const el = box.current!
-    const fx = (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth
-    const fy = (el.scrollTop + el.clientHeight / 2) / el.scrollHeight
+    const f = box.current!
+    const r = mapRect()
+    const fx = Math.min(1, Math.max(0, (f.scrollLeft + f.clientWidth / 2 - r.left) / r.width))
+    const fy = Math.min(1, Math.max(0, (f.scrollTop + f.clientHeight / 2 - r.top) / r.height))
     centerOn([VIEW.x + fx * VIEW.w, VIEW.y + fy * VIEW.h], next)
   }
 
@@ -116,8 +143,9 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
       </div>
       <div className="scale-map-frame" ref={box}>
         <svg
+          ref={svg}
           viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`}
-          style={{ width: `${zoom * 100}%` }}
+          style={{ width: fitWidth * zoom }}
           role="img"
           aria-label="龍洞岩場比例尺簡圖"
         >
@@ -127,15 +155,15 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
           {map.areas.map((a) => (
             <path key={a.id} className={`sm-area sm-area-${a.id}`} d={a.path} strokeWidth={px} />
           ))}
-          <path className="sm-highway" d={map.layers.highway} strokeWidth={4 * px} />
-          <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={3 * px} strokeDasharray={`${6 * px} ${4 * px}`} />
+          <path className="sm-highway" d={map.layers.highway} strokeWidth={5 * px} />
+          <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${2 * px} ${6 * px}`} />
           <path className="sm-road" d={map.layers.road} strokeWidth={2.5 * px} />
-          <path className="sm-trail" d={map.layers.trail} strokeWidth={1.5 * px} strokeDasharray={`${4 * px} ${3 * px}`} />
+          <path className="sm-trail" d={map.layers.trail} strokeWidth={2 * px} strokeDasharray={`${3 * px} ${3 * px}`} />
           {trackPath && <path className="sm-track" d={trackPath} strokeWidth={2.5 * px} />}
 
           <g fontSize={LABEL_PX * px}>
             {labels.map((l) => (
-              <text key={l.id} className="sm-label" x={l.at[0]} y={l.at[1]} textAnchor="middle" dominantBaseline="central">
+              <text key={l.id} className={`sm-label sm-label-${l.id}`} x={l.at[0]} y={l.at[1]} textAnchor="middle" dominantBaseline="central">
                 {l.text}
               </text>
             ))}

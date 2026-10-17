@@ -2804,31 +2804,14 @@ main {
   grid-template-columns: 2rem minmax(0, 1fr);
 }
 
-/* 比例尺地圖・現場校正（#/calibrate）：地圖配色比照救援資訊圖；深色模式只把海、陸地換暗 */
+/* 比例尺地圖・現場校正（#/calibrate）：配色與救援資訊圖完全相同（取自 .ai 檔），深色模式也不換 */
 .calibrate h2 {
   margin-top: 0;
 }
 
 .scale-map {
-  --sm-sea: #d7ebf3;
-  --sm-land: #efefef;
-  --sm-building: #d6d7d7;
   position: relative;
   margin: 16px 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .scale-map {
-    --sm-sea: #10232b;
-    --sm-land: #2a3134;
-    --sm-building: #3b4346;
-  }
-}
-
-:root[data-theme='dark'] .scale-map {
-  --sm-sea: #10232b;
-  --sm-land: #2a3134;
-  --sm-building: #3b4346;
 }
 
 .scale-map-tools {
@@ -2842,7 +2825,7 @@ main {
   overflow: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: var(--sm-sea);
+  background: #ffffff;
   overscroll-behavior: contain;
 }
 
@@ -2850,6 +2833,7 @@ main {
   display: block;
   max-width: none;
   height: auto;
+  margin: 0 auto;
 }
 
 .scale-map-legend {
@@ -2861,54 +2845,37 @@ main {
   gap: 6px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: var(--bar-bg);
+  background: rgba(255, 255, 255, 0.85);
   font-size: 0.75rem;
-  color: var(--text);
+  color: #231815;
   pointer-events: none;
 }
 
 .sm-bar {
   height: 4px;
-  background: var(--text);
+  background: #231815;
 }
 
 .sm-sea {
-  fill: var(--sm-sea);
+  fill: #ffffff;
 }
 .sm-land {
-  fill: var(--sm-land);
+  fill: #efefef;
 }
 .sm-building {
-  fill: var(--sm-building);
+  fill: #dcdddd;
 }
-.sm-area {
-  stroke: rgba(0, 0, 0, 0.35);
-  fill-opacity: 0.9;
-}
-.sm-area-school-gate { fill: #f2b4c6; }
-.sm-area-clocktower { fill: #dab2d2; }
-.sm-area-long-lane { fill: #b3c6d8; }
-.sm-area-music-hall { fill: #ceedf1; }
-.sm-area-grand-auditorium { fill: #d0d6c2; }
-.sm-area-first-cave { fill: #e4eeb3; }
-.sm-area-second-cave { fill: #f9e8b2; }
-.sm-area-golden-valley { fill: #fcdcb7; }
-.sm-area-back-door { fill: #e2b2b2; }
-
 .sm-highway,
-.sm-road {
+.sm-road,
+.sm-tunnel {
   fill: none;
-  stroke: #1d5a96;
+  stroke: #003f7e;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.sm-tunnel {
-  fill: none;
-  stroke: #7a9cc0;
-}
 .sm-trail {
   fill: none;
-  stroke: #4f8a1b;
+  stroke: #356507;
   stroke-linecap: round;
 }
 .sm-track {
@@ -2918,12 +2885,32 @@ main {
   stroke-opacity: 0.85;
 }
 
+/* 各區域：填色、外框與名稱的顏色 */
+.sm-area-school-gate { fill: #f2b4c6; stroke: #d40441; }
+.sm-area-clocktower { fill: #dab2d2; stroke: #820068; }
+.sm-area-long-lane { fill: #b3c6d8; stroke: #01417f; }
+.sm-area-music-hall { fill: #ceedf1; stroke: #5dc2d0; }
+.sm-area-grand-auditorium { fill: #d0d6c2; stroke: #627534; }
+.sm-area-first-cave { fill: #e4eeb3; stroke: #a6c702; }
+.sm-area-second-cave { fill: #f9e8b2; stroke: #edb100; }
+.sm-area-golden-valley { fill: #fcdcb7; stroke: #eb640a; }
+.sm-area-back-door { fill: #e2b2b2; stroke: #a00000; }
+.sm-label-school-gate { fill: #d40441; }
+.sm-label-clocktower { fill: #820068; }
+.sm-label-long-lane { fill: #01417f; }
+.sm-label-music-hall { fill: #5dc2d0; }
+.sm-label-grand-auditorium { fill: #627534; }
+.sm-label-first-cave { fill: #a6c702; }
+.sm-label-second-cave { fill: #edb100; }
+.sm-label-golden-valley { fill: #eb640a; }
+.sm-label-back-door { fill: #a00000; }
+
 .sm-label {
-  fill: var(--text);
-  font-weight: 600;
+  font-weight: 700;
   paint-order: stroke;
-  stroke: var(--sm-sea);
-  stroke-width: 0.25em;
+  stroke: #ffffff;
+  stroke-width: 0.3em;
+  stroke-linejoin: round;
 }
 
 .sm-rescue circle {
@@ -2943,7 +2930,6 @@ main {
 }
 .sm-me .sm-me-accuracy {
   fill: rgba(26, 115, 232, 0.15);
-  stroke: rgba(26, 115, 232, 0.5);
   stroke-width: 0;
 }
 
