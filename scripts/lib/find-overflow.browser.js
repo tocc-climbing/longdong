@@ -10,7 +10,7 @@
   }
   const text = (el) => (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60)
   // 可以左右捲動或刻意隱藏的區域，裡面超出是正常的
-  const exempt = (el) => !!el.closest('.table-wrap, .map-frame, .visually-hidden, [aria-hidden="true"]')
+  const exempt = (el) => !!el.closest('.table-wrap, .map-frame, .scale-map-frame, .visually-hidden, [aria-hidden="true"]')
 
   const root = document.scrollingElement
   if (root.scrollWidth > window.innerWidth + 1) {

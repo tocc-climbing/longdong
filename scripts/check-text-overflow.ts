@@ -50,6 +50,16 @@ const PAGES: { name: string; hash: string; prepare?: (page: Page, mobile: boolea
       await page.waitForSelector('.my-coords')
     },
   },
+  {
+    name: '比例尺地圖校正（含定位與記錄點）',
+    hash: '#/calibrate',
+    prepare: async (page) => {
+      await page.click('.calibrate .card .action.primary')
+      await page.waitForSelector('.sm-me')
+      await page.fill('.cal-note input', 'Clocktower · north corner')
+      await page.click('.cal-note .action.primary')
+    },
+  },
   { name: '關於', hash: '#/about' },
 ]
 

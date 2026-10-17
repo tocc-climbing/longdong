@@ -3,6 +3,7 @@ import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
 import { MIN_SCALE, clampScale, dashLength, clampView, fitView, maxScale, panBy, viewBox, zoomAt, type MapView, type Rect, type Size } from '../mapView'
 import { project, type ScaleMapData } from '../scaleMap'
+import { useLang } from '../i18n'
 
 /** 比例尺的長度（公尺）：選畫面上不超過 90px 的最長一個 */
 const SCALE_BARS = [10, 20, 50, 100, 200, 500]
@@ -60,6 +61,8 @@ type Point = { x: number; y: number }
  * 圓點、文字維持固定的螢幕大小，誤差圈是實際大小。
  */
 export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
+  // 地名：英文用英文名，其他語言用中文名（漢字）
+  const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
   const [view, setView] = useState<MapView>()
@@ -171,10 +174,10 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
   return (
     <div className="scale-map">
       <div className="scale-map-tools">
-        <button type="button" className="action" onClick={() => view && zoomTo(view.s / STEP)} disabled={atMax} aria-label="放大">
+        <button type="button" className="action" onClick={() => view && zoomTo(view.s / STEP)} disabled={atMax} aria-label={t('rescue.zoomIn')}>
           ＋
         </button>
-        <button type="button" className="action" onClick={() => view && zoomTo(view.s * STEP)} disabled={atMin} aria-label="縮小">
+        <button type="button" className="action" onClick={() => view && zoomTo(view.s * STEP)} disabled={atMin} aria-label={t('rescue.zoomOut')}>
           －
         </button>
         <button
@@ -183,11 +186,11 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
           onClick={() => me && apply((v) => ({ cx: me[0], cy: me[1], s: Math.min(v.s, ME_SCALE) }))}
           disabled={!me}
         >
-          移到我的位置
+          {t('cal.toMe')}
         </button>
       </div>
       <div className="scale-map-frame" ref={box}>
-        <svg viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="img" aria-label="龍洞岩場比例尺簡圖">
+        <svg viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="img" aria-label={t('cal.mapAria')}>
           <rect className="sm-sea" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} />
           <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
           <path className="sm-building" d={map.layers.building} />
@@ -204,18 +207,18 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
             {map.markers.map((m, i) =>
               m.kind === 'place' ? (
                 <text key={i} className="sm-place" x={m.at[0]} y={m.at[1]} fontSize={11 * px} textAnchor="middle" dominantBaseline="central">
-                  {m.zh}
+                  {lang === 'en' ? m.en : m.zh}
                 </text>
               ) : m.kind === 'boat' ? (
                 <g key={i} className="sm-boat">
-                  <title>船艇接駁點</title>
+                  <title>{t('cal.boat')}</title>
                   <circle cx={m.at[0]} cy={m.at[1]} r={6 * px} strokeWidth={px} />
                   <circle cx={m.at[0]} cy={m.at[1]} r={3.5 * px} strokeWidth={1.5 * px} />
                   <circle className="sm-boat-dot" cx={m.at[0]} cy={m.at[1]} r={1.6 * px} />
                 </g>
               ) : m.kind === 'hoist' ? (
                 <g key={i} className="sm-hoist">
-                  <title>直升機吊掛點</title>
+                  <title>{t('cal.hoist')}</title>
                   {/* 圖釘：尖端在實際位置 */}
                   <path
                     d={`M${m.at[0]} ${m.at[1]}l${-5.5 * px} ${-9 * px}a${6.4 * px} ${6.4 * px} 0 1 1 ${11 * px} 0z`}
@@ -233,7 +236,7 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
                 </g>
               ) : (
                 <g key={i} className="sm-ems">
-                  <title>急救器材 #{m.no}</title>
+                  <title>{t('cal.ems', { n: m.no })}</title>
                   <rect x={m.at[0] - 6 * px} y={m.at[1] - 7 * px} width={12 * px} height={14 * px} rx={4 * px} />
                   <path d={`M${m.at[0] - 3.5 * px} ${m.at[1]}h${7 * px}M${m.at[0]} ${m.at[1] - 3.5 * px}v${7 * px}`} strokeWidth={2 * px} />
                 </g>
@@ -275,7 +278,7 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
       </div>
       <div className="scale-map-legend" aria-hidden>
         <span className="sm-bar" style={{ width: bar / px }} />
-        {bar} 公尺
+        {t('myloc.m', { n: bar })}
       </div>
     </div>
   )

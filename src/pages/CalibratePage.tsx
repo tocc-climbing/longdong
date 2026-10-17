@@ -8,17 +8,19 @@ import { appendTrack, hasUnuploaded, loadCalibration, saveCalibration, toGeoJSON
 import { useCloud } from '../personal/sync'
 import { useScaleMap } from '../scaleMap'
 import { useGeolocation } from '../components/MyLocation'
+import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
-const QUICK_NOTES = ['步道岔路', '岩壁底', '區域邊界', '救援點']
+const QUICK_NOTES: MessageKey[] = ['cal.quick.junction', 'cal.quick.wallBase', 'cal.quick.boundary', 'cal.quick.rescue']
 
 /**
  * 比例尺地圖的現場校正（#/calibrate，測試中，沒有放在選單裡）：
  * 在地圖上看 GPS 的位置對不對，在明確的地點記下座標與說明，上傳到資料庫用來校正地圖。
- * 只給到現場幫忙校正的岩友使用，介面只有中文。
+ * 給到現場幫忙校正的岩友使用（也請外國岩友幫忙），介面有各種語言。
  */
 export function CalibratePage({ data }: { data: LoadedData }) {
+  const { lang, t } = useLang()
   const map = useScaleMap()
   const [geo, start] = useGeolocation()
   const [records, setRecords] = useState<Calibration>(loadCalibration)
@@ -27,7 +29,10 @@ export function CalibratePage({ data }: { data: LoadedData }) {
   const [saveError, setSaveError] = useState(false)
 
   const areaNames = Object.fromEntries(
-    Object.keys(AREA_RESCUE).map((key) => [key, data.areaById.get(`${data.dataset.crag.id}/${key}`)?.name.zh ?? key]),
+    Object.keys(AREA_RESCUE).map((key) => {
+      const name = data.areaById.get(`${data.dataset.crag.id}/${key}`)?.name
+      return [key, name ? localName(name, lang).main : key]
+    }),
   )
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
 
@@ -51,10 +56,10 @@ export function CalibratePage({ data }: { data: LoadedData }) {
     setNote('')
   }
   const removeMark = (i: number) => {
-    if (confirm(`刪除第 ${i + 1} 點「${records.marks[i].note}」？`)) setRecords((r) => ({ ...r, marks: r.marks.filter((_, j) => j !== i) }))
+    if (confirm(t('cal.confirmDelete', { n: i + 1, note: records.marks[i].note }))) setRecords((r) => ({ ...r, marks: r.marks.filter((_, j) => j !== i) }))
   }
   const clearAll = () => {
-    if (confirm(hasUnuploaded(records) ? '還有記錄沒上傳，確定清除所有記錄點與軌跡？' : '清除所有記錄點與軌跡？')) setRecords({ marks: [], track: [] })
+    if (confirm(t(hasUnuploaded(records) ? 'cal.confirmClearUnsent' : 'cal.confirmClear'))) setRecords({ marks: [], track: [] })
   }
 
   const text = JSON.stringify(toGeoJSON(records), null, 1)
@@ -62,27 +67,24 @@ export function CalibratePage({ data }: { data: LoadedData }) {
 
   return (
     <article className="calibrate">
-      <h1>比例尺地圖・現場校正</h1>
-      <p className="muted small">
-        這張圖由救援資訊圖依救援點的 GPS 座標拉成實際比例，救援點之間可能還有幾十公尺的誤差（測試中）。
-        到龍洞時，請在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下位置與說明，走步道時可以記錄軌跡，最後登入並上傳。
-      </p>
+      <h1>{t('cal.title')}</h1>
+      <p className="muted small">{t('cal.intro')}</p>
 
       <section className="card" aria-labelledby="cal-gps">
         <h2 id="cal-gps">GPS</h2>
         {geo.status === 'idle' && (
           <button type="button" className="action primary" onClick={start}>
-            開始定位
+            {t('cal.start')}
           </button>
         )}
-        {geo.status === 'locating' && <p className="muted small">定位中…（第一次可能要一分鐘）</p>}
+        {geo.status === 'locating' && <p className="muted small">{t('cal.locating')}</p>}
         {geo.status === 'error' && (
           <>
             <p className="small error" role="alert">
-              {geo.code === 'denied' ? '沒有定位權限：請到瀏覽器或系統設定允許定位' : '暫時取不到位置'}
+              {t(geo.code === 'denied' ? 'cal.denied' : 'cal.unavailable')}
             </p>
             <button type="button" className="action" onClick={start}>
-              重試
+              {t('myloc.retry')}
             </button>
           </>
         )}
@@ -90,7 +92,7 @@ export function CalibratePage({ data }: { data: LoadedData }) {
           <p className="small" role="status">
             <span className="mono">{formatCoords(geo.coords)}</span>
             {/* 誤差每秒都在變：只換顏色、不增減文字，避免整頁跟著跳動 */}
-            <span className={geo.accuracy <= GOOD_ACCURACY_M ? 'muted' : 'warn'}> · 誤差約 {Math.round(geo.accuracy)} 公尺</span>
+            <span className={geo.accuracy <= GOOD_ACCURACY_M ? 'muted' : 'warn'}> · {t('cal.accuracy', { m: Math.round(geo.accuracy) })}</span>
           </p>
         )}
       </section>
@@ -98,17 +100,17 @@ export function CalibratePage({ data }: { data: LoadedData }) {
       {map.status === 'ok' && (
         <ScaleMap map={map.data} areaNames={areaNames} here={fix} marks={records.marks.map((m) => m.coords)} track={records.track.map((f) => f.coords)} />
       )}
-      {map.status === 'loading' && <p className="muted small">載入地圖…</p>}
+      {map.status === 'loading' && <p className="muted small">{t('cal.loadingMap')}</p>}
       {map.status === 'error' && (
         <p className="small error" role="alert">
-          地圖載入失敗：{map.message}
+          {t('cal.mapFailed', { error: map.message })}
         </p>
       )}
 
       <section className="card" aria-labelledby="cal-mark">
-        <h2 id="cal-mark">記錄這一點</h2>
+        <h2 id="cal-mark">{t('cal.markTitle')}</h2>
         <div className="chips">
-          {[...Object.values(areaNames), ...QUICK_NOTES].map((n) => (
+          {[...Object.values(areaNames), ...QUICK_NOTES.map((k) => t(k))].map((n) => (
             <button key={n} type="button" className="chip" onClick={() => setNote((v) => (v ? `${v} ${n}` : n))}>
               {n}
             </button>
@@ -119,29 +121,29 @@ export function CalibratePage({ data }: { data: LoadedData }) {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="這裡是哪裡？例如：鐘塔 · 岩壁北端轉角"
-            aria-label="地點說明"
+            placeholder={t('cal.placeholder')}
+            aria-label={t('cal.noteAria')}
           />
           <button type="button" className="action primary" onClick={mark} disabled={!fix || !note.trim()}>
-            記錄
+            {t('cal.record')}
           </button>
         </div>
         <p className="muted small">
-          {!fix ? '先開始定位。' : !note.trim() ? '先寫下這裡是哪裡。' : `會記錄目前的位置（誤差約 ${Math.round(fix.accuracy)} 公尺）。`}
-          站在原地，等誤差在 {GOOD_ACCURACY_M} 公尺以內再按比較準。
+          {!fix ? t('cal.hintStart') : !note.trim() ? t('cal.hintNote') : t('cal.hintReady', { m: Math.round(fix.accuracy) })}{' '}
+          {t('cal.hintWait', { m: GOOD_ACCURACY_M })}
         </p>
 
         <div className="actions">
           <button type="button" className={`action${tracking ? ' on' : ''}`} onClick={() => setTracking((v) => !v)} disabled={!fix && !tracking}>
-            {tracking ? '停止記錄軌跡' : '開始記錄軌跡'}
+            {t(tracking ? 'cal.trackStop' : 'cal.trackStart')}
           </button>
-          <span className="muted small cal-count">軌跡 {records.track.length} 點</span>
+          <span className="muted small cal-count">{t('cal.trackCount', { n: records.track.length })}</span>
         </div>
       </section>
 
       {records.marks.length > 0 && (
         <section className="card" aria-labelledby="cal-list">
-          <h2 id="cal-list">已記錄 {records.marks.length} 點</h2>
+          <h2 id="cal-list">{t('cal.listTitle', { n: records.marks.length })}</h2>
           <ol className="cal-marks">
             {records.marks.map((m, i) => (
               <li key={m.time + m.note}>
@@ -149,11 +151,11 @@ export function CalibratePage({ data }: { data: LoadedData }) {
                 <span className="cal-mark-body">
                   <span>{m.note}</span>
                   <span className="muted small">
-                    {formatCoords(m.coords)} · ±{Math.round(m.accuracy)} 公尺 ·{' '}
-                    {new Date(m.time).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                    {formatCoords(m.coords)} · ±{t('myloc.m', { n: Math.round(m.accuracy) })} ·{' '}
+                    {new Date(m.time).toLocaleTimeString(LOCALES[lang], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </span>
-                <button type="button" className="icon-button small" onClick={() => removeMark(i)} aria-label={`刪除第 ${i + 1} 點`}>
+                <button type="button" className="icon-button small" onClick={() => removeMark(i)} aria-label={t('cal.deleteAria', { n: i + 1 })}>
                   ×
                 </button>
               </li>
@@ -174,7 +176,7 @@ export function CalibratePage({ data }: { data: LoadedData }) {
         <p className="actions">
           <CopyButton text={text} className="action" />
           <button type="button" className="action danger" onClick={clearAll}>
-            清除
+            {t('cal.clear')}
           </button>
         </p>
       )}
@@ -196,6 +198,7 @@ function UploadSection({
   saveError: boolean
   empty: boolean
 }) {
+  const { lang, t } = useLang()
   const cloud = useCloud()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -215,7 +218,7 @@ function UploadSection({
     try {
       onUploaded(await uploadCalibration(records))
     } catch (err) {
-      setError(`上傳失敗：${(err as Error).message}`)
+      setError(t('cal.uploadFailed', { error: (err as Error).message }))
     } finally {
       setBusy(false)
     }
@@ -223,19 +226,15 @@ function UploadSection({
 
   return (
     <section className="card" aria-labelledby="cal-send">
-      <h2 id="cal-send">上傳記錄</h2>
-      {saveError && <p className="small error">這支手機存不了記錄（可能是私密瀏覽）：離開頁面前請先上傳。</p>}
+      <h2 id="cal-send">{t('cal.uploadTitle')}</h2>
+      {saveError && <p className="small error">{t('cal.saveError')}</p>}
       {!signedIn ? (
-        <SignInPrompt message="上傳前請先登入。記錄會連同帳號存到資料庫，只有你和管理員看得到，用來校正地圖；刪除帳號時一併刪除。" />
+        <SignInPrompt message={t('cal.signIn')} />
       ) : (
         <>
-          <p className="muted small">
-            記錄會連同帳號（{cloud.user?.name}）存到資料庫，只有你和管理員看得到。每次上傳都是完整的一份，可以重複上傳。
-          </p>
+          <p className="muted small">{t('cal.uploadDesc', { name: cloud.user?.name ?? '' })}</p>
           {!online && (
-            <p className="small warn">
-              {records.queued ? '沒有網路：已排隊，連上網路時會自動上傳（請開著這一頁）。' : '沒有網路：記錄會留在這支手機上。按「上傳記錄」排隊，連上網路時自動上傳。'}
-            </p>
+            <p className="small warn">{t(records.queued ? 'cal.offlineQueued' : 'cal.offline')}</p>
           )}
           <button
             type="button"
@@ -243,14 +242,18 @@ function UploadSection({
             onClick={() => (online ? void upload() : onQueue())}
             disabled={empty || busy || (!online && records.queued)}
           >
-            {busy ? '上傳中…' : !online && records.queued ? '等待網路…' : '上傳記錄'}
+            {t(busy ? 'cal.uploading' : !online && records.queued ? 'cal.waiting' : 'cal.upload')}
           </button>
         </>
       )}
       {uploaded && (
         <p className={`small ${pending ? 'warn' : 'muted'}`} role="status">
-          已上傳 {new Date(uploaded.time).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}（{uploaded.marks} 點、軌跡 {uploaded.track} 點）
-          {pending && '，之後新增的記錄還沒上傳'}
+          {t('cal.uploaded', {
+            time: new Date(uploaded.time).toLocaleTimeString(LOCALES[lang], { hour: '2-digit', minute: '2-digit' }),
+            marks: uploaded.marks,
+            track: uploaded.track,
+          })}
+          {pending && t('cal.uploadedPending')}
         </p>
       )}
       {error && (
