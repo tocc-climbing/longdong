@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { ScaleMap } from '../components/ScaleMap'
+import { ScaleMap, inMapBounds } from '../components/ScaleMap'
 import { SignInPrompt } from '../components/SignInPrompt'
 import { useGeolocation } from '../components/MyLocation'
 import { hasUnuploaded, loadCalibration, saveCalibration, uploadCalibration, type Calibration } from '../calibration'
 import type { LoadedData } from '../data/dataset'
 import { AREA_RESCUE, RESCUE_POINTS, formatCoords } from '../data/rescue'
+import { nearestPoints } from '../geo'
 import { localName, useLang, type MessageKey, type Translate } from '../i18n'
 import { useCloud } from '../personal/sync'
 import { reportOptions, type ReportOption } from '../reportOptions'
@@ -41,6 +42,9 @@ export function MapPage({ data }: { data: LoadedData }) {
     }),
   )
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
+  /** 定位到了但不在地圖範圍內：不能回報；離最近的救援點多遠 */
+  const outside = fix && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
+  const distance = (m: number) => (m < 1000 ? t('myloc.m', { n: Math.round(m) }) : t('myloc.km', { n: (m / 1000).toFixed(1) }))
   const signedIn = cloud.status === 'signed-in'
   const online = signedIn && cloud.connected
 
@@ -101,14 +105,25 @@ export function MapPage({ data }: { data: LoadedData }) {
           areaNames={areaNames}
           here={fix}
           marks={records.marks.map((m) => m.coords)}
-          onLocate={() => geo.status !== 'ok' && geo.status !== 'locating' && start()}
+          onLocate={() => {
+            if (outside !== undefined) setToast(t('map.outside', { dist: distance(outside) }))
+            else if (geo.status === 'locating') setToast(t('map.locating'))
+            else if (geo.status !== 'ok') {
+              start()
+              setToast(t('map.locating'))
+            }
+          }}
           topLeft={
             <>
               <button type="button" className="sm-chip beta" onClick={() => setIntro(true)}>
                 {t('map.beta')}
                 {pending && <span className="sm-chip-dot" aria-label={t('map.pending')} />}
               </button>
-              <button type="button" className="sm-chip report" onClick={() => setReporting(true)}>
+              <button
+                type="button"
+                className="sm-chip report"
+                onClick={() => (outside !== undefined ? setToast(t('map.outsideReport', { dist: distance(outside) })) : setReporting(true))}
+              >
                 {t('map.report')}
               </button>
             </>
@@ -120,16 +135,18 @@ export function MapPage({ data }: { data: LoadedData }) {
         </p>
       )}
 
-      {geo.status === 'error' && (
-        <p className="map-toast warn" role="alert">
-          {t(geo.code === 'denied' ? 'map.denied' : 'map.unavailable')}
-        </p>
-      )}
-      {toast && (
-        <p className="map-toast" role="status">
-          {toast}
-        </p>
-      )}
+      <div className="map-toasts">
+        {geo.status === 'error' && (
+          <p className="map-toast warn" role="alert">
+            {t(geo.code === 'denied' ? 'map.denied' : 'map.unavailable')}
+          </p>
+        )}
+        {toast && (
+          <p className="map-toast" role="status">
+            {toast}
+          </p>
+        )}
+      </div>
 
       <Sheet open={intro} onClose={closeIntro} title={t('map.introTitle')}>
         <p className="map-warn">{t('map.introWarn')}</p>

@@ -62,3 +62,11 @@ describe('虛線長度', () => {
     expect(dashLength(3, 2)).toBe(8)
   })
 })
+
+describe('地圖範圍', () => {
+  it('龍洞的救援點在範圍內；台北不在', async () => {
+    const { inMapBounds } = await import('../src/components/ScaleMap')
+    expect(inMapBounds([25.111367, 121.922917])).toBe(true)
+    expect(inMapBounds([25.0478, 121.517])).toBe(false)
+  })
+})

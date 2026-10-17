@@ -3040,13 +3040,19 @@ main.map > div {
 }
 
 /* 回報後的提示、定位錯誤 */
-.map-toast {
+.map-toasts {
   position: absolute;
   top: 104px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: calc(100% - 32px);
+  left: 16px;
+  right: 16px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.map-toast {
+  max-width: 100%;
   margin: 0;
   padding: 8px 14px;
   border-radius: var(--radius-sm);

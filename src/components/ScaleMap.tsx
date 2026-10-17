@@ -48,6 +48,8 @@ const CRAG_X = (() => {
   return (Math.min(...crag) + Math.max(...crag)) / 2
 })()
 const inBounds = ([x, y]: [number, number]) => x >= BOUNDS.x && x <= BOUNDS.x + BOUNDS.w && y >= BOUNDS.y && y <= BOUNDS.y + BOUNDS.h
+/** 這個位置在不在地圖範圍內（範圍外不能回報，按「回到我的位置」也不移動） */
+export const inMapBounds = (coords: LatLng) => inBounds(project(coords))
 
 const LABEL_PX = 12
 
@@ -108,7 +110,7 @@ interface Props {
   areaNames: Record<string, string>
   here?: { coords: LatLng; accuracy: number }
   marks: LatLng[]
-  /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去 */
+  /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去；在範圍外時地圖不動，由外層說明 */
   onLocate: () => void
   /** 左上角的按鈕（測試版說明、回報） */
   topLeft?: ReactNode
@@ -249,8 +251,10 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Pro
   }, [me?.[0], me?.[1], !!view])
 
   const locate = () => {
-    if (me) goToMe(me)
-    else pendingCenter.current = true
+    // 在範圍外：移過去只會看到範圍邊緣的空白，地圖不動
+    if (me) {
+      if (inBounds(me)) goToMe(me)
+    } else pendingCenter.current = true
     onLocate()
   }
 
