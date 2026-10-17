@@ -72,8 +72,8 @@ function textWidth(text: string, fontPx: number): number {
 /** 以 at 為中心、半寬 hw、半高 hh 的範圍；dy 為中心往下移 */
 const around = ([x, y]: Vec, hw: number, hh: number, dy = 0): Box => [x - hw, y + dy - hh, x + hw, y + dy + hh]
 
-/** 圖示越前面越重要：重疊時先畫重要的，其他的等放大後空間夠了才出現 */
-const PRIORITY: Record<Marker['kind'], number> = { ems: 0, hoist: 1, parking: 2, boat: 3, place: 4 }
+/** 圖示越前面越重要：重疊時先畫重要的，其他的等放大後空間夠了才出現（停車場一定畫，不在這裡排） */
+const PRIORITY: Record<Exclude<Marker['kind'], 'parking'>, number> = { ems: 0, hoist: 1, boat: 2, place: 3 }
 
 const placeName = (m: Extract<Marker, { kind: 'place' }>, lang: string) => (lang === 'en' ? m.en : m.zh)
 
@@ -84,8 +84,12 @@ function markerBox(m: Marker, at: Vec, lang: string): Box {
   return around(at, 7.5, 7.5)
 }
 
+/** 停車場的 P 和救援點重疊時，最多往上挪幾個像素 */
+const PARKING_SHIFT_MAX_PX = 24
+
 /**
- * 決定要畫哪些圖示與區域名稱（都在螢幕座標上算，旋轉後也正確）：救援點一定畫（救援時最重要），
+ * 決定要畫哪些圖示與區域名稱（都在螢幕座標上算，旋轉後也正確）：
+ * 救援點與停車場一定畫（救援時最重要；停車場是進出岩場的集合點），停車場的 P 和救援點重疊時往上挪開；
  * 其他依 PRIORITY、區域名稱依面積大小，和已畫的東西重疊就先不畫。
  */
 function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Record<string, string>, screen: (p: Vec) => Vec, lang: string) {
@@ -95,18 +99,31 @@ function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Recor
     occupied.push(box)
     return true
   }
-  const shown = new Set(
-    markers
+  /** 停車場 P 往上挪的像素（索引同 markers） */
+  const shift = new Map<number, number>()
+  const pins = [...occupied]
+  markers.forEach((m, i) => {
+    if (m.kind !== 'parking') return
+    const at = screen(m.at)
+    let dy = 0
+    while (dy < PARKING_SHIFT_MAX_PX && pins.some((o) => overlaps(markerBox(m, [at[0], at[1] - dy], lang), o))) dy += 2
+    shift.set(i, dy)
+    occupied.push(markerBox(m, [at[0], at[1] - dy], lang))
+  })
+  const shown = new Set([
+    ...shift.keys(),
+    ...markers
       .map((m, i) => ({ m, i }))
-      .sort((a, b) => PRIORITY[a.m.kind] - PRIORITY[b.m.kind])
+      .filter(({ m }) => m.kind !== 'parking')
+      .sort((a, b) => PRIORITY[a.m.kind as keyof typeof PRIORITY] - PRIORITY[b.m.kind as keyof typeof PRIORITY])
       .filter(({ m }) => fits(markerBox(m, screen(m.at), lang)))
       .map(({ i }) => i),
-  )
+  ])
   const labels = [...areas]
     .sort((x, y) => y.size - x.size)
     .map((a) => ({ id: a.id, text: names[a.id] ?? a.id, at: screen(a.label) }))
     .filter((l) => fits(around(l.at, textWidth(l.text, LABEL_PX) / 2 + 4, LABEL_PX / 2 + 2)))
-  return { shown, labels }
+  return { shown, labels, shift }
 }
 
 interface Props {
@@ -349,7 +366,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
   const trailDash = dashLength(3, px)
   const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
-  const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang)
+  const { shown, labels, shift } = declutter(map.markers, map.areas, areaNames, screen, lang)
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
   const cover = Math.hypot(frame.w, frame.h) * px
 
@@ -404,7 +421,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
               )
             if (m.kind === 'parking')
               return (
-                <text key={i} className="sm-parking" x={x} y={y} fontSize={12} textAnchor="middle" dominantBaseline="central">
+                <text key={i} className="sm-parking" x={x} y={y - (shift.get(i) ?? 0)} fontSize={12} textAnchor="middle" dominantBaseline="central">
                   P
                 </text>
               )
