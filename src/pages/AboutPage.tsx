@@ -3,6 +3,7 @@ import { SafetyLight } from '../components/SafetyLight'
 import type { Safety } from '../data/schema'
 import { formatDate } from '../format'
 import { useLang } from '../i18n'
+import { APP_VERSION, formatVersion } from '../version'
 
 /** 關於頁：說明文字較長，中英文各寫一份；圖例與資料表共用 */
 export function AboutPage({ data }: { data: LoadedData }) {
@@ -90,6 +91,10 @@ export function AboutPage({ data }: { data: LoadedData }) {
         <dd className="mono">{dataset.version}</dd>
         <dt>{zh ? '資料授權' : 'Data license'}</dt>
         <dd>{dataset.license}</dd>
+        <dt>{zh ? 'App 版本' : 'App version'}</dt>
+        <dd className="mono">
+          {formatVersion(APP_VERSION)} · {APP_VERSION.date}
+        </dd>
         <dt>{zh ? '程式授權' : 'Code license'}</dt>
         <dd>MIT</dd>
       </dl>

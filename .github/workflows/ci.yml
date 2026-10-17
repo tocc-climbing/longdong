@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # 版號的最後一碼是提交數，需要完整的 git 歷史
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:

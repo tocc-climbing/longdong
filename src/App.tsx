@@ -18,6 +18,8 @@ import { SearchPage } from './pages/SearchPage'
 import { loadRatings, useSocial } from './social/store'
 import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 import { useListView } from './listView'
+import { fetchLatestVersion } from './version'
+import type { AppVersion } from '../scripts/lib/appVersion'
 import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './swipe'
 
@@ -85,9 +87,15 @@ export function App() {
   })
   const dragTarget = dragDir ? near?.[dragDir] : undefined
 
+  // 有新版本時讀新版號；讀不到（例如剛好斷線）就只說有新版本
+  const [latest, setLatest] = useState<AppVersion>()
+  useEffect(() => {
+    if (needRefresh) void fetchLatestVersion().then(setLatest)
+  }, [needRefresh])
+
   const banner = needRefresh && (
     <div className="banner">
-      {t('app.updateAvailable')}
+      {latest ? t('app.updateAvailableVersion', { version: latest.version }) : t('app.updateAvailable')}
       <button onClick={() => updateServiceWorker(true)}>{t('app.update')}</button>
     </div>
   )

@@ -1,6 +1,6 @@
 {
   "name": "longdong-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "龍洞攀岩路線資料庫 — offline-first PWA",
   "license": "MIT",

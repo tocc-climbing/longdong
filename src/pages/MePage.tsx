@@ -16,6 +16,7 @@ import { deleteMyAccount, rename } from '../social/actions'
 import { NAME_MAX } from '../social/model'
 import { displayName, useSocial } from '../social/store'
 import { href, useRouteLink } from '../router'
+import { APP_VERSION, formatVersion } from '../version'
 
 type Tab = 'ticks' | 'favorites'
 
@@ -51,6 +52,7 @@ export function MePage({ data }: { data: LoadedData }) {
           <LanguagePicker />
           <ThemePicker />
           <InstallButton />
+          <AppVersionLine />
         </section>
         <p className="center small">
           <a href={href.about()}>{t('footer.about')}</a>
@@ -236,8 +238,15 @@ function Settings({ uid, email }: { uid: string; email: string }) {
         </button>
       </div>
       <DeleteAccount />
+      <AppVersionLine />
     </section>
   )
+}
+
+/** 設定最下方的版號：回報問題時可以附上 */
+function AppVersionLine() {
+  const { t } = useLang()
+  return <p className="muted small app-version">{t('app.version', { version: formatVersion(APP_VERSION), date: APP_VERSION.date })}</p>
 }
 
 /** 語言：自動（依系統語言）、中文、English；選擇存在這台裝置上 */

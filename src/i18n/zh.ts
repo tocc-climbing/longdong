@@ -5,6 +5,8 @@ export const zh = {
   'app.loadError': '無法載入路線資料（{error}）。',
   'app.firstUseNeedsNetwork': '第一次使用需要網路連線，下載完成後即可離線使用。',
   'app.updateAvailable': '有新版本',
+  'app.updateAvailableVersion': '有新版本 {version}',
+  'app.version': '版本 {version} · {date}',
   'app.update': '更新',
   'app.notFound': '找不到這個頁面。',
   'app.backHome': '回首頁',

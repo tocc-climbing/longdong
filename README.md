@@ -107,6 +107,9 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 網址用相對路徑、路由用 hash，所以放在 GitHub Pages 子路徑或自訂網域都可以。
 
+**版號**是「主.次.提交數」（例如 `1.0.65 (0968ddc)`），建置時自動產生（`scripts/lib/appVersion.ts`）：主、次版號寫在 `package.json`，大改版時手動調；最後一碼是 commit 的提交數，main 每合併一個 PR 自動加一。
+版號顯示在關於頁、「我的 → 設定」最下方，以及「有新版本」的提示（讀 `version.json`，不在離線快取裡）。版號需要完整的 git 歷史，workflow 的 checkout 都設了 `fetch-depth: 0`。
+
 分享路線用的網址是 `route/<路線ID>/`：`npm run build` 最後替每條路線產生一個小頁面（`scripts/gen-share-pages.ts`），帶有這條路線的預覽資訊（Facebook、LINE 的預覽卡片），開啟時轉到 App 的路線頁。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
 
 ## 救援資訊
