@@ -52,7 +52,7 @@
 
 - **不直接推 `main`**（受保護）：從最新的 `main` 開分支（`feat/`、`fix/`、`docs/`、`chore/`），推上分支後開 PR，依 `.github/pull_request_template.md` 填寫。
 - **CI（`ci`）必須通過**；引入新行為的 PR 依審查規範審查。
-- **合併等於上線**（合併後自動部署）：Claude 開好 PR、CI 通過後回報 PR 連結，**由使用者決定是否合併**；使用者要求合併時以 squash 合併。
+- **合併等於上線**（合併後自動部署）：使用者交代的工作即為授權，Claude 開好 PR、CI 通過後**直接 squash 合併**再回報（2026-10-18 使用者指示）。部署資料庫規則、寫入或刪除正式資料、修改 Firebase 設定仍須先取得明確同意。
 - **重構與新行為分開成不同 PR**（規範 7.5）。
 - **每日資料同步**由 `.github/workflows/sync.yml` 開 `data-sync` PR，不直接推 `main`。
 

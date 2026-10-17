@@ -204,6 +204,24 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
                 <text key={i} className="sm-place" x={m.at[0]} y={m.at[1]} fontSize={11 * px} textAnchor="middle" dominantBaseline="central">
                   {m.zh}
                 </text>
+              ) : m.kind === 'boat' ? (
+                <g key={i} className="sm-boat">
+                  <title>船艇接駁點</title>
+                  <circle cx={m.at[0]} cy={m.at[1]} r={6 * px} strokeWidth={px} />
+                  <circle cx={m.at[0]} cy={m.at[1]} r={3.5 * px} strokeWidth={1.5 * px} />
+                  <circle className="sm-boat-dot" cx={m.at[0]} cy={m.at[1]} r={1.6 * px} />
+                </g>
+              ) : m.kind === 'hoist' ? (
+                <g key={i} className="sm-hoist">
+                  <title>直升機吊掛點</title>
+                  {/* 圖釘：尖端在實際位置 */}
+                  <path
+                    d={`M${m.at[0]} ${m.at[1]}l${-5.5 * px} ${-9 * px}a${6.4 * px} ${6.4 * px} 0 1 1 ${11 * px} 0z`}
+                  />
+                  <text x={m.at[0]} y={m.at[1] - 12.5 * px} fontSize={8 * px} textAnchor="middle" dominantBaseline="central">
+                    H
+                  </text>
+                </g>
               ) : m.kind === 'parking' ? (
                 <g key={i} className="sm-parking">
                   <rect x={m.at[0] - 7 * px} y={m.at[1] - 7 * px} width={14 * px} height={14 * px} rx={3 * px} />

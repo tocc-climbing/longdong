@@ -83,7 +83,7 @@ export const en: Record<keyof typeof zh, string> = {
   'myloc.accuracy': 'Accuracy ±{m} m · updated {time}',
   'myloc.poor': 'Low accuracy: move to open ground and wait — the position updates automatically.',
   'myloc.nearest': 'Nearest rescue points',
-  'myloc.calibrate': 'Scale map (beta, help calibrate on site; Chinese only)',
+  'myloc.calibrate': 'Scale map calibration',
   'myloc.outside': 'You’re not near the Long Dong crag (the nearest rescue point is about {dist} away), so no rescue points are shown.',
   'myloc.away': '{dist} {dir}',
   'myloc.m': '{n} m',

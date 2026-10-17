@@ -26,21 +26,43 @@ import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './
 /** 現場校正工具只有少數人用，分開打包 */
 const CalibratePage = lazy(() => import('./pages/CalibratePage').then((m) => ({ default: m.CalibratePage })))
 
+/** 開啟後這段時間內發現新版本就直接換上（毫秒） */
+const AUTO_UPDATE_MS = 10_000
+
 export function App() {
   const page = usePage()
   const state = useData()
   const wide = useWide()
   const { lang, t } = useLang()
+  const applyUpdate = useRef<() => void>(undefined)
   const {
     offlineReady: [offlineReady],
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    // 回到前景、恢復網路、使用中每小時檢查新版本（App 從背景回來不會重新載入，只在載入時檢查會一直收不到）
     onRegisteredSW(_url, registration) {
-      if (registration) whenActive(() => void registration.update().catch(() => {}), { gapMs: 60_000, intervalMs: 60 * 60_000 })
+      if (!registration) return
+      // 回到前景、恢復網路、使用中每小時檢查新版本（App 從背景回來不會重新載入，只在載入時檢查會一直收不到）
+      whenActive(() => void registration.update().catch(() => {}), { gapMs: 60_000, intervalMs: 60 * 60_000 })
     },
   })
+  applyUpdate.current = () => void updateServiceWorker(true)
+
+  // 剛開啟或重新整理（AUTO_UPDATE_MS 內、還沒點擊或打字）就發現新版本：直接換成新版，不會打斷操作。
+  // 不這樣做的話，新版會一直等到按「更新」，重新整理幾次都還是舊版（電腦上習慣按 F5）
+  const interacted = useRef(false)
+  useEffect(() => {
+    const mark = () => (interacted.current = true)
+    window.addEventListener('pointerdown', mark, { once: true })
+    window.addEventListener('keydown', mark, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', mark)
+      window.removeEventListener('keydown', mark)
+    }
+  }, [])
+  useEffect(() => {
+    if (needRefresh && !interacted.current && performance.now() < AUTO_UPDATE_MS) applyUpdate.current?.()
+  }, [needRefresh])
 
   // 評分（路線清單顯示平均星等）在背景載入；離線時用 Service Worker 快取的上一份。
   // 從背景回來時重新讀取，看得到別人新的評分

@@ -333,6 +333,13 @@ main {
   font-size: 0.9rem;
 }
 
+/* 電腦版的中間欄自己捲動：「有新版本」固定在上方，捲下去也看得到 */
+.shell-main > .banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
 .empty {
   text-align: center;
   padding: 40px 16px;
@@ -391,6 +398,12 @@ main {
   color: var(--text);
   cursor: pointer;
   transition: transform 0.05s;
+}
+
+a.action {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .action:active {
@@ -2933,6 +2946,21 @@ main {
   fill: #003f7e;
 }
 .sm-parking text {
+  fill: #ffffff;
+  font-weight: 700;
+}
+.sm-boat circle {
+  fill: #ffffff;
+  stroke: #5dc2d0;
+}
+.sm-boat .sm-boat-dot {
+  fill: #5dc2d0;
+  stroke: none;
+}
+.sm-hoist path {
+  fill: #309dc5;
+}
+.sm-hoist text {
   fill: #ffffff;
   font-weight: 700;
 }

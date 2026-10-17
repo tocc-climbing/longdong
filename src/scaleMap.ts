@@ -15,9 +15,11 @@ interface Feature {
     | { type: 'Point'; coordinates: Position }
 }
 
-/** 地圖上的標示：停車場、急救器材（編號同 EMS_LOCATIONS）、地名 */
+/** 地圖上的標示：停車場、急救器材（編號同 EMS_LOCATIONS）、船艇接駁點、直升機吊掛點、地名 */
 export type Marker =
   | { kind: 'parking'; at: [number, number] }
+  | { kind: 'boat'; at: [number, number] }
+  | { kind: 'hoist'; at: [number, number] }
   | { kind: 'ems'; no: number; at: [number, number] }
   | { kind: 'place'; zh: string; en: string; at: [number, number] }
 interface FeatureCollection {
@@ -53,6 +55,8 @@ function toMarker({ properties: p, geometry }: Feature): Marker {
   if (geometry.type !== 'Point') throw new Error('標示必須是 Point')
   const at = project([geometry.coordinates[1], geometry.coordinates[0]])
   if (p.kind === 'parking') return { kind: 'parking', at }
+  if (p.kind === 'boat') return { kind: 'boat', at }
+  if (p.kind === 'hoist') return { kind: 'hoist', at }
   if (p.kind === 'ems' && p.no) return { kind: 'ems', no: p.no, at }
   if (p.kind === 'place' && p.zh && p.en) return { kind: 'place', zh: p.zh, en: p.en, at }
   throw new Error(`不認得的標示：${JSON.stringify(p)}`)

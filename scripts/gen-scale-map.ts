@@ -1,6 +1,6 @@
 /**
  * 由 TOCC 龍洞岩場救援資訊圖（.ai／.pdf）的向量圖形產生照比例尺的地圖資料（GeoJSON，WGS84）：
- *   public/rescue/scale-map.geojson   陸地、建物、道路、步道、停車場、急救器材、地名
+ *   public/rescue/scale-map.geojson   陸地、建物、道路、步道、停車場、急救器材、船艇接駁點、直升機吊掛點、地名
  *   public/rescue/areas.geojson       9 個大區域的範圍（之後也可用在路線分區的介面）
  *
  *   npm run scale-map -- <救援資訊圖.ai 或 .pdf>
@@ -216,6 +216,24 @@ const emsTips = shapes
   .sort((a, b) => a[1] - b[1])
 if (emsTips.length !== EMS_LOCATIONS.length) throw new Error(`急救器材應該有 ${EMS_LOCATIONS.length} 處，找到 ${emsTips.length} 個箭頭：版面可能改了`)
 
+// 圖例（左上角）裡也有同樣的圖示，不算
+const LEGEND = { x0: 150, y0: 450, x1: 850, y1: 850 }
+const inLegend = (s: Shape) => {
+  const [x, y] = centerOf(s)
+  return x > LEGEND.x0 && x < LEGEND.x1 && y > LEGEND.y0 && y < LEGEND.y1
+}
+const sized = (s: Shape, w: number, h: number) => Math.abs(bbox(s).w - w) < 0.5 && Math.abs(bbox(s).h - h) < 0.5
+
+// 船艇接駁點：同心圓中間的實心圓點（6.6 點）
+const boats = shapes.filter((s) => !s.stroke && s.fill === '#5dc2d0' && sized(s, 6.6, 6.6) && !inLegend(s)).map(centerOf)
+if (boats.length !== 13) throw new Error(`船艇接駁點應該有 13 處，找到 ${boats.length} 處：版面可能改了`)
+
+// 直升機吊掛點：藍色 H 圖釘（29.3×45.8 點）的尖端
+const hoists = shapes
+  .filter((s) => !s.stroke && s.fill === '#309dc5' && sized(s, 29.3, 45.8) && !inLegend(s))
+  .map((s) => s.subpaths.flat().reduce((a, b) => (b[1] > a[1] ? b : a)))
+if (hoists.length !== 5) throw new Error(`直升機吊掛點應該有 5 處，找到 ${hoists.length} 處：版面可能改了`)
+
 /** 地名：圖上文字（灰色）的中心 */
 const PLACES: { zh: string; en: string; at: Pt }[] = [
   { zh: '和美國小', en: 'Ho-Mei School', at: [877.5, 996] },
@@ -333,6 +351,8 @@ const scaleMap = {
     ...parking.map((at) => point({ kind: 'parking' }, at)),
     ...emsTips.map((at, i) => point({ kind: 'ems', no: EMS_LOCATIONS[i].no }, at)),
     ...PLACES.map(({ zh, en, at }) => point({ kind: 'place', zh, en }, at)),
+    ...boats.map((at) => point({ kind: 'boat' }, at)),
+    ...hoists.map((at) => point({ kind: 'hoist' }, at)),
   ],
 }
 

@@ -54,6 +54,11 @@ function formatDistance(m: number, t: Translate): string {
 export function MyLocation() {
   const { lang, t } = useLang()
   const [geo, start] = useGeolocation()
+  const calibrate = (
+    <a className="action" href={href.calibrate()}>
+      {t('myloc.calibrate')}
+    </a>
+  )
 
   return (
     <section className="card my-location" aria-labelledby="my-location">
@@ -62,9 +67,12 @@ export function MyLocation() {
       {geo.status === 'idle' && (
         <>
           <p className="muted small">{t('myloc.desc')}</p>
-          <button type="button" className="action primary" onClick={start}>
-            {t('myloc.start')}
-          </button>
+          <div className="actions">
+            <button type="button" className="action primary" onClick={start}>
+              {t('myloc.start')}
+            </button>
+            {calibrate}
+          </div>
         </>
       )}
 
@@ -79,11 +87,14 @@ export function MyLocation() {
           <p className="small error" role="alert">
             {t(`myloc.${geo.code}`)}
           </p>
-          {geo.code !== 'unsupported' && (
-            <button type="button" className="action" onClick={start}>
-              {t('myloc.retry')}
-            </button>
-          )}
+          <div className="actions">
+            {geo.code !== 'unsupported' && (
+              <button type="button" className="action" onClick={start}>
+                {t('myloc.retry')}
+              </button>
+            )}
+            {calibrate}
+          </div>
         </>
       )}
 
@@ -94,6 +105,7 @@ export function MyLocation() {
               {formatCoords(geo.coords)}
             </span>
             <CopyButton text={formatCoords(geo.coords)} className="action primary" />
+            {calibrate}
           </div>
           <p className="muted small" role="status">
             {t('myloc.accuracy', {
@@ -106,10 +118,6 @@ export function MyLocation() {
           <NearestPoints here={geo.coords} />
         </>
       )}
-
-      <p className="small">
-        <a href={href.calibrate()}>{t('myloc.calibrate')}</a>
-      </p>
     </section>
   )
 }
