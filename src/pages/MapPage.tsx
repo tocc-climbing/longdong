@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ScaleMap } from '../components/ScaleMap'
 import { SignInPrompt } from '../components/SignInPrompt'
 import { useGeolocation } from '../components/MyLocation'
-import { appendTrack, hasUnuploaded, loadCalibration, saveCalibration, uploadCalibration, type Calibration } from '../calibration'
+import { hasUnuploaded, loadCalibration, saveCalibration, uploadCalibration, type Calibration } from '../calibration'
 import type { LoadedData } from '../data/dataset'
 import { AREA_RESCUE, RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { localName, useLang, type MessageKey, type Translate } from '../i18n'
@@ -20,8 +20,8 @@ const TOAST_MS = 4000
 
 /**
  * 地圖（#/map）：照比例尺的龍洞地圖，打開就開始定位。
- * 地圖還在校正：第一次使用先說明可能有誤差；左下「回報」依目前位置列出附近的地點，選一下就記錄下來，
- * 「軌跡」記錄走過的路。記錄先存在手機上，登入且連上網路時自動上傳（v2/calibration），用來校正地圖。
+ * 地圖還在校正：第一次使用先說明可能有誤差；左上「回報」依目前位置列出附近的地點，選一下就記錄下來。
+ * 記錄先存在手機上，登入且連上網路時自動上傳（v2/calibration），用來校正地圖。
  */
 export function MapPage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
@@ -29,7 +29,6 @@ export function MapPage({ data }: { data: LoadedData }) {
   const [geo, start] = useGeolocation()
   const cloud = useCloud()
   const [records, setRecords] = useState<Calibration>(loadCalibration)
-  const [tracking, setTracking] = useState(false)
   const [intro, setIntro] = useState(() => !seenIntro())
   const [reporting, setReporting] = useState(false)
   const [toast, setToast] = useState<string>()
@@ -55,11 +54,6 @@ export function MapPage({ data }: { data: LoadedData }) {
       setToast(t('map.saveError'))
     }
   }, [records])
-
-  useEffect(() => {
-    if (tracking && fix) setRecords((r) => ({ ...r, track: appendTrack(r.track, fix) }))
-    // 每次有新的定位（時間不同）才加入軌跡
-  }, [tracking, fix?.time])
 
   useEffect(() => {
     if (!toast) return
@@ -88,12 +82,6 @@ export function MapPage({ data }: { data: LoadedData }) {
     else if (!cloud.connected) setToast(t('map.queued'))
   }
 
-  const toggleTrack = () => {
-    // 停止時把這段軌跡排進上傳
-    if (tracking && records.track.length >= 2) setRecords((r) => ({ ...r, queued: true }))
-    setTracking((v) => !v)
-  }
-
   const closeIntro = () => {
     try {
       localStorage.setItem(INTRO_KEY, '1')
@@ -113,7 +101,6 @@ export function MapPage({ data }: { data: LoadedData }) {
           areaNames={areaNames}
           here={fix}
           marks={records.marks.map((m) => m.coords)}
-          track={records.track.map((f) => f.coords)}
           onLocate={() => geo.status !== 'ok' && geo.status !== 'locating' && start()}
           topLeft={
             <>
@@ -123,9 +110,6 @@ export function MapPage({ data }: { data: LoadedData }) {
               </button>
               <button type="button" className="sm-chip report" onClick={() => setReporting(true)}>
                 {t('map.report')}
-              </button>
-              <button type="button" className={`sm-chip${tracking ? ' on' : ''}`} onClick={toggleTrack} aria-pressed={tracking}>
-                {t(tracking ? 'map.trackStop' : 'map.trackStart')}
               </button>
             </>
           }

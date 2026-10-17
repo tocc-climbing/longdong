@@ -147,7 +147,7 @@ npm run rescue-map -- <救援資訊圖.ai>
 OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetMap contributors，ODbL），地圖右上會標示出處。成果用內政部國土測繪中心的正射影像目視核對過；影像只用來核對，沒有從影像取資料。
 
 控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`#/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），打開就開始定位；
-第一次使用會說明地圖還在校正、可能有誤差。左下「回報」依目前位置列出附近的區域、救援點與標示（`src/reportOptions.ts`），「記錄軌跡」記錄走過的路；
+第一次使用會說明地圖還在校正、可能有誤差。左上「回報」依目前位置列出附近的區域、救援點與標示（`src/reportOptions.ts`）；網頁在背景或螢幕關閉時無法定位，所以不記錄軌跡。
 記錄先存在手機上，登入且連上網路時自動上傳到 `v2/calibration/<uid>`（只有本人與管理員讀得到）。校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
 
 ## 舊網址轉址

@@ -103,10 +103,9 @@ interface Props {
   areaNames: Record<string, string>
   here?: { coords: LatLng; accuracy: number }
   marks: LatLng[]
-  track: LatLng[]
   /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去 */
   onLocate: () => void
-  /** 左上角的按鈕（測試版說明、回報、記錄軌跡） */
+  /** 左上角的按鈕（測試版說明、回報） */
   topLeft?: ReactNode
 }
 
@@ -118,7 +117,7 @@ type Point = { x: number; y: number }
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, track, onLocate, topLeft }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, onLocate, topLeft }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -264,7 +263,6 @@ export function ScaleMap({ map, areaNames, here, marks, track, onLocate, topLeft
   const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
   const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang)
-  const trackPath = track.length >= 2 ? 'M' + track.map((c) => project(c).join(' ')).join('L') : ''
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
   const cover = Math.hypot(frame.w, frame.h) * px
 
@@ -282,7 +280,6 @@ export function ScaleMap({ map, areaNames, here, marks, track, onLocate, topLeft
           <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
           <path className="sm-road" d={map.layers.road} strokeWidth={2.5 * px} />
           <path className="sm-trail" d={map.layers.trail} strokeWidth={2 * px} strokeDasharray={`${trailDash} ${trailDash}`} />
-          {trackPath && <path className="sm-track" d={trackPath} strokeWidth={3 * px} />}
           {me && here && <circle className="sm-me-accuracy" cx={me[0]} cy={me[1]} r={here.accuracy} />}
         </g>
 

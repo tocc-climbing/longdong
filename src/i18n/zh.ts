@@ -92,8 +92,6 @@ export const zh = {
   'map.north': '北方朝上',
   'map.locate': '回到我的位置',
   'map.report': '回報',
-  'map.trackStart': '記錄軌跡',
-  'map.trackStop': '停止記錄',
   'map.pending': '有記錄尚未上傳',
   'map.loadFailed': '地圖載入失敗：{error}',
   'map.denied': '沒有定位權限：請在瀏覽器或系統設定允許定位',

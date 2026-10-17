@@ -94,8 +94,6 @@ export const en: Messages = {
   'map.north': 'Face north',
   'map.locate': 'My location',
   'map.report': 'Report',
-  'map.trackStart': 'Record track',
-  'map.trackStop': 'Stop track',
   'map.pending': 'Some records aren’t uploaded yet',
   'map.loadFailed': 'Couldn’t load the map: {error}',
   'map.denied': 'Location permission denied — allow location in your browser or system settings',

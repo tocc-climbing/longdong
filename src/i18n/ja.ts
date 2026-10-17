@@ -98,8 +98,6 @@ export const ja: Messages = {
   'map.north': '北を上にする',
   'map.locate': '現在地',
   'map.report': '報告',
-  'map.trackStart': '軌跡を記録',
-  'map.trackStop': '記録を停止',
   'map.pending': '未アップロードの記録があります',
   'map.loadFailed': '地図を読み込めません：{error}',
   'map.denied': '位置情報が許可されていません。ブラウザまたは端末の設定で許可してください',

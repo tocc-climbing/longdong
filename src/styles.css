@@ -2958,10 +2958,6 @@ main.map > div {
   color: #ffffff;
 }
 
-.sm-chip.on {
-  color: #1a73e8;
-  box-shadow: inset 0 0 0 2px #1a73e8, 0 1px 4px rgba(0, 0, 0, 0.3);
-}
 
 .sm-chip-dot {
   width: 8px;
@@ -3085,12 +3081,6 @@ main.map > div {
   fill: none;
   stroke: #356507;
   stroke-linecap: round;
-}
-.sm-track {
-  fill: none;
-  stroke: #e46300;
-  stroke-linejoin: round;
-  stroke-opacity: 0.85;
 }
 
 /* 各區域：填色、外框與名稱的顏色 */
