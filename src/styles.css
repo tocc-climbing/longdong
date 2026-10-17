@@ -333,6 +333,13 @@ main {
   font-size: 0.9rem;
 }
 
+/* 電腦版的中間欄自己捲動：「有新版本」固定在上方，捲下去也看得到 */
+.shell-main > .banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
 .empty {
   text-align: center;
   padding: 40px 16px;
@@ -391,6 +398,12 @@ main {
   color: var(--text);
   cursor: pointer;
   transition: transform 0.05s;
+}
+
+a.action {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .action:active {
@@ -2802,4 +2815,235 @@ main {
 
 .near-item {
   grid-template-columns: 2rem minmax(0, 1fr);
+}
+
+/* 比例尺地圖・現場校正（#/calibrate）：配色與救援資訊圖完全相同（取自 .ai 檔），深色模式也不換 */
+.calibrate h2 {
+  margin-top: 0;
+}
+
+.scale-map {
+  position: relative;
+  margin: 16px 0;
+}
+
+.scale-map-tools {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.scale-map-frame {
+  height: 70vh;
+  /* 手機網址列收合時 vh 可能跟著變，用最小的可視高度，地圖才不會一直改大小 */
+  height: 70svh;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #ffffff;
+  /* 拖曳、雙指縮放由地圖自己處理，不要捲動或縮放整頁 */
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.scale-map-frame:active {
+  cursor: grabbing;
+}
+
+.scale-map-frame svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.scale-map-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 0.75rem;
+  color: #231815;
+  pointer-events: none;
+}
+
+.sm-bar {
+  height: 4px;
+  background: #231815;
+}
+
+.sm-sea {
+  fill: #ffffff;
+}
+.sm-land {
+  fill: #efefef;
+}
+.sm-building {
+  fill: #dcdddd;
+}
+.sm-highway,
+.sm-road,
+.sm-tunnel {
+  fill: none;
+  stroke: #003f7e;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sm-trail {
+  fill: none;
+  stroke: #356507;
+  stroke-linecap: round;
+}
+.sm-track {
+  fill: none;
+  stroke: #e46300;
+  stroke-linejoin: round;
+  stroke-opacity: 0.85;
+}
+
+/* 各區域：填色、外框與名稱的顏色 */
+.sm-area-school-gate { fill: #f2b4c6; stroke: #d40441; }
+.sm-area-clocktower { fill: #dab2d2; stroke: #820068; }
+.sm-area-long-lane { fill: #b3c6d8; stroke: #01417f; }
+.sm-area-music-hall { fill: #ceedf1; stroke: #5dc2d0; }
+.sm-area-grand-auditorium { fill: #d0d6c2; stroke: #627534; }
+.sm-area-first-cave { fill: #e4eeb3; stroke: #a6c702; }
+.sm-area-second-cave { fill: #f9e8b2; stroke: #edb100; }
+.sm-area-golden-valley { fill: #fcdcb7; stroke: #eb640a; }
+.sm-area-back-door { fill: #e2b2b2; stroke: #a00000; }
+.sm-label-school-gate { fill: #d40441; }
+.sm-label-clocktower { fill: #820068; }
+.sm-label-long-lane { fill: #01417f; }
+.sm-label-music-hall { fill: #5dc2d0; }
+.sm-label-grand-auditorium { fill: #627534; }
+.sm-label-first-cave { fill: #a6c702; }
+.sm-label-second-cave { fill: #edb100; }
+.sm-label-golden-valley { fill: #eb640a; }
+.sm-label-back-door { fill: #a00000; }
+
+.sm-label {
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 0.3em;
+  stroke-linejoin: round;
+}
+
+.sm-place {
+  fill: #898989;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 0.3em;
+  stroke-linejoin: round;
+}
+.sm-parking rect {
+  fill: #003f7e;
+}
+.sm-parking text {
+  fill: #ffffff;
+  font-weight: 700;
+}
+.sm-boat circle {
+  fill: #ffffff;
+  stroke: #5dc2d0;
+}
+.sm-boat .sm-boat-dot {
+  fill: #5dc2d0;
+  stroke: none;
+}
+.sm-hoist path {
+  fill: #309dc5;
+}
+.sm-hoist text {
+  fill: #ffffff;
+  font-weight: 700;
+}
+.sm-ems rect {
+  fill: #0c4f8b;
+}
+.sm-ems path {
+  stroke: #ffffff;
+  fill: none;
+}
+
+.sm-rescue circle {
+  fill: #b60005;
+}
+.sm-rescue text,
+.sm-mark text {
+  fill: #fff;
+  font-weight: 700;
+}
+.sm-mark circle {
+  fill: #e46300;
+}
+.sm-me circle {
+  fill: #1a73e8;
+  stroke: #fff;
+}
+.sm-me .sm-me-accuracy {
+  fill: rgba(26, 115, 232, 0.15);
+  stroke-width: 0;
+}
+
+.cal-note {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cal-note input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.cal-count {
+  align-self: center;
+}
+
+.cal-marks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cal-marks li {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.cal-marks li + li {
+  border-top: 1px solid var(--border);
+}
+
+.cal-mark-no {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #e46300;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cal-mark-body {
+  display: grid;
+  overflow-wrap: anywhere;
 }

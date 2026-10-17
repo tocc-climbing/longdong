@@ -91,6 +91,26 @@
           }
         }
       },
+      "calibration": {
+        ".read": "auth != null && root.child('role').child(auth.uid).exists()",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && !newData.exists()",
+          "$id": {
+            ".write": "auth != null && auth.uid === $uid && (!data.exists() || !newData.exists())",
+            ".validate": "newData.hasChildren(['geojson', 'createdAt'])",
+            "geojson": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1000000"
+            },
+            "createdAt": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      },
       "personal": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",

@@ -2,12 +2,23 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { appVersion } from './scripts/lib/appVersion'
+
+const version = appVersion()
 
 // base 用相對路徑，部署在 GitHub Pages 子路徑或自訂網域都能運作（路由用 hash）
 export default defineConfig({
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [
     react(),
+    // 最新版號，給「有新版本」的提示讀取（不放進離線快取，見 globIgnores）
+    {
+      name: 'version-json',
+      generateBundle() {
+        this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify(version) + '\n' })
+      },
+    },
     VitePWA({
       registerType: 'prompt',
       manifest: {
@@ -28,7 +39,8 @@ export default defineConfig({
       },
       workbox: {
         // App 和完整路線資料一起預先快取，沒有訊號也能使用
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,json}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,json,geojson}'],
+        globIgnores: ['**/node_modules/**/*', 'version.json'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         // 路線分享頁（route/<路線ID>/）是建置後產生的靜態頁，交給網路，不要換成 App 本身

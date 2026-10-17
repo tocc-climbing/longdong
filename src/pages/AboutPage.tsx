@@ -4,6 +4,7 @@ import { SafetyLight } from '../components/SafetyLight'
 import type { Safety } from '../data/schema'
 import { formatDate } from '../format'
 import { useLang, type Lang } from '../i18n'
+import { APP_VERSION, formatVersion } from '../version'
 
 /** 關於頁的長篇說明每種語言一個檔案，用到時才載入；資料表、圖例共用 */
 const ABOUT_TEXT: Record<Lang, ReturnType<typeof lazy<typeof import('./about/zh').default>>> = {
@@ -32,6 +33,10 @@ export function AboutPage({ data }: { data: LoadedData }) {
         <dd className="mono">{dataset.version}</dd>
         <dt>{t('about.dataLicense')}</dt>
         <dd>{dataset.license}</dd>
+        <dt>{t('about.appVersion')}</dt>
+        <dd className="mono">
+          {formatVersion(APP_VERSION)} · {APP_VERSION.date}
+        </dd>
         <dt>{t('about.codeLicense')}</dt>
         <dd>MIT</dd>
       </dl>

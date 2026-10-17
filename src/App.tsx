@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { BottomNav } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
@@ -18,24 +18,51 @@ import { SearchPage } from './pages/SearchPage'
 import { loadRatings, useSocial } from './social/store'
 import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 import { useListView } from './listView'
+import { fetchLatestVersion } from './version'
+import type { AppVersion } from '../scripts/lib/appVersion'
 import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './swipe'
+
+/** 現場校正工具只有少數人用，分開打包 */
+const CalibratePage = lazy(() => import('./pages/CalibratePage').then((m) => ({ default: m.CalibratePage })))
+
+/** 開啟後這段時間內發現新版本就直接換上（毫秒） */
+const AUTO_UPDATE_MS = 10_000
 
 export function App() {
   const page = usePage()
   const state = useData()
   const wide = useWide()
   const { lang, t } = useLang()
+  const applyUpdate = useRef<() => void>(undefined)
   const {
     offlineReady: [offlineReady],
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    // 回到前景、恢復網路、使用中每小時檢查新版本（App 從背景回來不會重新載入，只在載入時檢查會一直收不到）
     onRegisteredSW(_url, registration) {
-      if (registration) whenActive(() => void registration.update().catch(() => {}), { gapMs: 60_000, intervalMs: 60 * 60_000 })
+      if (!registration) return
+      // 回到前景、恢復網路、使用中每小時檢查新版本（App 從背景回來不會重新載入，只在載入時檢查會一直收不到）
+      whenActive(() => void registration.update().catch(() => {}), { gapMs: 60_000, intervalMs: 60 * 60_000 })
     },
   })
+  applyUpdate.current = () => void updateServiceWorker(true)
+
+  // 剛開啟或重新整理（AUTO_UPDATE_MS 內、還沒點擊或打字）就發現新版本：直接換成新版，不會打斷操作。
+  // 不這樣做的話，新版會一直等到按「更新」，重新整理幾次都還是舊版（電腦上習慣按 F5）
+  const interacted = useRef(false)
+  useEffect(() => {
+    const mark = () => (interacted.current = true)
+    window.addEventListener('pointerdown', mark, { once: true })
+    window.addEventListener('keydown', mark, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', mark)
+      window.removeEventListener('keydown', mark)
+    }
+  }, [])
+  useEffect(() => {
+    if (needRefresh && !interacted.current && performance.now() < AUTO_UPDATE_MS) applyUpdate.current?.()
+  }, [needRefresh])
 
   // 評分（路線清單顯示平均星等）在背景載入；離線時用 Service Worker 快取的上一份。
   // 從背景回來時重新讀取，看得到別人新的評分
@@ -82,9 +109,15 @@ export function App() {
   })
   const dragTarget = dragDir ? near?.[dragDir] : undefined
 
+  // 有新版本時讀新版號；讀不到（例如剛好斷線）就只說有新版本
+  const [latest, setLatest] = useState<AppVersion>()
+  useEffect(() => {
+    if (needRefresh) void fetchLatestVersion().then(setLatest)
+  }, [needRefresh])
+
   const banner = needRefresh && (
     <div className="banner">
-      {t('app.updateAvailable')}
+      {latest ? t('app.updateAvailableVersion', { version: latest.version }) : t('app.updateAvailable')}
       <button onClick={() => updateServiceWorker(true)}>{t('app.update')}</button>
     </div>
   )
@@ -184,6 +217,12 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
       return <RescuePage data={data} areaKey={page.id} />
     case 'about':
       return <AboutPage data={data} />
+    case 'calibrate':
+      return (
+        <Suspense>
+          <CalibratePage data={data} />
+        </Suspense>
+      )
     default:
       return <HomePage data={data} />
   }
@@ -256,7 +295,7 @@ function desktopView(page: Page, data: LoadedData): DesktopView {
   const closeHref = withDetail(location.hash || '#/', undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
   if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue')
+  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'calibrate')
 }
 
 function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {

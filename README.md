@@ -107,6 +107,9 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 網址用相對路徑、路由用 hash，所以放在 GitHub Pages 子路徑或自訂網域都可以。
 
+**版號**是「主.次.提交數」（例如 `1.0.65 (0968ddc)`），建置時自動產生（`scripts/lib/appVersion.ts`）：主、次版號寫在 `package.json`，大改版時手動調；最後一碼是 commit 的提交數，main 每合併一個 PR 自動加一。
+版號顯示在關於頁、「我的 → 設定」最下方，以及「有新版本」的提示（讀 `version.json`，不在離線快取裡）。版號需要完整的 git 歷史，workflow 的 checkout 都設了 `fetch-depth: 0`。
+
 分享路線用的網址是 `route/<路線ID>/`：`npm run build` 最後替每條路線產生一個小頁面（`scripts/gen-share-pages.ts`），帶有這條路線的預覽資訊（Facebook、LINE 的預覽卡片），開啟時轉到 App 的路線頁。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
 
 ## 介面語言
@@ -128,6 +131,17 @@ npm run rescue-map -- <救援資訊圖.ai>
 ```
 
 版面若有變動，腳本會停下來，調整 `scripts/gen-rescue-map.ts` 裡各大區域的裁切範圍；救援點座標改了要一併更新 `src/data/rescue.ts`。
+
+### 比例尺地圖（測試中）
+
+救援資訊圖是示意圖，不是照比例尺畫的：以救援點比對，整張圖最多偏約 60 公尺，所以不能直接在上面畫 GPS 位置。
+`npm run scale-map -- <救援資訊圖.ai>` 讀出圖上的向量圖形（陸地、建物、道路、步道、9 個大區域），以救援點當控制點、用薄板樣條拉到實際位置，產生：
+
+- `public/rescue/scale-map.geojson`：陸地、建物、道路、步道，以及停車場、急救器材、船艇接駁點、直升機吊掛點、地名
+- `public/rescue/areas.geojson`：9 個大區域的範圍（之後也可用在路線分區的介面）
+
+控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。現場校正頁 `#/calibrate`（沒有放在選單裡）在這張圖上顯示 GPS 位置，可在明確的地點記下座標與說明、記錄步道軌跡，匯出 GeoJSON 傳回；
+校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
 
 ## 舊網址轉址
 

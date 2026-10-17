@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { NEAR_CRAG_M, nearestPoints, type LatLng } from '../geo'
 import { LOCALES, localName, useLang, type Translate } from '../i18n'
+import { href } from '../router'
 import { CopyButton } from './CopyButton'
 
 /** 誤差超過這個距離（公尺）時提醒到開闊處 */
@@ -17,7 +18,7 @@ type GeoState =
  * 手機 GPS 定位：按下才開始（瀏覽器會先詢問權限），之後持續更新；離開頁面時停止，不在背景耗電。
  * GPS 不需要網路；沒有網路時第一次定位可能較久。
  */
-function useGeolocation(): [GeoState, () => void] {
+export function useGeolocation(): [GeoState, () => void] {
   const [state, setState] = useState<GeoState>({ status: 'idle' })
   const watch = useRef<number>(undefined)
 
@@ -53,6 +54,11 @@ function formatDistance(m: number, t: Translate): string {
 export function MyLocation() {
   const { lang, t } = useLang()
   const [geo, start] = useGeolocation()
+  const calibrate = (
+    <a className="action" href={href.calibrate()}>
+      {t('myloc.calibrate')}
+    </a>
+  )
 
   return (
     <section className="card my-location" aria-labelledby="my-location">
@@ -61,9 +67,12 @@ export function MyLocation() {
       {geo.status === 'idle' && (
         <>
           <p className="muted small">{t('myloc.desc')}</p>
-          <button type="button" className="action primary" onClick={start}>
-            {t('myloc.start')}
-          </button>
+          <div className="actions">
+            <button type="button" className="action primary" onClick={start}>
+              {t('myloc.start')}
+            </button>
+            {calibrate}
+          </div>
         </>
       )}
 
@@ -78,11 +87,14 @@ export function MyLocation() {
           <p className="small error" role="alert">
             {t(`myloc.${geo.code}`)}
           </p>
-          {geo.code !== 'unsupported' && (
-            <button type="button" className="action" onClick={start}>
-              {t('myloc.retry')}
-            </button>
-          )}
+          <div className="actions">
+            {geo.code !== 'unsupported' && (
+              <button type="button" className="action" onClick={start}>
+                {t('myloc.retry')}
+              </button>
+            )}
+            {calibrate}
+          </div>
         </>
       )}
 
@@ -93,6 +105,7 @@ export function MyLocation() {
               {formatCoords(geo.coords)}
             </span>
             <CopyButton text={formatCoords(geo.coords)} className="action primary" />
+            {calibrate}
           </div>
           <p className="muted small" role="status">
             {t('myloc.accuracy', {
