@@ -1,119 +1,179 @@
-# 龍洞路線推薦與完攀進度系統設計
+# `longdong-coach`（龍洞攀岩教練／制霸攻略）獨立 Web App 架構與設計
 
 ## 一、目的與結論
 
-在「我的」頁面（[`src/pages/MePage.tsx`](../src/pages/MePage.tsx)）新增**「推薦」分頁**與**「爬完龍洞」完攀進度**。系統完全在裝置本機（Offline-First）運作：依據使用者的個人攀登日誌（`ticks`）、收藏清單（`favorites`）、路線安全狀態與社群評分，計算出個人目前的能力區間，並從四個維度推薦下一步適合攀登的路線，協助使用者循序漸進「爬完龍洞」。
+將**「個人能力評估、路線推薦、一日行程規劃與爬完龍洞（制霸進度）」**獨立打造為專屬的 Web App —— **`longdong-coach`（龍洞攀岩教練／攻略）**，與現有的 `tocc-climbing/longdong`（龍洞攀岩資料庫）形成雙應用互補生態：
+
+1. **產品定位分離，體驗更純粹**：
+   - **`longdong`（主資料庫）**：維持極簡、零干擾的**「岩場現場安全字典與工具書」**，專注於查詢路線、逐顆 Bolt 材質與拉測履歷、離線救援定位。
+   - **`longdong-coach`（攀岩教練與破關攻略）**：專注於**「行前規劃、能力分析、智慧推薦與全區清台追蹤」**，整個介面圍繞個人日誌與破關進度展開，不受限於主站「我的」頁面的單一欄寬。
+2. **資料與帳號 100% 無縫互通（零重複輸入、零維護負擔）**：
+   - **路線資料共用**：直接同步讀取主站發布的 `longdong.json`（共用永久固定的路線 ID `longdong/<6碼>` 與紅黃綠安全燈號）。
+   - **個人紀錄與雲端同步共用**：連接同一個 Firebase 專案（`longdong`）的 `/v2/personal/<uid>` 與 `/v2/ratings`。使用者在兩邊用同一個 Google／Facebook 帳號登入，攀登紀錄（Ticks）與收藏（Favorites）即自動雙向同步。
+   - **支援外部日誌匯入**：內建 **Mountain Project 個人 Tick List CSV 匯入工具**，一鍵將過往累積的攀登紀錄轉換為標準 `Tick` 格式並同步上雲端。
 
 ---
 
-## 二、背景與實際資料盤點
-
-經查驗 [`public/data/longdong.json`](../public/data/longdong.json) 實際資料（共 632 筆項目）：
-
-| 分類 | 數量 | 說明 |
-|---|---:|---|
-| 總項目數 | 632 | 包含攀登路線與非攀登固定點 |
-| 非攀登項目（`isFixture: true`） | 7 | 救援訓練固定點、私設固定點等，**不計入攀登路線** |
-| **實際攀登路線** | **625** | 運攀 `sport` 208、傳攀 `trad` 329、抱石 `boulder` 44、上方架繩 `toprope` 42、混合 `mixed` 2 |
-| 危險或關閉路線 | 35 | 包含 `status: 'closed'`（5）、`status: 'to-remove'`（5）、`safety: 'red'`（28，部分與上述重疊） |
-| **安全可攀登路線池（基準分母）** | **590** | 排除 `isFixture`、`closed`、`to-remove` 與 `red` 後的路線總數（其中運攀 190 條、傳攀/其他 400 條） |
-
-### 權責分界（依 `docs/review_and_implementation_protocol.md`）
-- **資料結構保證**：由 [`src/data/schema.ts`](../src/data/schema.ts) 保證，`gradeValue` 在匯入時已轉為數值（例如 `5.9 = 36`、`5.10a = 40`、`5.10b = 41`、`5.10c = 42`、`5.10d = 43`、`5.11a = 44`）。
-- **推薦與進度計算**：由新增的純函式模組 `src/personal/recommend.ts` 負責，不耦合 React 或 DOM，並由 `tests/recommend.test.ts` 驗證。
-
----
-
-## 三、功能與演算法設計
+## 二、雙站協作與資料流架構
 
 ```mermaid
-flowchart TD
-    Data["全部路線 (632)"] --> FilterSafe["1. 安全與有效性過濾\n排除 isFixture / closed / to-remove / red"]
-    FilterSafe --> FilterKind["2. 攀登類型篩選 (Kind)\n全部 / 運攀 (Sport) / 傳攀與其他 (Trad & Other)"]
-    FilterKind --> Progress["📊 計算「爬完龍洞」進度\n總完攀率 + 五大難度帶 (5.9- ~ 5.13+) 完攀進度"]
-    FilterKind --> ExcludeSent["3. 排除已完攀路線 (isSent)"]
-    ExcludeSent --> Profile["4. 分析個人日誌能力模型\n工作難度 (Working Grade) / 最高完攀 (Max Sent) / 常去區域"]
-    Profile --> Cat1["🎯 1. 完攀未竟 (Projects)\n曾 Attempt 或已收藏但未完攀"]
-    Profile --> Cat2["💪 2. 鞏固與熱身 (Solidify / 入門)\n符合目前穩定能力的綠燈高評分路線"]
-    Profile --> Cat3["🚀 3. 突破挑戰 (Step Up)\n比目前最高完攀高 1~2 小級的路線"]
-    Profile --> Cat4["🗺️ 4. 區域清台 (Sector Clear)\n最接近刷完的分區中剩下的路線"]
+flowchart LR
+    subgraph TOCC 主資料庫 (tocc-climbing/longdong)
+        GS["Google Sheet\n(TOCC 固定點更新計畫)"] --> JSON["longdong.json\n(625 條路線 + 安全燈號)"]
+        MainApp["龍洞攀岩資料庫 PWA\n(現場查 Bolt / 離線救援)"]
+        JSON --> MainApp
+    end
+
+    subgraph 共用雲端與本機儲存
+        FB["Firebase Realtime DB\n• /v2/personal/<uid> (紀錄/收藏)\n• /v2/ratings (星等/體感難度)"]
+        MP_CSV["Mountain Project\n個人 Tick List (.csv)"]
+    end
+
+    subgraph 獨立新應用 (longdong-coach)
+        CoachApp["龍洞攀岩教練 PWA"]
+        Engine["本機推薦與訓練引擎\n• 個人能力模型 (Working / Max Grade)\n• 四大推薦維度\n• 一日行程產生器 (Session Builder)\n• 9 大區域 × 難度破關矩陣"]
+        CoachApp --- Engine
+    end
+
+    JSON == "1. 自動讀取最新路線與安全燈號" ==> CoachApp
+    MainApp <== "2. 雙向即時同步 (同帳號登入)" ==> FB
+    FB <== "2. 雙向即時同步 (LWW 合併)" ==> CoachApp
+    MP_CSV -. "3. 首次一鍵匯入歷史完攀" .-> CoachApp
+    CoachApp -- "4. Deep Link 跳轉查看逐顆 Bolt 履歷" --> MainApp
 ```
 
-### 3.1 安全過濾與可攀登池（Climbable Pool）
-任何進入推薦或作為「爬完龍洞」分母的路線，必須同時滿足：
-1. `!route.isFixture`（非固定點設施）
-2. `route.status !== 'closed' && route.status !== 'to-remove'`（未封閉、非待移除）
-3. `route.safety !== 'red'`（非紅燈危險路線）
-
-> **備註**：若使用者過去曾經完攀過某條後來變成紅燈或封閉的路線，在計算「該使用者已完攀數」時仍計入分子與分母（不抹煞既有完攀紀錄），但**絕不會把紅燈或封閉路線推薦給尚未爬過的人**。
-
-### 3.2 攀登類型篩選（Kind Filter）
-沿用 [`src/listView.ts`](../src/listView.ts) 的分類慣例，提供三種模式：
-- **`all`（全部）**、**`sport`（運攀）**、**`other`（傳攀/其他）**
-- **預設模式自動推斷**：
-  - 若使用者尚未手動點選，統計其過往完攀紀錄（`isSent`）：若全為運攀（或運攀佔比 $\ge 70\%$）預設為 `sport`；若傳攀/其他佔比 $\ge 70\%$ 預設為 `other`；否則（或無紀錄時）預設為 `all`。
-  - 使用者可隨時在「推薦」分頁頂部點擊切換，進度條與推薦清單會即時連動。
-
-### 3.3 個人能力模型（Ability Profile）
-根據目前篩選類型下的已完攀路線（`sentRoutes`），計算兩個核心指標：
-- **最高完攀難度（`maxGrade`）**：所有已完攀路線中最大的 `gradeValue`。
-- **穩定工作難度（`workingGrade`）**：
-  - 將已完攀路線的 `gradeValue` 由高到低排序，取**第 3 難**的 `gradeValue`（若完攀總數為 1～2 條，則取最低的那條 `gradeValue`）。
-  - **設計理由**：避免使用者偶然 Top-rope 或 Follow 爬過一條超難路線（Outlier），導致系統全部推薦超出其實際穩定能力的路線。取第 3 難能真實反映「目前穩定能完攀的難度」。
-
-### 3.4 路線排序評分（Tie-Breaker）
-在同一推薦分類內，候選路線依下列順序排列（取前 `N` 條，預設每類顯示 5 條，可展開或換一批）：
-1. **安全燈號**：綠燈（`safety === 'green'`）優先於黃燈／未評級。
-2. **固定點狀態**：`rebolted`（已更新）／`tested`（已拉測）優先。
-3. **社群星等**：平均星等（`rating.average`）較高者優先（同星等時評分人數較多者優先）。
-4. **路線編號**：依官方編號由小到大。
-
-### 3.5 四大推薦維度（互斥不重複：已出現在前序分類的路線不再重複出現）
-
-| 順序 | 維度名稱 | 觸發條件 | 篩選與排序規則 |
-|---|---|---|---|
-| **1** | **🎯 完攀未竟**<br>*(Projects)* | 有曾嘗試（`attempt`）或已收藏（`favorite`）但尚未完攀的路線 | - 包含所有未完攀的 `attempt` 與 `favorite` 路線<br>- **排序**：曾 `attempt` 的路線優先（依最近嘗試日期新到舊），其次為 `favorite`（依難度接近 `workingGrade` 程度排序） |
-| **2** | **💪 鞏固與熱身**<br>*(Solidify)*<br>*(無紀錄時為「🌱 新手經典入門」)* | 永遠顯示 | - **有完攀紀錄**：選取難度落在 `[workingGrade - 2, workingGrade]`（例如穩定爬 `5.10c (42)`，則推薦 `5.10a (40)`～`5.10c (42)`）的未爬路線<br>- **無完攀紀錄（新手）**：選取 `gradeValue <= 36`（`5.5`～`5.9`）的路線<br>- **排序**：依 3.4 評分（綠燈＋高星等優先） |
-| **3** | **🚀 突破挑戰**<br>*(Step Up)* | 至少有 1 條完攀紀錄 | - 選取難度落在 `(workingGrade, maxGrade + 2]`（比工作難度高，且最多比最高完攀高 2 小級，例如最高 `5.10b (41)` 則挑戰 `5.10c (42)`～`5.10d (43)`）<br>- **排序**：難度由低到高（先推高 1 小級的），同難度依 3.4 評分 |
-| **4** | **🗺️ 區域清台**<br>*(Sector Clear)* | 至少有 1 個分區已完攀 $\ge 1$ 條且尚未 100% 完攀 | - 找出所有「已爬過 $\ge 1$ 條、且還有未爬路線」的分區（Sector）<br>- 優先挑選**「該分區完攀比例最高（或剩餘條數最少）」**且剩餘路線平均難度在 `maxGrade + 2` 以內的分區<br>- 標題直接顯示：**「區域清台：{區域} · {分區}（已完成 X / Y）」**，列出該分區剩下的路線 |
+### 2.1 跨站認證與安全邊界
+- **Firebase Auth 網域白名單**：只要在 Firebase Console（`Authentication → Settings → Authorized domains`）將 `longdong-coach` 的部署網域加入白名單，即可直接使用相同的 Google / Facebook 登入流程。
+- **資料庫規則零修改**：`longdong-coach` 寫入的 `Favorite` 與 `Tick` 結構完全遵循主站 [`src/personal/model.ts`](../src/personal/model.ts) 與 [`firebase/database.rules.json`](../firebase/database.rules.json) 的規範，透過相同的 `reconcile()`（以 `updatedAt` 較新者為準＋Tombstone 軟刪除）合併，不會破壞任何既有資料。
 
 ---
 
-## 四、介面與互動設計（`src/pages/MePage.tsx`）
+## 三、核心演算法：能力模型與推薦引擎
 
-### 4.1 分頁結構
-在「我的」頁面右側區塊（`.me-log`）的分頁切換器擴充為三個頁籤：
-- **`攀登紀錄`（`ticks`）** ｜ **`收藏`（`favorites`）** ｜ **`推薦`（`recommend`）**
+### 3.1 安全與有效性過濾（Climbable Pool）
+经盤點 [`public/data/longdong.json`](../public/data/longdong.json) 全部 632 筆項目：
+- 排除非攀登項目（`isFixture: true`，共 7 筆）後，共 **625 條攀登路線**（運攀 208、傳攀 329、抱石 44、上方架繩 42、混合 2）。
+- **推薦安全池（共 590 條）**：自動排除 `isFixture: true`、`status === 'closed'`（5 條）、`status === 'to-remove'`（5 條）與 `safety === 'red'`（28 條）的路線，確保**絕不推薦封閉或紅燈危險路線**。
+- *註：使用者過往已完攀的路線，即使後來變更為紅燈或封閉，仍保留於個人的歷史完攀統計中，不抹煞既有成就。*
 
-### 4.2 「推薦」頁籤內容版面
-1. **類型篩選列（Chips）**：`全部` ｜ `運攀` ｜ `傳攀/其他`
-2. **「爬完龍洞」總進度卡片（`.card`）**：
-   - 標題與總進度數字：例如 **「龍洞完攀進度：42 / 190 條（22%）」**
-   - 整體水平進度條（Progress Bar）
-   - **各難度區間完成度**（複用 [`GRADE_BANDS`](../src/format.ts)：`5.9-`、`5.10`、`5.11`、`5.12`、`5.13+`）：顯示每個區間「已完攀 / 該區間總數」（例如 `5.9-  18 / 35`、`5.10  20 / 82`），一眼看出哪個難度帶最接近刷完。
-3. **四個推薦路線區塊**：
-   - 每個區塊有標題與簡短說明（例如：「依你目前穩定完攀 5.10b，推薦同級經典路線」）。
-   - 路線列表直接複用現有的 [`<RouteRow item={ref} showPlace />`](../src/components/RouteRow.tsx)，保持全站視覺、星等、安全燈號、電腦版雙欄預覽（Master-Detail）與鍵盤 `↑↓` 導覽完全一致。
+### 3.2 個人攀登能力評估模型（Ability Profile）
+可依攀登類型（**全部** ／ **運攀 Sport** ／ **傳攀與其他 Trad & Other**）分別或綜合計算：
 
----
+1. **完攀集合（`sentRoutes`）**：`isSent(tick.style) === true`（包含 `onsight`、`flash`、`redpoint`、`follow`、`toprope`）。
+   - **進階權重區分**：計算「突破挑戰」時，可選擇以**先鋒完攀（Lead：`onsight` / `flash` / `redpoint`）**為主，避免單次 Top-rope 或 Follow 高難度路線拉高先鋒推薦難度。
+2. **最高完攀難度（`maxGrade`）**：已完攀路線中的最大 `gradeValue`。
+3. **穩定工作難度（`workingGrade`）**：
+   - 取已完攀路線依 `gradeValue` 由高至低排列的**第 3 難**路線數值（若完攀僅 1～2 條則取最低者）。
+   - 能有效濾除單一偶發高難度紀錄（Outlier），反映目前穩定發揮的舒適圈上限。
 
-## 五、檔案改動清單
+### 3.3 四大智慧推薦維度（互斥不重複）
 
-| 檔案路徑 | 改動性質 | 說明 |
+同一分類內的排序優先級（Tie-Breaker）：**綠燈（`safety === 'green'`） → 已更新／已拉測（`rebolted` / `tested`） → 社群星等（`rating.average`）＋體感難度（`feel`） → 官方路線編號**。
+
+| 維度 | 對象與篩選規則 | 推薦理由標示範例 |
 |---|---|---|
-| `src/personal/recommend.ts` | 新增 | 能力評估、完攀進度統計、四大維度推薦純函式 |
-| `tests/recommend.test.ts` | 新增 | 針對新手、老手、Outlier 濾除、紅燈/封閉過濾、互斥去重、區域清台之單元測試 |
-| `src/pages/MePage.tsx` | 修改 | 新增「推薦」頁籤、進度卡片與推薦列表渲染 |
-| `src/i18n/zh.ts` & `src/i18n/en.ts` | 修改 | 新增推薦分頁與進度條相關之中英文字串 |
-| `src/styles.css` | 修改 | 新增進度條與推薦區塊副標題的精簡樣式 |
+| **1. 🎯 完攀未竟**<br>*(Projects)* | 曾有 `attempt`（嘗試未完攀）紀錄、或已加入 `favorites`（收藏），但尚未完攀的路線。<br>依「近期嘗試日期 → 嘗試次數 → 難度接近 `workingGrade`」排序。 | `曾嘗試 2 次（最近：14 天前）`<br>`已收藏 · 符合你目前的穩定難度` |
+| **2. 💪 鞏固與熱身**<br>*(Solidify / 入門)* | • **有完攀紀錄**：難度落在 `[workingGrade - 2, workingGrade]`（例如穩定爬 `5.10c`，推薦 `5.10a`～`5.10c`）的未爬路線。<br>• **新手（0 完攀）**：推薦 `5.6`～`5.9`（`gradeValue <= 36`）的綠燈高評分經典路線。 | `鞏固 5.10b · 綠燈已更新 · ★ 4.6`<br>`體感偏軟（適合熱身或首條同級先鋒）` |
+| **3. 🚀 突破挑戰**<br>*(Step Up)* | 難度落在 `(workingGrade, maxGrade + 2]`（比穩定難度高 1～2 小級，例如最高爬過 `5.10b`，推薦 `5.10c`～`5.10d`）。<br>優先挑選**綠燈、已更新（Rebolted）、體感偏軟（Soft）或剛好（Fair）**的高評分路線作為破級首選！ | `挑戰下一級 5.10c · 體感偏軟 · 10 快扣` |
+| **4. 🗺️ 區域清台**<br>*(Sector Clear)* | 找出使用者已爬過 $\ge 1$ 條、尚未 100% 清台，且剩餘路線難度在可及範圍（$\le maxGrade + 2$）內完成度最高的分區（Sector）。 | `音樂廳 · 正面 已完成 8/10（差 2 條清台！）` |
 
 ---
 
-## 六、待確認與可調整細節（討論點）
+## 四、`longdong-coach` 四大核心頁面與功能設計
 
-1. **「爬完龍洞」進度卡片的位置**：
-   - 目前規劃放在**「推薦」分頁的最上方**（隨「全部／運攀／傳攀」切換即時改變分母）；或者你希望左欄的統計區（難度金字塔旁邊）也常駐顯示總進度？
-2. **每個推薦分類顯示的路線數量**：
-   - 預設每個分類顯示 **5 條**最推薦的路線（若點「顯示更多」可展開），這樣頁面長度最剛好，你覺得合適嗎？
-3. **未登入時的體驗**：
-   - 目前「我的」頁面在未登入時只顯示登入引導卡片。是否要在未登入時的介紹清單（`me.feature.*`）也加上「路線推薦與完攀進度」的說明？
+獨立成專屬 Web App 後，採用底部導覽列（手機）／左側導覽欄（電腦）切換四個主要視圖：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  [🎯 教練推薦]   [📅 一日行程]   [🗺️ 制霸龍洞]   [📓 日誌與匯入]  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 頁面 1：🎯 教練推薦（Coach Dashboard）
+- **頂部個人能力摘要卡**：
+  - 顯示目前類型切換（`全部`｜`運攀`｜`傳攀/其他`）。
+  - 顯示個人能力指標：**「穩定工作難度：`5.10b` · 最高完攀：`5.10d` · 已完攀：`42 / 190` 條（22%）」**。
+- **四大推薦清單卡片**：
+  - 依序呈現 **🎯 完攀未竟**、**💪 鞏固與熱身**、**🚀 突破挑戰**、**🗺️ 區域清台**。
+  - 每張路線卡片顯示：路線編號、中英名稱、所屬區域／分區、難度膠囊、快扣數、安全燈號、社群星等／體感難度，以及**專屬推薦標籤（Why this route）**。
+  - 點擊可展開路線描述、直接「＋ 記錄攀登」或點「在龍洞資料庫查看逐顆 Bolt 履歷 ↗」。
+
+### 頁面 2：📅 一日岩場行程產生器（Session Builder）
+解決岩友週末出發前「今天去哪一區？要爬哪幾條？」的痛點：
+1. **選擇目標**：
+   - **指定區域**（例如：「今天想去『後門』或『長巷』」）或 **「幫我挑最適合我的分區」**（自動選出符合使用者難度且未爬綠燈路線最多的分區）。
+   - **選擇今日強度**：`輕鬆熱身刷量` ｜ `標準訓練（熱身 + 鞏固 + 挑戰）` ｜ `全力磕 Project`。
+2. **自動生成一日攀登菜單（5 條同區域／相鄰分區路線，免跑遠路）**：
+   - 🔥 **第 1～2 條（熱身 Warm-up）**：該區 `workingGrade - 3 ~ -2` 的綠燈路線。
+   - 💪 **第 3～4 條（主力鞏固 Working）**：該區 `workingGrade - 1 ~ workingGrade` 的未完攀路線。
+   - 🚀 **第 5 條（今日壓軸 Project / Step Up）**：該區已收藏／曾嘗試的 Project，或 `workingGrade + 1` 的突破路線。
+3. **一鍵打卡完攀**：在岩場爬完可直接勾選記錄 `Onsight / Flash / Redpoint / Attempt`。
+
+### 頁面 3：🗺️ 制霸龍洞（Completion Tracker & Matrix）
+將「爬完龍洞」遊戲化、視覺化：
+1. **全區清台地圖與進度榜（Area & Sector Mastery）**：
+   - 列出龍洞 **9 大區域（後門、黃金谷、第二洞、第一洞、大禮堂、音樂廳、長巷、鐘塔、校門口）** 與 **54 個分區** 的完攀進度條与完成率（例如 `長巷 18 / 28 (64%)`）。
+   - 100% 爬完的分區獲得 **「🏆 分區制霸（Sector Cleared）」** 標章。
+2. **難度破關矩陣（Grade Grid Matrix）**：
+   - 依難度（`5.6`、`5.7`、`5.8`、`5.9`、`5.10a`、`5.10b`…）分組，每一條路線顯示為一個帶編號的小方格（如 `#425`）：
+     - 🟩 **綠色**：已先鋒完攀（Onsight / Flash / Redpoint）
+     - 🟦 **青色**：已完攀（Follow / Top-rope）
+     - 🟧 **橘色**：Project（曾 Attempt 或已收藏）
+     - ⬜ **灰色**：尚未攀爬
+   - 讓使用者清楚看到「我的 `5.9` 還差哪 3 條就全制霸了！」
+
+### 頁面 4：📓 日誌與匯入（Logbook & Mountain Project Importer）
+1. **完整攀登時間軸與難度金字塔**：支援搜尋個人紀錄、依攀登方式（OS / FL / RP / TR / Attempt）篩選。
+2. **Mountain Project Tick List CSV 匯入器**：
+   - 使用者從 Mountain Project 網站匯出 `ticks.csv` 後直接拖曳上傳。
+   - 透過內建的 `mp-map.json`（240+ 條已對齊的 MP URL / Route ID ↔ TOCC Route ID 對照表）自動配對路線、轉換日期與攀登方式（`Lead / Onsight` → `onsight`、`Lead / Fell/Hung` → `attempt` 等）。
+   - 匯入前顯示預覽清單確認，確認後寫入 IndexedDB 並自動同步至 Firebase `/v2/personal/<uid>`，回到主站 `longdong` 也能立刻看到匯入的紀錄！
+
+---
+
+## 五、技術棧與專案結構（`longdong-coach`）
+
+為確保兩個專案的開發體驗一致、元件與型別可直接複用，採用與主站完全相同的輕量技術棧：
+- **核心框架**：Vite + React 19 + TypeScript + `vite-plugin-pwa`（支援離線使用）
+- **本機與雲端同步**：`idb`（IndexedDB）+ `firebase`（共用 `/v2/personal/<uid>` 與 REST `/v2/ratings`）
+- **測試框架**：`vitest`（針對能力評估、推薦排序、一日行程生成與 MP CSV 解析撰寫完整單元測試）
+
+```text
+longdong-coach/
+├── public/
+│   └── data/
+│       └── mp-map.json          # MP Route ID / URL ↔ TOCC Route ID 對照表
+├── src/
+│   ├── data/
+│   │   ├── schema.ts            # 與主站共用的 Dataset / Route 型別
+│   │   └── loader.ts            # 載入並快取主站 longdong.json
+│   ├── engine/
+│   │   ├── ability.ts           # 個人能力模型 (workingGrade, maxGrade, 類型偏好)
+│   │   ├── recommend.ts         # 四大推薦維度計算與排序
+│   │   ├── session.ts           # 一日岩場行程產生器 (Session Builder)
+│   │   ├── progress.ts          # 9 大區域 × 54 分區清台統計與難度矩陣
+│   │   └── mpImport.ts          # Mountain Project Tick CSV 解析與對齊
+│   ├── personal/                # 與主站相容的 IndexedDB store + Firebase sync
+│   ├── pages/
+│   │   ├── CoachPage.tsx        # 🎯 教練推薦
+│   │   ├── SessionPage.tsx      # 📅 一日行程產生器
+│   │   ├── MasteryPage.tsx      # 🗺️ 制霸龍洞 (分區進度 + 難度方格牆)
+│   │   └── LogbookPage.tsx      # 📓 日誌與 MP CSV 匯入
+│   └── App.tsx
+└── tests/
+    ├── recommend.test.ts
+    ├── session.test.ts
+    ├── progress.test.ts
+    └── mpImport.test.ts
+```
+
+---
+
+## 六、討論與確認事項
+
+1. **Firebase 授權網域（Authorized Domains）**：
+   - 當 `longdong-coach` 部署到 GitHub Pages（例如 `https://tocc-climbing.github.io/longdong-coach/` 或 `https://ericycchen.github.io/longdong-coach/`）時：
+     - 若放在 `tocc-climbing.github.io/longdong-coach/`，因為網域同樣是 `tocc-climbing.github.io`，**連 Firebase 設定都不用改，直接就能共用 Google 登入**！
+     - 若放在 `ericycchen.github.io`，只需在 Firebase Console 的 Authorized domains 多加一行 `ericycchen.github.io` 即可。
+2. **主站與教練站的互相連結**：
+   - 未來 `longdong-coach` 上線後，主站 `tocc-climbing/longdong` 的「我的」頁面只需要加一個小連結（例如：「前往『龍洞攀岩教練』查看路線推薦與制霸進度 ↗」），就能讓主站保持極簡，同時提供超完整的進階訓練體驗！
