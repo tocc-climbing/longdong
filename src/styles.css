@@ -2803,3 +2803,202 @@ main {
 .near-item {
   grid-template-columns: 2rem minmax(0, 1fr);
 }
+
+/* 比例尺地圖・現場校正（#/calibrate）：地圖配色比照救援資訊圖；深色模式只把海、陸地換暗 */
+.calibrate h2 {
+  margin-top: 0;
+}
+
+.scale-map {
+  --sm-sea: #d7ebf3;
+  --sm-land: #efefef;
+  --sm-building: #d6d7d7;
+  position: relative;
+  margin: 16px 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .scale-map {
+    --sm-sea: #10232b;
+    --sm-land: #2a3134;
+    --sm-building: #3b4346;
+  }
+}
+
+:root[data-theme='dark'] .scale-map {
+  --sm-sea: #10232b;
+  --sm-land: #2a3134;
+  --sm-building: #3b4346;
+}
+
+.scale-map-tools {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.scale-map-frame {
+  height: 70vh;
+  overflow: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--sm-sea);
+  overscroll-behavior: contain;
+}
+
+.scale-map-frame svg {
+  display: block;
+  max-width: none;
+  height: auto;
+}
+
+.scale-map-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--bar-bg);
+  font-size: 0.75rem;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.sm-bar {
+  height: 4px;
+  background: var(--text);
+}
+
+.sm-sea {
+  fill: var(--sm-sea);
+}
+.sm-land {
+  fill: var(--sm-land);
+}
+.sm-building {
+  fill: var(--sm-building);
+}
+.sm-area {
+  stroke: rgba(0, 0, 0, 0.35);
+  fill-opacity: 0.9;
+}
+.sm-area-school-gate { fill: #f2b4c6; }
+.sm-area-clocktower { fill: #dab2d2; }
+.sm-area-long-lane { fill: #b3c6d8; }
+.sm-area-music-hall { fill: #ceedf1; }
+.sm-area-grand-auditorium { fill: #d0d6c2; }
+.sm-area-first-cave { fill: #e4eeb3; }
+.sm-area-second-cave { fill: #f9e8b2; }
+.sm-area-golden-valley { fill: #fcdcb7; }
+.sm-area-back-door { fill: #e2b2b2; }
+
+.sm-highway,
+.sm-road {
+  fill: none;
+  stroke: #1d5a96;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sm-tunnel {
+  fill: none;
+  stroke: #7a9cc0;
+}
+.sm-trail {
+  fill: none;
+  stroke: #4f8a1b;
+  stroke-linecap: round;
+}
+.sm-track {
+  fill: none;
+  stroke: #e46300;
+  stroke-linejoin: round;
+  stroke-opacity: 0.85;
+}
+
+.sm-label {
+  fill: var(--text);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--sm-sea);
+  stroke-width: 0.25em;
+}
+
+.sm-rescue circle {
+  fill: #b60005;
+}
+.sm-rescue text,
+.sm-mark text {
+  fill: #fff;
+  font-weight: 700;
+}
+.sm-mark circle {
+  fill: #e46300;
+}
+.sm-me circle {
+  fill: #1a73e8;
+  stroke: #fff;
+}
+.sm-me .sm-me-accuracy {
+  fill: rgba(26, 115, 232, 0.15);
+  stroke: rgba(26, 115, 232, 0.5);
+  stroke-width: 0;
+}
+
+.cal-note {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cal-note input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.cal-count {
+  align-self: center;
+}
+
+.cal-marks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cal-marks li {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.cal-marks li + li {
+  border-top: 1px solid var(--border);
+}
+
+.cal-mark-no {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #e46300;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cal-mark-body {
+  display: grid;
+  overflow-wrap: anywhere;
+}

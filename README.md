@@ -121,6 +121,17 @@ npm run rescue-map -- <救援資訊圖.ai>
 
 版面若有變動，腳本會停下來，調整 `scripts/gen-rescue-map.ts` 裡各大區域的裁切範圍；救援點座標改了要一併更新 `src/data/rescue.ts`。
 
+### 比例尺地圖（測試中）
+
+救援資訊圖是示意圖，不是照比例尺畫的：以救援點比對，整張圖最多偏約 60 公尺，所以不能直接在上面畫 GPS 位置。
+`npm run scale-map -- <救援資訊圖.ai>` 讀出圖上的向量圖形（陸地、建物、道路、步道、9 個大區域），以救援點當控制點、用薄板樣條拉到實際位置，產生：
+
+- `public/rescue/scale-map.geojson`：陸地、建物、道路、步道
+- `public/rescue/areas.geojson`：9 個大區域的範圍（之後也可用在路線分區的介面）
+
+控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。現場校正頁 `#/calibrate`（沒有放在選單裡）在這張圖上顯示 GPS 位置，可在明確的地點記下座標與說明、記錄步道軌跡，匯出 GeoJSON 傳回；
+校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
+
 ## 舊網址轉址
 
 舊站 `longdong.web.app` 與 `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）都在舊 Firebase 專案的 Hosting 上，

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { isWide } from './layout'
 
 /**
- * 極簡 hash 路由：#/、#/search?q=、#/area/<id>、#/sector/<id>、#/route/<id>、#/me、#/about、#/rescue/<區域>（id 本身含 "/"）。
+ * 極簡 hash 路由：#/、#/search?q=、#/area/<id>、#/sector/<id>、#/route/<id>、#/me、#/about、#/rescue/<區域>、#/calibrate（id 本身含 "/"）。
  * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
  */
 export type Page = (
@@ -14,6 +14,7 @@ export type Page = (
   | { name: 'me' }
   | { name: 'about' }
   | { name: 'rescue'; id?: string }
+  | { name: 'calibrate' }
 ) & { detail?: string }
 
 const DEFAULT_CRAG = 'longdong'
@@ -49,6 +50,7 @@ export function parseHash(hash: string): Page {
   if (kind === 'search') return { name: 'search', q: params.get('q') ?? '', ...extra }
   if (kind === 'me') return { name: 'me', ...extra }
   if (kind === 'about') return { name: 'about' }
+  if (kind === 'calibrate') return { name: 'calibrate' }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
   return { name: 'home' }
 }

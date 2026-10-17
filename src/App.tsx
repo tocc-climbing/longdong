@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { BottomNav } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
@@ -20,6 +20,9 @@ import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink 
 import { useListView } from './listView'
 import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './swipe'
+
+/** 現場校正工具只有少數人用，分開打包 */
+const CalibratePage = lazy(() => import('./pages/CalibratePage').then((m) => ({ default: m.CalibratePage })))
 
 export function App() {
   const page = usePage()
@@ -184,6 +187,12 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
       return <RescuePage data={data} areaKey={page.id} />
     case 'about':
       return <AboutPage data={data} />
+    case 'calibrate':
+      return (
+        <Suspense>
+          <CalibratePage data={data} />
+        </Suspense>
+      )
     default:
       return <HomePage data={data} />
   }
@@ -256,7 +265,7 @@ function desktopView(page: Page, data: LoadedData): DesktopView {
   const closeHref = withDetail(location.hash || '#/', undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
   if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue')
+  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'calibrate')
 }
 
 function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {

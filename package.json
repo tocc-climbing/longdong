@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "import": "tsx scripts/import-sheet.ts",
     "rescue-map": "tsx scripts/gen-rescue-map.ts",
+    "scale-map": "tsx scripts/gen-scale-map.ts",
     "test": "vitest run",
     "test:rules": "npx -y firebase-tools@15.33.0 emulators:exec --only database --project demo-longdong \"vitest run --config vitest.rules.config.ts\"",
     "typecheck": "tsc --noEmit"

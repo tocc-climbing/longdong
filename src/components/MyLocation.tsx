@@ -17,7 +17,7 @@ type GeoState =
  * 手機 GPS 定位：按下才開始（瀏覽器會先詢問權限），之後持續更新；離開頁面時停止，不在背景耗電。
  * GPS 不需要網路；沒有網路時第一次定位可能較久。
  */
-function useGeolocation(): [GeoState, () => void] {
+export function useGeolocation(): [GeoState, () => void] {
   const [state, setState] = useState<GeoState>({ status: 'idle' })
   const watch = useRef<number>(undefined)
 
