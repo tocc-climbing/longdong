@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
-import { MIN_SCALE, clampScale, clampView, fitView, maxScale, panBy, viewBox, zoomAt, type MapView, type Rect, type Size } from '../mapView'
+import { MIN_SCALE, clampScale, dashLength, clampView, fitView, maxScale, panBy, viewBox, zoomAt, type MapView, type Rect, type Size } from '../mapView'
 import { project, type ScaleMapData } from '../scaleMap'
 
 /** 比例尺的長度（公尺）：選畫面上不超過 90px 的最長一個 */
@@ -162,6 +162,8 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
   const atMax = !view || view.s <= MIN_SCALE * 1.0001
   const atMin = !view || !frame || view.s >= maxScale(BOUNDS, frame) * 0.9999
 
+  const trailDash = dashLength(3, px)
+  const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= 90).pop() ?? SCALE_BARS[0]
   const labels = placeLabels(map.areas, areaNames, px)
   const trackPath = track.length >= 2 ? 'M' + track.map((c) => project(c).join(' ')).join('L') : ''
@@ -193,9 +195,9 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
             <path key={a.id} className={`sm-area sm-area-${a.id}`} d={a.path} strokeWidth={px} />
           ))}
           <path className="sm-highway" d={map.layers.highway} strokeWidth={5 * px} />
-          <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${2 * px} ${6 * px}`} />
+          <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
           <path className="sm-road" d={map.layers.road} strokeWidth={2.5 * px} />
-          <path className="sm-trail" d={map.layers.trail} strokeWidth={2 * px} strokeDasharray={`${3 * px} ${3 * px}`} />
+          <path className="sm-trail" d={map.layers.trail} strokeWidth={2 * px} strokeDasharray={`${trailDash} ${trailDash}`} />
           {trackPath && <path className="sm-track" d={trackPath} strokeWidth={2.5 * px} />}
 
           <g fontSize={LABEL_PX * px}>

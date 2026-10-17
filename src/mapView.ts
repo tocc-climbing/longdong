@@ -72,3 +72,11 @@ export function zoomAt(v: MapView, frame: Size, at: { x: number; y: number }, s:
   // 那一點的地圖座標：cx + ox * s，縮放前後要相同
   return { s, cx: v.cx + ox * (v.s - s), cy: v.cy + oy * (v.s - s) }
 }
+
+/**
+ * 虛線一段的長度（地圖公尺）：約為 px 個螢幕像素，但只取 2 的次方。
+ * 長度若跟著縮放連續改變，虛線會沿著路線滑動（看起來在流動）；只在跨過級距時才換，平常固定在地圖上。
+ */
+export function dashLength(px: number, metersPerPixel: number): number {
+  return 2 ** Math.round(Math.log2(px * metersPerPixel))
+}
