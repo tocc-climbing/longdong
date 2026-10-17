@@ -129,51 +129,104 @@ flowchart LR
    - 透過內建的 `mp-map.json`（240+ 條已對齊的 MP URL / Route ID ↔ TOCC Route ID 對照表）自動配對路線、轉換日期與攀登方式（`Lead / Onsight` → `onsight`、`Lead / Fell/Hung` → `attempt` 等）。
    - 匯入前顯示預覽清單確認，確認後寫入 IndexedDB 並自動同步至 Firebase `/v2/personal/<uid>`，回到主站 `longdong` 也能立刻看到匯入的紀錄！
 
+### 頁面 5：📡 今日誰在龍洞（熟人好友動態雷達 Crag Radar）
+解決龍洞部分岩場（如黃金谷、第一洞）手機訊號不佳，朋友臨時想會合卻聯絡不上的痛點：
+1. **兩階段一鍵打卡／預報**：
+   - **出發前／在和美 7-11 有訊號時**：一鍵預報「🗓️ 預計前往：黃金谷（13:00–17:30）」，並填寫攜帶裝備（如 `70m 繩 · 14 把快扣`）與今日目標路線。
+   - **抵達岩場或換區時**：點選「🟢 已在岩場」或「換區 → 長巷」，朋友打開雷達即可看到你在哪個大區域、哪個分區，甚至正在哪一條路線（`routeId`）下方。
+2. **一鍵「🤝 +1 我也在這區」與合體選線**：
+   - 點擊好友卡片上的「+1 會合」，自動將自己的位置同步標記至該區，並跳轉至「一日行程產生器」配出該區適合兩人一起爬的路線。
+
 ---
 
-## 五、技術棧與專案結構（`longdong-coach`）
+## 五、熟人位置回報（Crag Radar）資料庫與隱私規則設計
+
+在無後端伺服器（Serverless，僅使用 **Firebase Realtime Database + `database.rules.json`**）的前提下，為了兼顧**「熟人好友圈可見、陌生人無法窺探或列舉、隔日自動過期不留垃圾、離線可排隊送出」**，資料庫結構設計如下：
+
+### 5.1 資料庫節點結構（`/v2/circles` 與 `/v2/presence`）
+
+```text
+/v2
+ ├── profiles/<uid>                       # (既有) 公開暱稱 { name, updatedAt }
+ ├── personal/<uid>                       # (既有) 個人收藏與完攀紀錄
+ │
+ ├── circles/<uid>                        # [新增] 個人熟人好友圈
+ │    ├── friends/<friendUid>: true       # 我認可的好友 UID（只有名單內的好友能讀我的位置）
+ │    └── invites/<token>: true           # 我產生的好友邀請連結通行碼
+ │
+ └── presence/<YYYY-MM-DD>/<uid>          # [新增] 當日位置回報（一人一天一筆，換區直接覆寫 Upsert）
+      ├── status: "at-crag" | "going"     # 已在岩場現場 | 預計前往
+      ├── areaId: "longdong/music-hall"   # 所在大區域 ID
+      ├── sectorId: "longdong/..."        # 所在分區 ID (選填)
+      ├── routeId: "longdong/..."         # 目前正在哪一條路線下方 (選填，方便現場直接找人)
+      ├── timeRange: "09:00-16:30"        # 預計停留時段
+      ├── visibility: "friends" | "public"# 權限：僅熟人好友可見 (預設) | 公開給岩友
+      ├── gear: "70m繩 · 14快扣"           # 攜帶裝備備註 (選填，限 60 字)
+      ├── message: "在正面熱身中"           # 狀態留言 (選填，限 100 字)
+      ├── routes: ["longdong/...", ...]   # 今日目標路線 ID 陣列 (選填)
+      └── updatedAt: "2026-10-18T09:15:00.000Z" # 最後更新時間 (ISO 8601)
+```
+
+### 5.2 核心設計決策
+
+1. **以日期 `YYYY-MM-DD` 分層實現「零伺服器自動過期」**：
+   - 路徑設為 `/v2/presence/<YYYY-MM-DD>/<uid>`，前端只訂閱「今日（與本週末預報）」的日期鍵。
+   - **一人一天一筆（Upsert）**：同一天內從「預計前往」改為「已在現場」、或下午從「黃金谷」換區到「長巷」，皆直接覆寫同一個 `/v2/presence/<YYYY-MM-DD>/<uid>` 節點，不會出現一人同時在兩區的幽靈狀態；按「離開岩場」即設為 `null` 刪除。隔天一到，前一日的打卡自動在畫面上歸零，無須排程伺服器清理。
+2. **防止陌生人全區掃描（Rule Cascade 與點名訂閱）**：
+   - 在 Firebase Realtime Database 中，若對 `/v2/presence/$date` 開放 `.read`，任何人都可一次撈出全龍洞所有人的行蹤。
+   - 因此 **不在 `$date` 層開放 `.read`**，而是將 `.read` 設在單人節點 `/v2/presence/$date/$uid`：
+     ```json
+     "presence": {
+       "$date": {
+         "$uid": {
+           ".read": "auth != null && (auth.uid === $uid || data.child('visibility').val() === 'public' || root.child('v2/circles/' + $uid + '/friends/' + auth.uid).val() === true)",
+           ".write": "auth != null && auth.uid === $uid",
+           ".validate": "!newData.exists() || (newData.hasChildren(['status', 'areaId', 'visibility', 'updatedAt']) && (newData.child('status').val() === 'at-crag' || newData.child('status').val() === 'going') && (newData.child('visibility').val() === 'friends' || newData.child('visibility').val() === 'public'))"
+         }
+       }
+     }
+     ```
+   - **前端讀取方式**：前端先讀取自己的熟人好友清單（例如 5～15 位固定繩伴的 `friendUid`），再針對每位好友並發監聽 `/v2/presence/<today>/<friendUid>`。這樣陌生人就算打開 DevTools 也無法列舉非好友的位置，隱私 100% 受資料庫規則保護。
+3. **免搜尋的熟人互加機制（LINE 邀請連結）**：
+   - 使用者在 App 點選「➕ 邀請固定繩伴」，產生帶有一次性或個人 `token` 的邀請網址（`https://longdong-coach.web.app/#invite?from=<uid>&token=<token>`）貼給 LINE 好友。
+   - 好友點開連結後，雙方即在 `/v2/circles/` 互為好友，未來在龍洞打卡即可互相看見。
+
+---
+
+## 六、技術棧與專案結構（`longdong-coach`）
+
+👉 **互動 Prototype 線上預覽：https://longdong-coach.web.app**
 
 為確保兩個專案的開發體驗一致、元件與型別可直接複用，採用與主站完全相同的輕量技術棧：
 - **核心框架**：Vite + React 19 + TypeScript + `vite-plugin-pwa`（支援離線使用）
-- **本機與雲端同步**：`idb`（IndexedDB）+ `firebase`（共用 `/v2/personal/<uid>` 與 REST `/v2/ratings`）
+- **本機與雲端同步**：`idb`（IndexedDB）+ `firebase`（共用 `/v2/personal/<uid>`、`/v2/presence` 與 REST `/v2/ratings`）
+- **實景照片整合**：透過 `public/data/mp-map.json` 外連 Mountain Project 240+ 條對齊路線的公開圖片 URL 與星等評分（不將外部照片檔案存入 repo）
 - **測試框架**：`vitest`（針對能力評估、推薦排序、一日行程生成與 MP CSV 解析撰寫完整單元測試）
 
 ```text
 longdong-coach/
 ├── public/
 │   └── data/
-│       └── mp-map.json          # MP Route ID / URL ↔ TOCC Route ID 對照表
+│       └── mp-map.json          # MP Route ID / URL / Photo URL ↔ TOCC Route ID 對照表
 ├── src/
-│   ├── data/
-│   │   ├── schema.ts            # 與主站共用的 Dataset / Route 型別
-│   │   └── loader.ts            # 載入並快取主站 longdong.json
+│   ├── schema.ts                # 與主站共用的 Dataset / Route 型別
+│   ├── loader.ts                # 載入並快取主站 longdong.json 與 mp-map.json
 │   ├── engine/
-│   │   ├── ability.ts           # 個人能力模型 (workingGrade, maxGrade, 類型偏好)
-│   │   ├── recommend.ts         # 四大推薦維度計算與排序
-│   │   ├── session.ts           # 一日岩場行程產生器 (Session Builder)
-│   │   ├── progress.ts          # 9 大區域 × 54 分區清台統計與難度矩陣
+│   │   ├── recommend.ts         # 個人能力模型、四大推薦維度與一日岩場行程產生器
+│   │   ├── radar.ts             # 熟人好友動態雷達與區域位置回報模型
 │   │   └── mpImport.ts          # Mountain Project Tick CSV 解析與對齊
 │   ├── personal/                # 與主站相容的 IndexedDB store + Firebase sync
-│   ├── pages/
-│   │   ├── CoachPage.tsx        # 🎯 教練推薦
-│   │   ├── SessionPage.tsx      # 📅 一日行程產生器
-│   │   ├── MasteryPage.tsx      # 🗺️ 制霸龍洞 (分區進度 + 難度方格牆)
-│   │   └── LogbookPage.tsx      # 📓 日誌與 MP CSV 匯入
 │   └── App.tsx
 └── tests/
-    ├── recommend.test.ts
-    ├── session.test.ts
-    ├── progress.test.ts
-    └── mpImport.test.ts
+    └── recommend.test.ts
 ```
 
 ---
 
-## 六、討論與確認事項
+## 七、討論與確認事項
 
 1. **Firebase 授權網域（Authorized Domains）**：
-   - 當 `longdong-coach` 部署到 GitHub Pages（例如 `https://tocc-climbing.github.io/longdong-coach/` 或 `https://ericycchen.github.io/longdong-coach/`）時：
-     - 若放在 `tocc-climbing.github.io/longdong-coach/`，因為網域同樣是 `tocc-climbing.github.io`，**連 Firebase 設定都不用改，直接就能共用 Google 登入**！
-     - 若放在 `ericycchen.github.io`，只需在 Firebase Console 的 Authorized domains 多加一行 `ericycchen.github.io` 即可。
+   - 若部署於 `https://tocc-climbing.github.io/longdong-coach/`，因為網域同樣是 `tocc-climbing.github.io`，連 Firebase 設定都不用改，直接就能共用 Google 登入！
+   - 若使用獨立的 `https://longdong-coach.web.app`，只需在 Firebase Console 的 Authorized domains 加入 `longdong-coach.web.app` 即可。
 2. **主站與教練站的互相連結**：
-   - 未來 `longdong-coach` 上線後，主站 `tocc-climbing/longdong` 的「我的」頁面只需要加一個小連結（例如：「前往『龍洞攀岩教練』查看路線推薦與制霸進度 ↗」），就能讓主站保持極簡，同時提供超完整的進階訓練體驗！
+   - 未來 `longdong-coach` 上線後，主站 `tocc-climbing/longdong` 的「我的」頁面只需要加一個小連結（例如：「前往『龍洞攀岩教練』查看路線推薦、好友雷達與制霸進度 ↗」），就能讓主站保持極簡，同時提供超完整的進階訓練與熟人約爬體驗！
