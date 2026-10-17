@@ -2844,6 +2844,7 @@ main.map > div {
 .shell main.map {
   position: relative;
   top: auto;
+  bottom: auto;
   height: 100%;
   max-width: none;
   padding: 0;
