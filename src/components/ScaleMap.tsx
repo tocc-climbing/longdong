@@ -199,6 +199,26 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
           {trackPath && <path className="sm-track" d={trackPath} strokeWidth={2.5 * px} />}
 
           <g fontSize={LABEL_PX * px}>
+            {map.markers.map((m, i) =>
+              m.kind === 'place' ? (
+                <text key={i} className="sm-place" x={m.at[0]} y={m.at[1]} fontSize={11 * px} textAnchor="middle" dominantBaseline="central">
+                  {m.zh}
+                </text>
+              ) : m.kind === 'parking' ? (
+                <g key={i} className="sm-parking">
+                  <rect x={m.at[0] - 7 * px} y={m.at[1] - 7 * px} width={14 * px} height={14 * px} rx={3 * px} />
+                  <text x={m.at[0]} y={m.at[1]} fontSize={10 * px} textAnchor="middle" dominantBaseline="central">
+                    P
+                  </text>
+                </g>
+              ) : (
+                <g key={i} className="sm-ems">
+                  <title>急救器材 #{m.no}</title>
+                  <rect x={m.at[0] - 6 * px} y={m.at[1] - 7 * px} width={12 * px} height={14 * px} rx={4 * px} />
+                  <path d={`M${m.at[0] - 3.5 * px} ${m.at[1]}h${7 * px}M${m.at[0]} ${m.at[1] - 3.5 * px}v${7 * px}`} strokeWidth={2 * px} />
+                </g>
+              ),
+            )}
             {labels.map((l) => (
               <text key={l.id} className={`sm-label sm-label-${l.id}`} x={l.at[0]} y={l.at[1]} textAnchor="middle" dominantBaseline="central">
                 {l.text}
@@ -235,7 +255,7 @@ export function ScaleMap({ map, areaNames, here, marks, track }: Props) {
       </div>
       <div className="scale-map-legend" aria-hidden>
         <span className="sm-bar" style={{ width: bar / px }} />
-        {bar} 公尺 · 北方朝上 · 拖曳移動、雙指或滾輪縮放
+        {bar} 公尺
       </div>
     </div>
   )

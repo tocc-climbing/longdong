@@ -8,9 +8,18 @@ import type { LatLng } from './geo'
 
 type Position = [number, number]
 interface Feature {
-  properties: { kind?: string; id?: string }
-  geometry: { type: 'MultiPolygon'; coordinates: Position[][][] } | { type: 'MultiLineString'; coordinates: Position[][] }
+  properties: { kind?: string; id?: string; no?: number; zh?: string; en?: string }
+  geometry:
+    | { type: 'MultiPolygon'; coordinates: Position[][][] }
+    | { type: 'MultiLineString'; coordinates: Position[][] }
+    | { type: 'Point'; coordinates: Position }
 }
+
+/** 地圖上的標示：停車場、急救器材（編號同 EMS_LOCATIONS）、地名 */
+export type Marker =
+  | { kind: 'parking'; at: [number, number] }
+  | { kind: 'ems'; no: number; at: [number, number] }
+  | { kind: 'place'; zh: string; en: string; at: [number, number] }
 interface FeatureCollection {
   features: Feature[]
 }
@@ -18,6 +27,7 @@ interface FeatureCollection {
 export interface ScaleMapData {
   /** kind → SVG path（land、building、highway、tunnel、road、trail） */
   layers: Record<string, string>
+  markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
   areas: { id: string; path: string; label: [number, number]; size: number }[]
 }
@@ -35,8 +45,17 @@ const point = ([lng, lat]: Position) => project([lat, lng]).map((v) => v.toFixed
 const linePath = (line: Position[]) => 'M' + line.map(point).join('L')
 const polygonPath = (polygons: Position[][][]) => polygons.flatMap((rings) => rings.map((r) => linePath(r) + 'Z')).join('')
 
-function toPath(geometry: Feature['geometry']): string {
+function toPath(geometry: Exclude<Feature['geometry'], { type: 'Point' }>): string {
   return geometry.type === 'MultiPolygon' ? polygonPath(geometry.coordinates) : geometry.coordinates.map(linePath).join('')
+}
+
+function toMarker({ properties: p, geometry }: Feature): Marker {
+  if (geometry.type !== 'Point') throw new Error('標示必須是 Point')
+  const at = project([geometry.coordinates[1], geometry.coordinates[0]])
+  if (p.kind === 'parking') return { kind: 'parking', at }
+  if (p.kind === 'ems' && p.no) return { kind: 'ems', no: p.no, at }
+  if (p.kind === 'place' && p.zh && p.en) return { kind: 'place', zh: p.zh, en: p.en, at }
+  throw new Error(`不認得的標示：${JSON.stringify(p)}`)
 }
 
 /** 多邊形的重心與面積（鞋帶公式） */
@@ -64,11 +83,14 @@ async function fetchJSON(url: string): Promise<FeatureCollection> {
 export async function loadScaleMap(): Promise<ScaleMapData> {
   const [base, areas] = await Promise.all([fetchJSON('rescue/scale-map.geojson'), fetchJSON('rescue/areas.geojson')])
   return {
-    layers: Object.fromEntries(base.features.map((f) => [f.properties.kind!, toPath(f.geometry)])),
+    layers: Object.fromEntries(
+      base.features.flatMap((f) => (f.geometry.type === 'Point' ? [] : [[f.properties.kind!, toPath(f.geometry)]])),
+    ),
+    markers: base.features.filter((f) => f.geometry.type === 'Point').map(toMarker),
     areas: areas.features.map((f) => {
       const pieces = (f.geometry.coordinates as Position[][][]).map((rings) => centroid(rings[0].map(([lng, lat]) => project([lat, lng]))))
       const largest = pieces.reduce((a, b) => (b.size > a.size ? b : a))
-      return { id: f.properties.id!, path: toPath(f.geometry), label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0) }
+      return { id: f.properties.id!, path: toPath(f.geometry as Exclude<Feature['geometry'], { type: 'Point' }>), label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0) }
     }),
   }
 }

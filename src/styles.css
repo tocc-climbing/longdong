@@ -2921,6 +2921,29 @@ main {
   stroke-linejoin: round;
 }
 
+.sm-place {
+  fill: #898989;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 0.3em;
+  stroke-linejoin: round;
+}
+.sm-parking rect {
+  fill: #003f7e;
+}
+.sm-parking text {
+  fill: #ffffff;
+  font-weight: 700;
+}
+.sm-ems rect {
+  fill: #0c4f8b;
+}
+.sm-ems path {
+  stroke: #ffffff;
+  fill: none;
+}
+
 .sm-rescue circle {
   fill: #b60005;
 }

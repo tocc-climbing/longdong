@@ -1,6 +1,6 @@
 /**
  * 由 TOCC 龍洞岩場救援資訊圖（.ai／.pdf）的向量圖形產生照比例尺的地圖資料（GeoJSON，WGS84）：
- *   public/rescue/scale-map.geojson   陸地、建物、道路、步道
+ *   public/rescue/scale-map.geojson   陸地、建物、道路、步道、停車場、急救器材、地名
  *   public/rescue/areas.geojson       9 個大區域的範圍（之後也可用在路線分區的介面）
  *
  *   npm run scale-map -- <救援資訊圖.ai 或 .pdf>
@@ -12,7 +12,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { getDocument, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs'
-import { RESCUE_POINTS } from '../src/data/rescue'
+import { EMS_LOCATIONS, RESCUE_POINTS } from '../src/data/rescue'
 
 /** 2026 年 7 月版的頁面大小（點）；版面不同時停下來，避免用舊的控制點與圖形分類 */
 const PAGE_SIZE = [1836.85, 2607.87]
@@ -193,6 +193,39 @@ if (land.length !== 1 || !highways.length || !roads.length || !trails.length) th
 const missing = Object.values(AREA_FILLS).filter((key) => !areaShapes.some((s) => AREA_FILLS[s.fill] === key))
 if (missing.length) throw new Error(`找不到大區域：${missing.join('、')}`)
 
+const centerOf = (s: Shape): Pt => {
+  const b = bbox(s)
+  return [b.x + b.w / 2, b.y + b.h / 2]
+}
+const near = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
+
+// 停車場：藍底白色 P 字（12×17 點）的中心
+const parking = shapes.filter((s) => !s.stroke && s.fill === '#ffffff' && Math.abs(bbox(s).w - 12) < 1 && Math.abs(bbox(s).h - 17) < 1).map(centerOf)
+if (parking.length !== 3) throw new Error(`停車場應該有 3 處，找到 ${parking.length} 處：版面可能改了`)
+
+// 急救器材：圖示旁的藍色箭頭（線＋三角形）指向實際位置，取三角形離箭頭起點最遠的一點；由北到南依序是 #1–#6
+const arrowHeads = shapes.filter((s) => !s.stroke && s.fill === '#0c4f8b' && bbox(s).w > 10 && bbox(s).w < 20 && bbox(s).h > 10 && bbox(s).h < 20)
+const emsTips = shapes
+  .filter((s) => s.stroke && s.strokeColor === '#0c4f8b')
+  .map((arrow) => {
+    const start = arrow.subpaths[0][0]
+    const end = arrow.subpaths[0][arrow.subpaths[0].length - 1]
+    const head = arrowHeads.reduce((a, b) => (near(centerOf(b), end) < near(centerOf(a), end) ? b : a))
+    return head.subpaths.flat().reduce((a, b) => (near(b, start) > near(a, start) ? b : a))
+  })
+  .sort((a, b) => a[1] - b[1])
+if (emsTips.length !== EMS_LOCATIONS.length) throw new Error(`急救器材應該有 ${EMS_LOCATIONS.length} 處，找到 ${emsTips.length} 個箭頭：版面可能改了`)
+
+/** 地名：圖上文字（灰色）的中心 */
+const PLACES: { zh: string; en: string; at: Pt }[] = [
+  { zh: '和美國小', en: 'Ho-Mei School', at: [877.5, 996] },
+  { zh: '西靈巖寺', en: 'Hsilingyan Temple', at: [1145, 2005.5] },
+]
+const placeText = shapes.filter((s) => !s.stroke && s.fill === '#898989').map(centerOf)
+for (const { zh, at } of PLACES) {
+  if (!placeText.some((p) => near(p, at) < 60)) throw new Error(`「${zh}」的圖上位置 ${at} 沒有文字：版面可能改了`)
+}
+
 // ── 圖上位置 → 實際座標 ─────────────────────────────────────
 
 const EARTH_RADIUS_M = 6_371_000
@@ -275,7 +308,8 @@ const ring = (s: Pt[]) => {
 }
 const polygons = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(p)]))
 const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).map(line))
-const feature = (properties: Record<string, string>, geometry: object) => ({ type: 'Feature', properties, geometry })
+const feature = (properties: Record<string, string | number>, geometry: object) => ({ type: 'Feature', properties, geometry })
+const point = (properties: Record<string, string | number>, at: Pt) => feature(properties, { type: 'Point', coordinates: toLngLat(at) })
 
 // 誤差檢查：每個控制點換算回來都必須落在原本的座標上
 for (const { at, gps } of CONTROL_POINTS) {
@@ -296,6 +330,9 @@ const scaleMap = {
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails) }),
+    ...parking.map((at) => point({ kind: 'parking' }, at)),
+    ...emsTips.map((at, i) => point({ kind: 'ems', no: EMS_LOCATIONS[i].no }, at)),
+    ...PLACES.map(({ zh, en, at }) => point({ kind: 'place', zh, en }, at)),
   ],
 }
 

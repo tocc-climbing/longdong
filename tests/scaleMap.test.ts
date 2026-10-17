@@ -70,6 +70,23 @@ describe('比例尺地圖資料', () => {
     }
   })
 
+  it('3 個停車場、6 處急救器材、2 個地名；每處急救器材離該區的就近救援點 100 公尺內', () => {
+    const base = JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as {
+      features: { properties: { kind: string; no?: number; zh?: string }; geometry: { type: string; coordinates: [number, number] } }[]
+    }
+    const points = base.features.filter((f) => f.geometry.type === 'Point')
+    expect(points.filter((f) => f.properties.kind === 'parking')).toHaveLength(3)
+    expect(points.filter((f) => f.properties.kind === 'place').map((f) => f.properties.zh)).toEqual(['和美國小', '西靈巖寺'])
+    const ems = points.filter((f) => f.properties.kind === 'ems')
+    expect(ems.map((f) => f.properties.no)).toEqual([1, 2, 3, 4, 5, 6])
+    for (const f of ems) {
+      const [lng, lat] = f.geometry.coordinates
+      const nos = Object.values(AREA_RESCUE).filter((a) => a.ems === f.properties.no).flatMap((a) => a.points)
+      const nearest = Math.min(...RESCUE_POINTS.filter((p) => nos.includes(p.no) && p.coords).map((p) => distanceM(p.coords!, [lat, lng])))
+      expect(nearest, `急救器材 #${f.properties.no}`).toBeLessThan(100)
+    }
+  })
+
   it('#/calibrate 是校正頁', () => {
     expect(parseHash('#/calibrate')).toEqual({ name: 'calibrate' })
   })
