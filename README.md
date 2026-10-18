@@ -160,7 +160,7 @@ OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetM
   - `index.html`、`404.html` 用 JavaScript 轉到 longdong.web.app，保留路徑、查詢字串與 `#`。
   - `sw.js` 讓已安裝的舊版 App 清掉離線快取、取消註冊後重新載入，轉到新網址。
   - 舊的分享連結（`route/…/`）由 `404.html` 轉到新網址的同一個路徑。
-- `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）：和 longdong.web.app 是同一個站台。
+- `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）：在 Firebase Console 的 Hosting 網域設定 301 轉到 longdong.web.app（保留路徑），網站只有一個網址，登入的授權網域與本機資料也只有一份。
 - 瀏覽器的本機資料依網址分開存放，沒有登入的人在舊網址的收藏、攀登紀錄不會跟到新網址；有登入的人登入後由雲端同步。
 
 ## 授權
