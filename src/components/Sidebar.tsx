@@ -93,9 +93,15 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
         </nav>
       )}
 
-      <a className="side-about muted small" href={href.about()}>
-        {t('footer.about')}
-      </a>
+      {/* 側邊欄底部的次要連結；Bolt 統計只在電腦版有入口（手機版只能從連結進入） */}
+      <div className="side-about small">
+        <a className={page.name === 'bolts' ? 'active' : undefined} href={href.bolts()} aria-current={page.name === 'bolts' ? 'page' : undefined}>
+          {t('bolts.title')}
+        </a>
+        <a className={page.name === 'about' ? 'active' : undefined} href={href.about()} aria-current={page.name === 'about' ? 'page' : undefined}>
+          {t('footer.about')}
+        </a>
+      </div>
     </aside>
   )
 }

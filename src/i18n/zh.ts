@@ -123,7 +123,6 @@ export const zh = {
   'map.mapAria': '龍洞岩場比例尺地圖',
   'me.reports': '回報紀錄',
   'bolts.title': 'Bolt 統計',
-  'bolts.entry': '依安裝年份、材質、區域統計全部的 bolt 與 anchor',
   'bolts.intro': '全部路線的 bolt 與 anchor，資料來自 TOCC 的路線資料表。與其他路線共用的只算一次。',
   'bolts.total': 'bolt 與 anchor',
   'bolts.titanium': '鈦合金（{n} 顆）',

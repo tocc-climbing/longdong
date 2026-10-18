@@ -129,7 +129,6 @@ export const ja: Messages = {
   'map.mapAria': '龍洞岩場の縮尺地図',
   'me.reports': '位置の報告',
   'bolts.title': 'ボルト統計',
-  'bolts.entry': 'すべてのボルトとアンカーを設置年・材質・エリア別に集計',
   'bolts.intro': '全ルートのボルトとアンカー（TOCC のルート資料表より）。他のルートと共用のものは 1 回だけ数えます。',
   'bolts.total': 'ボルトとアンカー',
   'bolts.titanium': 'チタン（{n} 本）',

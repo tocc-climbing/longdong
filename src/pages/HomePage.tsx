@@ -35,10 +35,6 @@ export function HomePage({ data }: { data: LoadedData }) {
           )
         })}
       </ul>
-      <a className="bolts-entry" href={href.bolts()}>
-        <span>{t('bolts.title')}</span>
-        <span className="muted small">{t('bolts.entry')}</span>
-      </a>
     </>
   )
 }

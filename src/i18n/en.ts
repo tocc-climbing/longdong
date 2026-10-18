@@ -125,7 +125,6 @@ export const en: Messages = {
   'map.mapAria': 'Scale map of the Long Dong crag',
   'me.reports': 'Location reports',
   'bolts.title': 'Bolt statistics',
-  'bolts.entry': 'All bolts and anchors by install year, material and area',
   'bolts.intro': 'Every bolt and anchor on every route, from TOCC’s route sheet. Bolts shared with another route are counted once.',
   'bolts.total': 'bolts & anchors',
   'bolts.titanium': 'titanium ({n})',
