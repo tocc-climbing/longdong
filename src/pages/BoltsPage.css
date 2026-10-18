@@ -1,0 +1,198 @@
+/* ---------- Bolt 統計（/bolts） ---------- */
+
+/* 材質的顏色（依固定順序，已用 dataviz 驗證色盲可辨）；深色模式另一組 */
+.bolt-stats {
+  --bolt-1: #2a78d6;
+  --bolt-2: #eb6834;
+  --bolt-3: #1baf7a;
+  --bolt-4: #eda100;
+  --bolt-5: #e87ba4;
+  --bolt-6: #008300;
+  --bolt-7: #4a3aa7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .bolt-stats {
+    --bolt-1: #3987e5;
+    --bolt-2: #d95926;
+    --bolt-3: #199e70;
+    --bolt-4: #c98500;
+    --bolt-5: #d55181;
+    --bolt-6: #008300;
+    --bolt-7: #9085e9;
+  }
+}
+
+:root[data-theme='dark'] .bolt-stats {
+  --bolt-1: #3987e5;
+  --bolt-2: #d95926;
+  --bolt-3: #199e70;
+  --bolt-4: #c98500;
+  --bolt-5: #d55181;
+  --bolt-6: #008300;
+  --bolt-7: #9085e9;
+}
+
+.bolt-stats .bolt-tiles {
+  margin: 12px 0 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.shell main.roomy > .bolt-stats {
+  max-width: 900px;
+}
+
+.bolt-stats .card h2 {
+  margin-top: 0;
+}
+
+.bolt-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.bolt-legend li,
+.bolt-table .swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.bolt-table th .swatch {
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.bolt-years svg {
+  display: block;
+  width: 100%;
+  /* 圖跟著寬度等比例放大，太寬時文字會過大 */
+  max-width: 600px;
+  height: auto;
+}
+
+/* 堆疊之間留 2px 的底色間隔 */
+.bolt-years .seg {
+  stroke: var(--surface);
+  stroke-width: 2px;
+  paint-order: stroke;
+}
+
+.bolt-years .axis {
+  stroke: var(--border);
+}
+
+.bolt-years .tick {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.bolt-years .value {
+  fill: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.bolt-years g {
+  cursor: pointer;
+}
+
+.bolt-years svg:hover g:not(.on) .seg,
+.bolt-years svg:has(g.on) g:not(.on) .seg {
+  opacity: 0.45;
+}
+
+.bolt-years figcaption {
+  min-height: 2.6em;
+  margin-top: 6px;
+}
+
+.bolt-table {
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+}
+
+.bolt-table th,
+.bolt-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bolt-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.bolt-table tbody th,
+.bolt-table thead th:first-child {
+  text-align: left;
+}
+
+.bolt-table.materials tbody th {
+  font-weight: 400;
+  white-space: normal;
+}
+
+.bolt-table-toggle summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+
+.bolt-areas {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.bolt-areas li {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr) 3em;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.bolt-areas li > span {
+  display: flex;
+  align-items: center;
+}
+
+.bolt-area-bar {
+  height: 14px;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 0 4px 4px 0;
+}
+
+.bolt-area-bar > span {
+  height: 100%;
+  min-width: 2px;
+}
+
+.bolt-area-total {
+  justify-content: flex-end;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

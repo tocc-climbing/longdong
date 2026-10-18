@@ -11,6 +11,7 @@ import type { CalibrationUploads } from '../personal/firebase'
 import { useCloud, withCloud } from '../personal/sync'
 import { areaNames, useScaleMap } from '../map/mapData'
 import { displayName, useSocial } from '../social/store'
+import './ReportsPage.css'
 
 interface Report {
   note: string

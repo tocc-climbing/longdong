@@ -6,6 +6,7 @@ import { project, type Marker, type ScaleMapData } from './mapData'
 import { MIN_SCALE, clampScale, clampView, dashLength, fitView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Size } from './mapView'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
+import './map.css'
 
 /** 比例尺的長度（公尺）：選畫面上不超過 SCALE_BAR_PX 的最長一個 */
 const SCALE_BARS = [10, 20, 50, 100, 200, 500]

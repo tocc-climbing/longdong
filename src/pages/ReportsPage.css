@@ -1,0 +1,34 @@
+/* 管理員的回報紀錄（/reports） */
+.reports-map {
+  height: 50vh;
+  margin: 12px 0 16px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  --map-bottom: 12px;
+}
+
+.report-list {
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.report-list li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.report-list li:first-child {
+  border-top: 0;
+}
+
+.report-list .chip {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.report-note {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

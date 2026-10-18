@@ -4,6 +4,7 @@ import { roundedTop } from '../components/Charts'
 import type { LoadedData } from '../data/dataset'
 import { localName, useLang, type Translate } from '../i18n'
 import { href } from '../router'
+import './BoltsPage.css'
 
 /** 數列名稱、顏色（CSS 變數 --bolt-<i>，深色模式另有一組） */
 const seriesName = (s: BoltSeries, t: Translate) => t(`bolts.series.${s}`)
