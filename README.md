@@ -17,13 +17,13 @@ Google Sheet（TOCC 固定點更新計畫編輯）
 public/data/longdong.json（commit 進 repo，每次變動都有 diff 可查）
    │  vite build + vite-plugin-pwa
    ▼
-靜態網站（GitHub Pages）
+網站（Firebase Hosting，https://longdong.web.app/）
    │  Service Worker 預先快取 App 與完整資料
    ▼
 手機：離線瀏覽、搜尋
 ```
 
-- 沒有後端、沒有資料庫，只有靜態檔案。
+- 路線資料是靜態檔案，不經過資料庫；評分、留言、暱稱、個人紀錄的雲端同步、地圖回報存在 Firebase Realtime Database（見「帳號、紀錄與社群功能」）。
 - `.github/workflows/sync.yml` 每天台灣時間 03:00 匯入；資料有變動就開（或更新）`data-sync` 分支的 PR，合併後才部署。也可以在 Actions 頁面手動執行。
 - `.github/workflows/ci.yml` 是 PR 的必要檢查；`.github/workflows/deploy.yml` 在合併進 `main` 後部署。
 - 資料內容沒變時 `version` 和 `updatedAt` 不會改，不會產生多餘的 commit。

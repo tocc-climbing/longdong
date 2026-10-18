@@ -14,7 +14,7 @@ const EXAMPLES: Record<Lang, string[]> = {
   ja: ['5.10a', 'Golden Valley', 'Olive Branch', '523'],
 }
 
-/** 搜尋字串放在網址（#/search?q=），從路線頁按返回時結果還在；電腦版的搜尋框在左側欄 */
+/** 搜尋字串放在網址（/search?q=），從路線頁按返回時結果還在；電腦版的搜尋框在左側欄 */
 export function SearchPage({ data, query, detail }: { data: LoadedData; query: string; detail?: string }) {
   const { lang, t } = useLang()
   const wide = useWide()
