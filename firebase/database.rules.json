@@ -131,38 +131,11 @@
         }
       }
     },
-    "routes": {
-      ".read": true
-    },
     "role": {
-      ".read": true
-    },
-    "comments": {
-      ".read": true
-    },
-    "tags": {
       ".read": true
     },
     "topos": {
       ".read": true
-    },
-    "tests": {
-      ".read": true
-    },
-    "tasks": {
-      ".read": true
-    },
-    "devices": {
-      "$user_id": {
-        ".read": "$user_id === auth.uid",
-        ".write": "$user_id === auth.uid"
-      }
-    },
-    "users": {
-      "$user_id": {
-        ".read": "$user_id === auth.uid",
-        ".write": "$user_id === auth.uid"
-      }
     }
   }
 }

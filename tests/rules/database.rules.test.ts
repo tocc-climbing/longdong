@@ -3,7 +3,7 @@
  *
  *   npm run test:rules   （需要 Java；會自動啟動模擬器，專案為不連線的 demo-longdong）
  *
- * 角色：alice、mallory 是一般登入者（任何 Google 帳號都能登入），admin 在 /role 裡（舊站的管理員），
+ * 角色：alice、mallory 是一般登入者（任何 Google 帳號都能登入），admin 在 /role 裡（管理員），
  * guest 沒有登入。寫入的資料形狀與 App 實際送出的一致（src/personal/firebase.ts、src/social/actions.ts）。
  */
 import { readFileSync } from 'node:fs'
@@ -52,14 +52,7 @@ beforeEach(async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     await ctx.database().ref().set({
       role: { admin: true },
-      comments: { c1: { text: '舊站留言' } },
-      tags: { t1: 'crack' },
       topos: { p1: { name: 'topo' } },
-      tests: { x1: { date: '2019-01-01' } },
-      tasks: { k1: { title: 'task' } },
-      routes: { r1: { name: '舊路線', bolts: { b1: { material: '316' } } } },
-      users: { alice: { name: 'Alice' } },
-      devices: { alice: { d1: true } },
       v2: {
         personal: { alice: { ticks: { t1: tick('t1') } } },
         // carol 是暱稱不重複之前建立的，沒有登記在 names
@@ -73,29 +66,31 @@ beforeEach(async () => {
   })
 })
 
-describe('舊站節點：一般登入者不能刪除或覆寫', () => {
-  for (const node of ['comments', 'tags', 'topos', 'tests', 'tasks']) {
-    it(`${node}：不能整棵刪除、不能新增`, async () => {
-      await assertFails(remove(mallory, node))
-      await assertFails(set(mallory, `${node}/new`, { x: 1 }))
-    })
-  }
-
-  it('routes/*/bolts：不能修改', async () => {
-    await assertFails(set(mallory, 'routes/r1/bolts', null))
-    await assertFails(set(mallory, 'routes/r1/bolts/b2', { material: 'x' }))
+describe('舊站節點', () => {
+  it('topos（路線圖，之後做進 App）：公開可讀，不能刪除或新增', async () => {
+    await assertSucceeds(get(guest, 'topos'))
+    await assertFails(remove(mallory, 'topos'))
+    await assertFails(set(mallory, 'topos/new', { x: 1 }))
   })
 
-  it('仍然公開可讀', async () => {
-    for (const node of ['comments', 'tags', 'topos', 'tests', 'tasks', 'routes', 'role']) await assertSucceeds(get(guest, node))
+  it('role：公開可讀', async () => {
+    await assertSucceeds(get(guest, 'role'))
+  })
+
+  it('已刪除的舊站節點（2026-10-18 備份後刪除）：任何人都不能讀寫', async () => {
+    for (const node of ['routes', 'comments', 'tags', 'tests', 'tasks']) {
+      await assertFails(get(guest, node))
+      await assertFails(set(admin, `${node}/new`, { x: 1 }))
+    }
+    await assertFails(get(alice, 'users/alice'))
+    await assertFails(set(alice, 'users/alice', { name: 'Alice' }))
+    await assertFails(set(alice, 'devices/alice/d1', true))
   })
 })
 
 describe('管理員（/role）不能讀寫別人的私人資料', () => {
-  it('不能讀 v2/personal、users、devices', async () => {
+  it('不能讀 v2/personal', async () => {
     await assertFails(get(admin, 'v2/personal/alice'))
-    await assertFails(get(admin, 'users/alice'))
-    await assertFails(get(admin, 'devices/alice'))
   })
 
   it('不能寫 v2/personal', async () => {
@@ -109,7 +104,7 @@ describe('管理員（/role）不能讀寫別人的私人資料', () => {
   })
 
   it('不能從網頁端修改舊站節點（改由 Firebase 主控台操作）', async () => {
-    await assertFails(set(admin, 'comments/c1', null))
+    await assertFails(set(admin, 'topos/p1', null))
   })
 
   it('可以讀檢舉；一般使用者與訪客不行', async () => {
@@ -141,11 +136,6 @@ describe('既有行為不變', () => {
     await assertSucceeds(update(alice, { 'v2/personal/alice/ticks/t2': tick('t2') }))
     await assertFails(get(mallory, 'v2/personal/alice'))
     await assertFails(set(mallory, 'v2/personal/alice/ticks/t3', tick('t3')))
-  })
-
-  it('本人可以讀寫自己的舊站 users／devices', async () => {
-    await assertSucceeds(get(alice, 'users/alice'))
-    await assertSucceeds(set(alice, 'devices/alice/d2', true))
   })
 
   it('訪客可以讀評分、暱稱、留言', async () => {
