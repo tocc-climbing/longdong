@@ -34,7 +34,7 @@ const STEP = 2
 const ME_SCALE = 0.5
 /** 長按多久（毫秒）、手指移動不超過多少像素，算長按區域 */
 const LONG_PRESS_MS = 500
-const LONG_PRESS_SLOP_PX = 8
+const LONG_PRESS_SLOP_PX = 12
 /** 雙指轉動超過這個角度才開始旋轉（弧度），只想縮放時地圖不會跟著歪 */
 const ROTATE_START = 0.15
 
@@ -189,20 +189,21 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
       return { mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.hypot(a.x - b.x, a.y - b.y), angle: Math.atan2(b.y - a.y, b.x - a.x) }
     }
 
-    /** 螢幕上這一點落在哪個大區域 */
-    const areaAt = (p: Point) => {
+    /** 螢幕上這一點底下的地圖位置 */
+    const mapAt = (p: Point): Vec | undefined => {
       const { frame: f, view: v } = latest.current
-      if (!f || !v) return undefined
-      const at = toMap(v, f, [p.x, p.y])
-      return areaPress.current.areas.find((a) => a.rings.some((r) => insideRing(at, r)))?.id
+      return f && v ? toMap(v, f, [p.x, p.y]) : undefined
     }
+    /** 地圖上這一點落在哪個大區域 */
+    const areaAt = (at: Vec | undefined) => (at ? areaPress.current.areas.find((a) => a.rings.some((r) => insideRing(at, r)))?.id : undefined)
     const pressArea = (p: Point) => {
-      const id = areaAt(p)
+      const id = areaAt(mapAt(p))
       if (id) areaPress.current.onAreaPress?.(id)
     }
     // 長按：一根手指按住不動 LONG_PRESS_MS 就震一下，放開時才換頁。
     // 若按住時就換頁，放開手指時手機補的一次點擊會落在新頁面的同一個位置（例如分區清單）；
-    // 放開時地圖還在，可以在 touchend 擋掉這次點擊。移動、第二根手指都取消
+    // 放開時地圖還在，可以在 touchend 擋掉這次點擊。移動、第二根手指都取消。
+    // 按住時手指的小抖動會拖動地圖，所以按下時就記下手指底下的地圖位置，判斷區域用它，不用之後的螢幕位置
     let press: { timer: number; at: Point } | undefined
     let held: { id: string; at: Point } | undefined
     const cancelPress = () => {
@@ -220,11 +221,12 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
       cancelPress()
       if (pointers.size === 1 && e.pointerType !== 'mouse') {
         const at = local(e)
+        const where = mapAt(at)
         press = {
           at,
           timer: window.setTimeout(() => {
             press = undefined
-            const id = areaAt(at)
+            const id = areaAt(where)
             if (!id) return
             held = { id, at }
             navigator.vibrate?.(20)
