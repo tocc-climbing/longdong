@@ -3,7 +3,6 @@ import type { RouteRef } from '../src/data/dataset'
 import { translate } from '../src/i18n'
 import { en } from '../src/i18n/en'
 import { zh } from '../src/i18n/zh'
-import { routeFromSearch } from '../src/router'
 import { routeUrl, shareText, targetUrl } from '../src/share'
 
 const ref = (sectors: number, number?: string, grade?: string) => {
@@ -18,14 +17,6 @@ describe('分享路線', () => {
     expect(routeUrl('https://longdong.web.app/', 'longdong/jar2yu')).toBe('https://longdong.web.app/route/longdong/jar2yu')
     expect(routeUrl('https://longdong.web.app', 'longdong/jar2yu')).toBe('https://longdong.web.app/route/longdong/jar2yu')
     expect(routeUrl('https://example.org/longdong/', 'longdong/jar2yu')).toBe('https://example.org/longdong/route/longdong/jar2yu')
-  })
-
-  it('之前分享出去的 ?route= 網址：從查詢字串取出路線ID，忽略 fbclid 等其他參數', () => {
-    expect(routeFromSearch('?route=longdong/jar2yu')).toBe('longdong/jar2yu')
-    expect(routeFromSearch('?fbclid=abc&route=longdong/jar2yu')).toBe('longdong/jar2yu')
-    expect(routeFromSearch('?route=longdong%2Fjar2yu')).toBe('longdong/jar2yu')
-    expect(routeFromSearch('?fbclid=abc')).toBeUndefined()
-    expect(routeFromSearch('')).toBeUndefined()
   })
 
   it('各 App 的分享網址：LINE 帶文字與網址，Facebook／Messenger 只帶網址', () => {

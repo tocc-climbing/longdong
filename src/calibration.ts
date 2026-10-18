@@ -45,10 +45,7 @@ const STORAGE_KEY = 'longdong.calibration'
 export function loadCalibration(): Calibration {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { marks: [] }
-    // 舊版還有軌跡（track），只留下回報的點
-    const { marks = [], uploaded, queued } = JSON.parse(raw) as Partial<Calibration>
-    return { marks, uploaded: uploaded && { time: uploaded.time, marks: uploaded.marks }, queued }
+    return raw ? (JSON.parse(raw) as Calibration) : { marks: [] }
   } catch {
     return { marks: [] }
   }

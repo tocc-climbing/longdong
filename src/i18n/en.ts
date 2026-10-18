@@ -89,7 +89,7 @@ export const en: Messages = {
   'map.introTitle': 'Scale map (beta)',
   'map.introWarn': 'This map is converted from the rescue map and hasn’t been field-checked yet, so positions may be off by tens of metres. In an emergency, rely on the rescue-point coordinates and call 119.',
   'map.introHow': 'Drag to move; pinch to zoom and rotate. Long-press an area to see its routes. Tap the compass (top right) to face north.',
-  'map.introReport': 'At a clear landmark, tap “Report” (bottom left) to tell us where you are and help calibrate the map.',
+  'map.introReport': 'At a clear landmark, tap “Report” (top left) to tell us where you are and help calibrate the map.',
   'map.introOk': 'Got it',
   'map.north': 'Face north',
   'map.locate': 'My location',

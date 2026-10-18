@@ -1,17 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { href, parseLocation, samePlace, upgradeLocation, withDetail } from '../src/router'
+import { href, parseLocation, samePlace, withDetail } from '../src/router'
 
 describe('parseLocation', () => {
   it('ID 可以含 "/"', () => {
     expect(parseLocation('/route/longdong/100.1')).toEqual({ name: 'route', id: 'longdong/100.1' })
     expect(parseLocation('/area/longdong/back-door')).toEqual({ name: 'area', id: 'longdong/back-door' })
     expect(parseLocation('/sector/longdong/back-door-s1')).toEqual({ name: 'sector', id: 'longdong/back-door-s1' })
-  })
-
-  it('舊網址轉成新 ID', () => {
-    expect(parseLocation('/route/r523')).toEqual({ name: 'route', id: 'longdong/523' })
-    expect(parseLocation('/route/r242-p2')).toEqual({ name: 'route', id: 'longdong/242-p2' })
-    expect(parseLocation('/area/back-door')).toEqual({ name: 'area', id: 'longdong/back-door' })
   })
 
   it('其他頁面', () => {
@@ -23,9 +17,8 @@ describe('parseLocation', () => {
     expect(parseLocation('/')).toEqual({ name: 'home' })
   })
 
-  it('結尾的 / 不影響；舊網址的 #/… 也看得懂', () => {
+  it('結尾的 / 不影響', () => {
     expect(parseLocation('/route/longdong/jar2yu/')).toEqual({ name: 'route', id: 'longdong/jar2yu' })
-    expect(parseLocation('#/area/longdong/back-door')).toEqual({ name: 'area', id: 'longdong/back-door' })
   })
 
   it('?r= 是右側（或手機上直接顯示）的路線', () => {
@@ -35,7 +28,7 @@ describe('parseLocation', () => {
       detail: 'longdong/100',
     })
     expect(parseLocation('/search?q=%E9%BB%83%E9%87%91&r=longdong/523')).toEqual({ name: 'search', q: '黃金', detail: 'longdong/523' })
-    expect(parseLocation('/me?r=r523')).toEqual({ name: 'me', detail: 'longdong/523' })
+    expect(parseLocation('/me?r=longdong/523')).toEqual({ name: 'me', detail: 'longdong/523' })
     // 路線頁本身不帶右側路線
     expect(parseLocation('/route/longdong/1?r=longdong/2')).toEqual({ name: 'route', id: 'longdong/1' })
   })
@@ -47,15 +40,6 @@ describe('網址都不帶 #', () => {
     expect(href.route('longdong/jar2yu')).toBe('/route/longdong/jar2yu')
     expect(href.search('5.10', 'longdong/1')).toBe('/search?q=5.10&r=longdong/1')
     expect(href.map()).toBe('/map')
-  })
-
-  it('舊網址轉成新的路徑：#/… 與 ?route=', () => {
-    expect(upgradeLocation('', '#/area/longdong/back-door')).toBe('/area/longdong/back-door')
-    expect(upgradeLocation('', '#/search?q=5.12')).toBe('/search?q=5.12')
-    expect(upgradeLocation('?route=r523&fbclid=x', '')).toBe('/route/longdong/523')
-    expect(upgradeLocation('', '')).toBeUndefined()
-    // 頁內的 #（不是 #/ 開頭）不動
-    expect(upgradeLocation('', '#top')).toBeUndefined()
   })
 })
 

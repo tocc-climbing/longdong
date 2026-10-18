@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { hasUnuploaded, loadCalibration, toGeoJSON, type Fix } from '../src/calibration'
+import { hasUnuploaded, toGeoJSON, type Fix } from '../src/calibration'
 import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseLocation } from '../src/router'
@@ -15,16 +15,6 @@ describe('上傳狀態', () => {
     expect(hasUnuploaded({ marks: [mark] })).toBe(true)
     expect(hasUnuploaded({ marks: [mark], uploaded: { time: 0, marks: 1 } })).toBe(false)
     expect(hasUnuploaded({ marks: [mark, mark], uploaded: { time: 0, marks: 1 } })).toBe(true)
-  })
-})
-
-describe('手機上的記錄', () => {
-  it('舊版存的軌跡（track）讀出時去掉，只留下回報的點', () => {
-    const mark = { ...fix(25.11, 121.92), note: '鐘塔' }
-    const store = new Map<string, string>()
-    globalThis.localStorage = { getItem: (k: string) => store.get(k) ?? null } as unknown as Storage
-    store.set('longdong.calibration', JSON.stringify({ marks: [mark], track: [fix(25.1, 121.9)], uploaded: { time: 1, marks: 1, track: 1 }, queued: true }))
-    expect(loadCalibration()).toEqual({ marks: [mark], uploaded: { time: 1, marks: 1 }, queued: true })
   })
 })
 
@@ -82,8 +72,7 @@ describe('比例尺地圖資料', () => {
     }
   })
 
-  it('/map 是地圖；舊的校正頁網址轉到地圖', () => {
+  it('/map 是地圖', () => {
     expect(parseLocation('/map')).toEqual({ name: 'map' })
-    expect(parseLocation('/calibrate')).toEqual({ name: 'map' })
   })
 })

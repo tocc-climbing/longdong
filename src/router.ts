@@ -5,7 +5,6 @@ import { isWide } from './layout'
  * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map（id 本身含 "/"）。
  * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
  * 伺服器（Firebase Hosting）把所有路徑都交給 index.html；站內連結由這裡攔下來換頁，不重新載入。
- * 舊網址的 #/…（2026-10-18 以前）開啟時轉成對應的路徑。
  */
 export type Page = (
   | { name: 'home' }
@@ -19,42 +18,21 @@ export type Page = (
   | { name: 'map' }
 ) & { detail?: string }
 
-const DEFAULT_CRAG = 'longdong'
-
-/**
- * 舊網址相容：早期 ID 沒有岩場前綴（r523、r242-p2、back-door），
- * 轉成 longdong/523、longdong/242-p2、longdong/back-door。
- */
-export function upgradeId(kind: 'area' | 'route', id: string): string {
-  if (id.includes('/')) return id
-  if (kind === 'route' && /^r\d/.test(id)) return `${DEFAULT_CRAG}/${id.slice(1)}`
-  return `${DEFAULT_CRAG}/${id}`
-}
-
-/**
- * 早期分享出去的網址用查詢字串（…/?route=<路線ID>）：Facebook、Messenger 轉址時可能丟掉 # 後面的部分。
- * 開啟時轉成 /route/<路線ID>，順便去掉 fbclid 等查詢字串。
- */
-export function routeFromSearch(search: string): string | undefined {
-  const id = new URLSearchParams(search).get('route')
-  return id ? upgradeId('route', id) : undefined
-}
-
-/** 解析網址的路徑與查詢字串（/area/…?r=…）；也接受舊網址的 #/area/… */
+/** 解析網址的路徑與查詢字串（/area/…?r=…） */
 export function parseLocation(location: string): Page {
-  const [rawPath, query = ''] = location.replace(/^#/, '').split('?')
+  const [rawPath, query = ''] = location.split('?')
   const params = new URLSearchParams(query)
   const r = params.get('r')
-  const extra = r ? { detail: upgradeId('route', r) } : {}
+  const extra = r ? { detail: r } : {}
   const [, kind, ...rest] = decodeURIComponent(rawPath).replace(/\/+$/, '').split('/')
   const id = rest.join('/')
-  if ((kind === 'area' || kind === 'route') && id) return { name: kind, id: upgradeId(kind, id), ...(kind === 'area' ? extra : {}) }
+  if (kind === 'area' && id) return { name: 'area', id, ...extra }
+  if (kind === 'route' && id) return { name: 'route', id }
   if (kind === 'sector' && id) return { name: 'sector', id, ...extra }
   if (kind === 'search') return { name: 'search', q: params.get('q') ?? '', ...extra }
   if (kind === 'me') return { name: 'me', ...extra }
   if (kind === 'about') return { name: 'about' }
-  // 舊的校正頁（/calibrate）已併入地圖
-  if (kind === 'map' || kind === 'calibrate') return { name: 'map' }
+  if (kind === 'map') return { name: 'map' }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
   return { name: 'home' }
 }
@@ -74,14 +52,6 @@ export const href = {
   map: () => '/map',
 }
 
-/** 舊網址轉成新的路徑：#/area/… → /area/…；…/?route=<路線ID> → /route/<路線ID>；沒有要轉的回傳 undefined */
-export function upgradeLocation(search: string, hash: string): string | undefined {
-  const shared = routeFromSearch(search)
-  if (shared) return href.route(shared)
-  if (hash.startsWith('#/')) return hash.slice(1)
-  return undefined
-}
-
 /** 目前的網址（路徑＋查詢字串） */
 export function here(): string {
   return location.pathname + location.search
@@ -97,11 +67,7 @@ export function navigate(to: string, { replace = false } = {}): void {
   window.dispatchEvent(new Event(CHANGE))
 }
 
-if (typeof location !== 'undefined') {
-  // 舊網址轉成新的路徑（必須在 usePage 第一次讀網址之前）
-  const upgraded = upgradeLocation(location.search, location.hash)
-  if (upgraded) history.replaceState(null, '', upgraded)
-
+if (typeof document !== 'undefined') {
   // 站內連結（<a href="/…">）不重新載入，改由路由換頁；新分頁、下載、外部連結照常
   document.addEventListener('click', (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
