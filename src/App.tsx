@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useRegisterSW } from 'virtual:pwa-register/react'
+import { useAppUpdate } from './appUpdate'
+import { Pager, neighborLabel } from './components/Pager'
+import { DetailPane, desktopView, useDesktopKeys } from './desktop'
 import { BottomNav, activeTab } from './components/BottomNav'
 import { Sidebar } from './components/Sidebar'
 import { useData, type LoadedData } from './data/dataset'
 import { relativeTime } from './format'
 import { whenActive } from './freshness'
-import { localName, useLang, type Lang } from './i18n'
-import { defaultLevel, keyNav, type Level } from './keyboard'
+import { useLang } from './i18n'
 import { useWide } from './layout'
 import { AboutPage } from './pages/AboutPage'
 import { AreaPage, SectorPage } from './pages/AreaPage'
@@ -18,61 +19,22 @@ import { SearchPage } from './pages/SearchPage'
 import { loadRatings, useSocial } from './social/store'
 import { here, href, navigate, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 import { useListView } from './listView'
-import { fetchLatestVersion } from './version'
-import type { AppVersion } from '../scripts/lib/appVersion'
 import { routeKey, summarize } from './social/model'
-import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './swipe'
+import { neighbors, useSwipe, type Dir } from './swipe'
 
 /** 地圖用到的程式與資料較多，分開打包，打開地圖時才載入 */
 const MapPage = lazy(() => import('./pages/MapPage').then((m) => ({ default: m.MapPage })))
-/** 管理員的回報紀錄，只有少數人用 */
+/** Bolt 統計：手機版沒有入口 */
 const BoltsPage = lazy(() => import('./pages/BoltsPage').then((m) => ({ default: m.BoltsPage })))
+/** 管理員的回報紀錄，只有少數人用 */
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
-
-/** 開啟後這段時間內發現新版本就直接換上（毫秒） */
-const AUTO_UPDATE_MS = 10_000
 
 export function App() {
   const page = usePage()
   const state = useData()
   const wide = useWide()
   const { lang, t } = useLang()
-  const applyUpdate = useRef<() => void>(undefined)
-  const {
-    offlineReady: [offlineReady],
-    needRefresh: [needRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisteredSW(_url, registration) {
-      if (!registration) return
-      // 回到前景、恢復網路、使用中每小時檢查新版本（App 從背景回來不會重新載入，只在載入時檢查會一直收不到）
-      whenActive(() => void registration.update().catch(() => {}), { gapMs: 60_000, intervalMs: 60 * 60_000 })
-    },
-  })
-  applyUpdate.current = () => void updateServiceWorker(true)
-
-  // 剛開啟或重新整理（AUTO_UPDATE_MS 內、還沒點擊或打字）就發現新版本：直接換成新版，不會打斷操作。
-  // 不這樣做的話，新版會一直等到按「更新」，重新整理幾次都還是舊版（電腦上習慣按 F5）
-  const interacted = useRef(false)
-  useEffect(() => {
-    const mark = () => (interacted.current = true)
-    window.addEventListener('pointerdown', mark, { once: true })
-    window.addEventListener('keydown', mark, { once: true })
-    return () => {
-      window.removeEventListener('pointerdown', mark)
-      window.removeEventListener('keydown', mark)
-    }
-  }, [])
-  // 自動更新時不顯示「有新版本」：提示會在重新載入前閃一下就消失。
-  // 在繪製時就決定（不能等 effect，否則第一次畫面還是會出現）；5 秒後還沒換成新版（例如重新載入失敗）才顯示
-  const autoUpdate = useMemo(() => needRefresh && !interacted.current && performance.now() < AUTO_UPDATE_MS, [needRefresh])
-  const [autoFailed, setAutoFailed] = useState(false)
-  useEffect(() => {
-    if (!autoUpdate) return
-    applyUpdate.current?.()
-    const timer = setTimeout(() => setAutoFailed(true), 5_000)
-    return () => clearTimeout(timer)
-  }, [autoUpdate])
+  const { offlineReady, banner } = useAppUpdate()
 
   // 評分（路線清單顯示平均星等）在背景載入；離線時用 Service Worker 快取的上一份。
   // 從背景回來時重新讀取，看得到別人新的評分
@@ -118,19 +80,6 @@ export function App() {
     },
   })
   const dragTarget = dragDir ? near?.[dragDir] : undefined
-
-  // 有新版本時讀新版號；讀不到（例如剛好斷線）就只說有新版本
-  const [latest, setLatest] = useState<AppVersion>()
-  useEffect(() => {
-    if (needRefresh) void fetchLatestVersion().then(setLatest)
-  }, [needRefresh])
-
-  const banner = needRefresh && (!autoUpdate || autoFailed) && (
-    <div className="banner">
-      {latest ? t('app.updateAvailableVersion', { version: latest.version }) : t('app.updateAvailable')}
-      <button onClick={() => updateServiceWorker(true)}>{t('app.update')}</button>
-    </div>
-  )
 
   const content: ReactNode =
     state.status === 'loading' ? (
@@ -261,158 +210,3 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
   }
 }
 
-/** 上一個／下一個的名稱；路線加上編號 */
-function neighborLabel(n: Neighbor, lang: Lang): string {
-  return `${n.number ? `#${n.number} ` : ''}${localName(n.name, lang).main}`
-}
-
-/** 手機版區域頁、路線頁底部的上一個／下一個；也提示可以左右滑動 */
-function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: Dir) => void }) {
-  const { lang, t } = useLang()
-  const route = near.kind === 'route'
-  const label = (n: Neighbor) => neighborLabel(n, lang)
-  const caption = (dir: 'prev' | 'next', n: Neighbor) => {
-    const text = t(route ? (dir === 'prev' ? 'swipe.prevRoute' : 'swipe.nextRoute') : dir === 'prev' ? 'swipe.prev' : 'swipe.next')
-    const where = n.sector ? ` · ${localName(n.sector, lang).main}` : ''
-    return dir === 'prev' ? `‹ ${text}${where}` : `${text}${where} ›`
-  }
-  return (
-    <nav className="pager" aria-label={t(route ? 'swipe.ariaRoute' : 'swipe.aria')}>
-      {near.prev ? (
-        <a href={near.prev.hash} onClick={() => onGo('prev')}>
-          <span className="pager-name muted small">{caption('prev', near.prev)}</span>
-          <span className="pager-name">{label(near.prev)}</span>
-        </a>
-      ) : (
-        <span />
-      )}
-      {near.next ? (
-        <a href={near.next.hash} className="next" onClick={() => onGo('next')}>
-          <span className="pager-name muted small">{caption('next', near.next)}</span>
-          <span className="pager-name">{label(near.next)}</span>
-        </a>
-      ) : (
-        <span />
-      )}
-      <p className="pager-hint muted small">{t(near.filtered ? 'swipe.hintFiltered' : 'swipe.hint')}</p>
-    </nav>
-  )
-}
-
-interface DesktopView {
-  /** 清單與路線並排 */
-  split: boolean
-  /** 左邊的清單 */
-  list: Page
-  /** 右邊的路線；沒有時顯示提示 */
-  detail?: string
-  /** 關閉右邊路線的連結 */
-  closeHref: string
-  /** 不並排時用較寬的版面（首頁、分區卡片、我的、救援資訊） */
-  roomy: boolean
-}
-
-/**
- * 電腦版的版面：
- * - 分區、只有一個分區的區域：路線清單＋右邊的路線（沒選時顯示提示）
- * - 路線頁：該路線所在的分區清單＋右邊的路線
- * - 搜尋、我的：選了路線（?r=）才並排
- */
-function desktopView(page: Page, data: LoadedData): DesktopView {
-  const plain = (roomy: boolean): DesktopView => ({ split: false, list: page, closeHref: '', roomy })
-  if (page.name === 'route') {
-    const ref = data.routeById.get(page.id)
-    if (!ref) return plain(false)
-    return { split: true, list: { name: 'sector', id: ref.sector.id }, detail: page.id, closeHref: href.sector(ref.sector.id), roomy: false }
-  }
-  const closeHref = withDetail(here(), undefined)
-  const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
-  if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'bolts')
-}
-
-function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {
-  const { t } = useLang()
-  const pane = useRef<HTMLElement>(null)
-  useEffect(() => {
-    pane.current?.scrollTo(0, 0)
-  }, [id])
-
-  if (!id) {
-    return (
-      <aside className="detail-pane detail-empty">
-        <p className="muted">{t('layout.pickRoute')}</p>
-        <p className="muted small">{t('layout.keys')}</p>
-      </aside>
-    )
-  }
-  return (
-    <aside className="detail-pane" ref={pane} aria-label={t('layout.detail')}>
-      <a className="icon-button detail-close" href={closeHref} aria-label={t('layout.close')} title={t('layout.close')}>
-        ×
-      </a>
-      <RoutePage key={id} data={data} id={id} />
-    </aside>
-  )
-}
-
-function typing(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null
-  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
-}
-
-/**
- * 電腦版快捷鍵：/ 搜尋、Esc 關閉右邊的路線、↑↓ 在目前層級內移動、←→ 切換層級（大區域／區域／路線）。
- * 回傳用鍵盤選定的層級（用滑鼠點選或換頁後清除），側欄依此標示目前的位置。
- */
-function useDesktopKeys(wide: boolean, view: DesktopView | undefined, page: Page, data: LoadedData | undefined): Level | null {
-  const [level, setLevel] = useState<Level | null>(null)
-  const current = useRef({ view, page, data, level })
-  current.current = { view, page, data, level }
-  // 方向鍵造成的換頁不清除層級；其他換頁（點選、Esc、返回）清除
-  const fromKeys = useRef(false)
-  useEffect(() => {
-    if (fromKeys.current) fromKeys.current = false
-    else setLevel(null)
-  }, [page])
-
-  useEffect(() => {
-    if (!wide) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
-      const { view: v, page: p, data: d, level: l } = current.current
-      if (e.key === 'Escape') {
-        if (typing(e.target)) (e.target as HTMLElement).blur()
-        else if (v?.detail) navigate(v.closeHref)
-        return
-      }
-      if (typing(e.target)) return
-      if (e.key === '/') {
-        e.preventDefault()
-        document.getElementById('sidebar-search')?.focus()
-        return
-      }
-      if (!d || !e.key.startsWith('Arrow')) return
-      const rows = [...document.querySelectorAll<HTMLAnchorElement>('main a.route-row')]
-      const result = keyNav(e.key, {
-        page: p,
-        level: l ?? defaultLevel(p, d),
-        data: d,
-        rows: rows.map((r) => r.getAttribute('href')!),
-        selected: rows.findIndex((r) => r.getAttribute('aria-current') === 'true'),
-      })
-      if (!result) return
-      e.preventDefault()
-      setLevel(result.level)
-      if (result.row !== undefined) rows[result.row].scrollIntoView({ block: 'nearest' })
-      if (result.hash && result.hash !== here()) {
-        fromKeys.current = true
-        navigate(result.hash, { replace: true })
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [wide])
-
-  return wide ? level : null
-}
