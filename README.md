@@ -1,6 +1,6 @@
 # 龍洞攀岩資料庫
 
-**👉 網站：https://tocc-climbing.github.io/longdong/**
+**👉 網站：https://longdong.web.app/**
 
 龍洞攀岩路線與 Bolt 資訊的離線優先 Web App（PWA）。龍洞很多岩場沒有手機訊號，所以 App 和全部路線資料會在第一次開啟時存到手機上，之後不用網路也能查詢。
 
@@ -102,10 +102,12 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 ## 部署
 
-1. 在 GitHub repo 的 **Settings → Pages** 把 Source 設為 **GitHub Actions**。
-2. `main` 受保護，改動經由 PR 合併；合併後自動 build 並部署。流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+網站在 Firebase Hosting（站台 `longdong`，https://longdong.web.app/）。`main` 受保護，改動經由 PR 合併；合併後 `.github/workflows/deploy.yml` 自動 build，並部署到 Firebase Hosting。流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-網址用相對路徑、路由用 hash，所以放在 GitHub Pages 子路徑或自訂網域都可以。
+- 部署金鑰：Firebase 服務帳號的金鑰存在 repo 的 Secrets（`FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321`），由專案管理者以 `firebase init hosting:github` 建立。
+- 快取：`firebase.json` 設定 `assets/`（檔名含雜湊）可長期快取，HTML、JSON、Service Worker 每次都向伺服器確認。
+
+網址用相對路徑、路由用 hash，所以放在子路徑或自訂網域都可以。
 
 **版號**是「主.次.提交數」（例如 `1.0.65 (0968ddc)`），建置時自動產生（`scripts/lib/appVersion.ts`）：主、次版號寫在 `package.json`，大改版時手動調；最後一碼是 commit 的提交數，main 每合併一個 PR 自動加一。
 版號顯示在關於頁、「我的 → 設定」最下方，以及「有新版本」的提示（讀 `version.json`，不在離線快取裡）。版號需要完整的 git 歷史，workflow 的 checkout 都設了 `fetch-depth: 0`。
@@ -152,9 +154,12 @@ OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetM
 
 ## 舊網址轉址
 
-舊站 `longdong.web.app` 與 `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）都在舊 Firebase 專案的 Hosting 上，
-以 `firebase.json` 的 `hosting.redirects` 全部 301 轉到新網址；`firebase/redirect/` 是保底頁面。
-Firebase 保留路徑（`/__/auth/handler` 等）不受影響，登入照常運作。修改後以 `firebase deploy --only hosting` 部署。
+- `tocc-climbing.github.io/longdong`（2026-10-18 以前的網址）：GitHub Pages 只放 `github-pages-redirect/`。
+  - `index.html`、`404.html` 用 JavaScript 轉到 longdong.web.app，保留路徑、查詢字串與 `#`。
+  - `sw.js` 讓已安裝的舊版 App 清掉離線快取、取消註冊後重新載入，轉到新網址。
+  - 分享頁（`route/`）也放一份，舊的分享連結照常可用。
+- `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）：和 longdong.web.app 是同一個站台。
+- 瀏覽器的本機資料依網址分開存放，沒有登入的人在舊網址的收藏、攀登紀錄不會跟到新網址；有登入的人登入後由雲端同步。
 
 ## 授權
 

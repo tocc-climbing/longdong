@@ -42,4 +42,4 @@ export function csvUrl(gid: string): string {
 }
 
 /** 網站的正式網址（結尾有 /）：分享頁的 og:url、og:image 需要完整網址 */
-export const SITE_URL = 'https://tocc-climbing.github.io/longdong/'
+export const SITE_URL = 'https://longdong.web.app/'

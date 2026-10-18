@@ -11,7 +11,7 @@
 3. 推上分支，開 PR 到 `main`，依範本填寫。
 4. CI（`ci`：型別檢查、測試、build）必須通過。
 5. 依[審查與實作規範](docs/review_and_implementation_protocol.md)審查，可以請 Claude Code 跑 `/code-review`。
-6. 以 **Squash and merge** 合併。合併後自動部署到 https://tocc-climbing.github.io/longdong/ 。
+6. 以 **Squash and merge** 合併。合併後自動部署到 https://longdong.web.app/ 。
 
 `main` 受保護：不能直接推送、不能強制推送，只能經由 CI 通過的 PR 合併。目前不強制核准人數。
 

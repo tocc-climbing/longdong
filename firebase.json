@@ -4,12 +4,19 @@
   },
   "hosting": {
     "site": "longdong",
-    "public": "firebase/redirect",
-    "redirects": [
+    "public": "dist",
+    "headers": [
       {
-        "source": "**",
-        "destination": "https://tocc-climbing.github.io/longdong/",
-        "type": 301
+        "source": "assets/**",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      },
+      {
+        "source": "**/*.@(html|json|geojson|webmanifest)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "@(sw.js|registerSW.js|workbox-*.js)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
   }

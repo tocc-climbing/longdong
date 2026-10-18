@@ -1,6 +1,7 @@
 name: Deploy
 
-# main 只能經由 PR 合併；合併後 build 並部署到 GitHub Pages。
+# main 只能經由 PR 合併；合併後 build 並部署到 Firebase Hosting（https://longdong.web.app/）。
+# 舊網址 GitHub Pages（tocc-climbing.github.io/longdong）只放轉址頁：github-pages-redirect/ 與分享頁（route/）。
 on:
   push:
     branches: [main]
@@ -35,11 +36,24 @@ jobs:
 
       - run: npm run build
 
+      # 金鑰由專案管理者以 firebase init hosting:github 建立，存在 repo 的 Secrets
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321 }}
+          projectId: project-2803619783974357321
+          channelId: live
+
+      # 舊網址：轉址頁，加上分享頁（舊的分享連結先到分享頁，再轉到 App，App 的首頁再轉到新網址）
+      - run: |
+          mkdir -p github-pages
+          cp github-pages-redirect/* github-pages/
+          cp -r dist/route github-pages/route
+
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: dist
+          path: github-pages
 
-  deploy:
+  deploy-github-pages:
     needs: build
     runs-on: ubuntu-latest
     environment:
