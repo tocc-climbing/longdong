@@ -561,6 +561,59 @@ function clipToPage(points: Pt[]): Pt[][] {
   return pieces
 }
 const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).flatMap(clipToPage).map((p) => line(p)))
+/**
+ * 停車場：小的停車場（不超過 PARKING_RIGID_MAX_PT）逐點換算會把長方形扭成怪形狀，改成整塊只平移、旋轉、縮放（相似變換），保持原本的形狀；
+ * 變換取 P 字中心附近的換算：中心點的位置，加上往右一點的方向決定旋轉與比例。
+ * 沿著道路的長條停車場（龍洞街旁）照樣逐點換算，才會跟著道路彎。
+ * P 字的位置：範圍內離邊緣最遠、又避開救援點圖釘的一點（地圖座標），旋轉地圖時也一直在藍色範圍裡。
+ */
+const PARKING_PIN_CLEARANCE_M = 12
+const PARKING_RIGID_MAX_PT = 80
+const rescueMeters = CONTROL_POINTS.filter((c) => c.slack === 0).map((c) => toMeters(c.gps))
+const parkingLots = parking.map((center, i) => {
+  const c = warp(center)
+  const ex = warp([center[0] + 1, center[1]])
+  const ey = warp([center[0], center[1] + 1])
+  const sx = Math.hypot(ex[0] - c[0], ex[1] - c[1])
+  const sy = Math.hypot(ey[0] - c[0], ey[1] - c[1])
+  const scale = (sx + sy) / 2
+  const u: Pt = [(ex[0] - c[0]) / sx, (ex[1] - c[1]) / sx]
+  // 圖上 y 向下，換算後是往南：與 u 垂直、順時針轉 90 度
+  const w: Pt = [u[1], -u[0]]
+  const toLot = ([x, y]: Pt): Pt => {
+    const [dx, dy] = [(x - center[0]) * scale, (y - center[1]) * scale]
+    return [c[0] + dx * u[0] + dy * w[0], c[1] + dx * u[1] + dy * w[1]]
+  }
+  const shape = parkingAreas[i]
+  const size = Math.max(Math.max(...shape.map((p) => p[0])) - Math.min(...shape.map((p) => p[0])), Math.max(...shape.map((p) => p[1])) - Math.min(...shape.map((p) => p[1])))
+  const r = densify(shape, DENSIFY_PT).map(size <= PARKING_RIGID_MAX_PT ? toLot : warp)
+  r.push(r[0])
+  // P 字：在範圍內的格點中，取「離邊緣的距離」與「離救援點的距離 − 圖釘的空間」較小者最大的一點
+  const xs = r.map((p) => p[0])
+  const ys = r.map((p) => p[1])
+  const edge = (p: Pt) => Math.min(...r.slice(1).map((b, k) => segmentDistance(p, r[k], b)))
+  let label = c
+  let best = -Infinity
+  for (let gx = Math.min(...xs); gx <= Math.max(...xs); gx += 0.5) {
+    for (let gy = Math.min(...ys); gy <= Math.max(...ys); gy += 0.5) {
+      const p: Pt = [gx, gy]
+      if (!inside(p, r)) continue
+      const score = Math.min(edge(p), Math.min(...rescueMeters.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1]))) - PARKING_PIN_CLEARANCE_M)
+      if (score > best) [best, label] = [score, p]
+    }
+  }
+  return { ring: r, label }
+})
+
+/** 點到線段的距離 */
+function segmentDistance([px, py]: Pt, [ax, ay]: Pt, [bx, by]: Pt): number {
+  const dx = bx - ax
+  const dy = by - ay
+  const len2 = dx * dx + dy * dy
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2))
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
 const feature = (properties: Record<string, string | number>, geometry: object) => ({ type: 'Feature', properties, geometry })
 const point = (properties: Record<string, string | number>, at: Pt) => feature(properties, { type: 'Point', coordinates: toLngLat(at) })
 
@@ -585,8 +638,8 @@ const scaleMap = {
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails) }),
-    feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingAreas.map((p) => [ring(p)]) }),
-    ...parking.map((at) => point({ kind: 'parking' }, at)),
+    feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
+    ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
     ...emsTips.map((at, i) => point({ kind: 'ems', no: EMS_LOCATIONS[i].no }, at)),
     ...PLACES.map(({ zh, en, at }) => point({ kind: 'place', zh, en }, at)),
     ...boats.map((at) => point({ kind: 'boat' }, at)),

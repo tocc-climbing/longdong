@@ -26,8 +26,8 @@ import { useLang } from '../i18n'
 const SCALE_BARS = [10, 20, 50, 100, 200, 500]
 /** 比例尺最長幾個像素 */
 const SCALE_BAR_PX = 60
-/** 地圖範圍：所有救援點外加這個距離（公尺）；岩場在東邊海岸，右邊多留一些海面 */
-const PADDING_M = { west: 80, east: 220, north: 80, south: 40 }
+/** 地圖範圍：所有救援點外加這個距離（公尺）；岩場在東邊海岸，右邊多留一些海面；北邊多留，左上的按鈕才不會蓋住 #2 */
+const PADDING_M = { west: 80, east: 220, north: 200, south: 40 }
 /** 按「＋」「－」、雙擊一次縮放的倍數 */
 const STEP = 2
 /** 回到我的位置時至少放大到每像素幾公尺 */
@@ -84,12 +84,9 @@ function markerBox(m: Marker, at: Vec, lang: string): Box {
   return around(at, 7.5, 7.5)
 }
 
-/** 停車場的 P 和救援點重疊時，最多往上挪幾個像素 */
-const PARKING_SHIFT_MAX_PX = 24
-
 /**
  * 決定要畫哪些圖示與區域名稱（都在螢幕座標上算，旋轉後也正確）：
- * 救援點與停車場一定畫（救援時最重要；停車場是進出岩場的集合點），停車場的 P 和救援點重疊時往上挪開；
+ * 救援點與停車場一定畫（救援時最重要；停車場是進出岩場的集合點）。停車場 P 的位置在產生地圖時就避開救援點，畫在救援點上面；
  * 其他依 PRIORITY、區域名稱依面積大小，和已畫的東西重疊就先不畫。
  */
 function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Record<string, string>, screen: (p: Vec) => Vec, lang: string) {
@@ -99,19 +96,10 @@ function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Recor
     occupied.push(box)
     return true
   }
-  /** 停車場 P 往上挪的像素（索引同 markers） */
-  const shift = new Map<number, number>()
-  const pins = [...occupied]
-  markers.forEach((m, i) => {
-    if (m.kind !== 'parking') return
-    const at = screen(m.at)
-    let dy = 0
-    while (dy < PARKING_SHIFT_MAX_PX && pins.some((o) => overlaps(markerBox(m, [at[0], at[1] - dy], lang), o))) dy += 2
-    shift.set(i, dy)
-    occupied.push(markerBox(m, [at[0], at[1] - dy], lang))
-  })
+  const parking = markers.flatMap((m, i) => (m.kind === 'parking' ? [i] : []))
+  for (const i of parking) occupied.push(markerBox(markers[i], screen(markers[i].at), lang))
   const shown = new Set([
-    ...shift.keys(),
+    ...parking,
     ...markers
       .map((m, i) => ({ m, i }))
       .filter(({ m }) => m.kind !== 'parking')
@@ -123,7 +111,7 @@ function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Recor
     .sort((x, y) => y.size - x.size)
     .map((a) => ({ id: a.id, text: names[a.id] ?? a.id, at: screen(a.label) }))
     .filter((l) => fits(around(l.at, textWidth(l.text, LABEL_PX) / 2 + 4, LABEL_PX / 2 + 2)))
-  return { shown, labels, shift }
+  return { shown, labels }
 }
 
 interface Props {
@@ -366,7 +354,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
   const trailDash = dashLength(3, px)
   const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
-  const { shown, labels, shift } = declutter(map.markers, map.areas, areaNames, screen, lang)
+  const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang)
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
   const cover = Math.hypot(frame.w, frame.h) * px
 
@@ -419,12 +407,8 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
                   </text>
                 </g>
               )
-            if (m.kind === 'parking')
-              return (
-                <text key={i} className="sm-parking" x={x} y={y - (shift.get(i) ?? 0)} fontSize={12} textAnchor="middle" dominantBaseline="central">
-                  P
-                </text>
-              )
+            // 停車場的 P 畫在救援點上面（見下方）
+            if (m.kind === 'parking') return null
             return (
               <g key={i} className="sm-ems">
                 <title>{t('map.ems', { n: m.no })}</title>
@@ -447,6 +431,15 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
                   {p.no}
                 </text>
               </g>
+            )
+          })}
+          {map.markers.map((m, i) => {
+            if (m.kind !== 'parking') return null
+            const [x, y] = screen(m.at)
+            return (
+              <text key={i} className="sm-parking" x={x} y={y} fontSize={12} textAnchor="middle" dominantBaseline="central">
+                P
+              </text>
             )
           })}
           {marks.map((c, i) => {
