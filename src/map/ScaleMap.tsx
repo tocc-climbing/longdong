@@ -1,61 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
-import {
-  MIN_SCALE,
-  clampScale,
-  clampView,
-  dashLength,
-  fitView,
-  mapTransform,
-  maxScale,
-  panBy,
-  rotateAt,
-  toMap,
-  toScreen,
-  zoomAt,
-  type MapView,
-  type Rect,
-  type Size,
-} from './mapView'
-import { project, type Marker, type ScaleMapData } from './mapData'
-import { insideRing } from './reportOptions'
 import { useLang } from '../i18n'
+import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
+import { project, type Marker, type ScaleMapData } from './mapData'
+import { MIN_SCALE, clampScale, clampView, dashLength, fitView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Size } from './mapView'
+import { insideRing } from './reportOptions'
+import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
 
 /** 比例尺的長度（公尺）：選畫面上不超過 SCALE_BAR_PX 的最長一個 */
 const SCALE_BARS = [10, 20, 50, 100, 200, 500]
 /** 比例尺最長幾個像素 */
 const SCALE_BAR_PX = 60
-/** 地圖範圍：所有救援點外加這個距離（公尺）；岩場在東邊海岸，右邊多留一些海面；北邊多留，左上的按鈕才不會蓋住 #2 */
-const PADDING_M = { west: 80, east: 220, north: 200, south: 40 }
-/** 按「＋」「－」、雙擊一次縮放的倍數 */
-const STEP = 2
 /** 回到我的位置時至少放大到每像素幾公尺 */
 const ME_SCALE = 0.5
-/** 長按多久（毫秒）、手指移動不超過多少像素，算長按區域 */
-const LONG_PRESS_MS = 500
-const LONG_PRESS_SLOP_PX = 12
-/** 雙指轉動超過這個角度才開始旋轉（弧度），只想縮放時地圖不會跟著歪 */
-const ROTATE_START = 0.15
-
-const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ no: p.no, at: project(p.coords!) }))
-const xs = located.map((p) => p.at[0])
-const ys = located.map((p) => p.at[1])
-export const BOUNDS: Rect = {
-  x: Math.min(...xs) - PADDING_M.west,
-  y: Math.min(...ys) - PADDING_M.north,
-  w: Math.max(...xs) - Math.min(...xs) + PADDING_M.west + PADDING_M.east,
-  h: Math.max(...ys) - Math.min(...ys) + PADDING_M.north + PADDING_M.south,
-}
-/** 縮到最小時左右的中心：岩場（校門口到後門的救援點） */
-const CRAG_X = (() => {
-  const crag = located.filter((p) => p.no >= 3 && p.no <= 13).map((p) => p.at[0])
-  return (Math.min(...crag) + Math.max(...crag)) / 2
-})()
-const inBounds = ([x, y]: [number, number]) => x >= BOUNDS.x && x <= BOUNDS.x + BOUNDS.w && y >= BOUNDS.y && y <= BOUNDS.y + BOUNDS.h
-/** 這個位置在不在地圖範圍內（範圍外不能回報，按「回到我的位置」也不移動） */
-export const inMapBounds = (coords: LatLng) => inBounds(project(coords))
-
 const LABEL_PX = 12
 
 /** 螢幕上的範圍（像素） */
@@ -128,8 +85,6 @@ interface Props {
   topLeft?: ReactNode
 }
 
-type Point = { x: number; y: number }
-
 /**
  * 照比例尺的龍洞地圖：配色與救援資訊圖相同，操作像 Google 地圖：
  * 拖曳平移、雙指縮放與旋轉、滾輪縮放、雙擊放大；右上羅盤點一下回到北方朝上，右下回到我的位置。
@@ -145,8 +100,6 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
   // 事件處理只註冊一次，從這裡讀最新的狀態
   const latest = useRef({ frame, view })
   latest.current = { frame, view }
-  const areaPress = useRef({ areas: map.areas, onAreaPress })
-  areaPress.current = { areas: map.areas, onAreaPress }
 
   /** 套用新的畫面狀態（限制在縮放與平移範圍內） */
   const apply = (next: (v: MapView, f: Size) => MapView) => {
@@ -173,154 +126,19 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
     return () => observer.disconnect()
   }, [])
 
-  // 拖曳平移；雙指縮放與旋轉：記下每根手指的位置，每次移動和上一次比較
-  useLayoutEffect(() => {
-    const el = box.current!
-    const pointers = new Map<number, Point>()
-    /** 這次雙指操作累積轉了多少；超過 ROTATE_START 才開始旋轉 */
-    let twist = 0
-    let rotating = false
-    const local = (e: MouseEvent): Point => {
-      const r = el.getBoundingClientRect()
-      return { x: e.clientX - r.left, y: e.clientY - r.top }
-    }
-    const pair = () => {
-      const [a, b] = [...pointers.values()]
-      return { mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dist: Math.hypot(a.x - b.x, a.y - b.y), angle: Math.atan2(b.y - a.y, b.x - a.x) }
-    }
-
-    /** 螢幕上這一點底下的地圖位置 */
-    const mapAt = (p: Point): Vec | undefined => {
+  // 拖曳、縮放、旋轉、長按區域（useMapGestures）
+  const gestures = useRef<MapGestures>(undefined!)
+  gestures.current = {
+    apply,
+    areaAt: (p) => {
       const { frame: f, view: v } = latest.current
-      return f && v ? toMap(v, f, [p.x, p.y]) : undefined
-    }
-    /** 地圖上這一點落在哪個大區域 */
-    const areaAt = (at: Vec | undefined) => (at ? areaPress.current.areas.find((a) => a.rings.some((r) => insideRing(at, r)))?.id : undefined)
-    const pressArea = (p: Point) => {
-      const id = areaAt(mapAt(p))
-      if (id) areaPress.current.onAreaPress?.(id)
-    }
-    // 長按：一根手指按住不動 LONG_PRESS_MS 就震一下，放開時才換頁。
-    // 若按住時就換頁，放開手指時手機補的一次點擊會落在新頁面的同一個位置（例如分區清單）；
-    // 放開時地圖還在，可以在 touchend 擋掉這次點擊。移動、第二根手指都取消。
-    // 按住時手指的小抖動會拖動地圖，所以按下時就記下手指底下的地圖位置，判斷區域用它，不用之後的螢幕位置
-    let press: { timer: number; at: Point } | undefined
-    let held: { id: string; at: Point } | undefined
-    const cancelPress = () => {
-      if (press) clearTimeout(press.timer)
-      press = undefined
-    }
-
-    const down = (e: PointerEvent) => {
-      // 地圖上的按鈕照常點擊
-      if ((e.target as Element).closest('button, a')) return
-      el.setPointerCapture(e.pointerId)
-      pointers.set(e.pointerId, local(e))
-      twist = 0
-      rotating = false
-      cancelPress()
-      if (pointers.size === 1 && e.pointerType !== 'mouse') {
-        const at = local(e)
-        const where = mapAt(at)
-        press = {
-          at,
-          timer: window.setTimeout(() => {
-            press = undefined
-            const id = areaAt(where)
-            if (!id) return
-            held = { id, at }
-            navigator.vibrate?.(20)
-          }, LONG_PRESS_MS),
-        }
-      }
-    }
-    const move = (e: PointerEvent) => {
-      const prev = pointers.get(e.pointerId)
-      if (!prev) return
-      if (pointers.size === 1) {
-        const p = local(e)
-        const start = press?.at ?? held?.at
-        if (start && Math.hypot(p.x - start.x, p.y - start.y) > LONG_PRESS_SLOP_PX) {
-          cancelPress()
-          held = undefined
-        }
-        pointers.set(e.pointerId, p)
-        apply((v) => panBy(v, p.x - prev.x, p.y - prev.y))
-      } else if (pointers.size === 2) {
-        cancelPress()
-        held = undefined
-        const before = pair()
-        pointers.set(e.pointerId, local(e))
-        const after = pair()
-        if (before.dist === 0 || after.dist === 0) return
-        // 角度差換到 -π～π，避免跨過 ±180 度時跳一圈
-        const turn = Math.atan2(Math.sin(after.angle - before.angle), Math.cos(after.angle - before.angle))
-        twist += turn
-        if (!rotating && Math.abs(twist) > ROTATE_START) rotating = true
-        // 跟著兩指的中點平移，再以中點為準縮放、旋轉
-        apply((v, f) => {
-          const moved = panBy(v, after.mid.x - before.mid.x, after.mid.y - before.mid.y)
-          const zoomed = zoomAt(moved, f, after.mid, clampScale((v.s * before.dist) / after.dist, BOUNDS, f))
-          return rotating ? rotateAt(zoomed, f, after.mid, zoomed.r + turn) : zoomed
-        })
-      }
-    }
-    const up = (e: PointerEvent) => {
-      pointers.delete(e.pointerId)
-      cancelPress()
-      if (!held) return
-      if (e.type === 'pointerup') {
-        const { id } = held
-        // 等 touchend 擋掉補的點擊之後再換頁
-        setTimeout(() => areaPress.current.onAreaPress?.(id), 0)
-        // touchend 緊接在 pointerup 之後；held 留給它判斷要不要擋點擊
-      } else held = undefined
-    }
-    const touchend = (e: TouchEvent) => {
-      if (!held) return
-      held = undefined
-      e.preventDefault()
-    }
-    // 手機長按會跳出系統選單、電腦按右鍵：不顯示選單；電腦的右鍵直接當作長按
-    const contextmenu = (e: MouseEvent) => {
-      if ((e.target as Element).closest('button, a')) return
-      e.preventDefault()
-      // 觸控的長按已由計時處理，這裡只處理滑鼠右鍵（Safari 的 contextmenu 沒有 pointerType）
-      const type = (e as PointerEvent).pointerType
-      if (type ? type === 'mouse' : e.button === 2) pressArea(local(e))
-    }
-    const wheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const at = local(e)
-      apply((v, f) => zoomAt(v, f, at, clampScale(v.s * Math.exp(e.deltaY * 0.002), BOUNDS, f)))
-    }
-    const dblclick = (e: MouseEvent) => {
-      if ((e.target as Element).closest('button, a')) return
-      const at = local(e)
-      apply((v, f) => zoomAt(v, f, at, clampScale(v.s / STEP, BOUNDS, f)))
-    }
-
-    el.addEventListener('pointerdown', down)
-    el.addEventListener('pointermove', move)
-    el.addEventListener('pointerup', up)
-    el.addEventListener('pointercancel', up)
-    el.addEventListener('wheel', wheel, { passive: false })
-    el.addEventListener('dblclick', dblclick)
-    el.addEventListener('contextmenu', contextmenu)
-    el.addEventListener('touchend', touchend, { passive: false })
-    return () => {
-      el.removeEventListener('touchend', touchend)
-      cancelPress()
-      el.removeEventListener('contextmenu', contextmenu)
-      el.removeEventListener('pointerdown', down)
-      el.removeEventListener('pointermove', move)
-      el.removeEventListener('pointerup', up)
-      el.removeEventListener('pointercancel', up)
-      el.removeEventListener('wheel', wheel)
-      el.removeEventListener('dblclick', dblclick)
-    }
-    // apply 只透過 latest 讀狀態，註冊一次即可
-  }, [])
+      if (!f || !v) return undefined
+      const at = toMap(v, f, [p.x, p.y])
+      return () => map.areas.find((a) => a.rings.some((r) => insideRing(at, r)))?.id
+    },
+    onAreaPress,
+  }
+  useMapGestures(box, gestures)
 
   const me = here && project(here.coords)
 

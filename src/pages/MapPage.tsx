@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { ScaleMap, inMapBounds } from '../map/ScaleMap'
+import { inMapBounds } from '../map/bounds'
+import { ScaleMap } from '../map/ScaleMap'
 import { useGeolocation } from '../components/MyLocation'
 import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration } from '../map/calibration'
 import type { LoadedData } from '../data/dataset'
