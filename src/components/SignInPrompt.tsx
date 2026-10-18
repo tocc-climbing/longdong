@@ -1,5 +1,6 @@
+import { useEffect } from 'react'
 import { useLang } from '../i18n'
-import { signIn, useCloud } from '../personal/sync'
+import { preloadSignIn, signIn, useCloud } from '../personal/sync'
 
 /**
  * Facebook 登入：Facebook App 尚未通過上線（非開發者無法登入），暫時隱藏按鈕。
@@ -12,6 +13,10 @@ export function SignInPrompt({ message, compact = false }: { message: string; co
   const cloud = useCloud()
   const { t } = useLang()
   const offline = typeof navigator !== 'undefined' && !navigator.onLine
+  // 先下載登入程式，按下按鈕時才能馬上開出登入視窗（iOS Safari 會擋太晚開的視窗）
+  useEffect(() => {
+    if (!offline) preloadSignIn()
+  }, [offline])
   if (compact) {
     return (
       <>

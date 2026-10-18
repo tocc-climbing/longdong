@@ -90,6 +90,15 @@ export function startCloud(): void {
 export type ProviderName = 'google' | 'facebook'
 const PROVIDER_LABEL: Record<ProviderName, string> = { google: 'Google', facebook: 'Facebook' }
 
+/**
+ * 畫面出現登入按鈕時先下載 Firebase 程式（不改變登入狀態）。
+ * iPhone／iPad 的 Safari 只在「按下按鈕的當下」允許開新視窗；第一次按時若還要等程式下載，
+ * 登入視窗會被擋，改走整頁跳轉又被跨網域保護擋掉，變成第一次登入失敗、第二次才成功。
+ */
+export function preloadSignIn(): void {
+  import('./firebase').catch(() => {})
+}
+
 export async function signIn(provider: ProviderName = 'google'): Promise<void> {
   set({ error: undefined })
   try {
