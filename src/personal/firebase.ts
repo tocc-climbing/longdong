@@ -8,6 +8,7 @@ import { initializeApp } from 'firebase/app'
 import {
   FacebookAuthProvider,
   GoogleAuthProvider,
+  connectAuthEmulator,
   deleteUser,
   getAuth,
   getRedirectResult,
@@ -21,7 +22,7 @@ import {
   type AuthProvider,
   type User,
 } from 'firebase/auth'
-import { get, getDatabase, onValue, push, ref, remove, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
+import { connectDatabaseEmulator, get, getDatabase, onValue, push, ref, remove, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
 import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
 
 const app = initializeApp({
@@ -34,6 +35,12 @@ const app = initializeApp({
 
 const auth = getAuth(app)
 const db = getDatabase(app)
+
+// 端對端測試（npm run test:e2e，vite build --mode e2e）用 Firebase 模擬器
+if (import.meta.env.MODE === 'e2e') {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectDatabaseEmulator(db, '127.0.0.1', 9000)
+}
 
 export type { User }
 

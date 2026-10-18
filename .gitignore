@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dev-dist/
+dist-e2e/
 .cache/
 *.log
 .DS_Store

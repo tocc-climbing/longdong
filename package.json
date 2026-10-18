@@ -17,6 +17,7 @@
     "scale-map": "tsx scripts/gen-scale-map.ts",
     "test": "vitest run",
     "check:text": "tsx scripts/check-text-overflow.ts",
+    "test:e2e": "vite build --mode e2e --outDir dist-e2e && npx -y firebase-tools@15.33.0 emulators:exec --config firebase.e2e.json --only auth,database --project demo-longdong \"tsx scripts/e2e-report.ts\"",
     "test:rules": "npx -y firebase-tools@15.33.0 emulators:exec --only database --project demo-longdong \"vitest run --config vitest.rules.config.ts\"",
     "typecheck": "tsc --noEmit"
   },
