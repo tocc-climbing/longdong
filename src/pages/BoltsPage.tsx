@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { BOLT_SERIES, boltStats, seriesOf, type BoltSeries, type SeriesCounts, type YearRow } from '../boltStats'
+import { roundedTop } from '../components/Charts'
 import type { LoadedData } from '../data/dataset'
 import { localName, useLang, type Translate } from '../i18n'
 import { href } from '../router'
@@ -184,7 +185,7 @@ function YearChart({ years, t }: { years: YearRow[]; t: Translate }) {
                 base -= h
                 const last = j === segments.length - 1
                 return last ? (
-                  <path key={s} d={roundedTop(x, base, barW, h, Math.min(4, barW / 2, h))} fill={seriesColor(s)} className="seg" />
+                  <path key={s} d={roundedTop(x, base, barW, h, Math.min(4, barW / 2))} fill={seriesColor(s)} className="seg" />
                 ) : (
                   <rect key={s} x={x} y={base} width={barW} height={h} fill={seriesColor(s)} className="seg" />
                 )
@@ -215,9 +216,4 @@ function YearChart({ years, t }: { years: YearRow[]; t: Translate }) {
       </figcaption>
     </figure>
   )
-}
-
-/** 上方兩角圓、底部貼齊基準線的長條 */
-function roundedTop(x: number, y: number, w: number, h: number, r: number): string {
-  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`
 }

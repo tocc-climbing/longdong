@@ -69,8 +69,8 @@ export function MonthlyChart({ months }: { months: MonthCount[] }) {
   )
 }
 
-/** 上方圓角、底部貼齊基線的長條 */
-function roundedTop(x: number, y: number, w: number, h: number, r: number): string {
+/** 上方圓角、底部貼齊基線的長條（SVG path）；圓角不超過高度 */
+export function roundedTop(x: number, y: number, w: number, h: number, r: number): string {
   const rr = Math.min(r, h)
   return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`
 }
