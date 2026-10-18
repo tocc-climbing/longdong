@@ -24,6 +24,15 @@
         ]
       },
       {
+        "regex": "^/((area|sector|route|search|me|about|rescue|map|calibrate)(/.*)?)?$",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
         "source": "**/*.@(html|json|geojson|webmanifest)",
         "headers": [
           {

@@ -105,7 +105,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 網站在 Firebase Hosting（站台 `longdong`，https://longdong.web.app/）。`main` 受保護，改動經由 PR 合併；合併後 `.github/workflows/deploy.yml` 自動 build，並部署到 Firebase Hosting。流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 - 部署金鑰：Firebase 服務帳號的金鑰存在 repo 的 Secrets（`FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321`），由專案管理者以 `firebase init hosting:github` 建立。
-- 快取：`firebase.json` 設定 `assets/`（檔名含雜湊）可長期快取，HTML、JSON、Service Worker 每次都向伺服器確認。
+- 快取：`firebase.json` 設定 `assets/`（檔名含雜湊）可長期快取；頁面（`/`、`/area/…`、`/route/…` 等不帶副檔名的網址，以 `regex` 列出）、HTML、JSON、Service Worker 每次都向伺服器確認，新版上線後不會拿到舊頁面、找不到已刪除的舊檔案。
 
 網址用相對路徑、路由用 hash，所以放在子路徑或自訂網域都可以。
 
