@@ -63,9 +63,16 @@ export function App() {
       window.removeEventListener('keydown', mark)
     }
   }, [])
+  // 自動更新時不顯示「有新版本」：提示會在重新載入前閃一下就消失。
+  // 在繪製時就決定（不能等 effect，否則第一次畫面還是會出現）；5 秒後還沒換成新版（例如重新載入失敗）才顯示
+  const autoUpdate = useMemo(() => needRefresh && !interacted.current && performance.now() < AUTO_UPDATE_MS, [needRefresh])
+  const [autoFailed, setAutoFailed] = useState(false)
   useEffect(() => {
-    if (needRefresh && !interacted.current && performance.now() < AUTO_UPDATE_MS) applyUpdate.current?.()
-  }, [needRefresh])
+    if (!autoUpdate) return
+    applyUpdate.current?.()
+    const timer = setTimeout(() => setAutoFailed(true), 5_000)
+    return () => clearTimeout(timer)
+  }, [autoUpdate])
 
   // 評分（路線清單顯示平均星等）在背景載入；離線時用 Service Worker 快取的上一份。
   // 從背景回來時重新讀取，看得到別人新的評分
@@ -118,7 +125,7 @@ export function App() {
     if (needRefresh) void fetchLatestVersion().then(setLatest)
   }, [needRefresh])
 
-  const banner = needRefresh && (
+  const banner = needRefresh && (!autoUpdate || autoFailed) && (
     <div className="banner">
       {latest ? t('app.updateAvailableVersion', { version: latest.version }) : t('app.updateAvailable')}
       <button onClick={() => updateServiceWorker(true)}>{t('app.update')}</button>
