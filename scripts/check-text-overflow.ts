@@ -68,6 +68,13 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
       await page.waitForSelector('.sheet[open] .chip')
     },
   },
+  {
+    name: 'Bolt 統計（含數字表格）',
+    path: '/bolts',
+    prepare: async (page) => {
+      await page.click('.bolt-table-toggle summary')
+    },
+  },
   { name: '關於', path: '/about' },
 ]
 

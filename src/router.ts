@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { isWide } from './layout'
 
 /**
- * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map、/reports（id 本身含 "/"）。
+ * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map、/reports、/bolts（id 本身含 "/"）。
  * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
  * 伺服器（Firebase Hosting）把所有路徑都交給 index.html；站內連結由這裡攔下來換頁，不重新載入。
  */
@@ -17,6 +17,7 @@ export type Page = (
   | { name: 'rescue'; id?: string }
   | { name: 'map' }
   | { name: 'reports' }
+  | { name: 'bolts' }
 ) & { detail?: string }
 
 /** 解析網址的路徑與查詢字串（/area/…?r=…） */
@@ -35,6 +36,7 @@ export function parseLocation(location: string): Page {
   if (kind === 'about') return { name: 'about' }
   if (kind === 'map') return { name: 'map' }
   if (kind === 'reports') return { name: 'reports' }
+  if (kind === 'bolts') return { name: 'bolts' }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
   return { name: 'home' }
 }
@@ -54,6 +56,8 @@ export const href = {
   map: () => '/map',
   /** 管理員：所有人的地圖回報 */
   reports: () => '/reports',
+  /** Bolt 統計：依安裝年份、材質、區域 */
+  bolts: () => '/bolts',
 }
 
 /** 目前的網址（路徑＋查詢字串） */

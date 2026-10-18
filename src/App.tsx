@@ -26,6 +26,7 @@ import { neighbors, useSwipe, type Dir, type Neighbor, type Neighbors } from './
 /** 地圖用到的程式與資料較多，分開打包，打開地圖時才載入 */
 const MapPage = lazy(() => import('./pages/MapPage').then((m) => ({ default: m.MapPage })))
 /** 管理員的回報紀錄，只有少數人用 */
+const BoltsPage = lazy(() => import('./pages/BoltsPage').then((m) => ({ default: m.BoltsPage })))
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 
 /** 開啟後這段時間內發現新版本就直接換上（毫秒） */
@@ -236,6 +237,12 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
           <MapPage data={data} />
         </Suspense>
       )
+    case 'bolts':
+      return (
+        <Suspense>
+          <BoltsPage data={data} />
+        </Suspense>
+      )
     case 'reports':
       return (
         <Suspense>
@@ -314,7 +321,7 @@ function desktopView(page: Page, data: LoadedData): DesktopView {
   const closeHref = withDetail(here(), undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
   if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports')
+  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'bolts')
 }
 
 function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {
