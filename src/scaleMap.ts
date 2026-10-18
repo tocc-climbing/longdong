@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { LatLng } from './geo'
+import type { LoadedData } from './data/dataset'
+import { AREA_RESCUE } from './data/rescue'
+import { localName, type Lang } from './i18n'
 
 /**
  * 照比例尺的龍洞簡圖（scripts/gen-scale-map.ts 由救援資訊圖產生，放在 public/rescue/，在離線快取裡）。
@@ -37,6 +40,16 @@ export interface ScaleMapData {
 const ORIGIN: LatLng = [25.107, 121.92]
 const M_PER_DEG_LAT = 6_371_000 * (Math.PI / 180)
 const M_PER_DEG_LNG = M_PER_DEG_LAT * Math.cos((ORIGIN[0] * Math.PI) / 180)
+
+/** 9 個大區域在地圖上的名稱（大區域 key → 名稱，依語言） */
+export function areaNames(data: LoadedData, lang: Lang): Record<string, string> {
+  return Object.fromEntries(
+    Object.keys(AREA_RESCUE).map((key) => {
+      const name = data.areaById.get(`${data.dataset.crag.id}/${key}`)?.name
+      return [key, name ? localName(name, lang).main : key]
+    }),
+  )
+}
 
 /** 經緯度 → 畫面座標（公尺） */
 export function project([lat, lng]: LatLng): [number, number] {

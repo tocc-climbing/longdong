@@ -10,7 +10,7 @@ export const TABS = [
 
 export function activeTab(page: Page): (typeof TABS)[number]['key'] {
   if (page.name === 'map') return 'map'
-  if (page.name === 'me' || page.name === 'about') return 'me'
+  if (page.name === 'me' || page.name === 'about' || page.name === 'reports') return 'me'
   return 'crags'
 }
 

@@ -27,14 +27,18 @@ function set(patch: Partial<CloudState>) {
   for (const l of listeners) l()
 }
 
+/** React 以外的程式（例如背景上傳回報）讀取與訂閱登入狀態 */
+export function getCloud(): CloudState {
+  return state
+}
+
+export function subscribeCloud(l: () => void): () => void {
+  listeners.add(l)
+  return () => listeners.delete(l)
+}
+
 export function useCloud(): CloudState {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l)
-      return () => listeners.delete(l)
-    },
-    () => state,
-  )
+  return useSyncExternalStore(subscribeCloud, getCloud)
 }
 
 // 記住這台裝置曾經登入過：下次開啟時才自動載入 Firebase；沒登入過的人完全不載入

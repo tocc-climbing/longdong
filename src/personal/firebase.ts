@@ -192,6 +192,11 @@ export async function reportComment(uid: string, routeId: string, id: string, re
   })
 }
 
+/** 所有人上傳的回報（v2/calibration）：只有管理員讀得到，其他人會被規則拒絕 */
+export async function loadCalibrationUploads(): Promise<Record<string, Record<string, { geojson: string; createdAt: number }>>> {
+  return ((await get(ref(db, 'v2/calibration'))).val() ?? {}) as Record<string, Record<string, { geojson: string; createdAt: number }>>
+}
+
 /** 上傳比例尺地圖的現場校正記錄（GeoJSON 文字）；只有本人與管理員讀得到 */
 export async function uploadCalibration(uid: string, geojson: string): Promise<void> {
   await push(ref(db, `v2/calibration/${uid}`), { geojson, createdAt: serverTimestamp() })

@@ -15,6 +15,7 @@ import { setThemeSetting, useThemeSetting, type ThemeSetting } from '../theme'
 import { deleteMyAccount, rename } from '../social/actions'
 import { NAME_MAX } from '../social/model'
 import { displayName, useSocial } from '../social/store'
+import { useIsAdmin } from '../admin'
 import { href, useRouteLink } from '../router'
 import { APP_VERSION, formatVersion } from '../version'
 
@@ -224,6 +225,7 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
 
 function Settings({ uid, email }: { uid: string; email: string }) {
   const { t } = useLang()
+  const admin = useIsAdmin()
   return (
     <section className="card settings">
       <NameEditor uid={uid} />
@@ -233,6 +235,7 @@ function Settings({ uid, email }: { uid: string; email: string }) {
       <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
+        {admin && <a href={href.reports()}>{t('me.reports')}</a>}
         <button className="link-button" onClick={() => confirm(t('me.confirmSignOut')) && void signOut()}>
           {t('me.signOut')}
         </button>

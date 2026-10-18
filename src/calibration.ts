@@ -1,10 +1,11 @@
+import { useSyncExternalStore } from 'react'
 import type { LatLng } from './geo'
-import { withCloud } from './personal/sync'
+import { getCloud, subscribeCloud, withCloud } from './personal/sync'
 
 /**
  * 比例尺地圖的現場回報：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明。
- * 記錄存在這支手機上，登入後上傳到資料庫（v2/calibration/<uid>，只有本人與管理員讀得到），
- * 再把校正點加進 scripts/gen-scale-map.ts 的控制點。
+ * 記錄存在這支手機上，整個 App 共用一份；登入且連上網路時在背景自動上傳（v2/calibration/<uid>，
+ * 只有本人與管理員讀得到），不必停在地圖頁。再把校正點加進 scripts/gen-scale-map.ts 的控制點。
  * （網頁在背景或螢幕關閉時無法定位，所以不記錄軌跡。）
  */
 
@@ -33,29 +34,6 @@ export function hasUnuploaded({ marks, uploaded }: Calibration): boolean {
   return !uploaded || uploaded.marks !== marks.length
 }
 
-/** 上傳目前的全部記錄（每次上傳都是完整的一份，新的一份取代舊的） */
-export async function uploadCalibration(data: Calibration): Promise<Calibration['uploaded']> {
-  const { m, uid } = await withCloud()
-  await m.uploadCalibration(uid, JSON.stringify(toGeoJSON(data)))
-  return { time: Date.now(), marks: data.marks.length }
-}
-
-const STORAGE_KEY = 'longdong.calibration'
-
-export function loadCalibration(): Calibration {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as Calibration) : { marks: [] }
-  } catch {
-    return { marks: [] }
-  }
-}
-
-/** 存在這支手機上；存不了（私密瀏覽、空間不足）時丟出錯誤，由畫面提醒 */
-export function saveCalibration(data: Calibration): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-}
-
 const lngLat = ([lat, lng]: LatLng) => [lng, lat]
 const iso = (time: number) => new Date(time).toISOString()
 
@@ -69,4 +47,95 @@ export function toGeoJSON({ marks }: Calibration): object {
       geometry: { type: 'Point', coordinates: lngLat(m.coords) },
     })),
   }
+}
+
+// ── 手機上的記錄（整個 App 共用一份） ────────────────────────
+
+const STORAGE_KEY = 'longdong.calibration'
+
+function load(): Calibration {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as Calibration) : { marks: [] }
+  } catch {
+    return { marks: [] }
+  }
+}
+
+let state: Calibration | undefined
+const listeners = new Set<() => void>()
+const current = () => (state ??= load())
+
+/** 上傳或存檔的結果，給地圖頁顯示提示 */
+export type CalibrationEvent = { kind: 'sent' } | { kind: 'failed'; error: string } | { kind: 'saveError' }
+const eventListeners = new Set<(e: CalibrationEvent) => void>()
+const emit = (e: CalibrationEvent) => eventListeners.forEach((l) => l(e))
+
+function commit(next: Calibration) {
+  state = next
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // 私密瀏覽、空間不足：這次還在記憶體裡，提醒先登入上傳
+    emit({ kind: 'saveError' })
+  }
+  listeners.forEach((l) => l())
+}
+
+export function useCalibration(): Calibration {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l)
+      return () => listeners.delete(l)
+    },
+    current,
+  )
+}
+
+export function onCalibrationEvent(l: (e: CalibrationEvent) => void): () => void {
+  eventListeners.add(l)
+  return () => eventListeners.delete(l)
+}
+
+/** 新增一筆回報，排進上傳 */
+export function addMark(mark: Mark): void {
+  const c = current()
+  commit({ ...c, marks: [...c.marks, mark], queued: true })
+  void flush()
+}
+
+// ── 背景上傳 ────────────────────────────────────────────────
+
+let uploading = false
+
+/** 有排隊的記錄、已登入、連上網路時上傳（每次都是完整的一份，新的一份取代舊的） */
+async function flush(): Promise<void> {
+  const cloud = getCloud()
+  if (uploading || !current().queued || cloud.status !== 'signed-in' || !cloud.connected) return
+  uploading = true
+  const sent = current()
+  try {
+    const { m, uid } = await withCloud()
+    await m.uploadCalibration(uid, JSON.stringify(toGeoJSON(sent)))
+    const latest = current()
+    const uploaded = { time: Date.now(), marks: sent.marks.length }
+    // 上傳途中又新增的記錄，留著下一次上傳
+    commit({ ...latest, uploaded, queued: hasUnuploaded({ ...latest, uploaded }) })
+    emit({ kind: 'sent' })
+  } catch (err) {
+    // 失敗時不馬上重試（避免一直失敗一直重試），等下一次登入狀態、連線改變或新增回報
+    emit({ kind: 'failed', error: (err as Error).message })
+    return
+  } finally {
+    uploading = false
+  }
+  // 上傳途中又新增的記錄
+  if (current().queued) void flush()
+}
+
+/** App 啟動時呼叫：登入、連上網路（含 Firebase 重新連線）時檢查有沒有要上傳的回報 */
+export function startCalibrationSync(): void {
+  subscribeCloud(() => void flush())
+  window.addEventListener('online', () => void flush())
+  void flush()
 }

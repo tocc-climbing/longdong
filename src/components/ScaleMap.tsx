@@ -120,8 +120,8 @@ interface Props {
   areaNames: Record<string, string>
   here?: { coords: LatLng; accuracy: number }
   marks: LatLng[]
-  /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去；在範圍外時地圖不動，由外層說明 */
-  onLocate: () => void
+  /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去；在範圍外時地圖不動，由外層說明。沒有時不顯示這個按鈕 */
+  onLocate?: () => void
   /** 長按（電腦為按右鍵）區域時：大區域 key */
   onAreaPress?: (area: string) => void
   /** 左上角的按鈕（測試版說明、回報） */
@@ -339,7 +339,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
     if (me) {
       if (inBounds(me)) goToMe(me)
     } else pendingCenter.current = true
-    onLocate()
+    onLocate?.()
   }
 
   if (!frame || !view) {
@@ -472,13 +472,15 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
             －
           </button>
         </div>
-        <button type="button" className={`sm-control sm-locate${me ? ' on' : ''}`} onClick={locate} aria-label={t('map.locate')} title={t('map.locate')}>
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
-            <circle cx="12" cy="12" r="4" fill="currentColor" />
-            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </button>
+        {onLocate && (
+          <button type="button" className={`sm-control sm-locate${me ? ' on' : ''}`} onClick={locate} aria-label={t('map.locate')} title={t('map.locate')}>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+              <circle cx="12" cy="12" r="4" fill="currentColor" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+            </svg>
+          </button>
+        )}
       </div>
 
 

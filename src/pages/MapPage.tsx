@@ -2,15 +2,15 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ScaleMap, inMapBounds } from '../components/ScaleMap'
 import { SignInPrompt } from '../components/SignInPrompt'
 import { useGeolocation } from '../components/MyLocation'
-import { hasUnuploaded, loadCalibration, saveCalibration, uploadCalibration, type Calibration } from '../calibration'
+import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration } from '../calibration'
 import type { LoadedData } from '../data/dataset'
-import { AREA_RESCUE, RESCUE_POINTS, formatCoords } from '../data/rescue'
+import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { nearestPoints } from '../geo'
 import { localName, useLang, type MessageKey, type Translate } from '../i18n'
 import { useCloud } from '../personal/sync'
 import { reportOptions, type ReportOption } from '../reportOptions'
 import { href, navigate } from '../router'
-import { project, useScaleMap } from '../scaleMap'
+import { areaNames, project, useScaleMap } from '../scaleMap'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
@@ -23,42 +23,36 @@ const TOAST_MS = 4000
 /**
  * 地圖（/map）：照比例尺的龍洞地圖，打開就開始定位。
  * 地圖還在校正：第一次使用先說明可能有誤差；左上「回報」依目前位置列出附近的地點，選一下就記錄下來。
- * 記錄先存在手機上，登入且連上網路時自動上傳（v2/calibration），用來校正地圖。
+ * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/calibration.ts，不必停在這一頁），用來校正地圖。
  */
 export function MapPage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
   const map = useScaleMap()
   const [geo, start] = useGeolocation()
   const cloud = useCloud()
-  const [records, setRecords] = useState<Calibration>(loadCalibration)
+  const records = useCalibration()
   const [intro, setIntro] = useState(() => !seenIntro())
   const [reporting, setReporting] = useState(false)
   const [toast, setToast] = useState<string>()
-  const [uploading, setUploading] = useState(false)
 
-  const areaNames = Object.fromEntries(
-    Object.keys(AREA_RESCUE).map((key) => {
-      const name = data.areaById.get(`${data.dataset.crag.id}/${key}`)?.name
-      return [key, name ? localName(name, lang).main : key]
-    }),
-  )
+  const names = areaNames(data, lang)
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
   /** 定位到了但不在地圖範圍內：不能回報；離最近的救援點多遠 */
   const outside = fix && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
   const distance = (m: number) => (m < 1000 ? t('myloc.m', { n: Math.round(m) }) : t('myloc.km', { n: (m / 1000).toFixed(1) }))
   const signedIn = cloud.status === 'signed-in'
-  const online = signedIn && cloud.connected
 
   // 打開地圖就開始定位（瀏覽器第一次會詢問權限）
   useEffect(start, [])
 
-  useEffect(() => {
-    try {
-      saveCalibration(records)
-    } catch {
-      setToast(t('map.saveError'))
-    }
-  }, [records])
+  // 背景上傳、存檔的結果
+  useEffect(
+    () =>
+      onCalibrationEvent((e) =>
+        setToast(e.kind === 'sent' ? t('map.sent') : e.kind === 'failed' ? t('map.uploadFailed', { error: e.error }) : t('map.saveError')),
+      ),
+    [t],
+  )
 
   useEffect(() => {
     if (!toast) return
@@ -66,22 +60,9 @@ export function MapPage({ data }: { data: LoadedData }) {
     return () => clearTimeout(timer)
   }, [toast])
 
-  // 有沒上傳的記錄，且已登入、連上網路：自動上傳（每次都是完整的一份）
-  useEffect(() => {
-    if (!records.queued || !online || uploading) return
-    setUploading(true)
-    uploadCalibration(records)
-      .then((uploaded) => {
-        setRecords((r) => ({ ...r, uploaded, queued: hasUnuploaded({ ...r, uploaded }) }))
-        setToast(t('map.sent'))
-      })
-      .catch((err: Error) => setToast(t('map.uploadFailed', { error: err.message })))
-      .finally(() => setUploading(false))
-  }, [records.queued, online, uploading])
-
   const report = (note: string) => {
     if (!fix) return
-    setRecords((r) => ({ ...r, marks: [...r.marks, { ...fix, note }], queued: true }))
+    addMark({ ...fix, note })
     setReporting(false)
     if (!signedIn) setToast(t('map.needSignIn'))
     else if (!cloud.connected) setToast(t('map.queued'))
@@ -103,7 +84,7 @@ export function MapPage({ data }: { data: LoadedData }) {
       {map.status === 'ok' ? (
         <ScaleMap
           map={map.data}
-          areaNames={areaNames}
+          areaNames={names}
           here={fix}
           marks={records.marks.map((m) => m.coords)}
           onAreaPress={(key) => navigate(href.area(`${data.dataset.crag.id}/${key}`))}
@@ -168,7 +149,7 @@ export function MapPage({ data }: { data: LoadedData }) {
           <ReportForm
             fix={fix}
             options={fix ? reportOptions(project(fix.coords), map.data, RESCUE_POINTS) : []}
-            areaNames={areaNames}
+            areaNames={names}
             onSubmit={report}
             onCancel={() => setReporting(false)}
           />

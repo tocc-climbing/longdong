@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { initI18n } from './i18n'
 import { startCloud } from './personal/sync'
+import { startCalibrationSync } from './calibration'
 import './styles.css'
 
 // 請瀏覽器把離線資料標為持久保存，降低被系統清除的機會（iOS 需先加入主畫面）
@@ -13,6 +14,8 @@ navigator.storage?.persist?.().catch(() => {})
 
 // 曾經登入過的裝置，自動恢復雲端同步（沒登入過的不會載入 Firebase）
 startCloud()
+// 回報在背景上傳，不必停在地圖頁
+startCalibrationSync()
 
 // 先載入目前語言的語言包再顯示畫面（語言包分開打包，只載入用到的那一個）
 void initI18n().then(() =>
