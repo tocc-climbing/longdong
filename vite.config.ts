@@ -6,9 +6,9 @@ import { appVersion } from './scripts/lib/appVersion'
 
 const version = appVersion()
 
-// base 用相對路徑，部署在 GitHub Pages 子路徑或自訂網域都能運作（路由用 hash）
+// 網址不帶 #（/area/…、/route/…），資源一律從網站根目錄讀；伺服器把所有路徑交給 index.html（firebase.json 的 rewrites）
 export default defineConfig({
-  base: './',
+  base: '/',
   define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [
     react(),
@@ -26,8 +26,8 @@ export default defineConfig({
         short_name: '龍洞',
         description: '龍洞攀岩路線與 Bolt 資訊，離線可用',
         lang: 'zh-Hant-TW',
-        start_url: './',
-        scope: './',
+        start_url: '/',
+        scope: '/',
         display: 'standalone',
         background_color: '#f6f4ef',
         theme_color: '#1f4e5f',
@@ -40,11 +40,12 @@ export default defineConfig({
       workbox: {
         // App 和完整路線資料一起預先快取，沒有訊號也能使用
         globPatterns: ['**/*.{js,css,html,svg,png,webp,json,geojson}'],
-        globIgnores: ['**/node_modules/**/*', 'version.json'],
+        // 路線分享頁（route/）每條路線一頁、內容同 index.html，不必預先快取：離線時由 navigateFallback 回 index.html
+        globIgnores: ['**/node_modules/**/*', 'version.json', 'route/**'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
-        // 路線分享頁（route/<路線ID>/）是建置後產生的靜態頁，交給網路，不要換成 App 本身
-        navigateFallbackDenylist: [/\/route\//],
+        // Firebase 的保留路徑（/__/auth/handler 等，登入用）交給網路
+        navigateFallbackDenylist: [/^\/__\//],
         // 評分、留言、暱稱：有網路時讀最新，離線時用最後一次讀到的
         runtimeCaching: [
           {

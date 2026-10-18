@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { RouteList } from '../components/RouteList'
 import { useWide } from '../layout'
-import { href, replaceHash } from '../router'
+import { href, navigate } from '../router'
 import { buildIndex, search } from '../search'
 import { useLang, type Lang } from '../i18n'
 
@@ -31,7 +31,7 @@ export function SearchPage({ data, query, detail }: { data: LoadedData; query: s
     if (!query) (wide ? document.getElementById('sidebar-search') : input.current)?.focus()
   }, [query, wide])
 
-  const onChange = (q: string) => replaceHash(href.search(q, detail))
+  const onChange = (q: string) => navigate(href.search(q, detail), { replace: true })
 
   return (
     <>

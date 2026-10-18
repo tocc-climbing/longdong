@@ -14,11 +14,10 @@ const ref = (sectors: number, number?: string, grade?: string) => {
 }
 
 describe('分享路線', () => {
-  it('分享網址是路線的分享頁，去掉目前的 hash、查詢字串與檔名', () => {
-    const page = 'https://tocc-climbing.github.io/longdong/route/longdong/jar2yu/'
-    expect(routeUrl('https://tocc-climbing.github.io/longdong/', 'longdong/jar2yu')).toBe(page)
-    expect(routeUrl('https://tocc-climbing.github.io/longdong/#/me', 'longdong/jar2yu')).toBe(page)
-    expect(routeUrl('https://tocc-climbing.github.io/longdong/index.html?x=1', 'longdong/jar2yu')).toBe(page)
+  it('分享網址就是路線頁的網址（不帶 #）；網站在子路徑時也正確', () => {
+    expect(routeUrl('https://longdong.web.app/', 'longdong/jar2yu')).toBe('https://longdong.web.app/route/longdong/jar2yu')
+    expect(routeUrl('https://longdong.web.app', 'longdong/jar2yu')).toBe('https://longdong.web.app/route/longdong/jar2yu')
+    expect(routeUrl('https://example.org/longdong/', 'longdong/jar2yu')).toBe('https://example.org/longdong/route/longdong/jar2yu')
   })
 
   it('之前分享出去的 ?route= 網址：從查詢字串取出路線ID，忽略 fbclid 等其他參數', () => {
@@ -30,7 +29,7 @@ describe('分享路線', () => {
   })
 
   it('各 App 的分享網址：LINE 帶文字與網址，Facebook／Messenger 只帶網址', () => {
-    const url = 'https://tocc-climbing.github.io/longdong/route/longdong/jar2yu/'
+    const url = 'https://longdong.web.app/route/longdong/jar2yu'
     const line = new URL(targetUrl('line', url, '#102 拉斯塔法里海鳥'))
     expect(line.origin + line.pathname).toBe('https://line.me/R/share')
     expect(line.searchParams.get('text')).toBe(`#102 拉斯塔法里海鳥

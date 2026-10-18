@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { hasUnuploaded, loadCalibration, toGeoJSON, type Fix } from '../src/calibration'
 import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
-import { parseHash } from '../src/router'
+import { parseLocation } from '../src/router'
 import { centroid } from '../src/scaleMap'
 
 const fix = (lat: number, lng: number, accuracy = 5, time = 0): Fix => ({ coords: [lat, lng], accuracy, time })
@@ -82,8 +82,8 @@ describe('比例尺地圖資料', () => {
     }
   })
 
-  it('#/map 是地圖；舊的校正頁網址轉到地圖', () => {
-    expect(parseHash('#/map')).toEqual({ name: 'map' })
-    expect(parseHash('#/calibrate')).toEqual({ name: 'map' })
+  it('/map 是地圖；舊的校正頁網址轉到地圖', () => {
+    expect(parseLocation('/map')).toEqual({ name: 'map' })
+    expect(parseLocation('/calibrate')).toEqual({ name: 'map' })
   })
 })

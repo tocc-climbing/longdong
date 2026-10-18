@@ -112,7 +112,9 @@ npm run preview      # 預覽 build 結果，可測試離線
 **版號**是「主.次.提交數」（例如 `1.0.65 (0968ddc)`），建置時自動產生（`scripts/lib/appVersion.ts`）：主、次版號寫在 `package.json`，大改版時手動調；最後一碼是 commit 的提交數，main 每合併一個 PR 自動加一。
 版號顯示在關於頁、「我的 → 設定」最下方，以及「有新版本」的提示（讀 `version.json`，不在離線快取裡）。版號需要完整的 git 歷史，workflow 的 checkout 都設了 `fetch-depth: 0`。
 
-分享路線用的網址是 `route/<路線ID>/`：`npm run build` 最後替每條路線產生一個小頁面（`scripts/gen-share-pages.ts`），帶有這條路線的預覽資訊（Facebook、LINE 的預覽卡片），開啟時轉到 App 的路線頁。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
+網址不帶 `#`（`/area/…`、`/route/…`、`/map`）：`firebase.json` 把所有路徑交給 `index.html`，站內連結由 `src/router.ts` 換頁；舊網址的 `#/…` 開啟時轉成對應的路徑。
+
+分享路線的網址就是路線頁（`/route/<路線ID>`）：`npm run build` 最後替每條路線產生 `dist/route/<路線ID>.html`（`scripts/gen-share-pages.ts`），內容是 `index.html` 換上這條路線的預覽資訊，Facebook、LINE 的預覽卡片才看得到路線；`firebase.json` 的 `cleanUrls` 讓網址不帶 `.html`。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
 
 ## 介面語言
 
@@ -124,7 +126,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 ## 救援資訊
 
-首頁與各區域頁的「救援」按鈕進入救援資訊（`#/rescue`、`#/rescue/<大區域>`）：緊急電話、通報群組、該區的救援局部圖與就近救援點、整張救援資訊圖、救援點 GPS 座標、急救器材位置，全部在離線快取裡。「我的位置」用手機 GPS 取得目前座標（可複製唸給 119），並列出最近的救援點、距離與方位（`src/geo.ts`）；GPS 不需要網路。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
+首頁與各區域頁的「救援」按鈕進入救援資訊（`/rescue`、`/rescue/<大區域>`）：緊急電話、通報群組、該區的救援局部圖與就近救援點、整張救援資訊圖、救援點 GPS 座標、急救器材位置，全部在離線快取裡。「我的位置」用手機 GPS 取得目前座標（可複製唸給 119），並列出最近的救援點、距離與方位（`src/geo.ts`）；GPS 不需要網路。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
 
 救援資訊圖改版時，用新的 `.ai`（或 `.pdf`）重新產生圖片（需要 Node.js 22 以上）：
 
@@ -148,7 +150,7 @@ npm run rescue-map -- <救援資訊圖.ai>
 
 OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetMap contributors，ODbL），地圖右上會標示出處。成果用內政部國土測繪中心的正射影像目視核對過；影像只用來核對，沒有從影像取資料。
 
-控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`#/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），打開就開始定位；
+控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），打開就開始定位；
 第一次使用會說明地圖還在校正、可能有誤差。左上「回報」依目前位置列出附近的區域、救援點與標示（`src/reportOptions.ts`）；網頁在背景或螢幕關閉時無法定位，所以不記錄軌跡。
 記錄先存在手機上，登入且連上網路時自動上傳到 `v2/calibration/<uid>`（只有本人與管理員讀得到）。校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
 
@@ -157,7 +159,7 @@ OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetM
 - `tocc-climbing.github.io/longdong`（2026-10-18 以前的網址）：GitHub Pages 只放 `github-pages-redirect/`。
   - `index.html`、`404.html` 用 JavaScript 轉到 longdong.web.app，保留路徑、查詢字串與 `#`。
   - `sw.js` 讓已安裝的舊版 App 清掉離線快取、取消註冊後重新載入，轉到新網址。
-  - 分享頁（`route/`）也放一份，舊的分享連結照常可用。
+  - 舊的分享連結（`route/…/`）由 `404.html` 轉到新網址的同一個路徑。
 - `longdong.climbio.org`（CNAME 指向 `longdong.firebaseapp.com`）：和 longdong.web.app 是同一個站台。
 - 瀏覽器的本機資料依網址分開存放，沒有登入的人在舊網址的收藏、攀登紀錄不會跟到新網址；有登入的人登入後由雲端同步。
 

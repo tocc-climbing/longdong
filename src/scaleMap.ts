@@ -85,7 +85,7 @@ async function fetchJSON(url: string): Promise<FeatureCollection> {
 }
 
 export async function loadScaleMap(): Promise<ScaleMapData> {
-  const [base, areas] = await Promise.all([fetchJSON('rescue/scale-map.geojson'), fetchJSON('rescue/areas.geojson')])
+  const [base, areas] = await Promise.all([fetchJSON(`${import.meta.env.BASE_URL}rescue/scale-map.geojson`), fetchJSON(`${import.meta.env.BASE_URL}rescue/areas.geojson`)])
   return {
     layers: Object.fromEntries(
       base.features.flatMap((f) => (f.geometry.type === 'Point' ? [] : [[f.properties.kind!, toPath(f.geometry)]])),

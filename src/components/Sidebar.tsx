@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { sectorColor } from '../format'
 import { localName, useLang } from '../i18n'
-import { href, replaceHash, type Page } from '../router'
+import { href, navigate, type Page } from '../router'
 import type { Level } from '../keyboard'
 import { TABS, activeTab } from './BottomNav'
 
@@ -20,8 +20,8 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
   }, [kbdLevel, here.area, here.sector])
 
   const onSearch = (q: string) => {
-    if (page.name === 'search') replaceHash(href.search(q, page.detail))
-    else location.hash = href.search(q)
+    if (page.name === 'search') navigate(href.search(q, page.detail), { replace: true })
+    else navigate(href.search(q))
   }
 
   return (

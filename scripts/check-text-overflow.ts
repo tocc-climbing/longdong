@@ -21,30 +21,30 @@ const VIEWPORTS = [
 ]
 
 /** 名稱最長的幾條路線，與一般的頁面 */
-const PAGES: { name: string; hash: string; prepare?: (page: Page, mobile: boolean) => Promise<void> }[] = [
-  { name: '首頁', hash: '#/' },
-  { name: '區域', hash: '#/area/longdong/golden-valley' },
+const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolean) => Promise<void> }[] = [
+  { name: '首頁', path: '/' },
+  { name: '區域', path: '/area/longdong/golden-valley' },
   {
     name: '分區（展開篩選）',
-    hash: '#/sector/longdong/golden-valley-s1',
+    path: '/sector/longdong/golden-valley-s1',
     prepare: async (page, mobile) => {
       if (mobile) await page.click('.list-tools .chip')
     },
   },
-  { name: '路線（長名稱）', hash: '#/route/longdong/u4r3sk' },
-  { name: '路線（長中文名）', hash: '#/route/longdong/ze4rpe' },
+  { name: '路線（長名稱）', path: '/route/longdong/u4r3sk' },
+  { name: '路線（長中文名）', path: '/route/longdong/ze4rpe' },
   {
     name: '路線（分享選單）',
-    hash: '#/route/longdong/u4r3sk',
+    path: '/route/longdong/u4r3sk',
     prepare: async (page) => {
       await page.click('.share-button')
     },
   },
-  { name: '搜尋', hash: '#/search?q=5.10' },
-  { name: '我的', hash: '#/me' },
+  { name: '搜尋', path: '/search?q=5.10' },
+  { name: '我的', path: '/me' },
   {
     name: '救援（含我的位置）',
-    hash: '#/rescue/golden-valley',
+    path: '/rescue/golden-valley',
     prepare: async (page) => {
       await page.click('.my-location .action.primary')
       await page.waitForSelector('.my-coords')
@@ -52,14 +52,14 @@ const PAGES: { name: string; hash: string; prepare?: (page: Page, mobile: boolea
   },
   {
     name: '地圖（第一次使用的說明）',
-    hash: '#/map',
+    path: '/map',
     prepare: async (page) => {
       await page.waitForSelector('.sheet[open] .action.primary')
     },
   },
   {
     name: '地圖（定位後的回報彈窗）',
-    hash: '#/map',
+    path: '/map',
     prepare: async (page) => {
       await page.evaluate(() => localStorage.setItem('longdong.map.intro', '1'))
       await page.reload()
@@ -68,7 +68,7 @@ const PAGES: { name: string; hash: string; prepare?: (page: Page, mobile: boolea
       await page.waitForSelector('.sheet[open] .chip')
     },
   },
-  { name: '關於', hash: '#/about' },
+  { name: '關於', path: '/about' },
 ]
 
 interface Problem {
@@ -112,7 +112,7 @@ try {
       await context.addInitScript((l) => localStorage.setItem('longdong.lang', l), lang)
       const page = await context.newPage()
       for (const p of PAGES) {
-        await page.goto(base + p.hash)
+        await page.goto(new URL(p.path, base).href)
         await page.waitForLoadState('networkidle')
         await page.waitForSelector('main > *:not(.empty)')
         if (p.prepare) await p.prepare(page, vp.mobile)

@@ -17,7 +17,7 @@ export function InstallBanner() {
 
   return (
     <section className="install-banner" aria-label={t('install.title')}>
-      <img src="./icons/icon-192.png" alt="" width={48} height={48} />
+      <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="" width={48} height={48} />
       <div className="install-text">
         <strong>{t('install.title')}</strong>
         <span className="muted small">{t('install.desc')}</span>

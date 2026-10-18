@@ -34,7 +34,7 @@ let cache: Promise<LoadedData> | undefined
 
 /** 資料檔由 Service Worker 預先快取，離線時也從快取讀取 */
 function load(): Promise<LoadedData> {
-  cache ??= fetch('./data/longdong.json')
+  cache ??= fetch(`${import.meta.env.BASE_URL}data/longdong.json`)
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json() as Promise<Dataset>

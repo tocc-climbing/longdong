@@ -20,7 +20,7 @@ const data = {
   routeById: new Map([['r2', { area: A, sector: A.sectors[1], route: {} }]]),
 } as unknown as NavInput['data']
 
-const rows = ['#/sector/a2?r=r1', '#/sector/a2?r=r2', '#/sector/a2?r=r3']
+const rows = ['/sector/a2?r=r1', '/sector/a2?r=r2', '/sector/a2?r=r3']
 const nav = (key: string, page: Page, level: NavInput['level'], selected = -1) => keyNav(key, { page, level, data, rows, selected })
 
 describe('方向鍵瀏覽', () => {
@@ -51,15 +51,15 @@ describe('方向鍵瀏覽', () => {
   })
 
   it('區域層級：↑↓ 切換同一個大區域裡的區域', () => {
-    expect(nav('ArrowDown', { name: 'sector', id: 'a1' }, 'sector')).toEqual({ level: 'sector', hash: '#/sector/a2' })
+    expect(nav('ArrowDown', { name: 'sector', id: 'a1' }, 'sector')).toEqual({ level: 'sector', hash: '/sector/a2' })
     expect(nav('ArrowDown', { name: 'sector', id: 'a2' }, 'sector')).toEqual({ level: 'sector' })
-    expect(nav('ArrowUp', { name: 'route', id: 'r2' }, 'sector')).toEqual({ level: 'sector', hash: '#/sector/a1' })
+    expect(nav('ArrowUp', { name: 'route', id: 'r2' }, 'sector')).toEqual({ level: 'sector', hash: '/sector/a1' })
   })
 
   it('大區域層級：↑↓ 切換大區域；→ 進到第一個區域', () => {
-    expect(nav('ArrowDown', { name: 'sector', id: 'a2' }, 'area')).toEqual({ level: 'area', hash: '#/area/B' })
-    expect(nav('ArrowUp', { name: 'area', id: 'B' }, 'area')).toEqual({ level: 'area', hash: '#/area/A' })
-    expect(nav('ArrowRight', { name: 'area', id: 'A' }, 'area')).toEqual({ level: 'sector', hash: '#/sector/a1' })
+    expect(nav('ArrowDown', { name: 'sector', id: 'a2' }, 'area')).toEqual({ level: 'area', hash: '/area/B' })
+    expect(nav('ArrowUp', { name: 'area', id: 'B' }, 'area')).toEqual({ level: 'area', hash: '/area/A' })
+    expect(nav('ArrowRight', { name: 'area', id: 'A' }, 'area')).toEqual({ level: 'sector', hash: '/sector/a1' })
   })
 
   it('只有一個區域的大區域：跳過區域層級', () => {

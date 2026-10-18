@@ -2,13 +2,12 @@ import type { RouteRef } from '../../src/data/dataset'
 import { typeText } from '../../src/format'
 import { localName, translate } from '../../src/i18n'
 import { zh } from '../../src/i18n/zh'
-import { href } from '../../src/router'
 import { sharePagePath } from '../../src/share'
 
 /**
- * 每條路線的分享頁：…/longdong/route/<路線ID>/。
- * App 用 # 區分頁面，Facebook、LINE 抓預覽時只看得到 index.html，所以替每條路線產生一個小頁面，
- * 裡面放這條路線的預覽資訊（Open Graph），開啟時立刻轉到 App 的路線頁。
+ * 每條路線的分享頁：<網站>/route/<路線ID>，也就是 App 的路線頁。
+ * Facebook、LINE 抓預覽時不執行程式，只看 HTML 裡的 Open Graph，所以替每條路線放一份 index.html，
+ * 把標題、說明換成這條路線的；開啟的人拿到的就是 App 本身，直接顯示路線頁，不必再轉址。
  */
 
 // 預覽卡片用中文
@@ -29,34 +28,26 @@ export function sharePreview({ route, sector, area }: RouteRef): { title: string
   return { title, description: [place, facts, safety, closed].filter(Boolean).join('｜') }
 }
 
-/** siteUrl：網站的正式網址，結尾有 /（例如 https://tocc-climbing.github.io/longdong/） */
-export function sharePageHtml(ref: RouteRef, siteUrl: string): string {
+/** 把 HTML 裡某個 <meta> 的內容換掉；沒有的話加在 </head> 前面 */
+function setMeta(html: string, key: 'name' | 'property', id: string, content: string): string {
+  const tag = `<meta ${key}="${id}" content="${escape(content)}" />`
+  // id 只有英數、冒號（description、og:title、twitter:card），不必跳脫
+  const existing = new RegExp(`<meta ${key}="${id}" content="[^"]*"\\s*/?>`)
+  return existing.test(html) ? html.replace(existing, () => tag) : html.replace('</head>', () => `  ${tag}\n  </head>`)
+}
+
+/**
+ * shell：建置好的 index.html；siteUrl：網站的正式網址，結尾有 /（例如 https://longdong.web.app/）
+ */
+export function sharePageHtml(ref: RouteRef, siteUrl: string, shell: string): string {
   const { title, description } = sharePreview(ref)
   const url = siteUrl + sharePagePath(ref.route.id)
-  // 分享頁在 route/<岩場>/<代碼>/ 底下，往上幾層回到 App
-  const up = '../'.repeat(1 + ref.route.id.split('/').length)
-  const target = up + href.route(ref.route.id)
-  return `<!doctype html>
-<html lang="zh-Hant-TW">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${escape(title)}｜${escape(t('app.title'))}</title>
-<meta name="description" content="${escape(description)}" />
-<meta property="og:type" content="website" />
-<meta property="og:site_name" content="${escape(t('app.title'))}" />
-<meta property="og:title" content="${escape(title)}" />
-<meta property="og:description" content="${escape(description)}" />
-<meta property="og:url" content="${escape(url)}" />
-<meta property="og:image" content="${escape(siteUrl)}icons/icon-512.png" />
-<meta name="twitter:card" content="summary" />
-<link rel="canonical" href="${escape(url)}" />
-<meta http-equiv="refresh" content="0; url=${escape(target)}" />
-<script>location.replace(${JSON.stringify(target)})</script>
-</head>
-<body>
-<p><a href="${escape(target)}">${escape(title)}</a></p>
-</body>
-</html>
-`
+  let html = shell.replace(/<title>[^<]*<\/title>/, () => `<title>${escape(title)}｜${escape(t('app.title'))}</title>`)
+  html = setMeta(html, 'name', 'description', description)
+  html = setMeta(html, 'property', 'og:title', title)
+  html = setMeta(html, 'property', 'og:description', description)
+  html = setMeta(html, 'property', 'og:url', url)
+  html = setMeta(html, 'property', 'og:image', `${siteUrl}icons/icon-512.png`)
+  html = setMeta(html, 'name', 'twitter:card', 'summary')
+  return html.replace('</head>', () => `  <link rel="canonical" href="${escape(url)}" />\n  </head>`)
 }

@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import type { RouteRef } from '../src/data/dataset'
 import { sharePageHtml, sharePreview } from '../scripts/lib/sharePages'
 
-const SITE = 'https://tocc-climbing.github.io/longdong/'
+const SITE = 'https://longdong.web.app/'
+/** 和 index.html 一樣的開頭 */
+const SHELL = `<html><head>
+<meta name="description" content="網站說明" />
+<meta property="og:title" content="龍洞攀岩資料庫" />
+<meta property="og:description" content="網站說明" />
+<meta property="og:image" content="https://longdong.web.app/icons/icon-512.png" />
+<title>龍洞攀岩資料庫</title>
+</head><body><div id="root"></div></body></html>`
 const ref = (route: Record<string, unknown>, sectors = 10) => {
   const sector = { id: 'longdong/golden-valley-s1', name: { zh: '貓屋', en: 'The Cathouse' }, routes: [] }
   const area = { id: 'longdong/golden-valley', name: { zh: '黃金谷', en: 'Golden Valley' }, sectors: Array(sectors).fill(sector) }
@@ -26,18 +34,21 @@ describe('路線分享頁', () => {
     expect(description).toBe('龍洞 黃金谷｜運攀｜⚠ 路線封閉')
   })
 
-  it('頁面：Open Graph 用完整網址，開啟時轉到 App 的路線頁', () => {
-    const html = sharePageHtml(ref({ number: '102', grade: '5.9' }), SITE)
-    expect(html).toContain('<meta property="og:url" content="https://tocc-climbing.github.io/longdong/route/longdong/jar2yu/" />')
-    expect(html).toContain('<meta property="og:image" content="https://tocc-climbing.github.io/longdong/icons/icon-512.png" />')
+  it('頁面：App 本身（index.html）換上路線的標題、說明與完整網址，不再轉址', () => {
+    const html = sharePageHtml(ref({ number: '102', grade: '5.9' }), SITE, SHELL)
+    expect(html).toContain('<meta property="og:url" content="https://longdong.web.app/route/longdong/jar2yu" />')
+    expect(html).toContain('<meta property="og:image" content="https://longdong.web.app/icons/icon-512.png" />')
     expect(html).toContain('<meta property="og:title" content="#102 拉斯塔法里海鳥 Rastafarian Seabirds 5.9" />')
-    // route/longdong/jar2yu/ 往上三層回到 App
-    expect(html).toContain('location.replace("../../../#/route/longdong/jar2yu")')
-    expect(html).toContain('<meta http-equiv="refresh" content="0; url=../../../#/route/longdong/jar2yu" />')
+    expect(html).toContain('<link rel="canonical" href="https://longdong.web.app/route/longdong/jar2yu" />')
+    expect(html).toContain('<title>#102 拉斯塔法里海鳥 Rastafarian Seabirds 5.9｜龍洞攀岩資料庫</title>')
+    // 只換掉一份，沒有重複的 og:title；App 的內容保留
+    expect(html.match(/og:title/g)).toHaveLength(1)
+    expect(html).toContain('<div id="root"></div>')
+    expect(html).not.toContain('http-equiv="refresh"')
   })
 
   it('名稱裡的特殊字元會跳脫，不會破壞頁面', () => {
-    const html = sharePageHtml(ref({ name: { zh: '"<b>&' } }), SITE)
+    const html = sharePageHtml(ref({ name: { zh: '"<b>&' } }), SITE, SHELL)
     expect(html).toContain('content="&quot;&lt;b&gt;&amp;')
     expect(html).not.toContain('"<b>&')
   })

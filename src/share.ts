@@ -1,9 +1,12 @@
 import type { RouteRef } from './data/dataset'
 import { localName, type Lang, type Translate } from './i18n'
 
-/** 分享頁在網站裡的路徑（不含開頭的 /）；scripts/lib/sharePages.ts 依此產生頁面 */
+/**
+ * 路線頁在網站裡的路徑（不含開頭的 /），也是分享出去的網址；
+ * scripts/gen-share-pages.ts 在這個路徑放一份帶有路線預覽資訊的 index.html（route/<路線ID>.html，firebase.json 的 cleanUrls）。
+ */
 export function sharePagePath(routeId: string): string {
-  return `route/${routeId}/`
+  return `route/${routeId}`
 }
 
 /**
@@ -12,13 +15,13 @@ export function sharePagePath(routeId: string): string {
  */
 
 /**
- * 路線的分享網址：…/longdong/route/<路線ID>/，建置時產生的分享頁（scripts/gen-share-pages.ts）。
- * 分享頁帶有這條路線的預覽資訊，Facebook、LINE 的預覽卡片才看得到路線；開啟時轉到 App 的路線頁。
- * base 是 App 所在的位址（例如 https://tocc-climbing.github.io/longdong/）。
+ * 路線的分享網址：<網站>/route/<路線ID>，就是 App 的路線頁。
+ * 這個路徑有一份帶路線預覽資訊的頁面（scripts/gen-share-pages.ts），Facebook、LINE 的預覽卡片才看得到路線。
+ * site 是網站的根目錄（例如 https://longdong.web.app/）。
  */
-export function routeUrl(base: string, routeId: string): string {
+export function routeUrl(site: string, routeId: string): string {
   // 路線ID 只含 [a-z0-9./-]，不需要編碼
-  return base.replace(/[?#].*$/, '').replace(/[^/]*$/, '') + sharePagePath(routeId)
+  return site.replace(/\/?$/, '/') + sharePagePath(routeId)
 }
 
 /** 分享的文字：「#102 拉斯塔法里海鳥 5.9｜龍洞 黃金谷 · 貓屋」；只有一個區域的大區域不重複區域名 */
@@ -44,7 +47,7 @@ export function targetUrl(target: ShareTarget, url: string, text: string): strin
 }
 
 export function currentRouteUrl(routeId: string): string {
-  return routeUrl(location.origin + location.pathname, routeId)
+  return routeUrl(location.origin + import.meta.env.BASE_URL, routeId)
 }
 
 export function copy(text: string, url: string): Promise<void> {

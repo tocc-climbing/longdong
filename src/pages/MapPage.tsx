@@ -9,7 +9,7 @@ import { nearestPoints } from '../geo'
 import { localName, useLang, type MessageKey, type Translate } from '../i18n'
 import { useCloud } from '../personal/sync'
 import { reportOptions, type ReportOption } from '../reportOptions'
-import { href } from '../router'
+import { href, navigate } from '../router'
 import { project, useScaleMap } from '../scaleMap'
 
 /** 誤差在這以內才適合當校正點 */
@@ -106,7 +106,7 @@ export function MapPage({ data }: { data: LoadedData }) {
           areaNames={areaNames}
           here={fix}
           marks={records.marks.map((m) => m.coords)}
-          onAreaPress={(key) => (location.hash = href.area(`${data.dataset.crag.id}/${key}`))}
+          onAreaPress={(key) => navigate(href.area(`${data.dataset.crag.id}/${key}`))}
           onLocate={() => {
             if (outside !== undefined) setToast(t('map.outside', { dist: distance(outside) }))
             else if (geo.status === 'locating') setToast(t('map.locating'))

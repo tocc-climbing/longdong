@@ -1,7 +1,7 @@
 name: Deploy
 
 # main 只能經由 PR 合併；合併後 build 並部署到 Firebase Hosting（https://longdong.web.app/）。
-# 舊網址 GitHub Pages（tocc-climbing.github.io/longdong）只放轉址頁：github-pages-redirect/ 與分享頁（route/）。
+# 舊網址 GitHub Pages（tocc-climbing.github.io/longdong）只放轉址頁 github-pages-redirect/。
 on:
   push:
     branches: [main]
@@ -43,15 +43,10 @@ jobs:
           projectId: project-2803619783974357321
           channelId: live
 
-      # 舊網址：轉址頁，加上分享頁（舊的分享連結先到分享頁，再轉到 App，App 的首頁再轉到新網址）
-      - run: |
-          mkdir -p github-pages
-          cp github-pages-redirect/* github-pages/
-          cp -r dist/route github-pages/route
-
+      # 舊網址：轉址頁（舊的分享連結 route/… 由 404.html 轉到新網址的同一個路徑）
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: github-pages
+          path: github-pages-redirect
 
   deploy-github-pages:
     needs: build

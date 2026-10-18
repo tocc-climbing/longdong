@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset } from '../src/data/schema'
 import { AREA_RESCUE, EMS_LOCATIONS, RESCUE_POINTS, formatCoords, mapUrl, rescueKey } from '../src/data/rescue'
-import { parseHash } from '../src/router'
+import { parseLocation } from '../src/router'
 
 const dataset = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as Dataset
 
@@ -45,9 +45,9 @@ describe('救援資訊', () => {
     expect(mapUrl([25.1067, 121.922483])).toBe('https://www.google.com/maps/search/?api=1&query=25.1067,121.922483')
   })
 
-  it('路由：#/rescue 與 #/rescue/<大區域>', () => {
-    expect(parseHash('#/rescue')).toEqual({ name: 'rescue' })
-    expect(parseHash('#/rescue/golden-valley')).toEqual({ name: 'rescue', id: 'golden-valley' })
+  it('路由：/rescue 與 /rescue/<大區域>', () => {
+    expect(parseLocation('/rescue')).toEqual({ name: 'rescue' })
+    expect(parseLocation('/rescue/golden-valley')).toEqual({ name: 'rescue', id: 'golden-valley' })
     expect(rescueKey('longdong/golden-valley')).toBe('golden-valley')
     expect(rescueKey('longdong/unknown')).toBeUndefined()
   })

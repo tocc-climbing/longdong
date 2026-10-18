@@ -13,7 +13,7 @@ export function formatVersion(v: AppVersion): string {
 /** 網站上最新一版的版號：version.json 不在離線快取裡，一定讀網路上的；讀不到時回傳 undefined */
 export async function fetchLatestVersion(): Promise<AppVersion | undefined> {
   try {
-    const res = await fetch('version.json', { cache: 'no-store' })
+    const res = await fetch(`${import.meta.env.BASE_URL}version.json`, { cache: 'no-store' })
     return res.ok ? ((await res.json()) as AppVersion) : undefined
   } catch {
     return undefined

@@ -16,7 +16,7 @@ import { RescuePage } from './pages/RescuePage'
 import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
 import { loadRatings, useSocial } from './social/store'
-import { href, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
+import { here, href, navigate, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 import { useListView } from './listView'
 import { fetchLatestVersion } from './version'
 import type { AppVersion } from '../scripts/lib/appVersion'
@@ -76,7 +76,7 @@ export function App() {
   const routeLink = useMemo<RouteLink>(
     () =>
       view
-        ? { link: (id) => (page.name === 'route' ? href.route(id) : withDetail(location.hash || '#/', id)), selected: view.detail }
+        ? { link: (id) => (page.name === 'route' ? href.route(id) : withDetail(here(), id)), selected: view.detail }
         : { link: href.route },
     [view, page],
   )
@@ -104,7 +104,7 @@ export function App() {
       const target = near?.[dir]
       if (!target) return
       go(dir)
-      location.hash = target.hash
+      navigate(target.hash)
     },
   })
   const dragTarget = dragDir ? near?.[dragDir] : undefined
@@ -303,7 +303,7 @@ function desktopView(page: Page, data: LoadedData): DesktopView {
     if (!ref) return plain(false)
     return { split: true, list: { name: 'sector', id: ref.sector.id }, detail: page.id, closeHref: href.sector(ref.sector.id), roomy: false }
   }
-  const closeHref = withDetail(location.hash || '#/', undefined)
+  const closeHref = withDetail(here(), undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
   if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
   return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue')
@@ -361,7 +361,7 @@ function useDesktopKeys(wide: boolean, view: DesktopView | undefined, page: Page
       const { view: v, page: p, data: d, level: l } = current.current
       if (e.key === 'Escape') {
         if (typing(e.target)) (e.target as HTMLElement).blur()
-        else if (v?.detail) location.hash = v.closeHref
+        else if (v?.detail) navigate(v.closeHref)
         return
       }
       if (typing(e.target)) return
@@ -383,9 +383,9 @@ function useDesktopKeys(wide: boolean, view: DesktopView | undefined, page: Page
       e.preventDefault()
       setLevel(result.level)
       if (result.row !== undefined) rows[result.row].scrollIntoView({ block: 'nearest' })
-      if (result.hash && result.hash !== location.hash) {
+      if (result.hash && result.hash !== here()) {
         fromKeys.current = true
-        location.replace(result.hash)
+        navigate(result.hash, { replace: true })
       }
     }
     window.addEventListener('keydown', onKey)

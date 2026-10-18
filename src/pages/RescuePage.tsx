@@ -57,7 +57,7 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
       {area && local && areaKey && (
         <section className="rescue-area" aria-labelledby="rescue-area">
           <h2 id="rescue-area">{t('rescue.areaTitle', { area: localName(area.name, lang).main })}</h2>
-          <img className="rescue-crop" src={`rescue/${areaKey}.webp`} alt={t('rescue.areaMapAlt', { area: localName(area.name, lang).main })} />
+          <img className="rescue-crop" src={`${import.meta.env.BASE_URL}rescue/${areaKey}.webp`} alt={t('rescue.areaMapAlt', { area: localName(area.name, lang).main })} />
           <h3>{t('rescue.nearPoints')}</h3>
           <PointList points={RESCUE_POINTS.filter((p) => local.points.includes(p.no))} />
           <h3>{t('rescue.nearEms')}</h3>
@@ -170,7 +170,7 @@ function FullMap() {
         </button>
       </div>
       <div className={`map-frame${zoom ? ' zoomed' : ''}`} data-noswipe>
-        <img src="rescue/map.webp" alt={t('rescue.mapAlt')} />
+        <img src={`${import.meta.env.BASE_URL}rescue/map.webp`} alt={t('rescue.mapAlt')} />
       </div>
     </section>
   )
