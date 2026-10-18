@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ScaleMap, inMapBounds } from '../components/ScaleMap'
-import { SignInPrompt } from '../components/SignInPrompt'
 import { useGeolocation } from '../components/MyLocation'
 import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration } from '../calibration'
 import type { LoadedData } from '../data/dataset'
@@ -40,8 +39,6 @@ export function MapPage({ data }: { data: LoadedData }) {
   /** 定位到了但不在地圖範圍內：不能回報；離最近的救援點多遠 */
   const outside = fix && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
   const distance = (m: number) => (m < 1000 ? t('myloc.m', { n: Math.round(m) }) : t('myloc.km', { n: (m / 1000).toFixed(1) }))
-  // 剛打開 App 時登入狀態還在載入（loading），不算沒登入：載入完就會自動上傳
-  const signedOut = cloud.status === 'signed-out' || cloud.status === 'off'
 
   // 打開地圖就開始定位（瀏覽器第一次會詢問權限）
   useEffect(start, [])
@@ -65,8 +62,8 @@ export function MapPage({ data }: { data: LoadedData }) {
     if (!fix) return
     addMark({ ...fix, note })
     setReporting(false)
-    if (signedOut) setToast(t('map.needSignIn'))
-    else if (cloud.status !== 'signed-in' || !cloud.connected) setToast(t('map.queued'))
+    // 上傳成功會另外提示；沒網路時先存在手機上（不登入也能上傳）
+    if (!navigator.onLine || (cloud.status === 'signed-in' && !cloud.connected)) setToast(t('map.queued'))
   }
 
   const closeIntro = () => {
@@ -155,7 +152,6 @@ export function MapPage({ data }: { data: LoadedData }) {
             onCancel={() => setReporting(false)}
           />
         )}
-        {signedOut && <SignInPrompt message={t('map.signIn')} compact />}
       </Sheet>
     </div>
   )

@@ -111,6 +111,25 @@
           }
         }
       },
+      "anonReports": {
+        ".read": "auth != null && root.child('role').child(auth.uid).exists()",
+        "$device": {
+          ".validate": "$device.matches(/^[0-9a-f-]{36}$/)",
+          "$id": {
+            ".write": "!data.exists()",
+            ".validate": "newData.hasChildren(['geojson', 'createdAt'])",
+            "geojson": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 200000"
+            },
+            "createdAt": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      },
       "personal": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",

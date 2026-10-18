@@ -206,6 +206,40 @@ describe('比例尺地圖的現場校正記錄', () => {
   })
 })
 
+describe('沒登入的回報（每台手機一個隨機裝置代號）', () => {
+  const DEVICE = '0f8e2c1a-1234-4abc-8def-0123456789ab'
+  const upload = (db: Database, device = DEVICE, geojson = '{"type":"FeatureCollection","features":[]}') =>
+    push(db, `v2/anonReports/${device}`, { geojson, createdAt: serverTimestamp() })
+
+  it('訪客和登入者都可以上傳；裝置代號必須是 UUID', async () => {
+    await assertSucceeds(upload(guest))
+    await assertSucceeds(upload(alice))
+    await assertFails(upload(guest, 'not-a-uuid'))
+  })
+
+  it('格式：必須有 geojson 與伺服器時間，不能有其他欄位、不能是空字串或超過 200KB', async () => {
+    await assertFails(push(guest, `v2/anonReports/${DEVICE}`, { geojson: '{}', createdAt: 1 }))
+    await assertFails(push(guest, `v2/anonReports/${DEVICE}`, { geojson: '{}', createdAt: serverTimestamp(), name: 'x' }))
+    await assertFails(upload(guest, DEVICE, ''))
+    await assertFails(upload(guest, DEVICE, 'x'.repeat(200_001)))
+  })
+
+  it('上傳後不能修改或刪除，也不能整個刪掉', async () => {
+    await env.withSecurityRulesDisabled((ctx) => ctx.database().ref(`v2/anonReports/${DEVICE}/u1`).set({ geojson: '{}', createdAt: 1 }))
+    await assertFails(set(guest, `v2/anonReports/${DEVICE}/u1`, { geojson: '{"changed":1}', createdAt: serverTimestamp() }))
+    await assertFails(remove(guest, `v2/anonReports/${DEVICE}/u1`))
+    await assertFails(remove(mallory, `v2/anonReports/${DEVICE}`))
+    await assertFails(remove(guest, 'v2/anonReports'))
+  })
+
+  it('只有管理員讀得到', async () => {
+    await assertSucceeds(get(admin, 'v2/anonReports'))
+    await assertFails(get(guest, 'v2/anonReports'))
+    await assertFails(get(guest, `v2/anonReports/${DEVICE}`))
+    await assertFails(get(mallory, 'v2/anonReports'))
+  })
+})
+
 describe('暱稱不能重複（不分大小寫、看起來一樣的寫法視為相同）', () => {
   /** App 的寫法：同時登記 names 與更新 profile；release 為要釋放的舊暱稱 */
   const claim = (db: Database, uid: string, name: string, release?: string) =>

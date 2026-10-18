@@ -1,11 +1,14 @@
 import { useSyncExternalStore } from 'react'
 import type { LatLng } from './geo'
 import { getCloud, subscribeCloud, withCloud } from './personal/sync'
+import { DB_URL } from './social/model'
 
 /**
  * 比例尺地圖的現場回報：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明。
- * 記錄存在這支手機上，整個 App 共用一份；登入且連上網路時在背景自動上傳（v2/calibration/<uid>，
- * 只有本人與管理員讀得到），不必停在地圖頁。再把校正點加進 scripts/gen-scale-map.ts 的控制點。
+ * 記錄存在這支手機上，整個 App 共用一份；連上網路時在背景自動上傳，不必停在地圖頁：
+ * 登入的上傳到 v2/calibration/<uid>（本人與管理員讀得到），沒登入的上傳到 v2/anonReports/<裝置代號>
+ * （只有管理員讀得到；iPhone 有時無法用 Google 登入，不登入也要能回報）。
+ * 再把校正點加進 scripts/gen-scale-map.ts 的控制點。
  * （網頁在背景或螢幕關閉時無法定位，所以不記錄軌跡。）
  */
 
@@ -106,17 +109,52 @@ export function addMark(mark: Mark): void {
 
 // ── 背景上傳 ────────────────────────────────────────────────
 
+const DEVICE_KEY = 'longdong.device'
+
+/** 這台手機的隨機代號（沒登入時用來把同一台手機的回報放在一起；不含任何個人資料） */
+let device: string | undefined
+function deviceId(): string {
+  if (device) return device
+  try {
+    device = localStorage.getItem(DEVICE_KEY) ?? undefined
+    if (!device) localStorage.setItem(DEVICE_KEY, (device = crypto.randomUUID()))
+  } catch {
+    // 私密瀏覽等情況存不了：這次開啟 App 期間用同一個代號
+    device ??= crypto.randomUUID()
+  }
+  return device
+}
+
+/** 沒登入：用 REST 上傳（不必載入 Firebase），資料庫規則只允許新增 */
+async function uploadAnonymous(geojson: string): Promise<void> {
+  const res = await fetch(`${DB_URL}/v2/anonReports/${deviceId()}.json`, {
+    method: 'POST',
+    body: JSON.stringify({ geojson, createdAt: { '.sv': 'timestamp' } }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
 let uploading = false
 
-/** 有排隊的記錄、已登入、連上網路時上傳（每次都是完整的一份，新的一份取代舊的） */
+/**
+ * 有排隊的記錄、連上網路時上傳（每次都是完整的一份，新的一份取代舊的）。
+ * 已登入用帳號上傳；沒登入用裝置代號上傳；登入狀態還在載入時先等（載入完會再呼叫）。
+ */
 async function flush(): Promise<void> {
   const cloud = getCloud()
-  if (uploading || !current().queued || cloud.status !== 'signed-in' || !cloud.connected) return
+  if (uploading || !current().queued || cloud.status === 'loading') return
+  const signedIn = cloud.status === 'signed-in'
+  if (signedIn ? !cloud.connected : !navigator.onLine) return
   uploading = true
   const sent = current()
   try {
-    const { m, uid } = await withCloud()
-    await m.uploadCalibration(uid, JSON.stringify(toGeoJSON(sent)))
+    const geojson = JSON.stringify(toGeoJSON(sent))
+    if (signedIn) {
+      const { m, uid } = await withCloud()
+      await m.uploadCalibration(uid, geojson)
+    } else {
+      await uploadAnonymous(geojson)
+    }
     const latest = current()
     const uploaded = { time: Date.now(), marks: sent.marks.length }
     // 上傳途中又新增的記錄，留著下一次上傳

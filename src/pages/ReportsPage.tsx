@@ -7,6 +7,7 @@ import type { LoadedData } from '../data/dataset'
 import { formatCoords } from '../data/rescue'
 import type { LatLng } from '../geo'
 import { LOCALES, useLang } from '../i18n'
+import type { CalibrationUploads } from '../personal/firebase'
 import { useCloud, withCloud } from '../personal/sync'
 import { areaNames, useScaleMap } from '../scaleMap'
 import { displayName, useSocial } from '../social/store'
@@ -19,15 +20,17 @@ interface Report {
 }
 
 interface UserReports {
+  /** 帳號 uid，或沒登入時的裝置代號 */
   uid: string
+  anon: boolean
   /** 上傳了幾次（每次都是完整的一份，只看最新的一份） */
   uploads: number
   lastUpload: number
   reports: Report[]
 }
 
-/** 每個人最新上傳的那一份（GeoJSON）轉成回報清單 */
-function latestByUser(all: Record<string, Record<string, { geojson: string; createdAt: number }>>): UserReports[] {
+/** 每個人（或沒登入的每台手機）最新上傳的那一份（GeoJSON）轉成回報清單 */
+function latestByUser(all: CalibrationUploads, anon: boolean): UserReports[] {
   return Object.entries(all)
     .map(([uid, uploads]) => {
       const list = Object.values(uploads)
@@ -41,9 +44,8 @@ function latestByUser(all: Record<string, Record<string, { geojson: string; crea
           time: Date.parse(f.properties.time),
         }))
         .sort((a, b) => b.time - a.time)
-      return { uid, uploads: list.length, lastUpload: latest.createdAt, reports }
+      return { uid, anon, uploads: list.length, lastUpload: latest.createdAt, reports }
     })
-    .sort((a, b) => b.lastUpload - a.lastUpload)
 }
 
 /**
@@ -65,7 +67,8 @@ export function ReportsPage({ data }: { data: LoadedData }) {
     withCloud()
       .then(({ m }) => m.loadCalibrationUploads())
       .then(
-        (all) => alive && setUsers(latestByUser(all)),
+        ({ signedIn, anon }) =>
+          alive && setUsers([...latestByUser(signedIn, false), ...latestByUser(anon, true)].sort((a, b) => b.lastUpload - a.lastUpload)),
         (err: Error) => alive && setError(err.message),
       )
     return () => {
@@ -99,8 +102,8 @@ export function ReportsPage({ data }: { data: LoadedData }) {
           )}
           {users!.length === 0 && <p className="muted">{t('reports.empty')}</p>}
           {users!.map((u) => (
-            <section key={u.uid} className="card">
-              <h2>{displayName(social.profiles, u.uid)}</h2>
+            <section key={(u.anon ? 'anon:' : '') + u.uid} className="card">
+              <h2>{u.anon ? t('reports.anon', { id: u.uid.slice(0, 4) }) : displayName(social.profiles, u.uid)}</h2>
               <p className="muted small">{t('reports.user', { n: u.uploads, time: time(u.lastUpload) })}</p>
               <ol className="report-list">
                 {u.reports.map((r, i) => (
