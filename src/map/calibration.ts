@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
-import type { LatLng } from './geo'
-import { getCloud, subscribeCloud, withCloud } from './personal/sync'
-import { DB_URL } from './social/model'
+import type { LatLng } from '../geo'
+import { getCloud, subscribeCloud, withCloud } from '../personal/sync'
+import { DB_URL } from '../social/model'
 
 /**
  * 比例尺地圖的現場回報：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明。

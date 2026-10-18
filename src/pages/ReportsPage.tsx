@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useIsAdmin } from '../admin'
 import { CopyButton } from '../components/CopyButton'
-import { ScaleMap } from '../components/ScaleMap'
+import { ScaleMap } from '../map/ScaleMap'
 import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import { formatCoords } from '../data/rescue'
@@ -9,7 +9,7 @@ import type { LatLng } from '../geo'
 import { LOCALES, useLang } from '../i18n'
 import type { CalibrationUploads } from '../personal/firebase'
 import { useCloud, withCloud } from '../personal/sync'
-import { areaNames, useScaleMap } from '../scaleMap'
+import { areaNames, useScaleMap } from '../map/mapData'
 import { displayName, useSocial } from '../social/store'
 
 interface Report {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { LatLng } from './geo'
-import type { LoadedData } from './data/dataset'
-import { AREA_RESCUE } from './data/rescue'
-import { localName, type Lang } from './i18n'
+import type { LatLng } from '../geo'
+import type { LoadedData } from '../data/dataset'
+import { AREA_RESCUE } from '../data/rescue'
+import { localName, type Lang } from '../i18n'
 
 /**
  * 照比例尺的龍洞簡圖（scripts/gen-scale-map.ts 由救援資訊圖產生，放在 public/rescue/，在離線快取裡）。

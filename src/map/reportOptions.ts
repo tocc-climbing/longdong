@@ -1,5 +1,5 @@
-import type { RescuePoint } from './data/rescue'
-import { project, type Marker, type ScaleMapData } from './scaleMap'
+import type { RescuePoint } from '../data/rescue'
+import { project, type Marker, type ScaleMapData } from './mapData'
 
 /**
  * 回報位置的選項：依目前位置列出附近可能的地點（由近到遠），讓人一點就選，不必自己打字。

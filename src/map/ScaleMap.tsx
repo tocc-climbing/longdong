@@ -17,9 +17,9 @@ import {
   type MapView,
   type Rect,
   type Size,
-} from '../mapView'
-import { project, type Marker, type ScaleMapData } from '../scaleMap'
-import { insideRing } from '../reportOptions'
+} from './mapView'
+import { project, type Marker, type ScaleMapData } from './mapData'
+import { insideRing } from './reportOptions'
 import { useLang } from '../i18n'
 
 /** 比例尺的長度（公尺）：選畫面上不超過 SCALE_BAR_PX 的最長一個 */

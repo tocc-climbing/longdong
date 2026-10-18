@@ -1,15 +1,15 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { ScaleMap, inMapBounds } from '../components/ScaleMap'
+import { ScaleMap, inMapBounds } from '../map/ScaleMap'
 import { useGeolocation } from '../components/MyLocation'
-import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration } from '../calibration'
+import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration } from '../map/calibration'
 import type { LoadedData } from '../data/dataset'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { nearestPoints } from '../geo'
 import { localName, useLang, type MessageKey, type Translate } from '../i18n'
 import { useCloud } from '../personal/sync'
-import { reportOptions, type ReportOption } from '../reportOptions'
+import { reportOptions, type ReportOption } from '../map/reportOptions'
 import { href, navigate } from '../router'
-import { areaNames, project, useScaleMap } from '../scaleMap'
+import { areaNames, project, useScaleMap } from '../map/mapData'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
@@ -22,7 +22,7 @@ const TOAST_MS = 4000
 /**
  * 地圖（/map）：照比例尺的龍洞地圖，打開就開始定位。
  * 地圖還在校正：第一次使用先說明可能有誤差；左上「回報」依目前位置列出附近的地點，選一下就記錄下來。
- * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/calibration.ts，不必停在這一頁），用來校正地圖。
+ * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  */
 export function MapPage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()

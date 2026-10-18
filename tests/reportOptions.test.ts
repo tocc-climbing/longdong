@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_OPTIONS, insideRing, reportOptions, ringDistance } from '../src/reportOptions'
+import { MAX_OPTIONS, insideRing, reportOptions, ringDistance } from '../src/map/reportOptions'
 import type { RescuePoint } from '../src/data/rescue'
-import { project } from '../src/scaleMap'
+import { project } from '../src/map/mapData'
 
 const square: [number, number][] = [[0, 0], [100, 0], [100, 100], [0, 100], [0, 0]]
 const area = (id: string, dx: number) => ({ id, path: '', label: [dx + 50, 50] as [number, number], size: 1e4, rings: [square.map(([x, y]) => [x + dx, y] as [number, number])] })

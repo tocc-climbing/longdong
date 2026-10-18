@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MIN_SCALE, clampScale, clampView, dashLength, fitView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/mapView'
+import { MIN_SCALE, clampScale, clampView, dashLength, fitView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/map/mapView'
 
 const bounds = { x: 0, y: 0, w: 1000, h: 2000 }
 const frame = { w: 400, h: 400 }
@@ -65,7 +65,7 @@ describe('虛線長度', () => {
 
 describe('地圖範圍', () => {
   it('龍洞的救援點在範圍內；台北不在', async () => {
-    const { inMapBounds } = await import('../src/components/ScaleMap')
+    const { inMapBounds } = await import('../src/map/ScaleMap')
     expect(inMapBounds([25.111367, 121.922917])).toBe(true)
     expect(inMapBounds([25.0478, 121.517])).toBe(false)
   })

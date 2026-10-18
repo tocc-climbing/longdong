@@ -40,7 +40,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
   })
 
   it('登入狀態載入中先排隊；載入完是登入的，用帳號上傳，上傳後不再排隊', async () => {
-    const c = await import('../src/calibration')
+    const c = await import('../src/map/calibration')
     c.startCalibrationSync()
     upload.mockResolvedValue()
     c.addMark(mark('鐘塔'))
@@ -58,7 +58,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
   })
 
   it('沒登入也會上傳：用這台手機的裝置代號，同一台手機每次用同一個代號', async () => {
-    const c = await import('../src/calibration')
+    const c = await import('../src/map/calibration')
     c.startCalibrationSync()
     setCloud('signed-out', false)
     c.addMark(mark('鐘塔'))
@@ -84,7 +84,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
   it('沒登入又沒網路時排隊，連上網路後上傳', async () => {
     let online!: () => void
     globalThis.window = { addEventListener: (_: string, l: () => void) => (online = l) } as unknown as Window & typeof globalThis
-    const c = await import('../src/calibration')
+    const c = await import('../src/map/calibration')
     c.startCalibrationSync()
     setCloud('signed-out', false)
     net.onLine = false
@@ -100,7 +100,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
   })
 
   it('上傳途中又新增的記錄，接著再上傳一次', async () => {
-    const c = await import('../src/calibration')
+    const c = await import('../src/map/calibration')
     c.startCalibrationSync()
     setCloud('signed-in', true)
     let release!: () => void
@@ -116,7 +116,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
   })
 
   it('上傳失敗不馬上重試（不會一直重試），之後連線改變時再試', async () => {
-    const c = await import('../src/calibration')
+    const c = await import('../src/map/calibration')
     c.startCalibrationSync()
     const events: string[] = []
     c.onCalibrationEvent((e) => events.push(e.kind))
