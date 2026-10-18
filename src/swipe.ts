@@ -172,6 +172,11 @@ export function useSwipe(
       | { x0: number; y0: number; sy0: number; lock?: 'h' | 'v'; dir: Dir; dx: number; armed: boolean; samples: { x: number; t: number }[] }
       | undefined
 
+    /** 手指拖了多遠（px），寫在 CSS 變數 --swipe-dx：上一個／下一個的卡片跟著手指從畫面邊緣滑進來 */
+    const follow = (dx: number) => {
+      if (dx) document.documentElement.style.setProperty('--swipe-dx', `${dx.toFixed(1)}px`)
+      else document.documentElement.style.removeProperty('--swipe-dx')
+    }
     const place = (offset: number, animate: boolean) => {
       const el = moving.current
       if (!el) return
@@ -182,6 +187,7 @@ export function useSwipe(
       const locked = g?.lock === 'h'
       g = undefined
       place(0, animateBack)
+      follow(0)
       if (locked) {
         h.current.onArmed(false)
         h.current.onLock(null)
@@ -215,6 +221,7 @@ export function useSwipe(
       const dir: Dir = dx < 0 ? 'next' : 'prev'
       const can = dir === g.dir && h.current.can(dir)
       place(dragOffset(dx, can), false)
+      follow(can ? dx : 0)
       const armed = can && Math.abs(dx) >= commitDistance(window.innerWidth)
       if (armed !== g.armed) h.current.onArmed((g.armed = armed))
     }

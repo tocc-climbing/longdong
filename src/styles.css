@@ -2461,40 +2461,57 @@ a.action {
 }
 
 /* 拖曳時側邊的提示：放開後會去哪裡；超過門檻（放開就會切換）時變成主色 */
+/* 左右滑動時，上一個／下一個的卡片從畫面邊緣跟著手指滑進來（像翻到下一頁），露出多少由手指拖多遠決定 */
 .swipe-hint {
   position: fixed;
   top: 50%;
   z-index: 30;
-  max-width: 45%;
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: var(--text);
-  color: var(--bg);
-  font-size: 0.875rem;
+  width: min(72vw, 280px);
+  display: grid;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.swipe-hint.next {
+  left: 100%;
+  transform: translate(max(-100%, var(--swipe-dx, 0px)), -50%);
+}
+
+/* 上一個從左邊進來：文字靠右，先露出來的是名稱的結尾附近，所以名稱靠右對齊 */
+.swipe-hint.prev {
+  right: 100%;
+  text-align: right;
+  transform: translate(min(100%, var(--swipe-dx, 0px)), -50%);
+}
+
+.swipe-hint-caption {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.swipe-hint-name {
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  transform: translateY(-50%);
-  pointer-events: none;
-  transition:
-    background 0.12s,
-    transform 0.12s;
-}
-
-.swipe-hint.prev {
-  left: 8px;
-}
-
-.swipe-hint.next {
-  right: 8px;
 }
 
 .swipe-hint.armed {
   background: var(--brand);
   color: var(--on-brand);
-  transform: translateY(-50%) scale(1.06);
+}
+
+.swipe-hint.armed .swipe-hint-caption {
+  color: inherit;
+  opacity: 0.85;
 }
 
 /* 觸控按下的效果（取代瀏覽器預設的直角反白），背景跟著元素本身的圓角 */

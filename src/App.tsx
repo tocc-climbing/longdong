@@ -161,8 +161,12 @@ export function App() {
         </div>
       </main>
       {dragDir && dragTarget && (
+        // 上一個／下一個的卡片跟著手指從畫面邊緣滑進來（位置由 useSwipe 寫在 --swipe-dx）；拖到放開就會切換時變色
         <div className={`swipe-hint ${dragDir}${armed ? ' armed' : ''}`} aria-hidden>
-          {dragDir === 'prev' ? `‹ ${neighborLabel(dragTarget, lang)}` : `${neighborLabel(dragTarget, lang)} ›`}
+          <span className="swipe-hint-caption">
+            {t(near?.kind === 'route' ? (dragDir === 'prev' ? 'swipe.prevRoute' : 'swipe.nextRoute') : dragDir === 'prev' ? 'swipe.prev' : 'swipe.next')}
+          </span>
+          <span className="swipe-hint-name">{neighborLabel(dragTarget, lang)}</span>
         </div>
       )}
       {footer}
