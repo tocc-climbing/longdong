@@ -4,6 +4,8 @@ import type { Messages } from '.'
 export const en: Messages = {
   'app.title': 'Long Dong Climbing',
   'app.devBadge': 'Dev',
+  'home.heroSub': '龍洞 · TAIWAN',
+  'home.heroStats': '{areas} areas · {routes} routes',
   'app.loading': 'Loading…',
   'app.loadError': 'Couldn’t load route data ({error})',
   'app.firstUseNeedsNetwork': 'The first visit needs a connection; after that, the app works offline',

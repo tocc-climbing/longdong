@@ -2913,3 +2913,225 @@ main.map > div {
   align-self: flex-start;
   margin: -8px 0 0 42px;
 }
+
+/* ==========================================================================
+   手機版：參考臺灣戶外攀岩協會（https://www.tocc-climbing.org/）的風格
+   米色紙張底、白色卡片、TOCC 藍色塊、桃紅只用在救援與警告、粗黑幾何字的標題、
+   英文大寫副標、黑框膠囊按鈕、較小的圓角。只套用在 <html data-layout="mobile">（src/layout.ts），電腦版不變。
+   ========================================================================== */
+
+:root[data-layout='mobile'] {
+  --bg: #efece5;
+  --surface: #ffffff;
+  --surface-2: #f4f1ea;
+  --text: #141414;
+  --muted: #5c5a55;
+  --faint: #8e897f;
+  --border: #e1dcd1;
+  /* TOCC 藍：填色（色塊、圖表、選中）；文字用較深的 --link */
+  --brand: #0395c3;
+  --brand-soft: #dcf0f8;
+  --on-brand: #ffffff;
+  --link: #00739a;
+  --danger: #d40442;
+  --chart: #0395c3;
+  --chart-track: #f4f1ea;
+  --hero: #0395c3;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 0 rgba(20, 20, 20, 0.04);
+  --card-border: transparent;
+  --bar-bg: #ffffff;
+  /* 標題字：iPhone 內建 Avenir Next（TOCC 網站用 Avenir），其他裝置用系統字的粗體 */
+  --display: 'Avenir Next', 'Avenir', system-ui, -apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-layout='mobile']:not([data-theme='light']) {
+    --bg: #0e0e0e;
+    --surface: #1a1a1a;
+    --surface-2: #242424;
+    --text: #f2f2f2;
+    --muted: #a8a49c;
+    --faint: #77736b;
+    --border: #2e2e2e;
+    --brand: #2db6e0;
+    --brand-soft: #10313d;
+    --on-brand: #0e0e0e;
+    --link: #5fc8ea;
+    --danger: #ff4f7e;
+    --chart: #2db6e0;
+    --chart-track: #242424;
+    --hero: #0a6f90;
+    --bar-bg: #141414;
+  }
+}
+
+:root[data-layout='mobile'][data-theme='dark'] {
+  --bg: #0e0e0e;
+  --surface: #1a1a1a;
+  --surface-2: #242424;
+  --text: #f2f2f2;
+  --muted: #a8a49c;
+  --faint: #77736b;
+  --border: #2e2e2e;
+  --brand: #2db6e0;
+  --brand-soft: #10313d;
+  --on-brand: #0e0e0e;
+  --link: #5fc8ea;
+  --danger: #ff4f7e;
+  --chart: #2db6e0;
+  --chart-track: #242424;
+  --hero: #0a6f90;
+  --bar-bg: #141414;
+}
+
+/* 標題：粗黑幾何字 */
+[data-layout='mobile'] :is(h1, h2, .brand, .area-name, .sector-card strong, .home-hero) {
+  font-family: var(--display);
+}
+
+[data-layout='mobile'] h1 {
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+[data-layout='mobile'] h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+/* 英文名稱：大寫副標（像 TOCC 的「岩場回報 / CRAG REPORT」） */
+[data-layout='mobile'] :is(.area-info .en, .sector-card .en, h1 .en):not(.route-head .en) {
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+[data-layout='mobile'] h1 .en:not(.route-head .en) {
+  font-size: 0.85rem;
+}
+
+/* 頂欄、底部分頁：白底，不用毛玻璃 */
+[data-layout='mobile'] :is(.topbar, .bottom-nav) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-layout='mobile'] .brand {
+  font-weight: 800;
+}
+
+/* 品牌標誌：圓形（像 TOCC 的圓形標章） */
+[data-layout='mobile'] .brand-mark {
+  border-radius: 50%;
+}
+
+[data-layout='mobile'] .bottom-nav a.active svg {
+  background: transparent;
+  color: var(--brand);
+}
+
+[data-layout='mobile'] .bottom-nav a.active {
+  box-shadow: inset 0 3px 0 var(--brand);
+}
+
+/* 按鈕與膠囊：黑框（像 TOCC 的「所有文章 | Articles」） */
+[data-layout='mobile'] :is(.action, .banner button) {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--text);
+  font-weight: 700;
+}
+
+[data-layout='mobile'] .action.primary {
+  background: var(--text);
+  color: var(--surface);
+  box-shadow: none;
+}
+
+[data-layout='mobile'] .chip,
+[data-layout='mobile'] .fact {
+  box-shadow: inset 0 0 0 1.5px var(--text);
+  font-weight: 600;
+}
+
+[data-layout='mobile'] .chip[aria-pressed='true'] {
+  background: var(--text);
+  color: var(--surface);
+}
+
+[data-layout='mobile'] .segmented {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+[data-layout='mobile'] .segmented button[aria-selected='true'] {
+  background: var(--text);
+  color: var(--surface);
+}
+
+/* 首頁標題區：TOCC 藍色塊、白色粗字，左右滿版 */
+.home-hero {
+  margin: -12px -16px 16px;
+  padding: 28px 20px 22px;
+  background: var(--hero);
+  color: #fff;
+}
+
+.home-hero h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.15;
+}
+
+.hero-en {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.home-hero p {
+  margin: 12px 0 0;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+/* 救援入口與救援按鈕：桃紅實心色塊（像 TOCC 的「攀岩是危險活動」）；深淺色模式都用同一個深桃紅，白字才看得清楚 */
+[data-layout='mobile'] .rescue-entry {
+  border: 0;
+  background: #d40442;
+  color: #fff;
+}
+
+[data-layout='mobile'] .rescue-button {
+  border: 0;
+  background: #d40442;
+  color: #fff;
+}
+
+[data-layout='mobile'] .rescue-entry :is(strong, .small) {
+  color: #fff;
+}
+
+[data-layout='mobile'] .rescue-entry .small {
+  opacity: 0.9;
+}
+
+[data-layout='mobile'] :is(.rescue-entry, .rescue-button) .rescue-cross {
+  background: #fff;
+  color: #d40442;
+}
+
+[data-layout='mobile'] :is(.rescue-entry, .rescue-button):is(:hover, :active) {
+  background: #b0033a;
+}
+
+/* 救援頁的緊急電話等紅色：改用 TOCC 的深桃紅（深淺色模式都一樣） */
+[data-layout='mobile'] .rescue {
+  --emergency: #d40442;
+}

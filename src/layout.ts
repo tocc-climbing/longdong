@@ -18,3 +18,11 @@ export function useWide(): boolean {
     isWide,
   )
 }
+
+// <html data-layout="mobile|wide">：手機版的視覺（styles.css 的「手機版」一節）只套用在手機版，電腦版不受影響。
+// 在載入時就設定（畫面出現前），之後跟著視窗寬度更新
+if (typeof document !== 'undefined') {
+  const mark = () => (document.documentElement.dataset.layout = isWide() ? 'wide' : 'mobile')
+  mark()
+  mql?.addEventListener('change', mark)
+}

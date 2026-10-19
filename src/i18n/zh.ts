@@ -2,6 +2,8 @@
 export const zh = {
   'app.title': '龍洞攀岩資料庫',
   'app.devBadge': '開發版',
+  'home.heroSub': 'LONG DONG ROCK CLIMBING',
+  'home.heroStats': '{areas} 個區域 · {routes} 條路線',
   'app.loading': '載入中…',
   'app.loadError': '無法載入路線資料（{error}）',
   'app.firstUseNeedsNetwork': '第一次使用需要網路，下載完成後即可離線使用',

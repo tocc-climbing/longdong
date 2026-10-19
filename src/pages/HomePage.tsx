@@ -5,12 +5,25 @@ import { RescueEntry } from '../components/RescueButton'
 import { gradeDistribution, typeSummary } from '../format'
 import { href } from '../router'
 import { localName, useLang } from '../i18n'
+import { useWide } from '../layout'
 
 /** 首頁：龍洞的各區域，一區一列；左框用 Sheet 上該區域的顏色 */
 export function HomePage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
+  const wide = useWide()
+  const routeCount = data.dataset.areas.flatMap((a) => a.sectors.flatMap((s) => s.routes)).filter((r) => !r.isFixture).length
   return (
     <>
+      {/* 手機版的標題區（TOCC 風格的色塊＋中英標題）；電腦版有側欄，不顯示 */}
+      {!wide && (
+        <section className="home-hero">
+          <h1>
+            {t('app.title')}
+            <span className="hero-en">{t('home.heroSub')}</span>
+          </h1>
+          <p>{t('home.heroStats', { areas: data.dataset.areas.length, routes: routeCount })}</p>
+        </section>
+      )}
       <InstallBanner />
       <RescueEntry />
       <ul className="area-list">
