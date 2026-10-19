@@ -28,7 +28,10 @@ import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social
 const app = initializeApp({
   // 前端用的公開設定（不是密鑰）；存取權限由 Realtime Database 規則控管
   apiKey: 'AIzaSyC6UDLfbg6Ue3UQ2icFhhtKAEotoRux4Qc',
-  authDomain: 'longdong.firebaseapp.com',
+  // 登入在網站自己的網域完成（Firebase Hosting 的 /__/auth/handler）：iPhone、iPad 的 Safari 會擋跨網域的登入
+  // （longdong.firebaseapp.com），造成第一次登入失敗或切換 App 後回不來。本機開發（localhost）照舊用 firebaseapp.com。
+  // 新的網站網域要在 Google Cloud Console 的 OAuth 用戶端加上 https://<網域>/__/auth/handler
+  authDomain: typeof location !== 'undefined' && location.hostname.endsWith('.web.app') ? location.hostname : 'longdong.firebaseapp.com',
   databaseURL: 'https://longdong.firebaseio.com',
   projectId: 'project-2803619783974357321',
 })
