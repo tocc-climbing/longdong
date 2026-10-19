@@ -39,7 +39,13 @@ export function HomePage({ data }: { data: LoadedData }) {
                   {name.sub && <span className="en">{name.sub}</span>}
                   <span className="area-count">
                     <span className="nowrap">{t('count.routes', { n: routes.length })}</span>
-                    {area.sectors.length > 1 && <span className="muted nowrap"> · {t('count.sectors', { n: area.sectors.length })}</span>}
+                    {/* 空白放在 nowrap 外面：寬度不夠（例如 360px 寬的手機）時「· 6 個分區」換到下一行，不會壓到右邊的圖表 */}
+                    {area.sectors.length > 1 && (
+                      <>
+                        {' '}
+                        <span className="muted nowrap">· {t('count.sectors', { n: area.sectors.length })}</span>
+                      </>
+                    )}
                   </span>
                   <span className="area-types">{typeSummary(routes, t)}</span>
                 </span>

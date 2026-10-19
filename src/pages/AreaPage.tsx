@@ -50,7 +50,13 @@ function SectorCard({ sector, color }: { sector: Sector; color?: string }) {
         {name.sub && <span className="en">{name.sub}</span>}
         <span className="area-count">
           {t('count.routesShort', { n: routes.length })}
-          {range && <span className="muted nowrap"> · {range}</span>}
+          {/* 空白放在 nowrap 外面，寬度不夠時難度範圍換到下一行 */}
+          {range && (
+            <>
+              {' '}
+              <span className="muted nowrap">· {range}</span>
+            </>
+          )}
         </span>
         <span className="area-types">{typeSummary(routes, t)}</span>
       </span>

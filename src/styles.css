@@ -3130,3 +3130,14 @@ main.map > div {
 [data-layout='mobile'] :is(.area-row, .sector-card, .pager a):active {
   transform: scale(0.985);
 }
+
+/* 很窄的手機（320px 寬）：區域卡片右邊的難度分佈圖縮窄、名稱縮小，長的英文單字（Auditorium）才放得下 */
+@media (max-width: 359px) {
+  .area-row {
+    grid-template-columns: minmax(0, 1fr) 118px;
+  }
+
+  .area-row .area-name {
+    font-size: 1.1rem;
+  }
+}
