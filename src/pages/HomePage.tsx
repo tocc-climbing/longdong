@@ -11,15 +11,16 @@ import { useWide } from '../layout'
 export function HomePage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
   const wide = useWide()
+  const crag = localName(data.dataset.crag.name, lang)
   const routeCount = data.dataset.areas.flatMap((a) => a.sectors.flatMap((s) => s.routes)).filter((r) => !r.isFixture).length
   return (
     <>
-      {/* 手機版的標題區（TOCC 風格的色塊＋中英標題）；電腦版有側欄，不顯示 */}
+      {/* 手機版的標題區（TOCC 風格的色塊）：岩場名稱（中英）與規模；App 名稱已在頂欄，這裡不重複。電腦版有側欄，不顯示 */}
       {!wide && (
         <section className="home-hero">
           <h1>
-            {t('app.title')}
-            <span className="hero-en">{t('home.heroSub')}</span>
+            {crag.main}
+            {crag.sub && <span className="hero-en">{crag.sub}</span>}
           </h1>
           <p>{t('home.heroStats', { areas: data.dataset.areas.length, routes: routeCount })}</p>
         </section>

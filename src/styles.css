@@ -3082,14 +3082,14 @@ main.map > div {
 
 .home-hero h1 {
   margin: 0;
-  font-size: 1.75rem;
-  line-height: 1.15;
+  font-size: 2.4rem;
+  line-height: 1.1;
 }
 
 .hero-en {
   display: block;
-  margin-top: 6px;
-  font-size: 1.05rem;
+  margin-top: 4px;
+  font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
