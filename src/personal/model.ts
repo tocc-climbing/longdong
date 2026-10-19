@@ -22,6 +22,18 @@ export function isSent(style: TickStyle): boolean {
   return TICK_STYLES.find((s) => s.value === style)?.sent ?? false
 }
 
+/** 路線清單（我的 → 路線清單）可以勾選的最佳攀登方式，由好到差 */
+export const BEST_STYLES = ['onsight', 'flash', 'redpoint', 'toprope'] as const
+export type BestStyle = (typeof BEST_STYLES)[number]
+
+/** 攀登方式的好壞（數字小的較好）：跟攀與上方確保同一級 */
+const STYLE_RANK: Record<TickStyle, number> = { onsight: 0, flash: 1, redpoint: 2, toprope: 3, follow: 3, attempt: 9 }
+
+/** 幾種攀登方式中最好的一種 */
+export function bestStyle(styles: TickStyle[]): TickStyle | undefined {
+  return styles.reduce<TickStyle | undefined>((best, s) => (best === undefined || STYLE_RANK[s] < STYLE_RANK[best] ? s : best), undefined)
+}
+
 interface Syncable {
   /** ISO 8601 */
   createdAt: string
@@ -42,12 +54,25 @@ export interface Tick extends Syncable {
   note?: string
 }
 
+/** 一條路線的最佳攀登方式（不記日期），每條路線一筆；清除時以 deleted 標記保留 */
+export interface Best extends Syncable {
+  routeId: string
+  style: BestStyle
+}
+
 export interface PersonalExport {
   format: 'longdong-personal'
   version: 1
   exportedAt: string
   favorites: Favorite[]
   ticks: Tick[]
+  /** 路線清單勾選的最佳攀登方式（舊的匯出檔沒有） */
+  best?: Best[]
+}
+
+/** 完攀過的路線：攀登紀錄裡有完攀的，加上路線清單勾選的 */
+export function sentRouteIds(ticks: Tick[], best: Map<string, BestStyle>): Set<string> {
+  return new Set([...ticks.filter((t) => isSent(t.style)).map((t) => t.routeId), ...best.keys()])
 }
 
 /** 以 key 合併兩組紀錄，同一 key 取 updatedAt 較新者 */

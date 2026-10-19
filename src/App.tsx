@@ -27,6 +27,8 @@ import { neighbors, useSwipe, type Dir } from './swipe'
 const MapPage = lazy(() => import('./pages/MapPage').then((m) => ({ default: m.MapPage })))
 /** Bolt 統計：手機版沒有入口 */
 const BoltsPage = lazy(() => import('./pages/BoltsPage').then((m) => ({ default: m.BoltsPage })))
+/** 路線清單（我的 → 路線清單） */
+const ChecklistPage = lazy(() => import('./pages/ChecklistPage').then((m) => ({ default: m.ChecklistPage })))
 /** 管理員的回報紀錄，只有少數人用 */
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 
@@ -203,6 +205,12 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
       return (
         <Suspense>
           <BoltsPage data={data} />
+        </Suspense>
+      )
+    case 'checklist':
+      return (
+        <Suspense>
+          <ChecklistPage data={data} />
         </Suspense>
       )
     case 'reports':

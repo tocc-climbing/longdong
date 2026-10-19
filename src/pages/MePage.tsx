@@ -7,7 +7,7 @@ import { RouteRow } from '../components/RouteRow'
 import { FACEBOOK_LOGIN_ENABLED, SignInPrompt } from '../components/SignInPrompt'
 import { relativeTime } from '../format'
 import { LANGS, localName, monthTitle, setLangSetting, useLang, type LangSetting } from '../i18n'
-import { isSent } from '../personal/model'
+import { sentRouteIds } from '../personal/model'
 import { gradePyramid, groupByMonth, monthlyCounts } from '../personal/stats'
 import { deleteTick, setFavorite, usePersonal } from '../personal/store'
 import { signOut, useCloud } from '../personal/sync'
@@ -73,8 +73,9 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
 
   const lookup = (id: string) => data.routeById.get(id)
   const name = displayName(social.profiles, uid)
-  const sentRoutes = new Set(personal.ticks.filter((tick) => isSent(tick.style)).map((tick) => tick.routeId))
-  const pyramid = gradePyramid(personal.ticks, (id) => lookup(id)?.route)
+  // 完攀過的路線：攀登紀錄加上路線清單勾選的
+  const sentRoutes = sentRouteIds(personal.ticks, personal.best)
+  const pyramid = gradePyramid(sentRoutes, (id) => lookup(id)?.route)
   const hardest = pyramid[0]
 
   return (
@@ -131,6 +132,14 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
               <span>{t('me.stat.hardest')}</span>
             </div>
           </section>
+
+          <a className="checklist-entry" href={href.checklist()}>
+            <span>
+              <strong>{t('checklist.entry')}</strong>
+              <span className="muted small">{t('checklist.entryDesc')}</span>
+            </span>
+            <span aria-hidden>›</span>
+          </a>
 
           <section className="card">
             <h2>{t('me.pyramid')}</h2>

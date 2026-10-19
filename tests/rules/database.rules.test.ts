@@ -23,6 +23,7 @@ const remove = (db: Database, path: string) => db.ref(path).remove()
 const push = (db: Database, path: string, value: unknown) => Promise.resolve(db.ref(path).push(value))
 
 const ROUTE = 'longdong:jar2yu'
+const ROUTE_ID = 'longdong/jar2yu'
 const iso = () => new Date().toISOString()
 const tick = (id: string) => ({ id, routeId: 'longdong/jar2yu', date: '2026-10-12', style: 'redpoint', createdAt: iso(), updatedAt: iso() })
 
@@ -127,6 +128,23 @@ describe('公開欄位的 updatedAt 只接受 toISOString() 格式', () => {
   it('評分：拒絕巨大字串，接受 App 寫入的格式', async () => {
     await assertFails(set(mallory, `v2/ratings/${ROUTE}/mallory`, { stars: 5, updatedAt: huge }))
     await assertSucceeds(set(mallory, `v2/ratings/${ROUTE}/mallory`, { stars: 5, feel: 'hard', updatedAt: iso() }))
+  })
+})
+
+describe('路線清單的最佳攀登方式（v2/personal/<uid>/best）', () => {
+  const best = (style: string, extra: object = {}) => ({ routeId: ROUTE_ID, style, createdAt: iso(), updatedAt: iso(), ...extra })
+
+  it('本人可以寫，別人和訪客不能', async () => {
+    await assertSucceeds(set(alice, `v2/personal/alice/best/${ROUTE}`, best('onsight')))
+    await assertSucceeds(set(alice, `v2/personal/alice/best/${ROUTE}`, best('toprope', { deleted: true })))
+    await assertFails(set(mallory, `v2/personal/alice/best/${ROUTE}`, best('onsight')))
+    await assertFails(set(guest, `v2/personal/alice/best/${ROUTE}`, best('onsight')))
+  })
+
+  it('只接受 OS、FL、RP、TR，欄位要齊全', async () => {
+    await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, best('attempt')))
+    await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, { routeId: ROUTE_ID, style: 'onsight' }))
+    await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, best('onsight', { deleted: 'yes' })))
   })
 })
 

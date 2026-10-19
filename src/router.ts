@@ -18,6 +18,7 @@ export type Page = (
   | { name: 'map' }
   | { name: 'reports' }
   | { name: 'bolts' }
+  | { name: 'checklist' }
 ) & { detail?: string }
 
 /** 解析網址的路徑與查詢字串（/area/…?r=…） */
@@ -37,6 +38,7 @@ export function parseLocation(location: string): Page {
   if (kind === 'map') return { name: 'map' }
   if (kind === 'reports') return { name: 'reports' }
   if (kind === 'bolts') return { name: 'bolts' }
+  if (kind === 'checklist') return { name: 'checklist' }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
   return { name: 'home' }
 }
@@ -58,6 +60,8 @@ export const href = {
   reports: () => '/reports',
   /** Bolt 統計：依安裝年份、材質、區域 */
   bolts: () => '/bolts',
+  /** 路線清單：快速記錄每條路線的最佳攀登方式與評分（我的 → 路線清單） */
+  checklist: () => '/checklist',
 }
 
 /** 目前的網址（路徑＋查詢字串） */

@@ -53,6 +53,7 @@ public/data/longdong.json（commit 進 repo，每次變動都有 diff 可查）
 | `v2/reports/<id>` | 檢舉 | 管理員 | 登入者新增 |
 
 - 收藏與攀登紀錄需要登入。本機（IndexedDB）是主要資料來源，離線也能記錄；連上雲端時雙向合併，同一筆以 `updatedAt` 較新者為準（`src/personal/`）。登出會清除裝置上的副本。
+- **路線清單**（「我的 → 路線清單」，`/checklist`，`src/pages/ChecklistPage.tsx`）：像指南書最後的路線表，依區域、分區列出全部路線，每條直接點選最佳攀登方式（OS／FL／RP／TR，不記日期）與星等評分。最佳攀登方式每條路線一筆（`best`，本機 IndexedDB 版本 2 新增，雲端 `v2/personal/<uid>/best/<路線 key>`）；完攀路線數、難度金字塔、路線清單上的完攀標記都會算進去。
 - 評分、留言、暱稱以 REST 讀取（不需載入 Firebase SDK），Service Worker 快取最後一次讀到的內容；寫入需登入（`src/social/`）。
 - Firebase SDK 只在登入過的裝置載入。
 - 舊站的節點（`comments`、`tags`、`topos`、`tests`、`tasks`、`routes`）保留為公開唯讀。

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Favorite, Tick } from '../src/personal/model'
+import type { Best, Favorite, Tick } from '../src/personal/model'
 import { favoriteKey, reconcile } from '../src/personal/reconcile'
 
 const fav = (routeId: string, updatedAt: string, deleted?: boolean): Favorite => ({
@@ -12,7 +12,7 @@ const tick = (id: string, updatedAt: string, over: Partial<Tick> = {}): Tick => 
 describe('reconcile', () => {
   it('第一次登入：本機紀錄全部上傳', () => {
     const { toLocal, toRemote } = reconcile('u1', { favorites: [fav('longdong/328ac2', 'a')], ticks: [tick('t1', 'a')] }, null)
-    expect(toLocal).toEqual({ favorites: [], ticks: [] })
+    expect(toLocal).toEqual({ favorites: [], ticks: [], best: [] })
     expect(Object.keys(toRemote).sort()).toEqual(['v2/personal/u1/favorites/longdong:328ac2', 'v2/personal/u1/ticks/t1'])
   })
 
@@ -40,7 +40,16 @@ describe('reconcile', () => {
   it('已經一致時不做任何事（避免同步迴圈）', () => {
     const local = { favorites: [fav('longdong/aaaaaa', 'a')], ticks: [tick('t1', 'a')] }
     const remote = { favorites: { 'longdong:aaaaaa': fav('longdong/aaaaaa', 'a') }, ticks: { t1: tick('t1', 'a') } }
-    expect(reconcile('u1', local, remote)).toEqual({ toLocal: { favorites: [], ticks: [] }, toRemote: {} })
+    expect(reconcile('u1', local, remote)).toEqual({ toLocal: { favorites: [], ticks: [], best: [] }, toRemote: {} })
+  })
+
+  it('路線清單的最佳攀登方式：以路線 key 存放，各取較新的', () => {
+    const best = (routeId: string, style: Best['style'], updatedAt: string): Best => ({ routeId, style, createdAt: 'a', updatedAt })
+    const local = { favorites: [], ticks: [], best: [best('longdong/aaaaaa', 'onsight', '2026-10-05'), best('longdong/bbbbbb', 'redpoint', '2026-10-01')] }
+    const remote = { best: { 'longdong:bbbbbb': best('longdong/bbbbbb', 'flash', '2026-10-03') } }
+    const { toLocal, toRemote } = reconcile('u1', local, remote)
+    expect(toLocal.best.map((b) => b.style)).toEqual(['flash'])
+    expect(Object.keys(toRemote)).toEqual(['v2/personal/u1/best/longdong:aaaaaa'])
   })
 
   it('寫入雲端的資料不含 undefined', () => {

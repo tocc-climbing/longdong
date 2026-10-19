@@ -22,7 +22,7 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
   const rating = summarize(useSocial().ratings[routeKey(route.id)])
   const favorite = signedIn && personal.favorites.has(route.id)
   const { link, selected } = useRouteLink()
-  const sent = signedIn && personal.ticks.some((t) => t.routeId === route.id && isSent(t.style))
+  const sent = signedIn && (personal.best.has(route.id) || personal.ticks.some((t) => t.routeId === route.id && isSent(t.style)))
 
   const selectedRow = selected === route.id
   const nameCell = (

@@ -75,6 +75,7 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
       await page.click('.bolt-table-toggle summary')
     },
   },
+  { name: '路線清單（未登入）', path: '/checklist' },
   { name: '關於', path: '/about' },
 ]
 

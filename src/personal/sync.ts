@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import { favoritePath, reconcile, tickPath, clean, type RemotePersonal } from './reconcile'
-import { applyRecords, clearAll, exportAll, onLocalWrite } from './store'
+import { bestPath, favoritePath, reconcile, tickPath, clean, type RemotePersonal } from './reconcile'
+import { applyRecords, clearAll, exportAll, onLocalWrite, type LocalWrite } from './store'
 import { setLocalProfile } from '../social/store'
 import { t } from '../i18n'
 
@@ -184,7 +184,7 @@ async function sync(m: FirebaseModule, uid: string, remote: RemotePersonal | nul
     set({ syncing: true })
     const local = await exportAll()
     const { toLocal, toRemote } = reconcile(uid, local, remote)
-    await applyRecords(toLocal.favorites, toLocal.ticks)
+    await applyRecords(toLocal.favorites, toLocal.ticks, toLocal.best)
     if (Object.keys(toRemote).length) await m.writeRemote(toRemote)
     set({ syncing: false, lastSync: new Date().toISOString(), error: undefined })
   } catch (err) {
@@ -193,13 +193,15 @@ async function sync(m: FirebaseModule, uid: string, remote: RemotePersonal | nul
 }
 
 /** 本機有新寫入時，立即送到雲端（離線時由 Firebase SDK 暫存，或在下次開啟時合併） */
-async function push(w: { favorite: import('./model').Favorite } | { tick: import('./model').Tick }) {
+async function push(w: LocalWrite) {
   if (state.status !== 'signed-in' || !state.user || !fb) return
   const m = await fb
   const uid = state.user.uid
   const paths =
     'favorite' in w
       ? { [favoritePath(uid, w.favorite.routeId)]: clean(w.favorite) }
-      : { [tickPath(uid, w.tick.id)]: clean(w.tick) }
+      : 'tick' in w
+        ? { [tickPath(uid, w.tick.id)]: clean(w.tick) }
+        : { [bestPath(uid, w.best.routeId)]: clean(w.best) }
   m.writeRemote(paths).catch((err: Error) => set({ error: t('sync.failed', { error: err.message }) }))
 }

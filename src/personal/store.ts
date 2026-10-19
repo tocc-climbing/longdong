@@ -1,19 +1,24 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { useSyncExternalStore } from 'react'
-import { mergeRecords, newId, type Favorite, type PersonalExport, type Tick } from './model'
+import { mergeRecords, newId, type Best, type BestStyle, type Favorite, type PersonalExport, type Tick } from './model'
 
 interface PersonalDB extends DBSchema {
   favorites: { key: string; value: Favorite }
   ticks: { key: string; value: Tick; indexes: { byRoute: string } }
+  best: { key: string; value: Best }
 }
 
 let dbPromise: Promise<IDBPDatabase<PersonalDB>> | undefined
 
 function db(): Promise<IDBPDatabase<PersonalDB>> {
-  dbPromise ??= openDB<PersonalDB>('longdong-personal', 1, {
-    upgrade(d) {
-      d.createObjectStore('favorites', { keyPath: 'routeId' })
-      d.createObjectStore('ticks', { keyPath: 'id' }).createIndex('byRoute', 'routeId')
+  // 版本 2：新增 best（路線清單的最佳攀登方式）；從版本 1 升級時保留原有的收藏與紀錄
+  dbPromise ??= openDB<PersonalDB>('longdong-personal', 2, {
+    upgrade(d, oldVersion) {
+      if (oldVersion < 1) {
+        d.createObjectStore('favorites', { keyPath: 'routeId' })
+        d.createObjectStore('ticks', { keyPath: 'id' }).createIndex('byRoute', 'routeId')
+      }
+      if (oldVersion < 2) d.createObjectStore('best', { keyPath: 'routeId' })
     },
   })
   return dbPromise
@@ -27,10 +32,12 @@ export interface PersonalState {
   favorites: Set<string>
   /** 未刪除的紀錄，日期新到舊 */
   ticks: Tick[]
+  /** 路線清單勾選的最佳攀登方式：routeId → 方式 */
+  best: Map<string, BestStyle>
   error?: string
 }
 
-let state: PersonalState = { ready: false, favorites: new Set(), ticks: [] }
+let state: PersonalState = { ready: false, favorites: new Set(), ticks: [], best: new Map() }
 const listeners = new Set<() => void>()
 
 function emit(next: PersonalState) {
@@ -41,11 +48,12 @@ function emit(next: PersonalState) {
 export async function refresh(): Promise<void> {
   try {
     const d = await db()
-    const [favorites, ticks] = await Promise.all([d.getAll('favorites'), d.getAll('ticks')])
+    const [favorites, ticks, best] = await Promise.all([d.getAll('favorites'), d.getAll('ticks'), d.getAll('best')])
     emit({
       ready: true,
       favorites: new Set(favorites.filter((f) => !f.deleted).map((f) => f.routeId)),
       ticks: ticks.filter((t) => !t.deleted).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)),
+      best: new Map(best.filter((b) => !b.deleted).map((b) => [b.routeId, b.style])),
     })
   } catch (err) {
     // 私密瀏覽等情況可能無法使用 IndexedDB
@@ -72,7 +80,7 @@ export function usePersonal(): PersonalState {
 const now = () => new Date().toISOString()
 
 /** 本機寫入後通知（雲端同步用） */
-type LocalWrite = { favorite: Favorite } | { tick: Tick }
+export type LocalWrite = { favorite: Favorite } | { tick: Tick } | { best: Best }
 const writeListeners = new Set<(w: LocalWrite) => void>()
 export function onLocalWrite(listener: (w: LocalWrite) => void): () => void {
   writeListeners.add(listener)
@@ -111,36 +119,53 @@ export async function deleteTick(id: string): Promise<void> {
   notify({ tick: deleted })
 }
 
+/** 路線清單：設定一條路線的最佳攀登方式；null 為清除 */
+export async function setBest(routeId: string, style: BestStyle | null): Promise<void> {
+  const d = await db()
+  const existing = await d.get('best', routeId)
+  const t = now()
+  const best: Best = { routeId, style: style ?? existing?.style ?? 'redpoint', createdAt: existing?.createdAt ?? t, updatedAt: t, deleted: style === null }
+  await d.put('best', best)
+  await refresh()
+  notify({ best })
+}
+
 /* ---------- 整批讀寫（雲端同步用） ---------- */
 
 export async function exportAll(): Promise<PersonalExport> {
   const d = await db()
-  const [favorites, ticks] = await Promise.all([d.getAll('favorites'), d.getAll('ticks')])
+  const [favorites, ticks, best] = await Promise.all([d.getAll('favorites'), d.getAll('ticks'), d.getAll('best')])
   // 刪除標記也一起帶上，同步到其他裝置時才不會把刪掉的紀錄救回來
-  return { format: 'longdong-personal', version: 1, exportedAt: now(), favorites, ticks }
+  return { format: 'longdong-personal', version: 1, exportedAt: now(), favorites, ticks, best }
 }
 
 /** 依「較新者為準」寫入一批紀錄（雲端同步用），回傳實際更新的筆數 */
-export async function applyRecords(favoritesIn: Favorite[], ticksIn: Tick[]): Promise<{ favorites: number; ticks: number }> {
+export async function applyRecords(
+  favoritesIn: Favorite[],
+  ticksIn: Tick[],
+  bestIn: Best[] = [],
+): Promise<{ favorites: number; ticks: number; best: number }> {
   const d = await db()
-  const [favorites, ticks] = await Promise.all([d.getAll('favorites'), d.getAll('ticks')])
+  const [favorites, ticks, best] = await Promise.all([d.getAll('favorites'), d.getAll('ticks'), d.getAll('best')])
   const fav = mergeRecords(favorites, favoritesIn, (f) => f.routeId).changed
   const tk = mergeRecords(ticks, ticksIn, (t) => t.id).changed
-  if (fav.length === 0 && tk.length === 0) return { favorites: 0, ticks: 0 }
-  const tx = d.transaction(['favorites', 'ticks'], 'readwrite')
+  const bs = mergeRecords(best, bestIn, (b) => b.routeId).changed
+  if (fav.length === 0 && tk.length === 0 && bs.length === 0) return { favorites: 0, ticks: 0, best: 0 }
+  const tx = d.transaction(['favorites', 'ticks', 'best'], 'readwrite')
   await Promise.all([
     ...fav.map((f) => tx.objectStore('favorites').put(f)),
     ...tk.map((t) => tx.objectStore('ticks').put(t)),
+    ...bs.map((b) => tx.objectStore('best').put(b)),
     tx.done,
   ])
   await refresh()
-  return { favorites: fav.length, ticks: tk.length }
+  return { favorites: fav.length, ticks: tk.length, best: bs.length }
 }
 
 /** 清空本機的收藏與紀錄（切換成另一個帳號、且使用者選擇不合併時） */
 export async function clearAll(): Promise<void> {
   const d = await db()
-  const tx = d.transaction(['favorites', 'ticks'], 'readwrite')
-  await Promise.all([tx.objectStore('favorites').clear(), tx.objectStore('ticks').clear(), tx.done])
+  const tx = d.transaction(['favorites', 'ticks', 'best'], 'readwrite')
+  await Promise.all([tx.objectStore('favorites').clear(), tx.objectStore('ticks').clear(), tx.objectStore('best').clear(), tx.done])
   await refresh()
 }

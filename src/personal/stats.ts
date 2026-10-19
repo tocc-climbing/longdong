@@ -1,5 +1,5 @@
 import type { Route } from '../data/schema'
-import { isSent, type Tick } from './model'
+import type { Tick } from './model'
 
 export interface PyramidRow {
   grade: string
@@ -8,9 +8,8 @@ export interface PyramidRow {
   routes: number
 }
 
-/** 難度金字塔：每個難度完攀過幾條不同的路線，難的在上 */
-export function gradePyramid(ticks: Tick[], lookup: (id: string) => Route | undefined): PyramidRow[] {
-  const sentRoutes = new Set(ticks.filter((t) => isSent(t.style)).map((t) => t.routeId))
+/** 難度金字塔：每個難度完攀過幾條不同的路線（sentRoutes，見 model 的 sentRouteIds），難的在上 */
+export function gradePyramid(sentRoutes: Iterable<string>, lookup: (id: string) => Route | undefined): PyramidRow[] {
   const byValue = new Map<number, PyramidRow>()
   for (const id of sentRoutes) {
     const r = lookup(id)

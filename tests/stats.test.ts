@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Route } from '../src/data/schema'
 import type { Tick } from '../src/personal/model'
+import { sentRouteIds } from '../src/personal/model'
 import { gradePyramid, groupByMonth, monthlyCounts } from '../src/personal/stats'
 
 const tick = (routeId: string, date: string, style: Tick['style'] = 'redpoint'): Tick => ({
@@ -16,14 +17,16 @@ const lookup = (id: string) => routes[id] as Route | undefined
 
 describe('gradePyramid', () => {
   it('每條路線只算一次、嘗試不算、難的在上', () => {
-    const rows = gradePyramid(
-      [tick('a', '2026-10-01'), tick('a', '2026-10-02', 'onsight'), tick('b', '2026-10-03'), tick('c', '2026-10-04', 'attempt'), tick('d', '2026-10-05')],
-      lookup,
-    )
-    expect(rows).toEqual([
+    const ticks = [tick('a', '2026-10-01'), tick('a', '2026-10-02', 'onsight'), tick('b', '2026-10-03'), tick('c', '2026-10-04', 'attempt'), tick('d', '2026-10-05')]
+    expect(gradePyramid(sentRouteIds(ticks, new Map()), lookup)).toEqual([
       { grade: '5.10?', value: 41.5, routes: 1 },
       { grade: '5.10a', value: 40, routes: 2 },
     ])
+  })
+
+  it('路線清單勾選的也算完攀（沒有日期的攀登紀錄）', () => {
+    const rows = gradePyramid(sentRouteIds([tick('a', '2026-10-01')], new Map([['c', 'redpoint']])), lookup)
+    expect(rows.reduce((n, r) => n + r.routes, 0)).toBe(2)
   })
 })
 

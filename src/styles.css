@@ -3182,3 +3182,162 @@ main.map > div {
     font-size: 1.1rem;
   }
 }
+
+/* ---------- 路線清單（/checklist） ---------- */
+
+/* 電腦版：清單不要太寬，評分的星星才不會離路線太遠 */
+.shell main.roomy > .checklist {
+  max-width: 760px;
+}
+
+/* 「我的」的入口 */
+.checklist-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+.checklist-entry > span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.checklist-entry > span:last-child {
+  font-size: 1.4rem;
+  color: var(--muted);
+}
+
+.checklist-entry:hover {
+  text-decoration: none;
+}
+
+.checklist-total {
+  margin: 8px 0 12px;
+  font-weight: 700;
+}
+
+.checklist-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.checklist-areas .chip-meta {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.checklist-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+.checklist-list > li {
+  padding: 10px 14px;
+}
+
+.checklist-route {
+  display: grid;
+  grid-template-columns: 3em minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--text);
+}
+
+.checklist-route:hover {
+  text-decoration: none;
+}
+
+.checklist-no {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist-name {
+  font-weight: 600;
+  min-width: 0;
+}
+
+.checklist-name .en {
+  font-size: 0.75rem;
+}
+
+/* 最佳攀登方式（左）與評分（右）：按鈕夠大，手指好點 */
+.checklist-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+  margin: 8px 0 0;
+}
+
+/* 寬度夠時，按鈕列跟路線名稱對齊 */
+@media (min-width: 420px) {
+  .checklist-controls {
+    margin-left: calc(3em + 8px);
+  }
+}
+
+.checklist-styles {
+  display: flex;
+  gap: 4px;
+}
+
+.checklist-style {
+  min-width: 34px;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.checklist-style.on {
+  background: var(--text);
+  box-shadow: none;
+  color: var(--surface);
+}
+
+/* 攀登紀錄裡的完攀方式（沒有在清單勾選時）：淡色提示 */
+.checklist-style.from-log {
+  box-shadow: inset 0 0 0 1.5px var(--text);
+  color: var(--text);
+}
+
+.checklist-stars {
+  display: flex;
+}
+
+.checklist-stars button {
+  min-width: 26px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--border);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.checklist-stars button.on {
+  color: var(--star);
+}

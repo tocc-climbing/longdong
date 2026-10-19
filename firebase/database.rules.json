@@ -139,6 +139,11 @@
               ".validate": "newData.hasChildren(['routeId', 'createdAt', 'updatedAt']) && newData.child('routeId').isString() && newData.child('routeId').val().length <= 100 && newData.child('updatedAt').isString()"
             }
           },
+          "best": {
+            "$key": {
+              ".validate": "newData.hasChildren(['routeId', 'style', 'createdAt', 'updatedAt']) && newData.child('routeId').isString() && newData.child('routeId').val().length <= 100 && newData.child('style').val().matches(/^(onsight|flash|redpoint|toprope)$/) && newData.child('updatedAt').isString() && (!newData.child('deleted').exists() || newData.child('deleted').isBoolean())"
+            }
+          },
           "ticks": {
             "$id": {
               ".validate": "newData.hasChildren(['id', 'routeId', 'date', 'style', 'createdAt', 'updatedAt']) && newData.child('id').val() === $id && newData.child('routeId').isString() && newData.child('routeId').val().length <= 100 && newData.child('date').val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('style').val().matches(/^(onsight|flash|redpoint|follow|toprope|attempt)$/) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 1000))"
