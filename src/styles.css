@@ -2895,3 +2895,21 @@ main.map > div {
   background: transparent;
   color: var(--text);
 }
+
+/* 開發站的標示（品牌名稱旁），見 components/DevBadge.tsx */
+.dev-badge {
+  flex: none;
+  padding: 2px 7px;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: #b3261e;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.sidebar > .dev-badge {
+  align-self: flex-start;
+  margin: -8px 0 0 42px;
+}

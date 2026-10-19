@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { DevBadge } from './DevBadge'
 import type { LoadedData } from '../data/dataset'
 import { sectorColor } from '../format'
 import { localName, useLang } from '../i18n'
@@ -32,6 +33,8 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
         </span>
         {t('app.title')}
       </a>
+      {/* 側欄窄，英文、日文的名稱加上標示會擠成兩行，開發站的標示放在下一行 */}
+      <DevBadge />
 
       <div className="search sidebar-search">
         <input

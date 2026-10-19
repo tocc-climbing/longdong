@@ -1,6 +1,7 @@
 /** 中文介面文字。這份的 key 是所有語言的標準：其他語言（en.ts、ja.ts）的型別是 Messages，型別檢查會確保沒有漏翻或多出 key。 */
 export const zh = {
   'app.title': '龍洞攀岩資料庫',
+  'app.devBadge': '開發版',
   'app.loading': '載入中…',
   'app.loadError': '無法載入路線資料（{error}）',
   'app.firstUseNeedsNetwork': '第一次使用需要網路，下載完成後即可離線使用',

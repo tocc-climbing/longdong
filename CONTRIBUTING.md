@@ -11,7 +11,8 @@
 3. 推上分支，開 PR 到 `main`，依範本填寫。
 4. CI（`ci`：型別檢查、測試、build）必須通過。
 5. 依[審查與實作規範](docs/review_and_implementation_protocol.md)審查，可以請 Claude Code 跑 `/code-review`。
-6. 以 **Squash and merge** 合併。合併後自動部署到 https://longdong.web.app/ 。
+6. 以 **Squash and merge** 合併。合併後自動部署到開發站 https://longdong-dev.web.app/ 。
+7. 在開發站確認後**發布**：把 `release` 快轉到 `main`（`git push origin main:release`），自動部署到正式站 https://longdong.web.app/ 並打上版號標籤。
 
 `main` 受保護：不能直接推送、不能強制推送，只能經由 CI 通過的 PR 合併。目前不強制核准人數。
 
@@ -51,7 +52,7 @@ PR 描述的「驗證」寫實際做了什麼、結果如何；沒做的寫沒�
 - 資料有變：在 `data-sync` 分支開（或更新）一個「資料同步」PR，並觸發 CI。PR 描述會列出被刪除的路線。
 - 匯入檢查未通過（Sheet 版面變了、路線ID 被改等）：不開 PR，Actions 會失敗並寄通知給管理員，網站維持上一版資料。
 
-維護者確認同步 PR 後合併，網站才會更新。急著上線時，可以到 Actions 頁面手動執行「Data sync」。
+維護者確認同步 PR 後合併，網站才會更新；路線資料不必等發布，合併後正式站與開發站都會更新（新資料要符合正式版程式的資料格式）。急著上線時，可以到 Actions 頁面手動執行「Data sync」。
 
 ## 在本機開發
 

@@ -1,6 +1,6 @@
 # 龍洞攀岩資料庫
 
-**👉 網站：https://longdong.web.app/**
+**👉 網站：https://longdong.web.app/**（開發版：https://longdong-dev.web.app/）
 
 龍洞攀岩路線與 Bolt 資訊的離線優先 Web App（PWA）。龍洞很多岩場沒有手機訊號，所以 App 和全部路線資料會在第一次開啟時存到手機上，之後不用網路也能查詢。
 
@@ -24,8 +24,8 @@ public/data/longdong.json（commit 進 repo，每次變動都有 diff 可查）
 ```
 
 - 路線資料是靜態檔案，不經過資料庫；評分、留言、暱稱、個人紀錄的雲端同步、地圖回報存在 Firebase Realtime Database（見「帳號、紀錄與社群功能」）。
-- `.github/workflows/sync.yml` 每天台灣時間 03:00 匯入；資料有變動就開（或更新）`data-sync` 分支的 PR，合併後才部署。也可以在 Actions 頁面手動執行。
-- `.github/workflows/ci.yml` 是 PR 的必要檢查；`.github/workflows/deploy.yml` 在合併進 `main` 後部署。
+- `.github/workflows/sync.yml` 每天台灣時間 03:00 匯入；資料有變動就開（或更新）`data-sync` 分支的 PR，合併後直接更新正式站與開發站。也可以在 Actions 頁面手動執行。
+- `.github/workflows/ci.yml` 是 PR 的必要檢查；`.github/workflows/deploy.yml` 部署開發站與正式站（見「部署」）。
 - 資料內容沒變時 `version` 和 `updatedAt` 不會改，不會產生多餘的 commit。
 
 ## 路線 ID
@@ -102,14 +102,22 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 ## 部署
 
-網站在 Firebase Hosting（站台 `longdong`，https://longdong.web.app/）。`main` 受保護，改動經由 PR 合併；合併後 `.github/workflows/deploy.yml` 自動 build，並部署到 Firebase Hosting。流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+網站在 Firebase Hosting，開發版與正式版分開（`.github/workflows/deploy.yml`）：
+
+| 分支 | 網站 | 何時更新 |
+|---|---|---|
+| `main` | 開發站（站台 `longdong-dev`，https://longdong-dev.web.app/） | PR 合併後自動部署 |
+| `release` | 正式站（站台 `longdong`，https://longdong.web.app/） | 發布時 |
+
+- **發布**：在開發站確認後，把 `release` 快轉到 `main` 的同一個 commit（`git push origin main:release`，只能快轉）。部署後自動打上版號標籤（例如 `v1.0.98`），開發站與正式站同一個 commit 的版號相同。
+- **路線資料不等發布**：路線資料（`public/data`，每日同步 PR）合併到 `main` 後，正式站也直接更新——用 `release` 的程式加上 `main` 的最新資料建置。資料要先通過正式版程式的資料格式驗證（`scripts/validate-data.ts`），對不上（例如 `main` 改了資料格式）就不更新正式站並顯示警告，等發布時一起上線。
+- **開發站的標示**：建置時 `VITE_CHANNEL=dev`，品牌名稱旁顯示「開發版」，安裝後的名稱是「龍洞開發版」，並加上 `noindex` 不讓搜尋引擎收錄。開發站與正式站**共用同一個資料庫**：在開發站的紀錄、評分、回報都是真的資料；資料庫規則或資料格式的改動先用本機模擬器驗證（`npm run test:e2e`、`npm run test:rules`）。
+- `main` 受保護，改動經由 PR 合併，流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 - 部署金鑰：Firebase 服務帳號的金鑰存在 repo 的 Secrets（`FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321`），由專案管理者以 `firebase init hosting:github` 建立。
 - 快取：`firebase.json` 設定 `assets/`（檔名含雜湊）可長期快取；頁面（`/`、`/area/…`、`/route/…` 等不帶副檔名的網址，以 `regex` 列出）、HTML、JSON、Service Worker 每次都向伺服器確認，新版上線後不會拿到舊頁面、找不到已刪除的舊檔案。
 
-網址用相對路徑、路由用 hash，所以放在子路徑或自訂網域都可以。
-
-**版號**是「主.次.提交數」（例如 `1.0.65 (0968ddc)`），建置時自動產生（`scripts/lib/appVersion.ts`）：主、次版號寫在 `package.json`，大改版時手動調；最後一碼是 commit 的提交數，main 每合併一個 PR 自動加一。
+**版號**是「主.次.提交數」（例如 `1.0.65 (0968ddc)`），建置時自動產生（`scripts/lib/appVersion.ts`）：主、次版號寫在 `package.json`，大改版時手動調；最後一碼是 commit 的提交數，main 每合併一個 PR 自動加一；發布是把 `release` 快轉到同一個 commit，所以正式站的版號就是開發站上確認過的那一版。
 版號顯示在關於頁、「我的 → 設定」最下方，以及「有新版本」的提示（讀 `version.json`，不在離線快取裡）。版號需要完整的 git 歷史，workflow 的 checkout 都設了 `fetch-depth: 0`。
 
 網址不帶 `#`（`/area/…`、`/route/…`、`/map`）：`firebase.json` 把所有路徑交給 `index.html`，站內連結由 `src/router.ts` 換頁。

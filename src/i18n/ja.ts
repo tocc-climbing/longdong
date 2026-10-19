@@ -7,6 +7,7 @@ import type { Messages } from '.'
  */
 export const ja: Messages = {
   'app.title': '龍洞クライミング',
+  'app.devBadge': '開発版',
   'app.loading': '読み込み中…',
   'app.loadError': 'ルートデータを読み込めません（{error}）',
   'app.firstUseNeedsNetwork': '初回はインターネット接続が必要です。ダウンロード後はオフラインで使えます',

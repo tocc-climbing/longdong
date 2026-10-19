@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { appVersion } from './scripts/lib/appVersion'
 
 const version = appVersion()
+/** 開發站（main 建置時 VITE_CHANNEL=dev）：安裝後的名稱不同，也不讓搜尋引擎收錄 */
+const devSite = process.env.VITE_CHANNEL === 'dev'
 
 // 網址不帶 #（/area/…、/route/…），資源一律從網站根目錄讀；伺服器把所有路徑交給 index.html（firebase.json 的 rewrites）
 export default defineConfig({
@@ -19,11 +21,15 @@ export default defineConfig({
         this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify(version) + '\n' })
       },
     },
+    {
+      name: 'dev-site-noindex',
+      transformIndexHtml: (html) => (devSite ? html.replace('</head>', '  <meta name="robots" content="noindex" />\n  </head>') : html),
+    },
     VitePWA({
       registerType: 'prompt',
       manifest: {
-        name: '龍洞攀岩資料庫',
-        short_name: '龍洞',
+        name: devSite ? '龍洞攀岩資料庫（開發版）' : '龍洞攀岩資料庫',
+        short_name: devSite ? '龍洞開發版' : '龍洞',
         description: '龍洞攀岩路線與 Bolt 資訊，離線可用',
         lang: 'zh-Hant-TW',
         start_url: '/',

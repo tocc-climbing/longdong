@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAppUpdate } from './appUpdate'
+import { DevBadge } from './components/DevBadge'
 import { Pager, neighborLabel } from './components/Pager'
 import { DetailPane, desktopView, useDesktopKeys } from './desktop'
 import { BottomNav, activeTab } from './components/BottomNav'
@@ -140,6 +141,7 @@ export function App() {
             LD
           </span>
           {t('app.title')}
+          <DevBadge />
         </a>
         {/* 搜尋放在岩場頁的右上（下方的分頁換成地圖） */}
         {activeTab(page) === 'crags' && (
