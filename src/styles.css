@@ -3135,3 +3135,17 @@ main.map > div {
 [data-layout='mobile'] .rescue {
   --emergency: #d40442;
 }
+
+/* 手機版的卡片（區域、分區、上一區／下一區）：按下時不換底色——米色背景上換成淺色，卡片看起來像閃一下；
+   改成微微縮小的按壓效果，卡片維持白色 */
+[data-layout='mobile'] :is(.area-row, .sector-card, .pager a) {
+  transition: transform 0.08s ease-out;
+}
+
+[data-layout='mobile'] :is(.area-row, .sector-card, .pager a):is(:hover, :active) {
+  background: var(--surface);
+}
+
+[data-layout='mobile'] :is(.area-row, .sector-card, .pager a):active {
+  transform: scale(0.985);
+}
