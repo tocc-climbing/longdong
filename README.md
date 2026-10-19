@@ -112,7 +112,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 - **發布**：在開發站確認後，把 `release` 快轉到 `main` 的同一個 commit（`git push origin main:release`，只能快轉）。部署後自動打上版號標籤（例如 `v1.0.98`），開發站與正式站同一個 commit 的版號相同。
 - **路線資料不等發布**：路線資料（`public/data`，每日同步 PR）合併到 `main` 後，正式站也直接更新——用 `release` 的程式加上 `main` 的最新資料建置。資料要先通過正式版程式的資料格式驗證（`scripts/validate-data.ts`），對不上（例如 `main` 改了資料格式）就不更新正式站並顯示警告，等發布時一起上線。
 - **開發站的標示**：建置時 `VITE_CHANNEL=dev`，品牌名稱旁顯示「開發版」，安裝後的名稱是「龍洞開發版」，並加上 `noindex` 不讓搜尋引擎收錄。開發站與正式站**共用同一個資料庫**：在開發站的紀錄、評分、回報都是真的資料；資料庫規則或資料格式的改動先用本機模擬器驗證（`npm run test:e2e`、`npm run test:rules`）。
-- `main` 受保護，改動經由 PR 合併，流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- `main` 受保護，改動經由 PR 合併，流程見 [CONTRIBUTING.md](CONTRIBUTING.md)。`release` 也受保護（ruleset「release 保護」）：只能快轉，不能強制推送或刪除。
 
 - 部署金鑰：Firebase 服務帳號的金鑰存在 repo 的 Secrets（`FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321`），由專案管理者以 `firebase init hosting:github` 建立。
 - 快取：`firebase.json` 設定 `assets/`（檔名含雜湊）可長期快取；頁面（`/`、`/area/…`、`/route/…` 等不帶副檔名的網址，以 `regex` 列出）、HTML、JSON、Service Worker 每次都向伺服器確認，新版上線後不會拿到舊頁面、找不到已刪除的舊檔案。
