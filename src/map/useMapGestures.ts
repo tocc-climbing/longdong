@@ -7,6 +7,9 @@ export const STEP = 2
 /** 長按多久（毫秒）、手指移動不超過多少像素，算長按區域 */
 const LONG_PRESS_MS = 500
 const LONG_PRESS_SLOP_PX = 12
+/** 點一下：放開前移動不超過這個距離、按住不超過這個時間 */
+const TAP_SLOP_PX = 8
+const TAP_MS = 400
 /** 雙指轉動超過這個角度才開始旋轉（弧度），只想縮放時地圖不會跟著歪 */
 const ROTATE_START = 0.15
 
@@ -20,11 +23,13 @@ export interface MapGestures {
   areaAt: (p: Point) => (() => string | undefined) | undefined
   /** 長按（電腦為按右鍵）區域 */
   onAreaPress?: (area: string) => void
+  /** 點一下（框內的像素位置），例如點救援點 */
+  onTap?: (p: Point) => void
 }
 
 /**
  * 地圖的滑鼠與觸控操作，像 Google 地圖：
- * 拖曳平移、雙指縮放與旋轉、滾輪縮放、雙擊放大；長按（電腦按右鍵）區域時呼叫 onAreaPress。
+ * 拖曳平移、雙指縮放與旋轉、滾輪縮放、雙擊放大；長按（電腦按右鍵）區域時呼叫 onAreaPress，點一下呼叫 onTap。
  */
 export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: RefObject<MapGestures>) {
   useLayoutEffect(() => {
@@ -54,6 +59,8 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
     // 按住時手指的小抖動會拖動地圖，所以按下時就記下手指底下的地圖位置，判斷區域用它，不用之後的螢幕位置
     let press: { timer: number; at: Point } | undefined
     let held: { id: string; at: Point } | undefined
+    /** 一根手指（或滑鼠左鍵）按下，還沒移動：放開時算點一下 */
+    let tap: { id: number; at: Point; time: number } | undefined
     const cancelPress = () => {
       if (press) clearTimeout(press.timer)
       press = undefined
@@ -67,6 +74,7 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
       twist = 0
       rotating = false
       cancelPress()
+      tap = pointers.size === 1 && e.button === 0 ? { id: e.pointerId, at: local(e), time: e.timeStamp } : undefined
       if (pointers.size === 1 && e.pointerType !== 'mouse') {
         const at = local(e)
         const area = gestures.current.areaAt(at)
@@ -87,6 +95,7 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
       if (!prev) return
       if (pointers.size === 1) {
         const p = local(e)
+        if (tap && Math.hypot(p.x - tap.at.x, p.y - tap.at.y) > TAP_SLOP_PX) tap = undefined
         const start = press?.at ?? held?.at
         if (start && Math.hypot(p.x - start.x, p.y - start.y) > LONG_PRESS_SLOP_PX) {
           cancelPress()
@@ -97,6 +106,7 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
       } else if (pointers.size === 2) {
         cancelPress()
         held = undefined
+        tap = undefined
         const before = pair()
         pointers.set(e.pointerId, local(e))
         const after = pair()
@@ -116,6 +126,8 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
     const up = (e: PointerEvent) => {
       pointers.delete(e.pointerId)
       cancelPress()
+      if (e.type === 'pointerup' && tap?.id === e.pointerId && !held && e.timeStamp - tap.time <= TAP_MS) gestures.current.onTap?.(tap.at)
+      tap = undefined
       if (!held) return
       if (e.type === 'pointerup') {
         const { id } = held

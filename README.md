@@ -134,15 +134,10 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 ## 救援資訊
 
-首頁與各區域頁的「救援」按鈕進入救援資訊（`/rescue`、`/rescue/<大區域>`）：緊急電話、通報群組、該區的救援局部圖與就近救援點、整張救援資訊圖、救援點 GPS 座標、急救器材位置，全部在離線快取裡。「我的位置」用手機 GPS 取得目前座標（可複製唸給 119），並列出最近的救援點、距離與方位（`src/geo.ts`）；GPS 不需要網路。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
+首頁與各區域頁的「救援」按鈕進入救援資訊（`/rescue`、`/rescue/<大區域>`）：緊急電話、通報群組、救援地圖、我的位置、救援點 GPS 座標、急救器材位置，全部在離線快取裡。資料來自 [TOCC 龍洞岩場救援計畫](https://www.tocc-climbing.org/ems-project)，寫在 `src/data/rescue.ts`。
 
-救援資訊圖改版時，用新的 `.ai`（或 `.pdf`）重新產生圖片（需要 Node.js 22 以上）：
-
-```bash
-npm run rescue-map -- <救援資訊圖.ai>
-```
-
-版面若有變動，腳本會停下來，調整 `scripts/gen-rescue-map.ts` 裡各大區域的裁切範圍；救援點座標改了要一併更新 `src/data/rescue.ts`。
+- **救援地圖**用下面的比例尺地圖（`src/map/RescueMap.tsx`），不再放救援資訊圖的圖片：從區域頁進來時聚焦在該區與就近救援點（其他區域變淡）；點地圖上的救援點、或清單的「看地圖」，地圖下方顯示座標（可複製、開 Google 地圖）。地圖的聚焦、選中、點救援點由 `ScaleMap` 的 `focus`、`selected`、`onPointPress` 控制。
+- **我的位置**用手機 GPS 取得目前座標（可複製唸給 119），並列出最近的救援點、距離與方位（`src/geo.ts`）；地圖上同時標出目前位置。GPS 不需要網路。
 
 ### 比例尺地圖（測試中）
 
@@ -171,6 +166,6 @@ OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetM
 
 - 程式碼：[MIT](LICENSE)
 - TOCC 標誌與由其產生的 App 圖示（`assets/`、`public/icons/`）：屬臺灣戶外攀岩協會所有，不適用 MIT
-- 龍洞岩場救援資訊圖與由其產生的圖片（`public/rescue/`）、救援資訊（`src/data/rescue.ts`）：來自 TOCC 龍洞岩場救援計畫，屬臺灣戶外攀岩協會所有，不適用 MIT
+- 龍洞岩場救援資訊圖、由其產生的地圖資料（`public/rescue/`）、救援資訊（`src/data/rescue.ts`）：來自 TOCC 龍洞岩場救援計畫，屬臺灣戶外攀岩協會所有，不適用 MIT
 - 比例尺地圖的道路與海岸校正參考（`scripts/data/osm-reference.json`）：© OpenStreetMap contributors，[ODbL](https://opendatacommons.org/licenses/odbl/)
 - 路線資料（`public/data/`）：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)，© 臺灣戶外攀岩協會（TOCC）固定點更新計畫

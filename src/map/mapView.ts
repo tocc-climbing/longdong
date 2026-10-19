@@ -55,6 +55,12 @@ export function fitView(bounds: Rect, frame: Size, cx = bounds.x + bounds.w / 2)
   return clampView({ cx, cy: bounds.y + bounds.h / 2, s: maxScale(bounds, frame), r: 0 }, bounds, frame)
 }
 
+/** 把 target（例如一個區域、幾個救援點）放進框裡，北方朝上；縮放與位置仍限制在 bounds 內 */
+export function focusView(target: Rect, bounds: Rect, frame: Size): MapView {
+  const s = Math.max(target.w / frame.w, target.h / frame.h)
+  return clampView({ cx: target.x + target.w / 2, cy: target.y + target.h / 2, s, r: 0 }, bounds, frame)
+}
+
 /**
  * 最多縮小到範圍的上下剛好填滿框：上下不會露出範圍外的空白（範圍外沒有地圖資料）；
  * 框比較窄（手機直拿）時左右放不下，左右拖曳即可。

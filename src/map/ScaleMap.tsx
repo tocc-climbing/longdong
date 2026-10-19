@@ -3,7 +3,7 @@ import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
 import { project, type Marker, type ScaleMapData } from './mapData'
-import { MIN_SCALE, clampScale, clampView, dashLength, fitView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Size } from './mapView'
+import { MIN_SCALE, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Rect, type Size } from './mapView'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
 import './map.css'
@@ -72,6 +72,37 @@ function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Recor
   return { shown, labels }
 }
 
+/** 聚焦：地圖移到這些東西（大區域、救援點）並放大到剛好放進框裡；key 改變時重新聚焦 */
+export interface MapFocus {
+  key: string
+  /** 大區域 key：其他區域變淡 */
+  area?: string
+  /** 救援點編號：加大標示 */
+  points?: number[]
+}
+
+/** 聚焦範圍外留的邊（公尺）；範圍至少這麼大，只聚焦一個救援點時也看得到周圍的區域與步道 */
+const FOCUS_PADDING_M = 30
+const FOCUS_MIN_M = 200
+/** 點救援點：離圓心這個距離（像素）內都算 */
+const POINT_HIT_PX = 18
+
+/** 聚焦的範圍（地圖座標）：區域外框與救援點的外接矩形 */
+function focusRect(focus: MapFocus, areas: ScaleMapData['areas']): Rect | undefined {
+  const xy = [
+    ...(areas.find((a) => a.id === focus.area)?.rings.flat() ?? []),
+    ...located.filter((p) => focus.points?.includes(p.no)).map((p) => p.at),
+  ]
+  if (xy.length === 0) return undefined
+  const xs = xy.map((p) => p[0])
+  const ys = xy.map((p) => p[1])
+  const w = Math.max(FOCUS_MIN_M, Math.max(...xs) - Math.min(...xs) + 2 * FOCUS_PADDING_M)
+  const h = Math.max(FOCUS_MIN_M, Math.max(...ys) - Math.min(...ys) + 2 * FOCUS_PADDING_M)
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+  return { x: cx - w / 2, y: cy - h / 2, w, h }
+}
+
 interface Props {
   map: ScaleMapData
   /** 大區域 key → 顯示名稱 */
@@ -84,6 +115,12 @@ interface Props {
   onAreaPress?: (area: string) => void
   /** 左上角的按鈕（測試版說明、回報） */
   topLeft?: ReactNode
+  /** 聚焦的區域、救援點（例如救援頁從區域進來時）；有聚焦時，定位到也不會自動移到目前位置 */
+  focus?: MapFocus
+  /** 選中的救援點編號：加大標示 */
+  selected?: number
+  /** 點救援點時：救援點編號 */
+  onPointPress?: (no: number) => void
 }
 
 /**
@@ -93,7 +130,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, topLeft }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, topLeft, focus, selected, onPointPress }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -121,11 +158,26 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
       if (el.clientWidth === 0 || el.clientHeight === 0) return
       const f = { w: el.clientWidth, h: el.clientHeight }
       setFrame(f)
-      setView((v) => clampView(v ?? fitView(BOUNDS, f, CRAG_X), BOUNDS, f))
+      setView((v) => {
+        if (v) return clampView(v, BOUNDS, f)
+        const target = latestFocus.current
+        return target ? focusView(target, BOUNDS, f) : fitView(BOUNDS, f, CRAG_X)
+      })
     })
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // 聚焦：一開始（上面）與 key 改變時移過去
+  const target = focus && focusRect(focus, map.areas)
+  const latestFocus = useRef(target)
+  latestFocus.current = target
+  const focused = useRef(focus?.key)
+  useEffect(() => {
+    if (!frame || focus?.key === focused.current) return
+    focused.current = focus?.key
+    if (target) apply(() => focusView(target, BOUNDS, frame))
+  }, [focus?.key, !!frame])
 
   // 拖曳、縮放、旋轉、長按區域（useMapGestures）
   const gestures = useRef<MapGestures>(undefined!)
@@ -138,13 +190,26 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
       return () => map.areas.find((a) => a.rings.some((r) => insideRing(at, r)))?.id
     },
     onAreaPress,
+    onTap: (p) => {
+      const { frame: f, view: v } = latest.current
+      if (!f || !v || !onPointPress) return
+      const distance = (at: Vec) => {
+        const [x, y] = toScreen(v, f, at)
+        return Math.hypot(x - p.x, y - p.y)
+      }
+      const hit = located
+        .map((pt) => ({ no: pt.no, d: distance(pt.at) }))
+        .filter((h) => h.d <= POINT_HIT_PX)
+        .sort((a, b) => a.d - b.d)[0]
+      if (hit) onPointPress(hit.no)
+    },
   }
   useMapGestures(box, gestures)
 
   const me = here && project(here.coords)
 
   // 移到目前位置：第一次定位到（在龍洞範圍內）時自動移過去；按了「回到我的位置」但還沒定位時，定位到再移過去
-  const pendingCenter = useRef(true)
+  const pendingCenter = useRef(!focus)
   const goToMe = (at: Vec) => {
     pendingCenter.current = false
     apply((v) => ({ ...v, cx: at[0], cy: at[1], s: Math.min(v.s, ME_SCALE) }))
@@ -187,7 +252,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
           <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
           <path className="sm-building" d={map.layers.building} />
           {map.areas.map((a) => (
-            <path key={a.id} className={`sm-area sm-area-${a.id}`} d={a.path} strokeWidth={px} />
+            <path key={a.id} className={`sm-area sm-area-${a.id}${focus?.area && a.id !== focus.area ? ' sm-dim' : ''}`} d={a.path} strokeWidth={px} />
           ))}
           <path className="sm-highway" d={map.layers.highway} strokeWidth={5 * px} />
           <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
@@ -245,10 +310,11 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
           ))}
           {located.map((p, i) => {
             const [x, y] = screen(p.at)
+            const on = p.no === selected || !!focus?.points?.includes(p.no)
             return (
-              <g key={i} className="sm-rescue">
-                <circle cx={x} cy={y} r={7} />
-                <text x={x} y={y} fontSize={9} textAnchor="middle" dominantBaseline="central">
+              <g key={i} className={`sm-rescue${on ? ' on' : ''}${p.no === selected ? ' selected' : ''}`}>
+                <circle cx={x} cy={y} r={on ? 10 : 7} />
+                <text x={x} y={y} fontSize={on ? 11 : 9} textAnchor="middle" dominantBaseline="central">
                   {p.no}
                 </text>
               </g>

@@ -3,7 +3,7 @@ import type { LocalizedName } from './schema'
 /**
  * 龍洞岩場救援資訊，來源：TOCC 龍洞岩場救援計畫（https://www.tocc-climbing.org/ems-project）
  * 與「龍洞岩場救援資訊圖」2026 年 7 月版。內容由救援計畫團隊維護，App 照實顯示，不修正、不推測。
- * 地圖圖片由 scripts/gen-rescue-map.ts 產生，放在 public/rescue/。
+ * 救援頁的地圖用比例尺地圖（src/map/，資料由 scripts/gen-scale-map.ts 產生，放在 public/rescue/）。
  */
 
 export const RESCUE_SOURCE = {

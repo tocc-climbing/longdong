@@ -7,12 +7,12 @@ import { parseLocation } from '../src/router'
 const dataset = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as Dataset
 
 describe('救援資訊', () => {
-  it('每個大區域都有救援資訊與局部圖，沒有多出來的', () => {
+  it('每個大區域都有救援資訊與地圖上的區域形狀（救援地圖聚焦用），沒有多出來的', () => {
     const keys = dataset.areas.map((a) => rescueKey(a.id))
     expect(keys).not.toContain(undefined)
     expect(new Set(keys)).toEqual(new Set(Object.keys(AREA_RESCUE)))
-    for (const key of Object.keys(AREA_RESCUE)) expect(() => readFileSync(`public/rescue/${key}.webp`)).not.toThrow()
-    expect(() => readFileSync('public/rescue/map.webp')).not.toThrow()
+    const shapes = (JSON.parse(readFileSync('public/rescue/areas.geojson', 'utf8')) as { features: { properties: { id: string } }[] }).features
+    expect(new Set(shapes.map((f) => f.properties.id))).toEqual(new Set(Object.keys(AREA_RESCUE)))
   })
 
   it('各區引用的救援點與急救器材都存在', () => {

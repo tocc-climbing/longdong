@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MIN_SCALE, clampScale, clampView, dashLength, fitView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/map/mapView'
+import { MIN_SCALE, clampScale, clampView, dashLength, fitView, focusView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/map/mapView'
 
 const bounds = { x: 0, y: 0, w: 1000, h: 2000 }
 const frame = { w: 400, h: 400 }
@@ -51,6 +51,28 @@ describe('比例尺地圖的平移、縮放與旋轉', () => {
     expect(clampScale(0.01, bounds, frame)).toBe(MIN_SCALE)
     expect(clampScale(100, bounds, frame)).toBe(maxScale(bounds, frame))
     expect(clampView({ cx: -50, cy: 5000, s: 1, r: 0.5 }, bounds, frame)).toEqual({ cx: 0, cy: 2000, s: 1, r: 0.5 })
+  })
+})
+
+describe('聚焦（區域、救援點）', () => {
+  const bounds = { x: 0, y: 0, w: 2000, h: 1000 }
+  const frame = { w: 400, h: 300 }
+
+  it('目標放進框裡、置中', () => {
+    const v = focusView({ x: 800, y: 400, w: 200, h: 100 }, bounds, frame)
+    expect(v).toMatchObject({ cx: 900, cy: 450, r: 0 })
+    expect(v.s).toBeCloseTo(0.5)
+  })
+
+  it('單一個點（沒有大小）放到最大，不超出縮放範圍', () => {
+    expect(focusView({ x: 900, y: 450, w: 0, h: 0 }, bounds, frame).s).toBe(MIN_SCALE)
+  })
+
+  it('比整個範圍還大時縮到最小，中心留在範圍內', () => {
+    const v = focusView({ x: -500, y: -500, w: 4000, h: 3000 }, bounds, frame)
+    expect(v.s).toBe(maxScale(bounds, frame))
+    expect(v.cy).toBeGreaterThanOrEqual(0)
+    expect(v.cy).toBeLessThanOrEqual(1000)
   })
 })
 

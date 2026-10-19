@@ -1,27 +1,41 @@
-import { useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { CopyButton } from '../components/CopyButton'
-import { MyLocation } from '../components/MyLocation'
+import { MyLocation, useGeolocation } from '../components/MyLocation'
 import type { LoadedData } from '../data/dataset'
-import {
-  AREA_RESCUE,
-  EMERGENCY_NUMBERS,
-  EMS_LOCATIONS,
-  RESCUE_POINTS,
-  RESCUE_SOURCE,
-  formatCoords,
-  mapUrl,
-  type RescuePoint,
-} from '../data/rescue'
+import { AREA_RESCUE, EMERGENCY_NUMBERS, EMS_LOCATIONS, RESCUE_POINTS, RESCUE_SOURCE, formatCoords, mapUrl, type RescuePoint } from '../data/rescue'
 import { localName, useLang } from '../i18n'
+import type { MapFocus } from '../map/ScaleMap'
+
+/** 地圖的程式與資料較多，分開打包，打開救援頁時才載入（離線快取裡都有） */
+const RescueMap = lazy(() => import('../map/RescueMap'))
 
 /**
- * 救援資訊：緊急電話與通報、（從區域頁進來時）該區的救援圖與就近救援點、整張救援資訊圖、
- * 全部救援點座標、急救器材位置。全部放在離線快取裡，沒有訊號也能看。
+ * 救援資訊：緊急電話與通報、地圖（從區域頁進來時聚焦在該區與就近救援點；點救援點看座標）、
+ * 我的位置、該區的就近救援點與急救器材、全部救援點座標、急救器材位置。全部放在離線快取裡，沒有訊號也能看。
  */
 export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: string }) {
   const { lang, t } = useLang()
   const area = areaKey && AREA_RESCUE[areaKey] ? data.areaById.get(`${data.dataset.crag.id}/${areaKey}`) : undefined
   const local = areaKey ? AREA_RESCUE[areaKey] : undefined
+  const [geo, startLocating] = useGeolocation()
+  /** 選中的救援點：地圖上加大標示，地圖下方顯示座標 */
+  const [selected, setSelected] = useState<number>()
+  /** 從清單點「在地圖上看」：地圖移過去（n 讓同一個點再按一次也會移過去） */
+  const [flyTo, setFlyTo] = useState<{ no: number; n: number }>()
+  const mapSection = useRef<HTMLElement>(null)
+
+  const focus: MapFocus | undefined = flyTo
+    ? { key: `point:${flyTo.no}:${flyTo.n}`, points: [flyTo.no] }
+    : area && local && areaKey
+      ? { key: `area:${areaKey}`, area: areaKey, points: local.points }
+      : undefined
+  const showOnMap = (no: number) => {
+    setSelected(no)
+    setFlyTo((f) => ({ no, n: (f?.n ?? 0) + 1 }))
+    mapSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const selectedPoint = RESCUE_POINTS.find((p) => p.no === selected && p.coords)
+  const areaName = area && localName(area.name, lang).main
 
   return (
     <article className="rescue">
@@ -52,24 +66,41 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
         </ul>
       </section>
 
-      <MyLocation />
+      <section className="rescue-map-section" ref={mapSection} aria-labelledby="rescue-map">
+        <h2 id="rescue-map">{areaName ? t('rescue.areaTitle', { area: areaName }) : t('rescue.map')}</h2>
+        <Suspense fallback={<div className="rescue-map" />}>
+          <RescueMap
+            data={data}
+            focus={focus}
+            selected={selected}
+            here={geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy } : undefined}
+            onLocate={startLocating}
+            onPointPress={setSelected}
+          />
+        </Suspense>
+        {selectedPoint ? (
+          <ul className="list-card point-list rescue-selected">
+            <PointItem point={selectedPoint} />
+          </ul>
+        ) : (
+          <p className="muted small">{t('rescue.mapHint')}</p>
+        )}
+      </section>
 
-      {area && local && areaKey && (
-        <section className="rescue-area" aria-labelledby="rescue-area">
-          <h2 id="rescue-area">{t('rescue.areaTitle', { area: localName(area.name, lang).main })}</h2>
-          <img className="rescue-crop" src={`${import.meta.env.BASE_URL}rescue/${areaKey}.webp`} alt={t('rescue.areaMapAlt', { area: localName(area.name, lang).main })} />
-          <h3>{t('rescue.nearPoints')}</h3>
-          <PointList points={RESCUE_POINTS.filter((p) => local.points.includes(p.no))} />
+      <MyLocation geo={geo} start={startLocating} />
+
+      {area && local && (
+        <section aria-labelledby="rescue-area">
+          <h2 id="rescue-area">{t('rescue.nearTitle', { area: areaName! })}</h2>
+          <PointList points={RESCUE_POINTS.filter((p) => local.points.includes(p.no))} onShow={showOnMap} />
           <h3>{t('rescue.nearEms')}</h3>
           <EmsItem no={local.ems} />
         </section>
       )}
 
-      <FullMap />
-
       <section aria-labelledby="rescue-points">
         <h2 id="rescue-points">{t('rescue.points')}</h2>
-        <PointList points={RESCUE_POINTS} />
+        <PointList points={RESCUE_POINTS} onShow={showOnMap} />
       </section>
 
       <section aria-labelledby="rescue-ems">
@@ -100,22 +131,23 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
         </ul>
       </section>
 
-      <p className="muted small">{t('rescue.disclaimer', { version: RESCUE_SOURCE.version })}</p>
+      <p className="muted small">{t('rescue.disclaimer')}</p>
     </article>
   )
 }
 
-function PointList({ points }: { points: RescuePoint[] }) {
+function PointList({ points, onShow }: { points: RescuePoint[]; onShow: (no: number) => void }) {
   return (
     <ul className="list-card point-list">
       {points.map((p) => (
-        <PointItem key={`${p.no}-${p.name.zh}`} point={p} />
+        <PointItem key={`${p.no}-${p.name.zh}`} point={p} onShow={onShow} />
       ))}
     </ul>
   )
 }
 
-function PointItem({ point }: { point: RescuePoint }) {
+/** 救援點：編號、名稱、座標（可複製）；onShow 時多一個「在地圖上看」 */
+function PointItem({ point, onShow }: { point: RescuePoint; onShow?: (no: number) => void }) {
   const { lang, t } = useLang()
   return (
     <li className="point-item">
@@ -132,9 +164,15 @@ function PointItem({ point }: { point: RescuePoint }) {
       {point.coords && (
         <span className="point-actions">
           <CopyButton text={formatCoords(point.coords)} />
-          <a className="chip" href={mapUrl(point.coords)} target="_blank" rel="noreferrer">
-            {t('rescue.openMap')}
-          </a>
+          {onShow ? (
+            <button type="button" className="chip" onClick={() => onShow(point.no)}>
+              {t('rescue.showOnMap')}
+            </button>
+          ) : (
+            <a className="chip" href={mapUrl(point.coords)} target="_blank" rel="noreferrer">
+              {t('rescue.navigate')}
+            </a>
+          )}
         </span>
       )}
     </li>
@@ -154,24 +192,5 @@ function EmsItem({ no }: { no: number }) {
         <span className="muted"> · {localName(ems.where, lang).main}</span>
       </span>
     </p>
-  )
-}
-
-/** 整張救援資訊圖：預設符合寬度，按「放大」後可在框內捲動看細節（離線也能用，不開新頁） */
-function FullMap() {
-  const { t } = useLang()
-  const [zoom, setZoom] = useState(false)
-  return (
-    <section className="rescue-map-section" aria-labelledby="rescue-map">
-      <div className="section-head">
-        <h2 id="rescue-map">{t('rescue.map')}</h2>
-        <button type="button" className="chip" aria-pressed={zoom} onClick={() => setZoom((z) => !z)}>
-          {zoom ? t('rescue.zoomOut') : t('rescue.zoomIn')}
-        </button>
-      </div>
-      <div className={`map-frame${zoom ? ' zoomed' : ''}`} data-noswipe>
-        <img src={`${import.meta.env.BASE_URL}rescue/map.webp`} alt={t('rescue.mapAlt')} />
-      </div>
-    </section>
   )
 }

@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { NEAR_CRAG_M, nearestPoints, type LatLng } from '../geo'
 import { LOCALES, localName, useLang, type Translate } from '../i18n'
-import { href } from '../router'
 import { CopyButton } from './CopyButton'
 
 /** 誤差超過這個距離（公尺）時提醒到開闊處 */
 const POOR_ACCURACY_M = 50
 
-type GeoState =
+export type GeoState =
   | { status: 'idle' }
   | { status: 'locating' }
   | { status: 'ok'; coords: LatLng; accuracy: number; time: number }
@@ -50,15 +49,9 @@ function formatDistance(m: number, t: Translate): string {
   return m < 1000 ? t('myloc.m', { n: Math.round(m) }) : t('myloc.km', { n: (m / 1000).toFixed(1) })
 }
 
-/** 救援頁的「我的位置」：目前座標（可複製唸給 119）、誤差、最近的救援點與距離、方位 */
-export function MyLocation() {
+/** 救援頁的「我的位置」：目前座標（可複製唸給 119）、誤差、最近的救援點與距離、方位。定位由救援頁開始（地圖也用同一個位置） */
+export function MyLocation({ geo, start }: { geo: GeoState; start: () => void }) {
   const { lang, t } = useLang()
-  const [geo, start] = useGeolocation()
-  const mapLink = (
-    <a className="action" href={href.map()}>
-      {t('myloc.map')}
-    </a>
-  )
 
   return (
     <section className="card my-location" aria-labelledby="my-location">
@@ -71,7 +64,6 @@ export function MyLocation() {
             <button type="button" className="action primary" onClick={start}>
               {t('myloc.start')}
             </button>
-            {mapLink}
           </div>
         </>
       )}
@@ -93,7 +85,6 @@ export function MyLocation() {
                 {t('myloc.retry')}
               </button>
             )}
-            {mapLink}
           </div>
         </>
       )}
@@ -105,7 +96,6 @@ export function MyLocation() {
               {formatCoords(geo.coords)}
             </span>
             <CopyButton text={formatCoords(geo.coords)} className="action primary" />
-            {mapLink}
           </div>
           <p className="muted small" role="status">
             {t('myloc.accuracy', {

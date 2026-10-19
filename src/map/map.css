@@ -401,3 +401,19 @@
   color: var(--text);
   font: inherit;
 }
+
+/* 聚焦某個大區域時，其他區域變淡 */
+.sm-area.sm-dim {
+  opacity: 0.35;
+}
+
+/* 聚焦或選中的救援點：加大；選中的外圍多一圈 */
+.sm-rescue.on circle {
+  stroke: #fff;
+  stroke-width: 2px;
+}
+
+.sm-rescue.selected circle {
+  stroke: #141414;
+  stroke-width: 3px;
+}
