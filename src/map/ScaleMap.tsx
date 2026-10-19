@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
-import { project, type Marker, type ScaleMapData } from './mapData'
+import { project, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
 import { MIN_SCALE, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Rect, type Size } from './mapView'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
@@ -31,12 +31,23 @@ function textWidth(text: string, fontPx: number): number {
 const around = ([x, y]: Vec, hw: number, hh: number, dy = 0): Box => [x - hw, y + dy - hh, x + hw, y + dy + hh]
 
 /** 圖示越前面越重要：重疊時先畫重要的，其他的等放大後空間夠了才出現（停車場一定畫，不在這裡排） */
-const PRIORITY: Record<Exclude<Marker['kind'], 'parking'>, number> = { ems: 0, hoist: 1, boat: 2, place: 3 }
+const PRIORITY = { ems: 0, hoist: 1, boat: 2 }
+/** 地名依顏色種類：紅色的警示（安檢所）、道路與步道、一般地名、海面 */
+const PLACE_PRIORITY: Record<PlaceTone, number> = { warning: 3, road: 4, trail: 4, place: 5, sea: 6 }
+const priority = (m: Marker) => (m.kind === 'place' ? PLACE_PRIORITY[m.tone] : m.kind in PRIORITY ? PRIORITY[m.kind as keyof typeof PRIORITY] : 9)
 
-const placeName = (m: Extract<Marker, { kind: 'place' }>, lang: string) => (lang === 'en' ? m.en : m.zh)
+/** 地名：英文版用英文，日文版用日文（沒有時用中文） */
+const placeName = (m: Extract<Marker, { kind: 'place' }>, lang: string) => (lang === 'en' ? m.en : lang === 'ja' ? (m.ja ?? m.zh) : m.zh)
 
-function markerBox(m: Marker, at: Vec, lang: string): Box {
+/** 危險地形的圖示（半徑）與右邊的文字 */
+const HAZARD_R = 7
+
+function markerBox(m: Marker, at: Vec, lang: string, hazardLabel: string): Box {
   if (m.kind === 'place') return around(at, textWidth(placeName(m, lang), 11) / 2 + 2, 7)
+  if (m.kind === 'hazard') {
+    const w = HAZARD_R + 4 + textWidth(hazardLabel, 10)
+    return [at[0] - HAZARD_R - 1, at[1] - HAZARD_R - 1, at[0] + w + 1, at[1] + HAZARD_R + 1]
+  }
   // 直升機圖釘的尖端在實際位置，圖示在上方
   if (m.kind === 'hoist') return around(at, 6.5, 10, -10)
   return around(at, 7.5, 7.5)
@@ -44,25 +55,35 @@ function markerBox(m: Marker, at: Vec, lang: string): Box {
 
 /**
  * 決定要畫哪些圖示與區域名稱（都在螢幕座標上算，旋轉後也正確）：
- * 救援點與停車場一定畫（救援時最重要；停車場是進出岩場的集合點）。停車場 P 的位置在產生地圖時就避開救援點，畫在救援點上面；
- * 其他依 PRIORITY、區域名稱依面積大小，和已畫的東西重疊就先不畫。
+ * 救援點、停車場、危險地形一定畫（救援時最重要；停車場是進出岩場的集合點）。停車場 P 的位置在產生地圖時就避開救援點，畫在救援點上面；
+ * 其他依 priority、區域名稱依面積大小，和已畫的東西重疊就先不畫。
  */
-function declutter(markers: Marker[], areas: ScaleMapData['areas'], names: Record<string, string>, screen: (p: Vec) => Vec, lang: string) {
+function declutter(
+  markers: Marker[],
+  areas: ScaleMapData['areas'],
+  names: Record<string, string>,
+  screen: (p: Vec) => Vec,
+  lang: string,
+  hazardLabel: string,
+  /** 聚焦或選中的急救器材：一定畫 */
+  forceEms: number[],
+) {
   const occupied: Box[] = located.map(({ at }) => around(screen(at), 8, 8))
   const fits = (box: Box) => {
     if (occupied.some((o) => overlaps(box, o))) return false
     occupied.push(box)
     return true
   }
-  const parking = markers.flatMap((m, i) => (m.kind === 'parking' ? [i] : []))
-  for (const i of parking) occupied.push(markerBox(markers[i], screen(markers[i].at), lang))
+  const always = (m: Marker) => m.kind === 'parking' || m.kind === 'hazard' || (m.kind === 'ems' && forceEms.includes(m.no))
+  const fixed = markers.flatMap((m, i) => (always(m) ? [i] : []))
+  for (const i of fixed) occupied.push(markerBox(markers[i], screen(markers[i].at), lang, hazardLabel))
   const shown = new Set([
-    ...parking,
+    ...fixed,
     ...markers
       .map((m, i) => ({ m, i }))
-      .filter(({ m }) => m.kind !== 'parking')
-      .sort((a, b) => PRIORITY[a.m.kind as keyof typeof PRIORITY] - PRIORITY[b.m.kind as keyof typeof PRIORITY])
-      .filter(({ m }) => fits(markerBox(m, screen(m.at), lang)))
+      .filter(({ m }) => !always(m))
+      .sort((a, b) => priority(a.m) - priority(b.m))
+      .filter(({ m }) => fits(markerBox(m, screen(m.at), lang, hazardLabel)))
       .map(({ i }) => i),
   ])
   const labels = [...areas]
@@ -79,7 +100,12 @@ export interface MapFocus {
   area?: string
   /** 救援點編號：加大標示 */
   points?: number[]
+  /** 急救器材編號：加大標示 */
+  ems?: number[]
 }
+
+/** 選中的救援點或急救器材 */
+export type MapSelection = { kind: 'rescue' | 'ems'; no: number }
 
 /** 聚焦範圍外留的邊（公尺）；範圍至少這麼大，只聚焦一個救援點時也看得到周圍的區域與步道 */
 const FOCUS_PADDING_M = 30
@@ -88,10 +114,11 @@ const FOCUS_MIN_M = 200
 const POINT_HIT_PX = 18
 
 /** 聚焦的範圍（地圖座標）：區域外框與救援點的外接矩形 */
-function focusRect(focus: MapFocus, areas: ScaleMapData['areas']): Rect | undefined {
+function focusRect(focus: MapFocus, map: ScaleMapData): Rect | undefined {
   const xy = [
-    ...(areas.find((a) => a.id === focus.area)?.rings.flat() ?? []),
+    ...(map.areas.find((a) => a.id === focus.area)?.rings.flat() ?? []),
     ...located.filter((p) => focus.points?.includes(p.no)).map((p) => p.at),
+    ...map.markers.flatMap((m) => (m.kind === 'ems' && focus.ems?.includes(m.no) ? [m.at] : [])),
   ]
   if (xy.length === 0) return undefined
   const xs = xy.map((p) => p[0])
@@ -117,10 +144,10 @@ interface Props {
   topLeft?: ReactNode
   /** 聚焦的區域、救援點（例如救援頁從區域進來時）；有聚焦時，定位到也不會自動移到目前位置 */
   focus?: MapFocus
-  /** 選中的救援點編號：加大標示 */
-  selected?: number
-  /** 點救援點時：救援點編號 */
-  onPointPress?: (no: number) => void
+  /** 選中的救援點或急救器材：加大標示 */
+  selected?: MapSelection
+  /** 點救援點或急救器材時 */
+  onSelect?: (selection: MapSelection) => void
 }
 
 /**
@@ -130,7 +157,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, topLeft, focus, selected, onPointPress }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, topLeft, focus, selected, onSelect }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -169,7 +196,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
   }, [])
 
   // 聚焦：一開始（上面）與 key 改變時移過去
-  const target = focus && focusRect(focus, map.areas)
+  const target = focus && focusRect(focus, map)
   const latestFocus = useRef(target)
   latestFocus.current = target
   const focused = useRef(focus?.key)
@@ -192,16 +219,20 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
     onAreaPress,
     onTap: (p) => {
       const { frame: f, view: v } = latest.current
-      if (!f || !v || !onPointPress) return
+      if (!f || !v || !onSelect) return
       const distance = (at: Vec) => {
         const [x, y] = toScreen(v, f, at)
         return Math.hypot(x - p.x, y - p.y)
       }
-      const hit = located
-        .map((pt) => ({ no: pt.no, d: distance(pt.at) }))
+      const candidates = [
+        ...located.map((pt) => ({ kind: 'rescue' as const, no: pt.no, at: pt.at })),
+        ...map.markers.flatMap((m) => (m.kind === 'ems' ? [{ kind: 'ems' as const, no: m.no, at: m.at }] : [])),
+      ]
+      const hit = candidates
+        .map((c) => ({ ...c, d: distance(c.at) }))
         .filter((h) => h.d <= POINT_HIT_PX)
         .sort((a, b) => a.d - b.d)[0]
-      if (hit) onPointPress(hit.no)
+      if (hit) onSelect({ kind: hit.kind, no: hit.no })
     },
   }
   useMapGestures(box, gestures)
@@ -231,6 +262,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
   }
 
   const screen = (p: Vec) => toScreen(view, frame, p)
+  const isSelected = (kind: MapSelection['kind'], no: number) => selected?.kind === kind && selected.no === no
   /** 一個螢幕像素等於幾公尺：地圖圖形的線寬、虛線用它換算成固定的螢幕大小 */
   const px = view.s
   const atMax = view.s <= MIN_SCALE * 1.0001
@@ -240,7 +272,10 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
   const trailDash = dashLength(3, px)
   const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
-  const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang)
+  const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang, t('map.hazard'), [
+    ...(focus?.ems ?? []),
+    ...(selected?.kind === 'ems' ? [selected.no] : []),
+  ])
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
   const cover = Math.hypot(frame.w, frame.h) * px
 
@@ -269,9 +304,21 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
             const [x, y] = screen(m.at)
             if (m.kind === 'place')
               return (
-                <text key={i} className="sm-place" x={x} y={y} fontSize={11} textAnchor="middle" dominantBaseline="central">
+                <text key={i} className={`sm-place sm-place-${m.tone}`} x={x} y={y} fontSize={11} textAnchor="middle" dominantBaseline="central">
                   {placeName(m, lang)}
                 </text>
+              )
+            if (m.kind === 'hazard')
+              return (
+                <g key={i} className="sm-hazard">
+                  <circle cx={x} cy={y} r={HAZARD_R} />
+                  <text x={x} y={y} fontSize={10} textAnchor="middle" dominantBaseline="central">
+                    !
+                  </text>
+                  <text className="sm-hazard-label" x={x + HAZARD_R + 4} y={y} fontSize={10} dominantBaseline="central">
+                    {t('map.hazard')}
+                  </text>
+                </g>
               )
             if (m.kind === 'boat')
               return (
@@ -296,7 +343,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
             // 停車場的 P 畫在救援點上面（見下方）
             if (m.kind === 'parking') return null
             return (
-              <g key={i} className="sm-ems">
+              <g key={i} className={`sm-ems${isSelected('ems', m.no) ? ' selected' : ''}`}>
                 <title>{t('map.ems', { n: m.no })}</title>
                 <rect x={x - 6} y={y - 7} width={12} height={14} rx={4} />
                 <path d={`M${x - 3.5} ${y}h7M${x} ${y - 3.5}v7`} strokeWidth={2} />
@@ -310,9 +357,9 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
           ))}
           {located.map((p, i) => {
             const [x, y] = screen(p.at)
-            const on = p.no === selected || !!focus?.points?.includes(p.no)
+            const on = isSelected('rescue', p.no) || !!focus?.points?.includes(p.no)
             return (
-              <g key={i} className={`sm-rescue${on ? ' on' : ''}${p.no === selected ? ' selected' : ''}`}>
+              <g key={i} className={`sm-rescue${on ? ' on' : ''}${isSelected('rescue', p.no) ? ' selected' : ''}`}>
                 <circle cx={x} cy={y} r={on ? 10 : 7} />
                 <text x={x} y={y} fontSize={on ? 11 : 9} textAnchor="middle" dominantBaseline="central">
                   {p.no}

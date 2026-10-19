@@ -4,37 +4,39 @@ import { MyLocation, useGeolocation } from '../components/MyLocation'
 import type { LoadedData } from '../data/dataset'
 import { AREA_RESCUE, EMERGENCY_NUMBERS, EMS_LOCATIONS, RESCUE_POINTS, RESCUE_SOURCE, formatCoords, mapUrl, type RescuePoint } from '../data/rescue'
 import { localName, useLang } from '../i18n'
-import type { MapFocus } from '../map/ScaleMap'
+import type { MapFocus, MapSelection } from '../map/ScaleMap'
 
 /** 地圖的程式與資料較多，分開打包，打開救援頁時才載入（離線快取裡都有） */
 const RescueMap = lazy(() => import('../map/RescueMap'))
 
 /**
- * 救援資訊：緊急電話與通報、地圖（從區域頁進來時聚焦在該區與就近救援點；點救援點看座標）、
- * 我的位置、該區的就近救援點與急救器材、全部救援點座標、急救器材位置。全部放在離線快取裡，沒有訊號也能看。
+ * 救援資訊：緊急電話與通報、地圖（從區域頁進來時聚焦在該區與就近救援點、急救器材）、我的位置、
+ * 該區的就近救援點與急救器材、全部救援點、急救器材。清單點一下就在地圖上顯示，地圖下方顯示座標（可複製）或器材位置。
+ * 全部放在離線快取裡，沒有訊號也能看。
  */
 export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: string }) {
   const { lang, t } = useLang()
   const area = areaKey && AREA_RESCUE[areaKey] ? data.areaById.get(`${data.dataset.crag.id}/${areaKey}`) : undefined
   const local = areaKey ? AREA_RESCUE[areaKey] : undefined
   const [geo, startLocating] = useGeolocation()
-  /** 選中的救援點：地圖上加大標示，地圖下方顯示座標 */
-  const [selected, setSelected] = useState<number>()
-  /** 從清單點「在地圖上看」：地圖移過去（n 讓同一個點再按一次也會移過去） */
-  const [flyTo, setFlyTo] = useState<{ no: number; n: number }>()
+  /** 選中的救援點或急救器材：地圖上加大標示，地圖下方顯示詳細資訊 */
+  const [selected, setSelected] = useState<MapSelection>()
+  /** 從清單點選：地圖移過去（n 讓同一個再點一次也會移過去） */
+  const [flyTo, setFlyTo] = useState<MapSelection & { n: number }>()
   const mapSection = useRef<HTMLElement>(null)
 
   const focus: MapFocus | undefined = flyTo
-    ? { key: `point:${flyTo.no}:${flyTo.n}`, points: [flyTo.no] }
+    ? { key: `${flyTo.kind}:${flyTo.no}:${flyTo.n}`, ...(flyTo.kind === 'rescue' ? { points: [flyTo.no] } : { ems: [flyTo.no] }) }
     : area && local && areaKey
-      ? { key: `area:${areaKey}`, area: areaKey, points: local.points }
+      ? { key: `area:${areaKey}`, area: areaKey, points: local.points, ems: [local.ems] }
       : undefined
-  const showOnMap = (no: number) => {
-    setSelected(no)
-    setFlyTo((f) => ({ no, n: (f?.n ?? 0) + 1 }))
+  const showOnMap = (selection: MapSelection) => {
+    setSelected(selection)
+    setFlyTo((f) => ({ ...selection, n: (f?.n ?? 0) + 1 }))
     mapSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  const selectedPoint = RESCUE_POINTS.find((p) => p.no === selected && p.coords)
+  const selectedPoint = selected?.kind === 'rescue' ? RESCUE_POINTS.find((p) => p.no === selected.no && p.coords) : undefined
+  const selectedEms = selected?.kind === 'ems' ? selected.no : undefined
   const areaName = area && localName(area.name, lang).main
 
   return (
@@ -75,13 +77,17 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
             selected={selected}
             here={geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy } : undefined}
             onLocate={startLocating}
-            onPointPress={setSelected}
+            onSelect={setSelected}
           />
         </Suspense>
         {selectedPoint ? (
-          <ul className="list-card point-list rescue-selected">
-            <PointItem point={selectedPoint} />
-          </ul>
+          <div className="card rescue-selected">
+            <PointDetail point={selectedPoint} />
+          </div>
+        ) : selectedEms !== undefined ? (
+          <div className="card rescue-selected">
+            <EmsItem no={selectedEms} />
+          </div>
         ) : (
           <p className="muted small">{t('rescue.mapHint')}</p>
         )}
@@ -94,7 +100,7 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
           <h2 id="rescue-area">{t('rescue.nearTitle', { area: areaName! })}</h2>
           <PointList points={RESCUE_POINTS.filter((p) => local.points.includes(p.no))} onShow={showOnMap} />
           <h3>{t('rescue.nearEms')}</h3>
-          <EmsItem no={local.ems} />
+          <EmsList ems={EMS_LOCATIONS.filter((e) => e.no === local.ems)} onShow={showOnMap} />
         </section>
       )}
 
@@ -106,13 +112,7 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
       <section aria-labelledby="rescue-ems">
         <h2 id="rescue-ems">{t('rescue.ems')}</h2>
         <p className="muted small">{t('rescue.emsDesc')}</p>
-        <ul className="list-card ems-list">
-          {EMS_LOCATIONS.map((e) => (
-            <li key={e.no}>
-              <EmsItem no={e.no} />
-            </li>
-          ))}
-        </ul>
+        <EmsList ems={EMS_LOCATIONS} onShow={showOnMap} />
       </section>
 
       <section aria-labelledby="rescue-more">
@@ -136,21 +136,36 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
   )
 }
 
-function PointList({ points, onShow }: { points: RescuePoint[]; onShow: (no: number) => void }) {
+/** 救援點清單：點一下就在地圖上顯示（沒有座標的不能點） */
+function PointList({ points, onShow }: { points: RescuePoint[]; onShow: (selection: MapSelection) => void }) {
+  const { lang, t } = useLang()
   return (
     <ul className="list-card point-list">
-      {points.map((p) => (
-        <PointItem key={`${p.no}-${p.name.zh}`} point={p} onShow={onShow} />
+      {points.map((point) => (
+        <li key={`${point.no}-${point.name.zh}`}>
+          <button type="button" className="point-item rescue-row" disabled={!point.coords} onClick={() => onShow({ kind: 'rescue', no: point.no })}>
+            <span className="point-no" aria-hidden>
+              {point.no}
+            </span>
+            <span className="point-body">
+              <span className="point-name">
+                <span className="visually-hidden">#{point.no} </span>
+                {localName(point.name, lang).main}
+              </span>
+              <span className="mono small">{point.coords ? formatCoords(point.coords) : <span className="muted">{t('rescue.noCoords')}</span>}</span>
+            </span>
+          </button>
+        </li>
       ))}
     </ul>
   )
 }
 
-/** 救援點：編號、名稱、座標（可複製）；onShow 時多一個「在地圖上看」 */
-function PointItem({ point, onShow }: { point: RescuePoint; onShow?: (no: number) => void }) {
+/** 地圖上選中的救援點：座標可以複製（唸給 119）、開 Google 地圖 */
+function PointDetail({ point }: { point: RescuePoint }) {
   const { lang, t } = useLang()
   return (
-    <li className="point-item">
+    <div className="point-item">
       <span className="point-no" aria-hidden>
         {point.no}
       </span>
@@ -159,38 +174,54 @@ function PointItem({ point, onShow }: { point: RescuePoint; onShow?: (no: number
           <span className="visually-hidden">#{point.no} </span>
           {localName(point.name, lang).main}
         </span>
-        <span className="mono small">{point.coords ? formatCoords(point.coords) : <span className="muted">{t('rescue.noCoords')}</span>}</span>
+        <span className="mono small">{formatCoords(point.coords!)}</span>
       </span>
-      {point.coords && (
-        <span className="point-actions">
-          <CopyButton text={formatCoords(point.coords)} />
-          {onShow ? (
-            <button type="button" className="chip" onClick={() => onShow(point.no)}>
-              {t('rescue.showOnMap')}
-            </button>
-          ) : (
-            <a className="chip" href={mapUrl(point.coords)} target="_blank" rel="noreferrer">
-              {t('rescue.navigate')}
-            </a>
-          )}
-        </span>
-      )}
-    </li>
+      <span className="point-actions">
+        <CopyButton text={formatCoords(point.coords!)} />
+        <a className="chip" href={mapUrl(point.coords!)} target="_blank" rel="noreferrer">
+          {t('rescue.navigate')}
+        </a>
+      </span>
+    </div>
   )
 }
 
+/** 急救器材清單：點一下就在地圖上顯示 */
+function EmsList({ ems, onShow }: { ems: typeof EMS_LOCATIONS; onShow: (selection: MapSelection) => void }) {
+  return (
+    <ul className="list-card ems-list">
+      {ems.map((e) => (
+        <li key={e.no}>
+          <button type="button" className="rescue-row" onClick={() => onShow({ kind: 'ems', no: e.no })}>
+            <EmsItem no={e.no} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** 急救器材：地點、放置位置；有捲式擔架的標示 SKED */
 function EmsItem({ no }: { no: number }) {
-  const { lang } = useLang()
+  const { lang, t } = useLang()
   const ems = EMS_LOCATIONS.find((e) => e.no === no)!
   return (
-    <p className="ems-item">
+    <span className="ems-item">
       <span className="ems-icon" aria-hidden>
         +
       </span>
       <span>
         <strong>{localName(ems.name, lang).main}</strong>
         <span className="muted"> · {localName(ems.where, lang).main}</span>
+        {ems.sked && (
+          <>
+            {' '}
+            <span className="sked-badge" title={t('rescue.skedTitle')}>
+              SKED
+            </span>
+          </>
+        )}
       </span>
-    </p>
+    </span>
   )
 }

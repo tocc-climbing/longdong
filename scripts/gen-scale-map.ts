@@ -296,14 +296,43 @@ const hoists = shapes
   .map((s) => s.subpaths.flat().reduce((a, b) => (b[1] > a[1] ? b : a)))
 if (hoists.length !== 5) throw new Error(`直升機吊掛點應該有 5 處，找到 ${hoists.length} 處：版面可能改了`)
 
-/** 地名：圖上文字（灰色）的中心 */
-const PLACES: { zh: string; en: string; at: Pt }[] = [
-  { zh: '和美國小', en: 'Ho-Mei School', at: [877.5, 996] },
-  { zh: '西靈巖寺', en: 'Hsilingyan Temple', at: [1145, 2005.5] },
+/**
+ * 圖上的文字（地名、道路、步道、海面、紅色的警示）：文字中心的圖上位置，中英日三種語言。
+ * tone 是圖上文字的顏色種類，地圖用同樣的配色；產生時檢查圖上該位置有這個顏色的文字，版面改了就停下來。
+ */
+type PlaceTone = 'place' | 'road' | 'trail' | 'sea' | 'warning'
+const TONE_COLORS: Record<PlaceTone, string> = { place: '#898989', road: '#004080', trail: '#386808', sea: '#c8c8c8', warning: '#b80008' }
+const PLACES: { zh: string; en: string; ja: string; tone: PlaceTone; at: Pt }[] = [
+  { zh: '和美國小', en: 'Ho-Mei School', ja: '和美小学校', tone: 'place', at: [877.5, 996] },
+  { zh: '和美村', en: 'Ho-Mei Village', ja: '和美村', tone: 'place', at: [541, 1130] },
+  { zh: '西靈巖寺', en: 'Hsilingyan Temple', ja: '西霊巌寺', tone: 'place', at: [1145, 2005.5] },
+  { zh: '龍洞南口海洋公園', en: 'Long Dong South Ocean Park', ja: '龍洞南口海洋公園', tone: 'place', at: [838, 2427] },
+  { zh: '太平洋', en: 'Pacific Ocean', ja: '太平洋', tone: 'sea', at: [1679, 2305] },
+  { zh: '龍洞街', en: 'Long Dong Street', ja: '龍洞街', tone: 'road', at: [547, 1039] },
+  { zh: '台二線濱海公路', en: 'Coastal Highway', ja: '台2線（浜海公路）', tone: 'road', at: [663, 1281] },
+  { zh: '台二線濱海公路', en: 'Coastal Highway', ja: '台2線（浜海公路）', tone: 'road', at: [1005, 2199] },
+  { zh: '龍洞隧道', en: 'Long Dong Tunnel', ja: '龍洞トンネル', tone: 'road', at: [1010, 1846] },
+  { zh: '往基隆、台北', en: 'to Keelung, Taipei', ja: '基隆・台北方面', tone: 'road', at: [252, 1164] },
+  { zh: '往福隆、宜蘭', en: 'to Fulong, Yilan', ja: '福隆・宜蘭方面', tone: 'road', at: [560, 2458] },
+  { zh: '校門口小徑', en: 'School Gate Trail', ja: '校門口トレイル', tone: 'trail', at: [1087, 692] },
+  { zh: '龍洞岬灣步道', en: 'Long Dong Cape Bay Trail', ja: '龍洞岬湾歩道', tone: 'trail', at: [1073, 958] },
+  { zh: '龍洞岬灣步道', en: 'Long Dong Cape Bay Trail', ja: '龍洞岬湾歩道', tone: 'trail', at: [1086, 1588] },
+  { zh: '黃金谷小徑', en: 'Golden Valley Trail', ja: '黄金谷トレイル', tone: 'trail', at: [1234, 1638] },
+  { zh: '後門小徑', en: 'Back Door Trail', ja: '後門トレイル', tone: 'trail', at: [1292, 2170] },
+  { zh: '海巡署龍洞安檢所', en: 'Coast Guard Inspection Office', ja: '海巡署龍洞安検所', tone: 'warning', at: [241, 902] },
 ]
-const placeText = shapes.filter((s) => !s.stroke && s.fill === '#898989').map(centerOf)
-for (const { zh, at } of PLACES) {
-  if (!placeText.some((p) => near(p, at) < 60)) throw new Error(`「${zh}」的圖上位置 ${at} 沒有文字：版面可能改了`)
+/** 危險地形：紅色驚嘆號圖示的中心（文字「危險地形 Terrain」在旁邊） */
+const HAZARDS: Pt[] = [
+  [1350, 1142],
+  [1336, 1941],
+]
+const colorDistance = (a: string, b: string) => Math.max(...[1, 3, 5].map((i) => Math.abs(parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16))))
+const textOf = (color: string) => shapes.filter((s) => !s.stroke && s.fill && colorDistance(s.fill, color) <= 24).map(centerOf)
+for (const { zh, tone, at } of PLACES) {
+  if (!textOf(TONE_COLORS[tone]).some((p) => near(p, at) < 60)) throw new Error(`「${zh}」的圖上位置 ${at} 沒有文字：版面可能改了`)
+}
+for (const at of HAZARDS) {
+  if (!textOf(TONE_COLORS.warning).some((p) => near(p, at) < 20)) throw new Error(`危險地形的圖上位置 ${at} 沒有驚嘆號圖示：版面可能改了`)
 }
 
 // ── 圖上位置 → 實際座標 ─────────────────────────────────────
@@ -641,7 +670,8 @@ const scaleMap = {
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
     ...emsTips.map((at, i) => point({ kind: 'ems', no: EMS_LOCATIONS[i].no }, at)),
-    ...PLACES.map(({ zh, en, at }) => point({ kind: 'place', zh, en }, at)),
+    ...PLACES.map(({ zh, en, ja, tone, at }) => point({ kind: 'place', zh, en, ja, tone }, at)),
+    ...HAZARDS.map((at) => point({ kind: 'hazard' }, at)),
     ...boats.map((at) => point({ kind: 'boat' }, at)),
     ...hoists.map((at) => point({ kind: 'hoist' }, at)),
   ],

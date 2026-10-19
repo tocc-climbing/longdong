@@ -417,3 +417,49 @@
   stroke: #141414;
   stroke-width: 3px;
 }
+
+/* 圖上文字依種類上色（與救援資訊圖相同）：道路深藍、步道綠、海面淡灰斜體、警示紅 */
+.sm-place-road {
+  fill: #004080;
+}
+
+.sm-place-trail {
+  fill: #386808;
+}
+
+.sm-place-sea {
+  fill: #a8a8a8;
+  font-style: italic;
+}
+
+.sm-place-warning {
+  fill: #b60005;
+  font-weight: 700;
+}
+
+/* 危險地形：紅色驚嘆號＋文字 */
+.sm-hazard circle {
+  fill: #b60005;
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.sm-hazard text {
+  fill: #fff;
+  font-weight: 900;
+}
+
+.sm-hazard .sm-hazard-label {
+  fill: #b60005;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}
+
+/* 選中的急救器材：外圍一圈 */
+.sm-ems.selected rect {
+  stroke: #141414;
+  stroke-width: 3px;
+  paint-order: stroke;
+}

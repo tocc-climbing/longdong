@@ -2738,7 +2738,48 @@ a.action {
   text-decoration: none;
 }
 
-.ems-list > li {
+/* 救援頁的救援點、急救器材清單：整列是按鈕，點一下就在地圖上顯示 */
+.rescue-row {
+  display: grid;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rescue-row:not(.point-item) {
+  padding: 0 14px;
+}
+
+.rescue-row:disabled {
+  cursor: default;
+}
+
+.rescue-row:not(:disabled):active {
+  background: var(--surface-2);
+}
+
+/* 捲式擔架（SKED）：救援資訊圖上的 SKED 是橘色 */
+.sked-badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #e86808;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  vertical-align: 1px;
+}
+
+.rescue-selected {
+  padding: 0;
+}
+
+.rescue-selected .ems-item {
   padding: 0 14px;
 }
 

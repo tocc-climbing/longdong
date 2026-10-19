@@ -48,7 +48,7 @@ export const RESCUE_POINTS: RescuePoint[] = [
   { no: 12, name: { zh: '後門－地下二樓', en: 'Back Door – Basement' }, coords: [25.104733, 121.922833] },
   { no: 12, name: { zh: '後門－地下一樓', en: 'Back Door – B1' }, coords: [25.103783, 121.922933] },
   { no: 13, name: { zh: '後門小徑', en: 'Back Door Trail' } },
-  { no: 14, name: { zh: '南側停車場（西靈巖寺）', en: '南側停車場（Hsilingyan Temple）' }, coords: [25.105167, 121.922183] },
+  { no: 14, name: { zh: '南側停車場（西靈巖寺）', en: 'South Parking Lot (Hsilingyan Temple)' }, coords: [25.105167, 121.922183] },
   { no: 15, name: { zh: '龍洞南口海洋公園', en: 'Long Dong South Ocean Park' }, coords: [25.101567, 121.919333] },
 ]
 
@@ -57,24 +57,27 @@ export interface EmsLocation {
   name: LocalizedName
   /** 放置位置的說明 */
   where: LocalizedName
+  /** 另有捲式擔架（SKED）：救援資訊圖上長巷、第一洞、黃金谷、後門四處有 */
+  sked: boolean
 }
 
 /**
- * 6 處急救器材設置點：每處有藍色密封桶（急救器材）與墨綠色帆布袋（長背板）。
+ * 6 處急救器材設置點：每處有藍色密封桶（急救器材）與墨綠色帆布袋（長背板），長巷、第一洞、黃金谷、後門另有捲式擔架（SKED）。
  * 2026-10-15 依救援團隊更新：#3 由音樂廳演奏臺移到長巷最深處、#5 改為黃金谷中央區小木屋，
  * 與救援資訊圖 2026 年 7 月版的器材位置一致（TOCC 救援計畫頁的文字仍是舊位置）。
  */
 export const EMS_LOCATIONS: EmsLocation[] = [
-  { no: 1, name: { zh: '校門口', en: 'School Gate' }, where: { zh: '左側洞穴內', en: 'Inside the boulder cave at the left side' } },
+  { no: 1, name: { zh: '校門口', en: 'School Gate' }, where: { zh: '左側洞穴內', en: 'Inside the boulder cave at the left side' }, sked: false },
   {
     no: 2,
     name: { zh: '鐘塔', en: 'Clocktower' },
     where: { zh: '總統頭像山後方洞穴內', en: 'Inside the tunnel at the left side to the base of Four Presidents' },
+    sked: false,
   },
-  { no: 3, name: { zh: '長巷', en: 'Long Lane' }, where: { zh: '最深處', en: 'At the far end of the lane' } },
-  { no: 4, name: { zh: '第一洞', en: 'First Cave' }, where: { zh: '洞內最深處', en: 'At the end of the cave' } },
-  { no: 5, name: { zh: '黃金谷', en: 'Golden Valley' }, where: { zh: '中央區小木屋', en: 'In the small cabin in the central area' } },
-  { no: 6, name: { zh: '後門', en: 'Back Door' }, where: { zh: '鱷魚岬與老人牆內角洞穴內', en: 'In the alcove between Crocodile Cape and Old Man Wall' } },
+  { no: 3, name: { zh: '長巷', en: 'Long Lane' }, where: { zh: '最深處', en: 'At the far end of the lane' }, sked: true },
+  { no: 4, name: { zh: '第一洞', en: 'First Cave' }, where: { zh: '洞內最深處', en: 'At the end of the cave' }, sked: true },
+  { no: 5, name: { zh: '黃金谷', en: 'Golden Valley' }, where: { zh: '中央區小木屋', en: 'In the small cabin in the central area' }, sked: true },
+  { no: 6, name: { zh: '後門', en: 'Back Door' }, where: { zh: '鱷魚岬與老人牆內角洞穴內', en: 'In the alcove between Crocodile Cape and Old Man Wall' }, sked: true },
 ]
 
 /**

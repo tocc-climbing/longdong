@@ -11,7 +11,7 @@ import { localName, type Lang } from '../i18n'
 
 type Position = [number, number]
 interface Feature {
-  properties: { kind?: string; id?: string; no?: number; zh?: string; en?: string }
+  properties: { kind?: string; id?: string; no?: number; zh?: string; en?: string; ja?: string; tone?: PlaceTone }
   geometry:
     | { type: 'MultiPolygon'; coordinates: Position[][][] }
     | { type: 'MultiLineString'; coordinates: Position[][] }
@@ -19,12 +19,17 @@ interface Feature {
 }
 
 /** 地圖上的標示：停車場、急救器材（編號同 EMS_LOCATIONS）、船艇接駁點、直升機吊掛點、地名 */
+/** 圖上文字的顏色種類（與救援資訊圖相同）：地名、道路、步道、海面、紅色的警示 */
+export type PlaceTone = 'place' | 'road' | 'trail' | 'sea' | 'warning'
+
 export type Marker =
   | { kind: 'parking'; at: [number, number] }
   | { kind: 'boat'; at: [number, number] }
   | { kind: 'hoist'; at: [number, number] }
   | { kind: 'ems'; no: number; at: [number, number] }
-  | { kind: 'place'; zh: string; en: string; at: [number, number] }
+  | { kind: 'place'; zh: string; en: string; ja?: string; tone: PlaceTone; at: [number, number] }
+  /** 危險地形（紅色驚嘆號） */
+  | { kind: 'hazard'; at: [number, number] }
 interface FeatureCollection {
   features: Feature[]
 }
@@ -71,7 +76,8 @@ function toMarker({ properties: p, geometry }: Feature): Marker {
   if (p.kind === 'boat') return { kind: 'boat', at }
   if (p.kind === 'hoist') return { kind: 'hoist', at }
   if (p.kind === 'ems' && p.no) return { kind: 'ems', no: p.no, at }
-  if (p.kind === 'place' && p.zh && p.en) return { kind: 'place', zh: p.zh, en: p.en, at }
+  if (p.kind === 'place' && p.zh && p.en) return { kind: 'place', zh: p.zh, en: p.en, ja: p.ja, tone: p.tone ?? 'place', at }
+  if (p.kind === 'hazard') return { kind: 'hazard', at }
   throw new Error(`不認得的標示：${JSON.stringify(p)}`)
 }
 
