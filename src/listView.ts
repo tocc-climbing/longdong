@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { Route, Safety } from './data/schema'
+import type { Route, RouteType, Safety } from './data/schema'
 import { gradeBand, type GradeBand } from './format'
 
 /**
@@ -8,11 +8,10 @@ import { gradeBand, type GradeBand } from './format'
  */
 
 export type SortKey = 'default' | 'grade' | 'rating'
-export type Kind = 'sport' | 'other'
-
 export interface ListFilter {
   bands: GradeBand[]
-  kinds: Kind[]
+  /** 路線種類（運攀、傳攀、上方架繩、抱石、混合） */
+  kinds: RouteType[]
   safety: Safety[]
 }
 
@@ -25,14 +24,9 @@ export interface ListView {
 export const EMPTY_FILTER: ListFilter = { bands: [], kinds: [], safety: [] }
 const INITIAL: ListView = { sort: 'default', desc: false, filter: EMPTY_FILTER }
 
-export function kindOf(route: Pick<Route, 'type'>): Kind | undefined {
-  if (!route.type) return undefined
-  return route.type === 'sport' ? 'sport' : 'other'
-}
-
 export function matches(route: Route, f: ListFilter): boolean {
   if (f.bands.length > 0 && !f.bands.includes(gradeBand(route.gradeValue)!)) return false
-  if (f.kinds.length > 0 && !f.kinds.includes(kindOf(route)!)) return false
+  if (f.kinds.length > 0 && !f.kinds.includes(route.type!)) return false
   if (f.safety.length > 0 && !f.safety.includes(route.safety!)) return false
   return true
 }

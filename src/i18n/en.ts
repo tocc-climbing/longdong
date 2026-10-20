@@ -331,7 +331,7 @@ export const en: Messages = {
   'checklist.legend.toprope': 'Top rope',
   'checklist.total': '{done} of {total} routes sent',
   'checklist.areas': 'Areas',
-  'checklist.onlyOpen': 'Only routes not sent yet',
+  'checklist.onlyOpen': 'Not sent',
   'checklist.styleAria': 'Best ascent of {route}',
   'checklist.starsAria': 'Your rating of {route}',
   'checklist.star': '{n} {n|star|stars}',

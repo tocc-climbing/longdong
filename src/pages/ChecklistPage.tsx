@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { GradePill } from '../components/GradePill'
+import { ROUTE_TYPES, TypeFilter } from '../components/TypeFilter'
 import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
-import type { Route } from '../data/schema'
+import type { Route, RouteType } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { BEST_STYLES, bestStyle, checklistStyle, isSent, sentRouteIds } from '../personal/model'
 import { setBest, usePersonal } from '../personal/store'
@@ -13,18 +14,33 @@ import { routeKey } from '../social/model'
 import { setLocalRating, useSocial } from '../social/store'
 
 const AREA_KEY = 'longdong.checklist.area'
+const TYPES_KEY = 'longdong.checklist.types'
 
 type Style = (typeof BEST_STYLES)[number]
 
 /** 清單上的簡寫與顏色（CSS 的 .style-os 等） */
 const SHORT: Record<Style, string> = { onsight: 'OS', redpoint: 'RP', toprope: 'TR' }
 
-function loadArea(): string | undefined {
+function load(key: string): string | undefined {
   try {
-    return localStorage.getItem(AREA_KEY) ?? undefined
+    return localStorage.getItem(key) ?? undefined
   } catch {
     return undefined
   }
+}
+
+function save(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* 存不了就下次用預設值 */
+  }
+}
+
+/** 上次選的路線種類（都不選為全部） */
+function loadTypes(): RouteType[] {
+  const saved = load(TYPES_KEY)?.split(',') ?? []
+  return ROUTE_TYPES.filter((type) => saved.includes(type))
 }
 
 /**
@@ -38,9 +54,10 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
   const personal = usePersonal()
   const areas = data.dataset.areas
   const [areaId, setAreaId] = useState(() => {
-    const saved = loadArea()
+    const saved = load(AREA_KEY)
     return areas.some((a) => a.id === saved) ? saved! : areas[0].id
   })
+  const [types, setTypes] = useState(loadTypes)
   const [onlyOpen, setOnlyOpen] = useState(false)
   const [error, setError] = useState<string>()
 
@@ -53,18 +70,20 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
     )
   }
 
-  const routesOf = (area: (typeof areas)[number]) => area.sectors.flatMap((s) => s.routes).filter((r) => !r.isFixture)
+  // 統計與清單都只算選取的路線種類
+  const included = (r: Route) => !r.isFixture && (types.length === 0 || (!!r.type && types.includes(r.type)))
+  const routesOf = (area: (typeof areas)[number]) => area.sectors.flatMap((s) => s.routes).filter(included)
   const sent = sentRouteIds(personal.ticks, personal.best)
   const total = areas.reduce((n, a) => n + routesOf(a).length, 0)
   const done = areas.reduce((n, a) => n + routesOf(a).filter((r) => sent.has(r.id)).length, 0)
   const area = areas.find((a) => a.id === areaId)!
   const pick = (id: string) => {
     setAreaId(id)
-    try {
-      localStorage.setItem(AREA_KEY, id)
-    } catch {
-      /* 存不了就下次從第一區開始 */
-    }
+    save(AREA_KEY, id)
+  }
+  const pickTypes = (next: RouteType[]) => {
+    setTypes(next)
+    save(TYPES_KEY, next.join(','))
   }
 
   return (
@@ -80,7 +99,7 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
       </p>
       <p className="checklist-total">{t('checklist.total', { done, total })}</p>
 
-      <div className="checklist-areas" role="tablist" aria-label={t('checklist.areas')}>
+      <div className="chips checklist-areas" role="tablist" aria-label={t('checklist.areas')}>
         {areas.map((a) => {
           const rs = routesOf(a)
           return (
@@ -94,10 +113,13 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
         })}
       </div>
 
-      <label className="checklist-filter small">
-        <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />
-        {t('checklist.onlyOpen')}
-      </label>
+      <div className="chips checklist-filter" role="group" aria-label={t('type.filter')}>
+        <TypeFilter value={types} onChange={pickTypes} />
+        <span className="chip-sep" aria-hidden />
+        <button type="button" className="chip" aria-pressed={onlyOpen} onClick={() => setOnlyOpen((o) => !o)}>
+          {t('checklist.onlyOpen')}
+        </button>
+      </div>
 
       {error && (
         <p className="small error" role="alert">
@@ -106,7 +128,7 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
       )}
 
       {area.sectors.map((sector) => {
-        const routes = sector.routes.filter((r) => !r.isFixture && !(onlyOpen && sent.has(r.id)))
+        const routes = sector.routes.filter((r) => included(r) && !(onlyOpen && sent.has(r.id)))
         if (routes.length === 0) return null
         return (
           <section key={sector.id} aria-labelledby={`cl-${sector.id}`}>

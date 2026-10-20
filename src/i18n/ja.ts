@@ -333,7 +333,7 @@ export const ja: Messages = {
   'checklist.legend.toprope': 'トップロープで完登',
   'checklist.total': '完登 {done} / {total} ルート',
   'checklist.areas': 'エリア',
-  'checklist.onlyOpen': '未完登のルートだけ表示',
+  'checklist.onlyOpen': '未完登',
   'checklist.styleAria': '{route}のベストスタイル',
   'checklist.starsAria': '{route}の評価',
   'checklist.star': '星 {n}',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Route } from '../src/data/schema'
-import { EMPTY_FILTER, applyView, filterCount, kindOf, nextSort, toggle, type ListView } from '../src/listView'
+import { EMPTY_FILTER, applyView, filterCount, nextSort, toggle, type ListView } from '../src/listView'
 
 const r = (id: string, gradeValue: number | undefined, type: Route['type'], safety?: Route['safety']) => ({
   route: { id, gradeValue, type, safety } as Route,
@@ -25,9 +25,10 @@ describe('路線清單排序與篩選', () => {
     expect(ids({ sort: 'rating', desc: true })).toEqual(['b', 'e', 'a', 'c', 'd'])
   })
 
-  it('篩選：難度區間、運攀／傳攀其他、安全燈號，條件之間是「且」', () => {
+  it('篩選：難度區間、路線種類（可複選）、安全燈號，條件之間是「且」', () => {
     expect(ids({ filter: { ...EMPTY_FILTER, bands: ['g10', 'g11'] } })).toEqual(['b', 'c'])
-    expect(ids({ filter: { ...EMPTY_FILTER, kinds: ['other'] } })).toEqual(['b', 'e'])
+    expect(ids({ filter: { ...EMPTY_FILTER, kinds: ['trad'] } })).toEqual(['b'])
+    expect(ids({ filter: { ...EMPTY_FILTER, kinds: ['trad', 'toprope'] } })).toEqual(['b', 'e'])
     expect(ids({ filter: { ...EMPTY_FILTER, safety: ['green'] } })).toEqual(['a', 'c'])
     expect(ids({ filter: { bands: ['easy', 'g10'], kinds: ['sport'], safety: ['green'] }, sort: 'grade', desc: true })).toEqual(['c', 'a'])
   })
@@ -40,9 +41,6 @@ describe('路線清單排序與篩選', () => {
   })
 
   it('小工具', () => {
-    expect(kindOf({ type: 'sport' })).toBe('sport')
-    expect(kindOf({ type: 'mixed' })).toBe('other')
-    expect(kindOf({})).toBeUndefined()
     expect(toggle(['a'], 'b')).toEqual(['a', 'b'])
     expect(toggle(['a', 'b'], 'a')).toEqual(['b'])
     expect(filterCount({ bands: ['g10'], kinds: [], safety: ['red', 'green'] })).toBe(3)

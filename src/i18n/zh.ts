@@ -327,7 +327,7 @@ export const zh = {
   'checklist.legend.toprope': '上方確保完攀',
   'checklist.total': '已完攀 {done} / {total} 條',
   'checklist.areas': '區域',
-  'checklist.onlyOpen': '只看還沒完攀的',
+  'checklist.onlyOpen': '未完攀',
   'checklist.styleAria': '{route}的最佳攀登方式',
   'checklist.starsAria': '{route}的評分',
   'checklist.star': '{n} 星',

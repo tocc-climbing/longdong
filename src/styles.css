@@ -3223,12 +3223,6 @@ main.map > div {
   font-weight: 700;
 }
 
-.checklist-areas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .checklist-areas .chip-meta {
   margin-left: 6px;
   font-size: 0.75rem;
@@ -3237,10 +3231,7 @@ main.map > div {
 }
 
 .checklist-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
 }
 
 .checklist-list > li {

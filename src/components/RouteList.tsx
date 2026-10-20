@@ -12,18 +12,14 @@ import {
   setListView,
   toggle,
   useListView,
-  type Kind,
   type ListView,
   type SortKey,
 } from '../listView'
 import { routeKey, summarize } from '../social/model'
 import { useSocial } from '../social/store'
 import { RouteRow } from './RouteRow'
+import { TypeFilter } from './TypeFilter'
 
-const KINDS: { kind: Kind; key: MessageKey }[] = [
-  { kind: 'sport', key: 'type.sport' },
-  { kind: 'other', key: 'type.tradOther' },
-]
 const SAFETY: Safety[] = ['green', 'yellow', 'red']
 
 /**
@@ -161,11 +157,7 @@ function FilterPanel({ view }: { view: ListView }) {
         ))}
       </div>
       <div className="chips" role="group" aria-label={t('type.filter')}>
-        {KINDS.map(({ kind, key }) => (
-          <button key={kind} className="chip" aria-pressed={f.kinds.includes(kind)} onClick={() => set({ kinds: toggle(f.kinds, kind) })}>
-            {t(key)}
-          </button>
-        ))}
+        <TypeFilter value={f.kinds} onChange={(kinds) => set({ kinds })} />
         <span className="chip-sep" aria-hidden />
         {SAFETY.map((s) => (
           <button key={s} className="chip" aria-pressed={f.safety.includes(s)} onClick={() => set({ safety: toggle(f.safety, s) })}>
