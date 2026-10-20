@@ -10,8 +10,8 @@ export default function AboutText({ projectUrl, sheetUrl }: AboutTextProps) {
 
       <h2>Offline use</h2>
       <p>
-        After your first visit, the app and all route data are stored on your phone, so it works where Long Dong has no signal. Add it to
-        your home screen so iPhone doesn’t clear the offline data.
+        After your first visit, the app and all route data are stored on your phone and work without a signal. On iPhone, add it to your
+        home screen so the offline data isn’t cleared.
       </p>
 
       <h2>Account &amp; privacy</h2>

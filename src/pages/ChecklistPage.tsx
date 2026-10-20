@@ -4,7 +4,7 @@ import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route } from '../data/schema'
 import { localName, useLang } from '../i18n'
-import { BEST_STYLES, bestStyle, isSent, sentRouteIds, type BestStyle } from '../personal/model'
+import { BEST_STYLES, bestStyle, checklistStyle, isSent, sentRouteIds } from '../personal/model'
 import { setBest, usePersonal } from '../personal/store'
 import { useCloud } from '../personal/sync'
 import { href } from '../router'
@@ -14,8 +14,10 @@ import { setLocalRating, useSocial } from '../social/store'
 
 const AREA_KEY = 'longdong.checklist.area'
 
-/** 清單上的簡寫：OS、FL、RP、TR */
-const SHORT: Record<BestStyle, string> = { onsight: 'OS', flash: 'FL', redpoint: 'RP', toprope: 'TR' }
+type Style = (typeof BEST_STYLES)[number]
+
+/** 清單上的簡寫與顏色（CSS 的 .style-os 等） */
+const SHORT: Record<Style, string> = { onsight: 'OS', redpoint: 'RP', toprope: 'TR' }
 
 function loadArea(): string | undefined {
   try {
@@ -68,7 +70,14 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
   return (
     <article className="checklist">
       <h1>{t('checklist.title')}</h1>
-      <p className="muted small">{t('checklist.intro')}</p>
+      <p className="checklist-legend small">
+        {BEST_STYLES.map((s) => (
+          <span key={s}>
+            <span className={`style-tag style-${SHORT[s].toLowerCase()}`}>{SHORT[s]}</span>
+            {t(`checklist.legend.${s}`)}
+          </span>
+        ))}
+      </p>
       <p className="checklist-total">{t('checklist.total', { done, total })}</p>
 
       <div className="checklist-areas" role="tablist" aria-label={t('checklist.areas')}>
@@ -122,14 +131,14 @@ function ChecklistRow({ route, onError }: { route: Route; onError: (message: str
   const social = useSocial()
   const uid = cloud.user?.uid
   const mine = uid ? social.ratings[routeKey(route.id)]?.[uid] : undefined
-  const chosen = personal.best.get(route.id)
+  const saved = personal.best.get(route.id)
+  const chosen = saved && checklistStyle(saved)
   // 沒有在清單勾選時，顯示攀登紀錄裡最好的完攀方式（淡色）
   const logged = chosen ? undefined : bestStyle(personal.ticks.filter((tk) => tk.routeId === route.id && isSent(tk.style)).map((tk) => tk.style))
-  // 跟攀與上方確保同一級，清單上顯示為 TR
-  const fromLog = logged === 'follow' ? 'toprope' : logged
+  const fromLog = logged && checklistStyle(logged)
   const name = localName(route.name, lang)
 
-  const choose = (style: BestStyle) => void setBest(route.id, chosen === style ? null : style)
+  const choose = (style: Style) => void setBest(route.id, chosen === style ? null : style)
   const star = (n: number) => {
     if (!uid) return
     const next = mine?.stars === n ? null : { stars: n, ...(mine?.feel ? { feel: mine.feel } : {}) }
@@ -158,7 +167,7 @@ function ChecklistRow({ route, onError }: { route: Route; onError: (message: str
             <button
               key={s}
               type="button"
-              className={`checklist-style${chosen === s ? ' on' : fromLog === s ? ' from-log' : ''}`}
+              className={`checklist-style style-${SHORT[s].toLowerCase()}${chosen === s ? ' on' : fromLog === s ? ' from-log' : ''}`}
               aria-pressed={chosen === s}
               title={fromLog === s ? t('checklist.fromLog', { style: t(`style.${s}`) }) : t(`style.${s}`)}
               onClick={() => choose(s)}

@@ -22,9 +22,17 @@ export function isSent(style: TickStyle): boolean {
   return TICK_STYLES.find((s) => s.value === style)?.sent ?? false
 }
 
-/** 路線清單（我的 → 路線清單）可以勾選的最佳攀登方式，由好到差 */
-export const BEST_STYLES = ['onsight', 'flash', 'redpoint', 'toprope'] as const
-export type BestStyle = (typeof BEST_STYLES)[number]
+/** 路線清單（我的 → 路線清單）可以勾選的最佳攀登方式，由好到差：OS、RP、TR */
+export const BEST_STYLES = ['onsight', 'redpoint', 'toprope'] as const
+/** flash：早期版本可以勾選，畫面上視為 RP */
+export type BestStyle = (typeof BEST_STYLES)[number] | 'flash'
+
+/** 攀登方式在路線清單上顯示成哪一個：Flash 算 RP、跟攀算 TR */
+export function checklistStyle(style: TickStyle): (typeof BEST_STYLES)[number] | undefined {
+  if (style === 'flash') return 'redpoint'
+  if (style === 'follow') return 'toprope'
+  return (BEST_STYLES as readonly string[]).includes(style) ? (style as (typeof BEST_STYLES)[number]) : undefined
+}
 
 /** 攀登方式的好壞（數字小的較好）：跟攀與上方確保同一級 */
 const STYLE_RANK: Record<TickStyle, number> = { onsight: 0, flash: 1, redpoint: 2, toprope: 3, follow: 3, attempt: 9 }

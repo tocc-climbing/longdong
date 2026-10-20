@@ -3,13 +3,10 @@ import type { AboutTextProps } from './types'
 export default function AboutText({ projectUrl, attribution, sheetUrl }: AboutTextProps) {
   return (
     <>
-      <p className="alert">本站資料僅供參考。岩壁與固定點的狀況隨時可能改變，攀登前請自行確認現場，並為自己的安全負責。</p>
+      <p className="alert">本站資料僅供參考。岩壁與固定點隨時可能改變，攀登前請自行確認現場，並為自己的安全負責。</p>
 
       <h2>離線使用</h2>
-      <p>
-        第一次開啟後，App 與全部路線資料會存在手機上，在龍洞沒有訊號的地方也能查詢。建議用瀏覽器的「加入主畫面」安裝，iPhone
-        才不會清除離線資料。
-      </p>
+      <p>第一次開啟後，App 與全部路線資料會存在手機上，沒有訊號也能用。iPhone 請「加入主畫面」，離線資料才不會被清除。</p>
 
       <h2>帳號與隱私</h2>
       <p>
