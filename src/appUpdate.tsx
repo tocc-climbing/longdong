@@ -26,7 +26,7 @@ export function useAppUpdate(): { offlineReady: boolean; banner: ReactNode } {
       whenActive(() => void registration.update().catch(() => {}), { gapMs: 60_000, intervalMs: 60 * 60_000 })
     },
   })
-  applyUpdate.current = () => void updateServiceWorker(true)
+  applyUpdate.current = () => void switchToNewVersion(updateServiceWorker)
 
   // 剛開啟或重新整理（AUTO_UPDATE_MS 內、還沒點擊或打字）就發現新版本：直接換成新版，不會打斷操作。
   // 不這樣做的話，新版會一直等到按「更新」，重新整理幾次都還是舊版（電腦上習慣按 F5）
@@ -60,9 +60,33 @@ export function useAppUpdate(): { offlineReady: boolean; banner: ReactNode } {
   const banner = needRefresh && (!autoUpdate || autoFailed) && (
     <div className="banner">
       {latest ? t('app.updateAvailableVersion', { version: latest.version }) : t('app.updateAvailable')}
-      <button onClick={() => updateServiceWorker(true)}>{t('app.update')}</button>
+      <button onClick={() => void switchToNewVersion(updateServiceWorker)}>{t('app.update')}</button>
     </div>
   )
 
   return { offlineReady, banner }
 }
+
+/** 換成新版後多久還沒重新載入，就直接重新載入（毫秒） */
+const RELOAD_FALLBACK_MS = 3_000
+
+/**
+ * 換成新版並重新載入。不只依賴 vite-plugin-pwa 的重新載入：
+ * - 有等待中的新版：請它接手（skip waiting），接手（controllerchange）時重新載入
+ * - 新版已經接手（例如另一個分頁先更新了）：沒有等待中的新版，直接重新載入
+ * - 不管什麼原因 RELOAD_FALLBACK_MS 內沒換成，也重新載入，按下去一定有反應
+ */
+async function switchToNewVersion(updateServiceWorker: (reload?: boolean) => Promise<void>): Promise<void> {
+  let reloading = false
+  const reload = () => {
+    if (reloading) return
+    reloading = true
+    window.location.reload()
+  }
+  const registration = await navigator.serviceWorker?.getRegistration().catch(() => undefined)
+  if (!registration?.waiting) return reload()
+  navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true })
+  setTimeout(reload, RELOAD_FALLBACK_MS)
+  await updateServiceWorker(true).catch(() => reload())
+}
+
