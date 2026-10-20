@@ -8,7 +8,9 @@ import { FACEBOOK_LOGIN_ENABLED, SignInPrompt } from '../components/SignInPrompt
 import { relativeTime } from '../format'
 import { LANGS, localName, monthTitle, setLangSetting, useLang, type LangSetting } from '../i18n'
 import { sentRouteIds } from '../personal/model'
-import { gradePyramid, groupByMonth, monthlyCounts } from '../personal/stats'
+import { gradePyramid, groupByMonth, monthlyCounts, sendStyles } from '../personal/stats'
+import { ROUTE_TYPES, TypeFilter } from '../components/TypeFilter'
+import type { RouteType } from '../data/schema'
 import { deleteTick, setFavorite, usePersonal } from '../personal/store'
 import { signOut, useCloud } from '../personal/sync'
 import { setThemeSetting, useThemeSetting, type ThemeSetting } from '../theme'
@@ -62,6 +64,18 @@ export function MePage({ data }: { data: LoadedData }) {
   )
 }
 
+const PYRAMID_TYPES_KEY = 'longdong.pyramid.types'
+
+/** 難度金字塔上次選的路線種類（都不選為全部） */
+function loadPyramidTypes(): RouteType[] {
+  try {
+    const saved = localStorage.getItem(PYRAMID_TYPES_KEY)?.split(',') ?? []
+    return ROUTE_TYPES.filter((type) => saved.includes(type))
+  } catch {
+    return []
+  }
+}
+
 function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: string }) {
   const personal = usePersonal()
   const cloud = useCloud()
@@ -69,14 +83,28 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
   const { lang, t } = useLang()
   const [tab, setTab] = useState<Tab>('ticks')
   const [settings, setSettings] = useState(false)
+  const [pyramidTypes, setPyramidTypesState] = useState(loadPyramidTypes)
+  const setPyramidTypes = (types: RouteType[]) => {
+    setPyramidTypesState(types)
+    try {
+      localStorage.setItem(PYRAMID_TYPES_KEY, types.join(','))
+    } catch {
+      /* 存不了就下次顯示全部 */
+    }
+  }
   const { link } = useRouteLink()
 
   const lookup = (id: string) => data.routeById.get(id)
   const name = displayName(social.profiles, uid)
-  // 完攀過的路線：攀登紀錄加上路線清單勾選的
+  // 完攀過的路線與最好的方式：攀登紀錄加上路線清單勾選的
+  const sends = sendStyles(personal.ticks, personal.best)
   const sentRoutes = sentRouteIds(personal.ticks, personal.best)
-  const pyramid = gradePyramid(sentRoutes, (id) => lookup(id)?.route)
-  const hardest = pyramid[0]
+  const route = (id: string) => lookup(id)?.route
+  const hardest = gradePyramid(sends, route).find((r) => r.routes > 0)
+  // 金字塔的種類篩選只列出完攀過的種類；兩種以上才顯示
+  const sentTypes = ROUTE_TYPES.filter((type) => [...sends.keys()].some((id) => route(id)?.type === type))
+  const shownTypes = pyramidTypes.filter((type) => sentTypes.includes(type))
+  const pyramid = gradePyramid(sends, route, shownTypes)
 
   return (
     <>
@@ -143,6 +171,11 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
 
           <section className="card">
             <h2>{t('me.pyramid')}</h2>
+            {sentTypes.length > 1 && (
+              <div className="chips" role="group" aria-label={t('type.filter')}>
+                <TypeFilter value={shownTypes} onChange={setPyramidTypes} options={sentTypes} />
+              </div>
+            )}
             <GradePyramid rows={pyramid} />
           </section>
 

@@ -1539,9 +1539,31 @@ a.action {
 }
 
 .pyramid-bar {
+  display: flex;
+  gap: 2px;
   height: 14px;
+  overflow: hidden;
   border-radius: 0 4px 4px 0;
-  background: var(--chart);
+}
+
+/* 依完攀方式分色（顏色見 --style-os 等） */
+.pyramid-bar > span {
+  min-width: 3px;
+  background: var(--style);
+}
+
+/* 中間沒完攀的難度：名稱變淡 */
+.pyramid-row.empty .pyramid-label {
+  color: var(--faint);
+  font-weight: 500;
+}
+
+.pyramid-legend {
+  display: flex;
+  gap: 14px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .pyramid-value {
@@ -3301,8 +3323,8 @@ main.map > div {
   cursor: pointer;
 }
 
-/* OS／RP／TR 各一個顏色（圖例、按鈕相同）：OS 綠、RP 紅、TR 藍 */
-.checklist {
+/* OS／RP／TR 各一個顏色（路線清單、難度金字塔共用）：OS 綠、RP 紅、TR 藍 */
+:root {
   --style-os: #1f7a45;
   --style-rp: #c62828;
   --style-tr: #1565c0;
@@ -3310,7 +3332,7 @@ main.map > div {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .checklist {
+  :root:not([data-theme='light']) {
     --style-os: #4cba7a;
     --style-rp: #f06262;
     --style-tr: #5c9ded;
@@ -3318,7 +3340,7 @@ main.map > div {
   }
 }
 
-:root[data-theme='dark'] .checklist {
+:root[data-theme='dark'] {
   --style-os: #4cba7a;
   --style-rp: #f06262;
   --style-tr: #5c9ded;

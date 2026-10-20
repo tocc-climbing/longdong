@@ -27,7 +27,7 @@ export const BEST_STYLES = ['onsight', 'redpoint', 'toprope'] as const
 /** flash：早期版本可以勾選，畫面上視為 RP */
 export type BestStyle = (typeof BEST_STYLES)[number] | 'flash'
 
-/** 攀登方式在路線清單上顯示成哪一個：Flash 算 RP、跟攀算 TR */
+/** 攀登方式在路線清單、難度金字塔上算成哪一個：Flash 算 RP、跟攀算 TR */
 export function checklistStyle(style: TickStyle): (typeof BEST_STYLES)[number] | undefined {
   if (style === 'flash') return 'redpoint'
   if (style === 'follow') return 'toprope'

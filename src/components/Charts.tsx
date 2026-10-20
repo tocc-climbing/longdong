@@ -1,30 +1,55 @@
-import type { MonthCount, PyramidRow } from '../personal/stats'
+import type { MonthCount, PyramidRow, SendStyle } from '../personal/stats'
 import type { GradeBand } from '../format'
 import { monthShort, useLang } from '../i18n'
 
+/** 金字塔的完攀方式：顏色與簡寫和路線清單相同（.style-os 等） */
+const PYRAMID_STYLES: { style: SendStyle; short: string }[] = [
+  { style: 'onsight', short: 'OS' },
+  { style: 'redpoint', short: 'RP' },
+  { style: 'toprope', short: 'TR' },
+]
+
 /**
- * 難度金字塔：水平長條，每列一個難度，數值直接標在長條尾端。
- * 單一數列，不需要圖例；滑鼠停留／點按時以 title 顯示說明。
+ * 難度金字塔：水平長條，每列一個難度，依完攀方式（OS／RP／TR）分色堆疊，總數標在長條尾端。
+ * 中間沒完攀的難度也列出（長條為空），看得出缺口；滑鼠停留／點按時以 title 顯示各方式的數量。
  */
-export function GradePyramid({ rows, max = 8 }: { rows: PyramidRow[]; max?: number }) {
+export function GradePyramid({ rows }: { rows: PyramidRow[] }) {
   const { t } = useLang()
-  if (rows.length === 0) return <p className="muted small">{t('chart.pyramidEmpty')}</p>
-  const shown = rows.slice(0, max)
-  const top = Math.max(...shown.map((r) => r.routes))
+  const sent = rows.filter((r) => r.routes > 0)
+  if (sent.length === 0) return <p className="muted small">{t('chart.pyramidEmpty')}</p>
+  const top = Math.max(...sent.map((r) => r.routes))
+  const used = PYRAMID_STYLES.filter(({ style }) => sent.some((r) => r.styles[style] > 0))
   return (
     <div className="chart" role="table" aria-label={t('chart.pyramidAria')}>
-      {shown.map((r) => (
-        <div key={r.value} className="pyramid-row" role="row" title={t('chart.pyramidRow', { grade: r.grade, n: r.routes })}>
-          <span className="pyramid-label" role="rowheader">
-            {r.grade}
-          </span>
-          <span className="pyramid-track" role="cell">
-            <span className="pyramid-bar" style={{ width: `${Math.max(4, (r.routes / top) * 100)}%` }} />
-            <span className="pyramid-value">{r.routes}</span>
-          </span>
-        </div>
-      ))}
-      {rows.length > max && <p className="muted small">{t('chart.moreGrades', { n: rows.length - max })}</p>}
+      {used.length > 1 && (
+        <p className="pyramid-legend small" aria-hidden>
+          {used.map(({ style, short }) => (
+            <span key={style}>
+              <span className={`style-tag style-${short.toLowerCase()}`}>{short}</span> {sent.reduce((n, r) => n + r.styles[style], 0)}
+            </span>
+          ))}
+        </p>
+      )}
+      {rows.map((r) => {
+        const detail = PYRAMID_STYLES.filter(({ style }) => r.styles[style] > 0)
+          .map(({ style, short }) => `${short} ${r.styles[style]}`)
+          .join(' · ')
+        return (
+          <div key={r.value} className={`pyramid-row${r.routes === 0 ? ' empty' : ''}`} role="row" title={r.routes ? `${r.grade}：${detail}` : undefined}>
+            <span className="pyramid-label" role="rowheader">
+              {r.grade}
+            </span>
+            <span className="pyramid-track" role="cell" aria-label={r.routes ? t('chart.pyramidRow', { grade: r.grade, n: r.routes }) + `（${detail}）` : undefined}>
+              <span className="pyramid-bar" style={{ width: `${(r.routes / top) * 100}%` }}>
+                {PYRAMID_STYLES.filter(({ style }) => r.styles[style] > 0).map(({ style, short }) => (
+                  <span key={style} className={`style-${short.toLowerCase()}`} style={{ flexGrow: r.styles[style] }} />
+                ))}
+              </span>
+              {r.routes > 0 && <span className="pyramid-value">{r.routes}</span>}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
