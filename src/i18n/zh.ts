@@ -221,6 +221,7 @@ export const zh = {
   'route.boltCount': 'Bolt 數',
   'route.firstAscent': '首攀',
   'route.pitches': '繩距',
+  'route.more': '更多資訊',
   'route.info': '路線資訊',
   'route.anchorHardware': 'Anchor 配件',
   'route.installedOn': '{date} 安裝',

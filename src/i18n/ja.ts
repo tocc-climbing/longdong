@@ -227,6 +227,7 @@ export const ja: Messages = {
   'route.boltCount': 'ボルト数',
   'route.firstAscent': '初登',
   'route.pitches': 'ピッチ',
+  'route.more': '詳細情報',
   'route.info': 'ルート情報',
   'route.anchorHardware': '終了点の部品',
   'route.installedOn': '{date} 設置',

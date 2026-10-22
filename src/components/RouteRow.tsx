@@ -1,4 +1,5 @@
 import type { RouteRef } from '../data/dataset'
+import type { Route } from '../data/schema'
 import { typeText } from '../format'
 import { isSent } from '../personal/model'
 import { usePersonal } from '../personal/store'
@@ -77,6 +78,7 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
     )
   }
 
+  // 手機版：只留編號、名稱、難度；黃燈、紅燈、待移除、封閉時名稱下面加一行提醒（其他資訊在路線頁）
   return (
     <li>
       <a
@@ -85,19 +87,48 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
         aria-current={selectedRow ? 'true' : undefined}
       >
         <span className="route-no">{route.number ? `#${route.number}` : '—'}</span>
-        {nameCell}
-        <span className="route-meta">
-          <span className="grade-line">
-            {!route.isFixture && <SafetyLight safety={route.safety} />}
-            <GradePill grade={route.grade} value={route.gradeValue} />
+        <span className="route-name">
+          <span className="zh">
+            {name.main}
+            {(favorite || sent) && (
+              <span className="marks">
+                {sent && (
+                  <span title={t('mark.sent')} aria-label={t('mark.sent')}>
+                    ✓
+                  </span>
+                )}
+                {favorite && (
+                  <span title={t('mark.fav')} aria-label={t('mark.fav')}>
+                    ★
+                  </span>
+                )}
+              </span>
+            )}
           </span>
-          <span className="type">{typeText(route, t)}</span>
-          <span className="meta-line">
-            <StarsBadge summary={rating} />
-            {route.status && <StatusBadge status={route.status} compact />}
-          </span>
+          {showPlace && (
+            <span className="place">
+              {localName(area.name, lang).main} · {localName(sector.name, lang).main}
+            </span>
+          )}
+          {!route.isFixture && <RouteFlag route={route} />}
         </span>
+        <GradePill grade={route.grade} value={route.gradeValue} />
       </a>
     </li>
+  )
+}
+
+/** 需要注意的路線：黃燈「小心」、紅燈「危險」，待移除、封閉時接上狀態；其他不顯示 */
+export function RouteFlag({ route }: { route: Route }) {
+  const { lang, t } = useLang()
+  const closed = route.status === 'closed' || route.status === 'to-remove'
+  const level = closed || route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : undefined
+  if (!level) return null
+  const status = closed ? (lang === 'zh' ? route.statusLabel : t(`status.${route.status!}`)) : undefined
+  return (
+    <span className={`route-flag ${level}`}>
+      ● {t(level === 'danger' ? 'safety.red' : 'safety.yellow')}
+      {status && ` · ${status}`}
+    </span>
   )
 }

@@ -223,6 +223,7 @@ export const en: Messages = {
   'route.boltCount': 'Bolts',
   'route.firstAscent': 'First ascent',
   'route.pitches': 'Pitches',
+  'route.more': 'More details',
   'route.info': 'Route info',
   'route.anchorHardware': 'Anchor hardware',
   'route.installedOn': 'installed {date}',

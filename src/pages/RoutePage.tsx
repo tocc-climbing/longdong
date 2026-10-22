@@ -1,5 +1,5 @@
 import type { LoadedData } from '../data/dataset'
-import type { Bolt } from '../data/schema'
+import { BoltTable } from '../components/BoltTable'
 import { CommentsSection } from '../components/CommentsSection'
 import { GradePill } from '../components/GradePill'
 import { PersonalPanel } from '../components/PersonalPanel'
@@ -16,8 +16,16 @@ import { StatusBadge } from '../components/StatusBadge'
 import { formatDate, typeText, yearsSince } from '../format'
 import { href, useRouteLink } from '../router'
 import { NotFound } from './AreaPage'
+import { RouteMobile } from './RouteMobile'
+import { useWide } from '../layout'
 
 export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
+  // 手機版：精簡的版面（RouteMobile）；電腦版不變
+  if (!useWide()) return <RouteMobile data={data} id={id} />
+  return <RouteDesktop data={data} id={id} />
+}
+
+function RouteDesktop({ data, id }: { data: LoadedData; id: string }) {
   const ref = data.routeById.get(id)
   const { lang, t } = useLang()
   const { link } = useRouteLink()
@@ -195,52 +203,11 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
 }
 
 /** 「自由裂隙 | P2 右」→「自由裂隙」，用來找出同一條多繩距路線的各段 */
-function baseName(zh: string): string {
+export function baseName(zh: string): string {
   return zh.replace(/\s*\|\s*P\d+.*$/i, '').trim()
 }
 
-function ageText(date: string, t: Translate): string {
+export function ageText(date: string, t: Translate): string {
   const y = yearsSince(date)
   return y === undefined ? '' : y === 0 ? t('time.withinYear') : t('time.yearsAgo', { n: y })
-}
-
-function BoltTable({ title, bolts, data }: { title: string; bolts: Bolt[]; data: LoadedData }) {
-  const { t } = useLang()
-  return (
-    <section>
-      <h2>{title}</h2>
-      <div className="table-wrap">
-        <table className="bolts">
-          <thead>
-            <tr>
-              <th>{t('bolt.position')}</th>
-              <th>{t('bolt.material')}</th>
-              <th>{t('bolt.installed')}</th>
-              <th>{t('bolt.lastTest')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bolts.map((b) => {
-              const desc = data.hardwareByCode.get(b.material)
-              const years = yearsSince(b.installed)
-              return (
-                <tr key={b.position} className={desc ? '' : 'muted'}>
-                  <td className="mono">{b.position}</td>
-                  <td>
-                    {b.material}
-                    {desc && <span className="sub">{desc}</span>}
-                  </td>
-                  <td>
-                    {b.installed ? formatDate(b.installed) : '—'}
-                    {years !== undefined && <span className="sub">{t('time.years', { n: years })}</span>}
-                  </td>
-                  <td>{b.tests[0] ? formatDate(b.tests[0]) : '—'}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )
 }

@@ -3413,3 +3413,554 @@ main.map > div {
 .checklist-stars button.on {
   color: var(--star);
 }
+
+/* ==========================================================================
+   手機版改版（2026-10）：TOCC 配色與漸層標題區＋清單、路線頁用細線分隔、少用卡片。
+   手機只放必要的資訊：清單只有編號、名稱、難度；路線頁的次要資訊收在「更多資訊」。電腦版不變。
+   ========================================================================== */
+
+:root[data-layout='mobile'] {
+  --border: #ebe6dc;
+  --brand-dark: #0a6f90;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-layout='mobile']:not([data-theme='light']) {
+    --border: #2a2a2a;
+    --brand-dark: #5fc8ea;
+  }
+}
+
+:root[data-layout='mobile'][data-theme='dark'] {
+  --border: #2a2a2a;
+  --brand-dark: #5fc8ea;
+}
+
+/* 按鈕與篩選：圓角膠囊、淺色底，取代黑框 */
+[data-layout='mobile'] :is(.action, .banner button) {
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  box-shadow: none;
+}
+
+[data-layout='mobile'] .action.primary {
+  background: var(--brand);
+  color: #fff;
+}
+
+[data-layout='mobile'] .chip,
+[data-layout='mobile'] .fact {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+[data-layout='mobile'] .chip[aria-pressed='true'] {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: none;
+}
+
+[data-layout='mobile'] .segmented {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+[data-layout='mobile'] .segmented button[aria-selected='true'] {
+  background: var(--brand);
+  color: #fff;
+}
+
+/* ── 首頁：藍色漸層標題區，搜尋框在裡面 ── */
+[data-layout='mobile'] .home-hero {
+  background: linear-gradient(135deg, #0395c3, #0a6f90);
+  border-radius: 0 0 24px 24px;
+}
+
+.hero-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.hero-search:hover {
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* 救援資訊：一行，桃紅色字 */
+[data-layout='mobile'] .rescue-entry {
+  margin: 0;
+  padding: 12px 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: #d40442;
+}
+
+[data-layout='mobile'] .rescue-entry > span:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+}
+
+/* 權重要高過前面白字的 .rescue-entry :is(strong, .small) */
+[data-layout='mobile'] .rescue-entry > span > strong:first-child {
+  color: #d40442;
+}
+
+[data-layout='mobile'] .rescue-entry > span > span.small {
+  color: var(--muted);
+  opacity: 1;
+}
+
+[data-layout='mobile'] .rescue-entry .rescue-cross {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #d40442;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+[data-layout='mobile'] .rescue-entry:is(:hover, :active) {
+  background: transparent;
+}
+
+/* ── 區域、分區清單：細線分隔，左邊區域色點，不用卡片 ── */
+[data-layout='mobile'] .area-list {
+  gap: 0;
+}
+
+[data-layout='mobile'] .area-row {
+  padding: 14px 0 12px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+[data-layout='mobile'] .area-row::before {
+  top: 21px;
+  bottom: auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+[data-layout='mobile'] .area-row:is(:hover, :active) {
+  background: transparent;
+}
+
+/* 手機上不放的次要資訊：英文名、種類統計、分區數 */
+[data-layout='mobile'] .area-row :is(.en, .area-types),
+[data-layout='mobile'] .area-row .area-count .muted {
+  display: none;
+}
+
+[data-layout='mobile'] .area-info .area-count {
+  margin-top: 2px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ── 路線清單：細線分隔 ── */
+[data-layout='mobile'] .route-list {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+[data-layout='mobile'] .route-list > li {
+  border-bottom: 1px solid var(--border);
+}
+
+[data-layout='mobile'] .route-list > li + li {
+  border-top: 0;
+}
+
+[data-layout='mobile'] .route-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+[data-layout='mobile'] .route-row:is(:hover, :active) {
+  background: transparent;
+}
+
+[data-layout='mobile'] .route-row .route-no {
+  color: var(--faint);
+}
+
+.route-flag {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.route-flag.warn {
+  color: #b77800;
+}
+
+.route-flag.danger {
+  color: var(--danger);
+}
+
+/* ── 路線頁（RouteMobile） ── */
+.route-m h1 {
+  margin: 4px 0 2px;
+  font-size: 1.9rem;
+  line-height: 1.15;
+}
+
+.route-sub {
+  margin: 0;
+  color: var(--muted);
+}
+
+.route-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 14px 0;
+  font-weight: 700;
+}
+
+.route-facts-rating {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* 安全與狀態合併的色塊 */
+.route-status {
+  --tone: var(--faint);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--tone) 13%, var(--surface));
+  color: color-mix(in srgb, var(--tone) 70%, var(--text));
+}
+
+.route-status.ok {
+  --tone: #1f8a4c;
+}
+
+.route-status.warn {
+  --tone: #d99a00;
+}
+
+.route-status.danger {
+  --tone: #d40442;
+}
+
+.route-status > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.route-status .small {
+  color: var(--muted);
+}
+
+.route-status-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--tone);
+  color: #fff;
+  font-weight: 900;
+}
+
+/* 記錄、收藏、分享 */
+.route-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.route-actions .action.primary {
+  flex: 1;
+}
+
+.route-actions .icon-action,
+[data-layout='mobile'] .route-actions .share-button {
+  min-width: 46px;
+  min-height: 44px;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  box-shadow: none;
+}
+
+.route-actions .icon-action[aria-pressed='true'] {
+  color: #d40442;
+}
+
+/* 各段：細線分隔 */
+.route-block {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.route-block h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.route-more summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.route-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.route-more summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+.route-more summary::after {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-right: 2px solid var(--faint);
+  border-bottom: 2px solid var(--faint);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+
+.route-more[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+/* ── 評分（手機版） ── */
+.rating-m h2,
+.comments-m h2 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.rating-m-summary {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.rating-m-average {
+  display: grid;
+  justify-items: start;
+}
+
+.rating-m-average strong {
+  font-size: 2.75rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.rating-m-average .small {
+  color: var(--muted);
+}
+
+.rating-m-bars {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rating-m-bars li {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.rating-m-bars .bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.rating-m-bars .bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--star);
+}
+
+.rating-m-feel {
+  display: flex;
+  height: 26px;
+  margin-top: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rating-m-feel > span {
+  display: grid;
+  place-items: center;
+  min-width: 56px;
+  white-space: nowrap;
+}
+
+.feel-soft {
+  background: #3e9a68;
+}
+
+.feel-fair {
+  background: #8f8a80;
+}
+
+.feel-hard {
+  background: #d9662e;
+}
+
+.rating-m-mine {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.rating-m-mine .chips {
+  margin: 10px 0 0;
+  align-items: center;
+}
+
+/* ── 留言（手機版） ── */
+.comment-m-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comment-m-list > li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.comment-m-list p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.comment-m-list .avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.comment-m-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.comment-m-meta > span {
+  color: var(--faint);
+}
+
+.comment-m-meta .link-button {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+
+.comment-m-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 5px 5px 5px 16px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.comment-m-form textarea {
+  flex: 1;
+  min-height: 34px;
+  max-height: 160px;
+  padding: 7px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  resize: none;
+  field-sizing: content;
+}
+
+.comment-m-form textarea:focus {
+  outline: none;
+}
+
+.comment-m-form:focus-within {
+  border-color: var(--brand);
+}
+
+.comment-m-form .send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+}
+
+.comment-m-form .send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
