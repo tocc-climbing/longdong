@@ -78,7 +78,9 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
     )
   }
 
-  // 手機版：只留編號、名稱、難度；黃燈、紅燈、待移除、封閉時名稱下面加一行提醒（其他資訊在路線頁）
+  // 手機版：編號、名稱、難度；名稱下面一行種類、快扣數、高度（傳攀還是運攀、要帶幾把快扣）；
+  // 黃燈、紅燈、待移除、封閉時再加一行提醒（其他資訊在路線頁）
+  const facts = [typeText(route, t), route.heightM && `${route.heightM} m`].filter(Boolean).join(' · ')
   return (
     <li>
       <a
@@ -110,6 +112,7 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
               {localName(area.name, lang).main} · {localName(sector.name, lang).main}
             </span>
           )}
+          {facts && <span className="route-row-facts">{facts}</span>}
           {!route.isFixture && <RouteFlag route={route} />}
         </span>
         <GradePill grade={route.grade} value={route.gradeValue} />

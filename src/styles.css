@@ -3600,6 +3600,12 @@ main.map > div {
   color: var(--faint);
 }
 
+.route-row-facts {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .route-flag {
   display: block;
   font-size: 0.75rem;
