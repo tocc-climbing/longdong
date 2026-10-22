@@ -46,9 +46,9 @@ const STRIP = { w: 343, h: 96 }
 
 /**
  * 龍洞橫放（順時針轉 90 度：北邊朝右、海在下方），左邊是最南邊的後門，與首頁的區域順序相同。
- * 放大到選到的區域、置中，左右露出相鄰的區域；換區域時平移、縮放（CSS transition）。
+ * 地圖固定顯示整個龍洞；選到的區域浮起來放大（陰影、彈出的動畫），其他區域淡色。小區域放大得多一點，看得清楚。
  * 選區域：左右滑（往左滑換到右邊、北邊的下一個區域）、點區域，或用左右的箭頭按鈕。
- * 再點一次選到的區域：縮回整個龍洞（value 為 undefined，全部實色）；這時往左滑到第一個區域。
+ * 再點一次選到的區域：全區（value 為 undefined，全部實色、沒有浮起來的區域）；這時往左滑到第一個區域。
  */
 export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: string | undefined; onChange: (areaId: string | undefined) => void }) {
   const { lang, t } = useLang()
@@ -74,16 +74,31 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
 
   // 畫面座標 (x 向東, y 向南) 轉 90 度 → (-y, x)
   const turn = ([x, y]: [number, number]): [number, number] => [-y, x]
-  // 放大的範圍：最大的一塊（有的區域另有離得較遠的小塊，算進去會縮得太小）
-  const mainBox = (rings: Ring[]) => rings.map((r) => bounds(r.map(turn))).reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a))
-  const shapes = new Map(map.data.areas.map((a) => [a.id, { d: ringsPath(a.rings, turn), box: mainBox(a.rings) }]))
-  const selected = index >= 0 ? shapes.get(areaKey(areas[index]))?.box : undefined
-  const all = bounds([...shapes.values()].flatMap(({ box: b }) => [[b.x, b.y], [b.x + b.w, b.y + b.h]] as [number, number][]))
-  const box = selected ?? all
-  // 選到的區域約佔寬度的一半、高度的八成（很小的區域最多放大到畫面寬約 320 公尺，旁邊的區域還看得到）；全區時整個放進來
-  const k = selected ? Math.min((STRIP.w * 0.5) / box.w, (STRIP.h * 0.8) / box.h, STRIP.w / 320) : Math.min((STRIP.w * 0.9) / box.w, (STRIP.h * 0.9) / box.h)
-  const tx = STRIP.w / 2 - (box.x + box.w / 2) * k
-  const ty = STRIP.h / 2 - (box.y + box.h / 2) * k
+  // 浮起來的只有最大的一塊（有的區域另有離得較遠的小塊，一起放大會被推到別處；小塊留在原位、實色）
+  const largest = (rings: Ring[]) => rings.reduce((a, b) => {
+    const [ba, bb] = [bounds(a.map(turn)), bounds(b.map(turn))]
+    return bb.w * bb.h > ba.w * ba.h ? b : a
+  })
+  const shapes = new Map(
+    map.data.areas.map((a) => {
+      const main = largest(a.rings)
+      return [a.id, { d: ringsPath(a.rings, turn), main: ringsPath([main], turn), box: bounds(main.map(turn)) }]
+    }),
+  )
+  const all = bounds(map.data.areas.flatMap((a) => a.rings.flat().map(turn)))
+  // 整個龍洞放進畫面（留一點邊給浮起來的區域）
+  const k = Math.min((STRIP.w * 0.94) / all.w, (STRIP.h * 0.8) / all.h)
+  const tx = STRIP.w / 2 - (all.x + all.w / 2) * k
+  const ty = STRIP.h / 2 - (all.y + all.h / 2) * k
+  // 選到的區域：以最大一塊的中心放大，放大後約有地圖高度的六成（大區域至少 1.2 倍、小區域最多 3 倍）
+  const picked = index >= 0 ? areas[index] : undefined
+  const shape = picked && shapes.get(areaKey(picked))
+  const pop = shape && (() => {
+    const { x, y, w, h } = shape.box
+    const scale = Math.min(3, Math.max(1.2, (all.h * 0.6) / Math.max(w, h)))
+    const [cx, cy] = [x + w / 2, y + h / 2]
+    return `translate(${cx}px, ${cy}px) scale(${scale}) translate(${-cx}px, ${-cy}px)`
+  })()
 
   const press = (e: KeyboardEvent, id: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -97,7 +112,7 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
   return (
     <div className="area-strip">
       <svg viewBox={`0 0 ${STRIP.w} ${STRIP.h}`} role="group" aria-label={t('checklist.areas')} {...swipe}>
-        <g className={`area-strip-view${index < 0 ? ' all' : ''}`} style={{ transform: `translate(${tx}px, ${ty}px) scale(${k})` }}>
+        <g className={`area-strip-view${index < 0 ? ' all' : ''}`} transform={`translate(${tx} ${ty}) scale(${k})`}>
           {areas.map((area) => {
             const shape = shapes.get(areaKey(area))
             if (!shape) return null
@@ -118,6 +133,10 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
               </g>
             )
           })}
+          {/* 浮起來的區域：疊在最上面，換區域時重新彈出（點選交給下面原本的形狀） */}
+          {picked && shape && (
+            <path key={picked.id} className="area-strip-pop" d={shape.main} fill={picked.color ?? 'var(--brand)'} style={{ transform: pop }} />
+          )}
         </g>
       </svg>
       {arrows}
