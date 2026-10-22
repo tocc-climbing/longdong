@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { HoldMark } from './components/HoldMark'
 import { useAppUpdate } from './appUpdate'
 import { DevBadge } from './components/DevBadge'
 import { Pager, neighborLabel } from './components/Pager'
@@ -141,6 +142,7 @@ export function App() {
         <a className="brand" href={href.home()}>
           <img className="brand-mark" src={`${import.meta.env.BASE_URL}icons/mark.png`} alt="" />
           {t('app.title')}
+          <HoldMark />
           <DevBadge />
         </a>
         {/* 搜尋放在岩場頁的右上（下方的分頁換成地圖） */}

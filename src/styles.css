@@ -246,6 +246,21 @@ h2 .en {
 }
 
 /* 品牌標誌：TOCC 標誌中央的臺灣島與攀岩者（icons/mark.png，scripts/gen-icons.ts 產生；黑色、透明底） */
+/* 網站名稱後面的藍色小岩點（簽名） */
+.hold-mark {
+  flex: none;
+  width: 9px;
+  height: 15px;
+  margin-left: -4px;
+  align-self: flex-start;
+  margin-top: 2px;
+  fill: var(--brand);
+}
+
+.hold-mark-hole {
+  fill: var(--surface);
+}
+
 .brand-mark {
   display: block;
   width: auto;

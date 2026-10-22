@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { HoldMark } from './HoldMark'
 import { DevBadge } from './DevBadge'
 import type { LoadedData } from '../data/dataset'
 import { sectorColor } from '../format'
@@ -30,6 +31,7 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
       <a className="brand" href={href.home()}>
         <img className="brand-mark" src={`${import.meta.env.BASE_URL}icons/mark.png`} alt="" />
         {t('app.title')}
+        <HoldMark />
       </a>
       {/* 側欄窄，英文、日文的名稱加上標示會擠成兩行，開發站的標示放在下一行 */}
       <DevBadge />
