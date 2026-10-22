@@ -3,6 +3,7 @@ import { typeText } from '../../src/format'
 import { localName, translate } from '../../src/i18n'
 import { zh } from '../../src/i18n/zh'
 import { sharePagePath } from '../../src/share'
+import { OG_SIZE } from './ogImage'
 
 /**
  * 每條路線的分享頁：<網站>/route/<路線ID>，也就是 App 的路線頁。
@@ -36,10 +37,16 @@ function setMeta(html: string, key: 'name' | 'property', id: string, content: st
   return existing.test(html) ? html.replace(existing, () => tag) : html.replace('</head>', () => `  ${tag}\n  </head>`)
 }
 
+/** 路線的分享圖片（scripts/lib/ogImage.ts）放在網站的這個路徑 */
+export function ogImagePath(routeId: string): string {
+  return `og/${routeId}.png`
+}
+
 /**
  * shell：建置好的 index.html；siteUrl：網站的正式網址，結尾有 /（例如 https://longdong.web.app/）
+ * withImage：有這條路線的分享圖片（大圖預覽）；沒有時用網站圖示
  */
-export function sharePageHtml(ref: RouteRef, siteUrl: string, shell: string): string {
+export function sharePageHtml(ref: RouteRef, siteUrl: string, shell: string, withImage = false): string {
   const { title, description } = sharePreview(ref)
   const url = siteUrl + sharePagePath(ref.route.id)
   let html = shell.replace(/<title>[^<]*<\/title>/, () => `<title>${escape(title)}｜${escape(t('app.title'))}</title>`)
@@ -47,7 +54,15 @@ export function sharePageHtml(ref: RouteRef, siteUrl: string, shell: string): st
   html = setMeta(html, 'property', 'og:title', title)
   html = setMeta(html, 'property', 'og:description', description)
   html = setMeta(html, 'property', 'og:url', url)
-  html = setMeta(html, 'property', 'og:image', `${siteUrl}icons/icon-512.png`)
-  html = setMeta(html, 'name', 'twitter:card', 'summary')
+  if (withImage) {
+    html = setMeta(html, 'property', 'og:image', siteUrl + ogImagePath(ref.route.id))
+    html = setMeta(html, 'property', 'og:image:width', String(OG_SIZE.w))
+    html = setMeta(html, 'property', 'og:image:height', String(OG_SIZE.h))
+    html = setMeta(html, 'property', 'og:image:alt', title)
+    html = setMeta(html, 'name', 'twitter:card', 'summary_large_image')
+  } else {
+    html = setMeta(html, 'property', 'og:image', `${siteUrl}icons/icon-512.png`)
+    html = setMeta(html, 'name', 'twitter:card', 'summary')
+  }
   return html.replace('</head>', () => `  <link rel="canonical" href="${escape(url)}" />\n  </head>`)
 }

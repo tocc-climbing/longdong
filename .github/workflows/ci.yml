@@ -43,6 +43,9 @@ jobs:
 
       - run: npm run test:rules
 
+      # 分享圖片的字型（scripts/lib/ogImage.ts）
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-core fonts-noto-cjk
+
       - run: npm run build
 
       # 各語言的文字有沒有超出元件（用 runner 內建的 Chrome 打開 production build）

@@ -47,6 +47,15 @@ describe('路線分享頁', () => {
     expect(html).not.toContain('http-equiv="refresh"')
   })
 
+  it('有分享圖片時：og:image 換成這條路線的圖片、大圖預覽', () => {
+    const html = sharePageHtml(ref({ number: '102', grade: '5.9' }), SITE, SHELL, true)
+    expect(html).toContain('<meta property="og:image" content="https://longdong.web.app/og/longdong/jar2yu.png" />')
+    expect(html).toContain('<meta property="og:image:width" content="1200" />')
+    expect(html).toContain('<meta property="og:image:height" content="630" />')
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />')
+    expect(html.match(/property="og:image"/g)).toHaveLength(1)
+  })
+
   it('名稱裡的特殊字元會跳脫，不會破壞頁面', () => {
     const html = sharePageHtml(ref({ name: { zh: '"<b>&' } }), SITE, SHELL)
     expect(html).toContain('content="&quot;&lt;b&gt;&amp;')
