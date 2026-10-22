@@ -49,7 +49,7 @@
         ".read": true,
         "$route": {
           "$id": {
-            ".write": "auth != null && $route.length <= 100 && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('uid').val() === auth.uid))",
+            ".write": "auth != null && $route.length <= 100 && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))))))",
             ".validate": "newData.hasChildren(['uid', 'text', 'createdAt'])",
             "uid": {
               ".validate": "newData.isString()"
@@ -70,9 +70,9 @@
         }
       },
       "reports": {
-        ".read": "auth != null && root.child('role').child(auth.uid).exists()",
+        ".read": "auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))",
         "$id": {
-          ".write": "auth != null && !data.exists()",
+          ".write": "auth != null && (!data.exists() || (!newData.exists() && (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))))))",
           ".validate": "newData.hasChildren(['path', 'uid', 'createdAt']) && newData.child('uid').val() === auth.uid",
           "path": {
             ".validate": "newData.isString() && newData.val().length <= 200"
@@ -92,7 +92,7 @@
         }
       },
       "calibration": {
-        ".read": "auth != null && root.child('role').child(auth.uid).exists()",
+        ".read": "auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid && !newData.exists()",
@@ -112,7 +112,7 @@
         }
       },
       "anonReports": {
-        ".read": "auth != null && root.child('role').child(auth.uid).exists()",
+        ".read": "auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))",
         "$device": {
           ".validate": "$device.matches(/^[0-9a-f-]{36}$/)",
           "$id": {

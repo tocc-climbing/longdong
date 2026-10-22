@@ -24,7 +24,7 @@
         ]
       },
       {
-        "regex": "^/((area|sector|route|search|me|about|rescue|map|reports|bolts|checklist)(/.*)?)?$",
+        "regex": "^/((area|sector|route|search|me|about|rescue|map|reports|admin|bolts|checklist)(/.*)?)?$",
         "headers": [
           {
             "key": "Cache-Control",

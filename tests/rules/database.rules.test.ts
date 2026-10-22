@@ -32,6 +32,10 @@ let alice: Database
 let mallory: Database
 let admin: Database
 let guest: Database
+/** 名單上的信箱（src/admin.ts 的 ADMIN_EMAILS），不在 /role 裡 */
+let emailAdmin: Database
+/** 同一個信箱但沒有驗證過：不算管理員 */
+let unverified: Database
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
@@ -42,6 +46,8 @@ beforeAll(async () => {
   mallory = env.authenticatedContext('mallory').database()
   admin = env.authenticatedContext('admin').database()
   guest = env.unauthenticatedContext().database()
+  emailAdmin = env.authenticatedContext('kant', { email: 'kant.kang@gmail.com', email_verified: true }).database()
+  unverified = env.authenticatedContext('fake', { email: 'kant.kang@gmail.com', email_verified: false }).database()
 })
 
 afterAll(async () => {
@@ -112,6 +118,33 @@ describe('管理員（/role）不能讀寫別人的私人資料', () => {
     await assertSucceeds(get(admin, 'v2/reports'))
     await assertFails(get(mallory, 'v2/reports'))
     await assertFails(get(guest, 'v2/reports'))
+  })
+})
+
+describe('管理頁：名單上的信箱（ADMIN_EMAILS）也是管理員', () => {
+  it('可以讀檢舉、地圖回報；沒驗證過的同一個信箱不行', async () => {
+    await assertSucceeds(get(emailAdmin, 'v2/reports'))
+    await assertSucceeds(get(emailAdmin, 'v2/calibration'))
+    await assertSucceeds(get(emailAdmin, 'v2/anonReports'))
+    await assertFails(get(unverified, 'v2/reports'))
+  })
+
+  it('可以刪除任何人的留言；一般使用者不能刪別人的，管理員也不能改內容', async () => {
+    await assertFails(remove(mallory, `v2/comments/${ROUTE}/m1`))
+    await assertFails(remove(unverified, `v2/comments/${ROUTE}/m1`))
+    await assertFails(set(emailAdmin, `v2/comments/${ROUTE}/m1/text`, '改掉'))
+    await assertSucceeds(remove(emailAdmin, `v2/comments/${ROUTE}/m1`))
+  })
+
+  it('可以刪除檢舉（處理完）；一般使用者與檢舉人不能', async () => {
+    await assertFails(remove(mallory, 'v2/reports/rep1'))
+    await assertFails(remove(alice, 'v2/reports/rep1'))
+    await assertSucceeds(remove(admin, 'v2/reports/rep1'))
+  })
+
+  it('還是不能讀寫別人的私人資料、不能新增管理員', async () => {
+    await assertFails(get(emailAdmin, 'v2/personal/alice'))
+    await assertFails(set(emailAdmin, 'role/kant', 'admin'))
   })
 })
 

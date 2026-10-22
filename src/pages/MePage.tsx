@@ -277,7 +277,7 @@ function Settings({ uid, email }: { uid: string; email: string }) {
       <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
-        {admin && <a href={href.reports()}>{t('me.reports')}</a>}
+        {admin && <a href={href.admin()}>{t('me.admin')}</a>}
         <button className="link-button" onClick={() => confirm(t('me.confirmSignOut')) && void signOut()}>
           {t('me.signOut')}
         </button>

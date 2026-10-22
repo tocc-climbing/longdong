@@ -202,6 +202,28 @@ export async function reportComment(uid: string, routeId: string, id: string, re
   })
 }
 
+/** 留言的檢舉（v2/reports）：id → 被檢舉的留言路徑、檢舉人、原因 */
+export type CommentReports = Record<string, { path: string; uid: string; reason?: string; createdAt: number }>
+
+/**
+ * 管理員：所有留言、檢舉（只有管理員讀得到）與暱稱。用 SDK 讀，和刪除用的是同一個資料庫連線
+ * （公開資料平常用 REST 讀，見 src/social/store.ts）。
+ */
+export async function loadAdminData(): Promise<{
+  comments: Record<string, Record<string, { uid: string; text: string; createdAt: number; hidden?: boolean }>>
+  reports: CommentReports
+  profiles: Record<string, { name: string }>
+}> {
+  const [comments, reports, profiles] = await Promise.all(['v2/comments', 'v2/reports', 'v2/profiles'].map((p) => get(ref(db, p))))
+  return { comments: comments.val() ?? {}, reports: reports.val() ?? {}, profiles: profiles.val() ?? {} }
+}
+
+/** 管理員：一次刪除幾個節點（留言與它的檢舉）；只接受 v2/comments、v2/reports 底下的路徑 */
+export function adminDelete(paths: string[]): Promise<void> {
+  if (paths.some((p) => !/^v2\/(comments\/[^/]+|reports)\/[^/]+$/.test(p))) throw new Error(`不能刪除：${paths.join(', ')}`)
+  return update(ref(db), Object.fromEntries(paths.map((p) => [p, null])))
+}
+
 /** 所有人上傳的回報（v2/calibration）：只有管理員讀得到，其他人會被規則拒絕 */
 export type CalibrationUploads = Record<string, Record<string, { geojson: string; createdAt: number }>>
 

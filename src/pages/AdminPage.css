@@ -1,0 +1,66 @@
+.admin-tabs {
+  margin: 8px 0;
+}
+
+.admin-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-count {
+  min-width: 1.4em;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.admin-count.muted {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.admin-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-list > li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-meta,
+.admin-report {
+  margin: 0;
+}
+
+.admin-report {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-bottom: 6px;
+  color: var(--danger);
+}
+
+.admin-text {
+  margin: 4px 0 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-actions .action.danger {
+  color: var(--danger);
+}

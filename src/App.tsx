@@ -31,6 +31,7 @@ const BoltsPage = lazy(() => import('./pages/BoltsPage').then((m) => ({ default:
 /** 路線清單（我的 → 路線清單） */
 const ChecklistPage = lazy(() => import('./pages/ChecklistPage').then((m) => ({ default: m.ChecklistPage })))
 /** 管理員的回報紀錄，只有少數人用 */
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 
 export function App() {
@@ -211,6 +212,12 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
       return (
         <Suspense>
           <ChecklistPage data={data} />
+        </Suspense>
+      )
+    case 'admin':
+      return (
+        <Suspense>
+          <AdminPage data={data} />
         </Suspense>
       )
     case 'reports':
