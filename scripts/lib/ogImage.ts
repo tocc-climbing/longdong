@@ -343,9 +343,19 @@ function pageTitle(body: string[], title: string, description: string): number {
 
 /** 地圖頁（/map）的分享圖片：右邊是整個龍洞與各大區域 */
 export function mapPageSvg(map: OgMap, areaColors: Record<string, string>, stats: { areas: number; routes: number }): string {
+  return crag(map, areaColors, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '救援點 · 急救器材 · 離線可用')
+}
+
+/** 網站本身（首頁，以及沒有自己分享圖片的頁面）的分享圖片：版面與地圖頁相同 */
+export function homePageSvg(map: OgMap, areaColors: Record<string, string>, stats: { areas: number; routes: number }): string {
+  return crag(map, areaColors, '龍洞攀岩資料庫', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '路線 · Bolt · 救援資訊 · 離線可用')
+}
+
+/** 左邊標題、說明、一行重點；右邊放大到 9 個大區域的龍洞地圖 */
+function crag(map: OgMap, areaColors: Record<string, string>, title: string, description: string, facts: string): string {
   const body: string[] = []
-  const y = pageTitle(body, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`)
-  body.push(`<text x="${MARK.x}" y="${mid(y + 24, 28)}" font-size="28" font-weight="700" fill="${C.text}">${rich('救援點 · 急救器材 · 離線可用')}</text>`)
+  const y = pageTitle(body, title, description)
+  body.push(`<text x="${MARK.x}" y="${mid(y + 24, 28)}" font-size="28" font-weight="700" fill="${C.text}">${rich(facts)}</text>`)
   return frame(areaMap(map, undefined, areaColors, PANEL, 0.9, 1.06), body, y + 48)
 }
 

@@ -56,6 +56,14 @@ export function pageShareHtml(page: SharePage, siteUrl: string, shell: string): 
   return html.replace('</head>', () => `  <link rel="canonical" href="${escape(url)}" />\n  </head>`)
 }
 
+/**
+ * 網站本身（dist/index.html）的分享圖片：首頁，以及沒有自己分享頁的頁面（區域、分區等）都用這張。
+ * 標題與說明不變（寫在 index.html）。
+ */
+export function siteShareHtml(siteUrl: string, shell: string): string {
+  return withImageMeta(shell, `${siteUrl}og/home.png`, t('app.title'))
+}
+
 /** 大圖預覽：og:image（1200×630）與 summary_large_image */
 function withImageMeta(html: string, image: string, alt: string): string {
   html = setMeta(html, 'property', 'og:image', image)
