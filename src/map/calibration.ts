@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import type { LatLng } from '../geo'
 import { getCloud, subscribeCloud, withCloud } from '../personal/sync'
 import { DB_URL } from '../social/model'
+import { simulatedLocation } from '../simulate'
 
 /**
  * 比例尺地圖的現場回報：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明。
@@ -81,11 +82,13 @@ function load(): Calibration {
 }
 
 let state: Calibration | undefined
+/** 模擬位置時的回報：不存在手機上、不上傳 */
+let simulated: Mark[] = []
 const listeners = new Set<() => void>()
 const current = () => (state ??= load())
 
 /** 上傳或存檔的結果，給地圖頁顯示提示 */
-export type CalibrationEvent = { kind: 'sent' } | { kind: 'failed'; error: string } | { kind: 'saveError' }
+export type CalibrationEvent = { kind: 'sent' } | { kind: 'failed'; error: string } | { kind: 'saveError' } | { kind: 'simulated' }
 const eventListeners = new Set<(e: CalibrationEvent) => void>()
 const emit = (e: CalibrationEvent) => eventListeners.forEach((l) => l(e))
 
@@ -98,6 +101,17 @@ function commit(next: Calibration) {
     emit({ kind: 'saveError' })
   }
   listeners.forEach((l) => l())
+}
+
+/** 模擬位置時的回報（沒有送出，地圖上照樣標出來） */
+export function useSimulatedMarks(): Mark[] {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l)
+      return () => listeners.delete(l)
+    },
+    () => simulated,
+  )
 }
 
 export function useCalibration(): Calibration {
@@ -117,6 +131,13 @@ export function onCalibrationEvent(l: (e: CalibrationEvent) => void): () => void
 
 /** 新增一筆回報，排進上傳 */
 export function addMark(mark: Mark): void {
+  // 模擬位置時（src/simulate.ts）不存、不上傳：只在這次瀏覽的地圖上標出來
+  if (simulatedLocation()) {
+    simulated = [...simulated, mark]
+    listeners.forEach((l) => l())
+    emit({ kind: 'simulated' })
+    return
+  }
   const c = current()
   commit({ ...c, marks: [...c.marks, mark], queued: true })
   void flush()

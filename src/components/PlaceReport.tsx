@@ -9,6 +9,7 @@ import { areaNames, useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
 import { useGeolocation } from './MyLocation'
 import { Sheet } from './Sheet'
+import { useSimulation } from '../simulate'
 
 /** 誤差在這以內才適合當校正點（與地圖頁相同） */
 const GOOD_ACCURACY_M = 10
@@ -28,6 +29,7 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
   const { route, sector, area } = item
   const map = useScaleMap()
   const [geo, start] = useGeolocation()
+  const simulated = useSimulation()
   const [open, setOpen] = useState(false)
   const [kind, setKind] = useState<Kind>()
   const [picked, setPicked] = useState<LatLng>()
@@ -42,7 +44,7 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
 
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
   /** 不在龍洞地圖範圍內（例如在家裡打開）：不能回報，說明離最近的救援點多遠 */
-  const outside = fix && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
+  const outside = fix && !simulated && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
   const distance = (m: number) => (m < 1000 ? t('myloc.m', { n: Math.round(m) }) : t('myloc.km', { n: (m / 1000).toFixed(1) }))
   const routeName = `${route.number ? `#${route.number} ` : ''}${localName(route.name, lang).main}`
 
@@ -75,8 +77,8 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
       <button
         type="button"
         className={`action icon-action place-report-button${sent ? ' on' : ''}`}
-        aria-label={sent ? t('place.sent') : t('place.button')}
-        title={sent ? t('place.sent') : t('place.button')}
+        aria-label={sent ? t(simulated ? 'sim.notSent' : 'place.sent') : t('place.button')}
+        title={sent ? t(simulated ? 'sim.notSent' : 'place.sent') : t('place.button')}
         onClick={openSheet}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>

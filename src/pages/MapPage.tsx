@@ -3,7 +3,7 @@ import { inMapBounds } from '../map/bounds'
 import { ScaleMap } from '../map/ScaleMap'
 import { useGeolocation } from '../components/MyLocation'
 import { Sheet } from '../components/Sheet'
-import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration } from '../map/calibration'
+import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration, useSimulatedMarks } from '../map/calibration'
 import type { LoadedData } from '../data/dataset'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { distanceM, nearestPoints, type LatLng } from '../geo'
@@ -12,6 +12,7 @@ import { useCloud } from '../personal/sync'
 import { reportOptions, type ReportOption } from '../map/reportOptions'
 import { href, navigate } from '../router'
 import { areaNames, project, useScaleMap } from '../map/mapData'
+import { setSimulation, useSimulation } from '../simulate'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
@@ -27,12 +28,20 @@ const TOAST_MS = 4000
  * 回報時也可以在地圖上點出自己認為所在的位置（選填）：和 GPS 的差距可以看出地圖或 GPS 偏了多少。
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  */
-export function MapPage({ data }: { data: LoadedData }) {
+export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
   const { lang, t } = useLang()
   const map = useScaleMap()
   const [geo, start] = useGeolocation()
+  const simulated = useSimulation()
+  // /map@緯度,經度：開始模擬（之後在這個分頁裡都有效，網址換回 /map）
+  useEffect(() => {
+    if (!simulate) return
+    setSimulation(simulate)
+    navigate(href.map(), { replace: true })
+  }, [simulate?.[0], simulate?.[1]])
   const cloud = useCloud()
   const records = useCalibration()
+  const simulatedMarks = useSimulatedMarks()
   const [intro, setIntro] = useState(() => !seenIntro())
   const [reporting, setReporting] = useState(false)
   /** 回報表單的內容：在地圖上點位置時表單會關起來，內容留在這裡 */
@@ -44,7 +53,7 @@ export function MapPage({ data }: { data: LoadedData }) {
   const names = areaNames(data, lang)
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
   /** 定位到了但不在地圖範圍內：不能回報；離最近的救援點多遠 */
-  const outside = fix && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
+  const outside = fix && !simulated && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
   const distance = (m: number) => (m < 1000 ? t('myloc.m', { n: Math.round(m) }) : t('myloc.km', { n: (m / 1000).toFixed(1) }))
 
   // 打開地圖就開始定位（瀏覽器第一次會詢問權限）
@@ -54,7 +63,15 @@ export function MapPage({ data }: { data: LoadedData }) {
   useEffect(
     () =>
       onCalibrationEvent((e) =>
-        setToast(e.kind === 'sent' ? t('map.sent') : e.kind === 'failed' ? t('map.uploadFailed', { error: e.error }) : t('map.saveError')),
+        setToast(
+          e.kind === 'sent'
+            ? t('map.sent')
+            : e.kind === 'simulated'
+              ? t('sim.notSent')
+              : e.kind === 'failed'
+                ? t('map.uploadFailed', { error: e.error })
+                : t('map.saveError'),
+        ),
       ),
     [t],
   )
@@ -71,7 +88,7 @@ export function MapPage({ data }: { data: LoadedData }) {
     setDraft(EMPTY_DRAFT)
     setReporting(false)
     // 上傳成功會另外提示；沒網路時先存在手機上（不登入也能上傳）
-    if (!navigator.onLine || (cloud.status === 'signed-in' && !cloud.connected)) setToast(t('map.queued'))
+    if (!simulated && (!navigator.onLine || (cloud.status === 'signed-in' && !cloud.connected))) setToast(t('map.queued'))
   }
 
   const closeIntro = () => {
@@ -92,7 +109,7 @@ export function MapPage({ data }: { data: LoadedData }) {
           map={map.data}
           areaNames={names}
           here={fix}
-          marks={records.marks.map((m) => ({ at: m.coords, picked: m.picked }))}
+          marks={[...records.marks, ...simulatedMarks].map((m) => ({ at: m.coords, picked: m.picked }))}
           pick={picking ? { at: draft.at, onPick: (at) => setDraft((d) => ({ ...d, at })) } : undefined}
           onAreaPress={(key) => navigate(href.area(`${data.dataset.crag.id}/${key}`))}
           onLocate={() => {

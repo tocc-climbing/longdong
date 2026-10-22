@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { isWide } from './layout'
+import type { LatLng } from './geo'
+import { parseSimulation } from './simulate'
 
 /**
  * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map、/reports、/admin、/bolts（id 本身含 "/"）。
@@ -15,7 +17,8 @@ export type Page = (
   | { name: 'me' }
   | { name: 'about' }
   | { name: 'rescue'; id?: string }
-  | { name: 'map' }
+  /** simulate：/map@緯度,經度 的模擬位置（src/simulate.ts） */
+  | { name: 'map'; simulate?: LatLng }
   | { name: 'reports' }
   | { name: 'admin' }
   | { name: 'bolts' }
@@ -37,6 +40,10 @@ export function parseLocation(location: string): Page {
   if (kind === 'me') return { name: 'me', ...extra }
   if (kind === 'about') return { name: 'about' }
   if (kind === 'map') return { name: 'map' }
+  if (kind?.startsWith('map@')) {
+    const simulate = parseSimulation(kind.slice(4))
+    return simulate ? { name: 'map', simulate } : { name: 'map' }
+  }
   if (kind === 'reports') return { name: 'reports' }
   if (kind === 'admin') return { name: 'admin' }
   if (kind === 'bolts') return { name: 'bolts' }

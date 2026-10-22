@@ -66,3 +66,11 @@ describe('samePlace：換頁時要不要捲回頂端', () => {
     expect(samePlace({ name: 'sector', id: 'a' }, { name: 'sector', id: 'b' })).toBe(false)
   })
 })
+
+describe('模擬位置（/map@緯度,經度）', () => {
+  it('解析出座標；格式不對時就是一般的地圖頁', () => {
+    expect(parseLocation('/map@24.9305758,121.4902086')).toEqual({ name: 'map', simulate: [24.9305758, 121.4902086] })
+    expect(parseLocation('/map@abc')).toEqual({ name: 'map' })
+    expect(parseLocation('/map@95,121')).toEqual({ name: 'map' })
+  })
+})

@@ -3,6 +3,7 @@ import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { NEAR_CRAG_M, nearestPoints, type LatLng } from '../geo'
 import { LOCALES, localName, useLang, type Translate } from '../i18n'
 import { CopyButton } from './CopyButton'
+import { SIMULATED_ACCURACY_M, useSimulation } from '../simulate'
 
 /** 誤差超過這個距離（公尺）時提醒到開闊處 */
 const POOR_ACCURACY_M = 50
@@ -15,11 +16,12 @@ export type GeoState =
 
 /**
  * 手機 GPS 定位：按下才開始（瀏覽器會先詢問權限），之後持續更新；離開頁面時停止，不在背景耗電。
- * GPS 不需要網路；沒有網路時第一次定位可能較久。
+ * GPS 不需要網路；沒有網路時第一次定位可能較久。模擬位置時（src/simulate.ts）直接回傳模擬的座標。
  */
 export function useGeolocation(): [GeoState, () => void] {
   const [state, setState] = useState<GeoState>({ status: 'idle' })
   const watch = useRef<number>(undefined)
+  const simulated = useSimulation()
 
   useEffect(() => () => {
     if (watch.current !== undefined) navigator.geolocation.clearWatch(watch.current)
@@ -42,6 +44,8 @@ export function useGeolocation(): [GeoState, () => void] {
     )
   }
 
+  // 模擬位置（/map@緯度,經度）：不用 GPS，直接回傳模擬的座標
+  if (simulated) return [{ status: 'ok', coords: simulated, accuracy: SIMULATED_ACCURACY_M, time: Date.now() }, () => {}]
   return [state, start]
 }
 

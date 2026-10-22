@@ -4487,3 +4487,34 @@ main.map > div {
 .route-actions .place-report-button.on {
   color: var(--style-os);
 }
+
+/* 模擬位置時（/map@緯度,經度）的提示條：一行、固定高度；手機地圖頁的地圖（fixed）往下讓出這一條 */
+.sim-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 32px;
+  padding: 0 max(16px, env(safe-area-inset-left, 0px));
+  background: #7b3fe4;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sim-banner > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sim-banner .link-button {
+  flex: none;
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+body:has(.sim-banner) main.map:not(.shell main.map) {
+  top: calc(52px + 32px + env(safe-area-inset-top));
+}

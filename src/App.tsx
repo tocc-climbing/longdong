@@ -23,6 +23,7 @@ import { here, href, navigate, RouteLinkContext, usePage, withDetail, type Page,
 import { useListView } from './listView'
 import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Dir } from './swipe'
+import { SimulationBanner } from './components/SimulationBanner'
 
 /** 地圖用到的程式與資料較多，分開打包，打開地圖時才載入 */
 const MapPage = lazy(() => import('./pages/MapPage').then((m) => ({ default: m.MapPage })))
@@ -128,6 +129,7 @@ export function App() {
           <Sidebar page={page} data={data} kbdLevel={kbdLevel} />
           <div className={`shell-main${view?.split ? ' split' : ''}`}>
             {banner}
+            <SimulationBanner />
             <main className={page.name === 'map' ? 'map' : view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
             {footer}
           </div>
@@ -158,6 +160,7 @@ export function App() {
         )}
       </header>
       {banner}
+      <SimulationBanner />
       <main ref={swipeArea} className={page.name === 'map' ? 'map' : undefined}>
         <div ref={swipeMoving} key={slide?.n} className={slide ? `slide-${slide.dir}` : undefined}>
           {content}
@@ -198,7 +201,7 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
     case 'map':
       return (
         <Suspense>
-          <MapPage data={data} />
+          <MapPage data={data} simulate={page.simulate} />
         </Suspense>
       )
     case 'bolts':
