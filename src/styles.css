@@ -3995,7 +3995,7 @@ main.map > div {
 .area-strip {
   position: relative;
   margin: 8px -16px 0;
-  aspect-ratio: 343 / 96;
+  aspect-ratio: 343 / 110;
   background: color-mix(in srgb, var(--brand) 7%, var(--bg));
 }
 
@@ -4007,22 +4007,30 @@ main.map > div {
   user-select: none;
 }
 
-/* 選到的區域浮起來：陰影＋從原本的大小彈出 */
-.area-strip-pop {
-  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35));
-  pointer-events: none;
-  animation: area-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* 選到的區域：上方的名稱標記（換區域時淡入） */
+.area-strip-label text {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
 }
 
-@keyframes area-pop {
+.area-strip-label {
+  animation: area-label-in 0.2s ease-out;
+}
+
+@keyframes area-label-in {
   from {
-    transform: none;
-    filter: none;
+    opacity: 0;
+    transform: translateY(-3px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .area-strip-pop {
+  .area-strip-label {
     animation: none;
   }
 }
@@ -4061,7 +4069,7 @@ main.map > div {
 }
 
 .area-strip-view:not(.all) > g:not(.on) path:not(.hit) {
-  opacity: 0.35;
+  opacity: 0.25;
 }
 
 .area-strip-view > g:focus-visible path:not(.hit) {

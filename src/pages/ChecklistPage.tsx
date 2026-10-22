@@ -103,10 +103,11 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
     save(TYPES_KEY, next.join(','))
   }
 
-  const progress = (a: (typeof areas)[number]) => {
+  const progressOf = (a: (typeof areas)[number]) => {
     const rs = routesOf(a)
-    return `${rs.filter((r) => sent.has(r.id)).length}/${rs.length}`
+    return { done: rs.filter((r) => sent.has(r.id)).length, total: rs.length }
   }
+  const progress = (a: (typeof areas)[number]) => `${progressOf(a).done}/${progressOf(a).total}`
   const styleOf = (id: string) => routeStyle(personal, id)
 
   return (
@@ -138,11 +139,8 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
           <AreaStrip data={data} value={area?.id} onChange={pick} />
           <p className="checklist-picked">
             {area ? (
-              <>
-                <span className="color-dot" style={{ background: area.color }} aria-hidden />
-                <strong>{localName(area.name, lang).main}</strong>
-                <span className="muted">{progress(area)}</span>
-              </>
+              // 名稱標在地圖上了，這裡只留完攀數
+              <span className="muted">{t('checklist.total', { done: progressOf(area).done, total: progressOf(area).total })}</span>
             ) : (
               <>
                 <strong>{t('checklist.allAreas')}</strong>

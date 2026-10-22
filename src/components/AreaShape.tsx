@@ -42,11 +42,13 @@ export function AreaShape({ area, className }: { area: Area; className?: string 
 }
 
 /** AreaStrip 的畫面大小（viewBox 單位，寬度隨畫面縮放） */
-const STRIP = { w: 343, h: 96 }
+const STRIP = { w: 343, h: 110 }
+/** 地圖上方留給名稱標記的高度 */
+const LABEL_H = 22
 
 /**
  * 龍洞橫放（順時針轉 90 度：北邊朝右、海在下方），左邊是最南邊的後門，與首頁的區域順序相同。
- * 地圖固定顯示整個龍洞；選到的區域浮起來放大（陰影、彈出的動畫），其他區域淡色。小區域放大得多一點，看得清楚。
+ * 地圖固定顯示整個龍洞；選到的區域實色，上方一個小三角形與名稱（小區域也找得到），其他區域淡色。
  * 選區域：左右滑（往左滑換到右邊、北邊的下一個區域）、點區域，或用左右的箭頭按鈕。
  * 再點一次選到的區域：全區（value 為 undefined，全部實色、沒有浮起來的區域）；這時往左滑到第一個區域。
  */
@@ -74,7 +76,7 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
 
   // 畫面座標 (x 向東, y 向南) 轉 90 度 → (-y, x)
   const turn = ([x, y]: [number, number]): [number, number] => [-y, x]
-  // 浮起來的只有最大的一塊（有的區域另有離得較遠的小塊，一起放大會被推到別處；小塊留在原位、實色）
+  // 名稱標在最大的一塊上方（有的區域另有離得較遠的小塊）
   const largest = (rings: Ring[]) => rings.reduce((a, b) => {
     const [ba, bb] = [bounds(a.map(turn)), bounds(b.map(turn))]
     return bb.w * bb.h > ba.w * ba.h ? b : a
@@ -82,23 +84,22 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
   const shapes = new Map(
     map.data.areas.map((a) => {
       const main = largest(a.rings)
-      return [a.id, { d: ringsPath(a.rings, turn), main: ringsPath([main], turn), box: bounds(main.map(turn)) }]
+      return [a.id, { d: ringsPath(a.rings, turn), box: bounds(main.map(turn)) }]
     }),
   )
   const all = bounds(map.data.areas.flatMap((a) => a.rings.flat().map(turn)))
-  // 整個龍洞放進畫面（留一點邊給浮起來的區域）
-  const k = Math.min((STRIP.w * 0.94) / all.w, (STRIP.h * 0.8) / all.h)
+  // 整個龍洞放進名稱標記下面的空間
+  const mapH = STRIP.h - LABEL_H - 6
+  const k = Math.min((STRIP.w * 0.94) / all.w, mapH / all.h)
   const tx = STRIP.w / 2 - (all.x + all.w / 2) * k
-  const ty = STRIP.h / 2 - (all.y + all.h / 2) * k
-  // 選到的區域：以最大一塊的中心放大，放大後約有地圖高度的六成（大區域至少 1.2 倍、小區域最多 3 倍）
+  const ty = LABEL_H + mapH / 2 - (all.y + all.h / 2) * k
+  // 名稱標記：最大一塊的上緣中間（左右不超出畫面）
   const picked = index >= 0 ? areas[index] : undefined
-  const shape = picked && shapes.get(areaKey(picked))
-  const pop = shape && (() => {
-    const { x, y, w, h } = shape.box
-    const scale = Math.min(3, Math.max(1.2, (all.h * 0.6) / Math.max(w, h)))
-    const [cx, cy] = [x + w / 2, y + h / 2]
-    return `translate(${cx}px, ${cy}px) scale(${scale}) translate(${-cx}px, ${-cy}px)`
-  })()
+  const box = picked && shapes.get(areaKey(picked))?.box
+  const label = box && {
+    x: Math.min(STRIP.w - 30, Math.max(30, tx + (box.x + box.w / 2) * k)),
+    y: ty + box.y * k,
+  }
 
   const press = (e: KeyboardEvent, id: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -133,11 +134,15 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
               </g>
             )
           })}
-          {/* 浮起來的區域：疊在最上面，換區域時重新彈出（點選交給下面原本的形狀） */}
-          {picked && shape && (
-            <path key={picked.id} className="area-strip-pop" d={shape.main} fill={picked.color ?? 'var(--brand)'} style={{ transform: pop }} />
-          )}
         </g>
+        {picked && label && (
+          <g key={picked.id} className="area-strip-label" aria-hidden>
+            <text x={label.x} y={label.y - 9}>
+              {localName(picked.name, lang).main}
+            </text>
+            <path d={`M${label.x} ${label.y - 2}l-4 -5h8z`} fill={picked.color ?? 'var(--brand)'} />
+          </g>
+        )}
       </svg>
       {arrows}
     </div>
