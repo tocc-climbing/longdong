@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
-import { project, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
+import { project, unproject, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
 import { MIN_SCALE, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Rect, type Size } from './mapView'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
@@ -102,6 +102,19 @@ export interface MapFocus {
   points?: number[]
   /** 急救器材編號：加大標示 */
   ems?: number[]
+  /** 其他位置（例如一筆回報的 GPS 與在地圖上點的位置） */
+  coords?: LatLng[]
+}
+
+/**
+ * 地圖上的回報：GPS 位置（圓點）；有在地圖上點出自己的位置時，另外畫一個菱形，兩點之間連一條虛線。
+ * label 是清單上的編號；selected 加大標示。
+ */
+export interface MapMark {
+  at: LatLng
+  picked?: LatLng
+  label?: string
+  selected?: boolean
 }
 
 /** 選中的救援點或急救器材 */
@@ -119,6 +132,7 @@ function focusRect(focus: MapFocus, map: ScaleMapData): Rect | undefined {
     ...(map.areas.find((a) => a.id === focus.area)?.rings.flat() ?? []),
     ...located.filter((p) => focus.points?.includes(p.no)).map((p) => p.at),
     ...map.markers.flatMap((m) => (m.kind === 'ems' && focus.ems?.includes(m.no) ? [m.at] : [])),
+    ...(focus.coords ?? []).map(project),
   ]
   if (xy.length === 0) return undefined
   const xs = xy.map((p) => p[0])
@@ -135,7 +149,9 @@ interface Props {
   /** 大區域 key → 顯示名稱 */
   areaNames: Record<string, string>
   here?: { coords: LatLng; accuracy: number }
-  marks: LatLng[]
+  marks: MapMark[]
+  /** 在地圖上點位置的模式：點一下就回傳那裡的經緯度（不選救援點）；at 是目前點的位置 */
+  pick?: { at?: LatLng; onPick: (at: LatLng) => void }
   /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去；在範圍外時地圖不動，由外層說明。沒有時不顯示這個按鈕 */
   onLocate?: () => void
   /** 長按（電腦為按右鍵）區域時：大區域 key */
@@ -157,7 +173,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, topLeft, focus, selected, onSelect }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -219,6 +235,7 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
     onAreaPress,
     onTap: (p) => {
       const { frame: f, view: v } = latest.current
+      if (f && v && pick) return pick.onPick(unproject(toMap(v, f, [p.x, p.y])))
       if (!f || !v || !onSelect) return
       const distance = (at: Vec) => {
         const [x, y] = toScreen(v, f, at)
@@ -376,10 +393,29 @@ export function ScaleMap({ map, areaNames, here, marks, onLocate, onAreaPress, t
               </text>
             )
           })}
-          {marks.map((c, i) => {
-            const [x, y] = screen(project(c))
-            return <circle key={i} className="sm-mark" cx={x} cy={y} r={5} />
+          {marks.map((m, i) => {
+            const [x, y] = screen(project(m.at))
+            const p = m.picked && screen(project(m.picked))
+            const r = m.selected ? 7 : 5
+            return (
+              <g key={i} className={`sm-mark${m.selected ? ' selected' : ''}`}>
+                {p && <line className="sm-mark-link" x1={x} y1={y} x2={p[0]} y2={p[1]} />}
+                {p && <path className="sm-mark-picked" d={`M${p[0]} ${p[1] - r - 1}l${r + 1} ${r + 1}l${-r - 1} ${r + 1}l${-r - 1} ${-r - 1}z`} />}
+                <circle className="sm-mark-gps" cx={x} cy={y} r={r} />
+                {m.label && (
+                  <text x={x + r + 3} y={y} fontSize={m.selected ? 12 : 10} dominantBaseline="central">
+                    {m.label}
+                  </text>
+                )}
+              </g>
+            )
           })}
+          {pick?.at && (
+            <g className="sm-pick">
+              <path d={`M${screen(project(pick.at))[0]} ${screen(project(pick.at))[1]}l-9 -22a10 10 0 1 1 18 0z`} />
+              <circle cx={screen(project(pick.at))[0]} cy={screen(project(pick.at))[1] - 22} r={3.5} />
+            </g>
+          )}
           {me && (
             <circle className="sm-me" cx={screen(me)[0]} cy={screen(me)[1]} r={7} strokeWidth={2.5} />
           )}

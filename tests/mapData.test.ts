@@ -4,7 +4,7 @@ import { hasUnuploaded, toGeoJSON, type Fix } from '../src/map/calibration'
 import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseLocation } from '../src/router'
-import { centroid } from '../src/map/mapData'
+import { centroid, project, unproject } from '../src/map/mapData'
 
 const fix = (lat: number, lng: number, accuracy = 5, time = 0): Fix => ({ coords: [lat, lng], accuracy, time })
 
@@ -26,6 +26,21 @@ describe('匯出 GeoJSON', () => {
     expect(out.features).toHaveLength(1)
     expect(out.features[0].geometry).toEqual({ type: 'Point', coordinates: [121.92, 25.11] })
     expect(out.features[0].properties).toEqual({ note: '鐘塔', accuracy: 8, time: '1970-01-01T00:00:00.000Z' })
+  })
+
+  it('在地圖上點的位置放在 properties.picked（[經度, 緯度]，小數 6 位）', () => {
+    const out = toGeoJSON({ marks: [{ ...fix(25.11, 121.92), note: '鐘塔', picked: [25.1101234567, 121.9201234567] }] }) as {
+      features: { properties: Record<string, unknown> }[]
+    }
+    expect(out.features[0].properties.picked).toEqual([121.920123, 25.110123])
+  })
+})
+
+describe('地圖座標與經緯度互換', () => {
+  it('unproject 是 project 的反函數（在地圖上點的位置換回經緯度）', () => {
+    const at: [number, number] = [25.1123, 121.9234]
+    const [lat, lng] = unproject(project(at))
+    expect(distanceM(at, [lat, lng])).toBeLessThan(0.01)
   })
 })
 

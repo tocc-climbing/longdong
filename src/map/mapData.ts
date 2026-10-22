@@ -56,6 +56,11 @@ export function areaNames(data: LoadedData, lang: Lang): Record<string, string> 
   )
 }
 
+/** 畫面座標（公尺）→ 經緯度（project 的反函數；回報時在地圖上點的位置） */
+export function unproject([x, y]: [number, number]): LatLng {
+  return [ORIGIN[0] - y / M_PER_DEG_LAT, ORIGIN[1] + x / M_PER_DEG_LNG]
+}
+
 /** 經緯度 → 畫面座標（公尺） */
 export function project([lat, lng]: LatLng): [number, number] {
   return [(lng - ORIGIN[1]) * M_PER_DEG_LNG, (ORIGIN[0] - lat) * M_PER_DEG_LAT]

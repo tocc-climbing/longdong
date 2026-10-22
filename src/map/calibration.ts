@@ -21,6 +21,8 @@ export interface Fix {
 
 export interface Mark extends Fix {
   note: string
+  /** 回報者在地圖上點出的、自己認為所在的位置（選填）；和 GPS 位置的差距就是地圖或 GPS 的誤差 */
+  picked?: LatLng
 }
 
 export interface Calibration {
@@ -40,13 +42,13 @@ export function hasUnuploaded({ marks, uploaded }: Calibration): boolean {
 const lngLat = ([lat, lng]: LatLng) => [lng, lat]
 const iso = (time: number) => new Date(time).toISOString()
 
-/** 匯出成 GeoJSON（座標順序為 [經度, 緯度]）：每個回報一個 Point */
+/** 匯出成 GeoJSON（座標順序為 [經度, 緯度]）：每個回報一個 Point（GPS）；在地圖上點的位置放在 properties.picked */
 export function toGeoJSON({ marks }: Calibration): object {
   return {
     type: 'FeatureCollection',
     features: marks.map((m) => ({
       type: 'Feature',
-      properties: { note: m.note, accuracy: Math.round(m.accuracy), time: iso(m.time) },
+      properties: { note: m.note, accuracy: Math.round(m.accuracy), time: iso(m.time), ...(m.picked ? { picked: lngLat(m.picked).map((n) => +n.toFixed(6)) } : {}) },
       geometry: { type: 'Point', coordinates: lngLat(m.coords) },
     })),
   }

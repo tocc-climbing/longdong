@@ -317,10 +317,40 @@
   fill: #fff;
   font-weight: 700;
 }
-.sm-mark {
+/* 回報：GPS 位置（橘色圓點）、在地圖上點的位置（紫色菱形）、兩點之間的虛線 */
+.sm-mark-gps {
   fill: #e46300;
   stroke: #ffffff;
   stroke-width: 1.5;
+}
+.sm-mark-picked {
+  fill: #7b3fe4;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+.sm-mark-link {
+  stroke: #7b3fe4;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.sm-mark text {
+  fill: #141414;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+}
+.sm-mark.selected .sm-mark-gps {
+  stroke-width: 2.5;
+}
+/* 在地圖上點位置：紫色圖釘 */
+.sm-pick path {
+  fill: #7b3fe4;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+.sm-pick circle {
+  fill: #ffffff;
 }
 .sm-me {
   fill: #1a73e8;
@@ -462,4 +492,45 @@
   stroke: #141414;
   stroke-width: 3px;
   paint-order: stroke;
+}
+
+/* 回報時在地圖上點自己的位置：上方一條說明＋完成、取消 */
+.map-pick-bar {
+  position: absolute;
+  top: 60px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #7b3fe4;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-weight: 700;
+}
+
+.map-pick-bar > span {
+  flex: 1;
+  min-width: 10em;
+}
+
+.map-pick-bar .action {
+  min-height: 36px;
+  background: #ffffff;
+  color: #7b3fe4;
+}
+
+.map-pick-bar .action.primary:disabled {
+  opacity: 0.5;
+}
+
+.map-pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 10px;
 }
