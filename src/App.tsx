@@ -139,9 +139,7 @@ export function App() {
     <RouteLinkContext.Provider value={routeLink}>
       <header className="topbar">
         <a className="brand" href={href.home()}>
-          <span className="brand-mark" aria-hidden>
-            LD
-          </span>
+          <img className="brand-mark" src={`${import.meta.env.BASE_URL}icons/mark.png`} alt="" />
           {t('app.title')}
           <DevBadge />
         </a>

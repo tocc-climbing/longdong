@@ -28,9 +28,7 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
   return (
     <aside className="sidebar">
       <a className="brand" href={href.home()}>
-        <span className="brand-mark" aria-hidden>
-          LD
-        </span>
+        <img className="brand-mark" src={`${import.meta.env.BASE_URL}icons/mark.png`} alt="" />
         {t('app.title')}
       </a>
       {/* 側欄窄，英文、日文的名稱加上標示會擠成兩行，開發站的標示放在下一行 */}

@@ -245,17 +245,21 @@ h2 .en {
   text-decoration: none;
 }
 
+/* 品牌標誌：TOCC 標誌中央的臺灣島與攀岩者（icons/mark.png，scripts/gen-icons.ts 產生；黑色、透明底） */
 .brand-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  display: block;
+  width: auto;
+  height: 30px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .brand-mark {
+    filter: invert(1);
+  }
+}
+
+:root[data-theme='dark'] .brand-mark {
+  filter: invert(1);
 }
 
 main {
@@ -3066,11 +3070,6 @@ main.map > div {
 
 [data-layout='mobile'] .brand {
   font-weight: 800;
-}
-
-/* 品牌標誌：圓形（像 TOCC 的圓形標章） */
-[data-layout='mobile'] .brand-mark {
-  border-radius: 50%;
 }
 
 [data-layout='mobile'] .bottom-nav a.active svg {

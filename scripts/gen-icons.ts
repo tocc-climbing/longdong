@@ -1,7 +1,9 @@
 /**
  * 產生 App 圖示（public/icons/）：取臺灣戶外攀岩協會（TOCC）標誌中央的
- * 「臺灣島＋攀岩者」圖形，放在白底上，下方加上「LongDong」字樣。
+ * 「臺灣島＋攀岩者」圖形，放在白底上，下方加上「LongDong」字樣，字後面一顆藍色小岩點當簽名
+ * （Climbio 的岩點，與分享圖片相同，見 scripts/lib/ogImage.ts）。
  * 標誌外圈文字在手機桌面尺寸下無法辨識，所以不用。
+ * 另外輸出頂欄、側欄用的臺灣島（icons/mark.png）：透明底，白色的部分（攀岩者、紋理）也透明，深色模式用 CSS 反白。
  *
  * 字樣使用系統字型（Segoe UI Bold），在不同電腦上重新產生可能略有差異；圖示已 commit 進 repo。
  *
@@ -32,6 +34,9 @@ const ISLAND_OUTLINE = [
 const TARGET_HEIGHT = 330
 const CENTER = { x: 256, y: 192 }
 
+/** Climbio 的岩點（與 scripts/lib/ogImage.ts 相同） */
+const HOLD = 'M-30,-56 C-6,-64 22,-50 26,-20 C30,10 24,46 0,56 C-24,62 -40,40 -38,6 C-36,-26 -46,-50 -30,-56 Z'
+
 /** transparent：不加白底（Facebook 應用程式圖示要求透明背景） */
 function svg(maskable: boolean, transparent = false): string {
   const scale = TARGET_HEIGHT / ISLAND.height
@@ -46,7 +51,8 @@ ${transparent ? '' : '<rect width="512" height="512" fill="#ffffff"/>'}
 <g transform="translate(${x} ${y}) scale(${scale})">
   <image clip-path="url(#island)" width="${LOGO_SIZE}" height="${LOGO_SIZE}" xlink:href="${href}"/>
 </g>
-<text x="256" y="452" text-anchor="middle" font-family="Segoe UI, Arial" font-weight="700" font-size="84" fill="#000000">LongDong</text>
+<text x="236" y="452" text-anchor="middle" font-family="Segoe UI, Arial" font-weight="700" font-size="84" fill="#000000">LongDong</text>
+<g transform="translate(466 412) rotate(-16) scale(0.5)"><path d="${HOLD}" fill="#0395c3"/><circle cx="-3.7" cy="-23.8" r="9" fill="#ffffff"/></g>
 </g>
 </svg>`
 }
@@ -64,11 +70,28 @@ function favicon(size: number): Buffer {
   return new Resvg(svg, { fitTo: { mode: 'width', value: size } }).render().asPng()
 }
 
+/** 頂欄、側欄的臺灣島：高 height 像素；黑色不變，白色變透明（亮度轉成透明度） */
+function mark(height: number): Buffer {
+  const scale = height / ISLAND.height
+  const width = Math.ceil(ISLAND.width * scale)
+  const href = `data:image/png;base64,${LOGO.toString('base64')}`
+  const points = ISLAND_OUTLINE.map((p) => p.join(',')).join(' ')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}">
+<defs><clipPath id="island"><polygon points="${points}"/></clipPath>
+<filter id="ink" filterUnits="userSpaceOnUse" x="0" y="0" width="${LOGO_SIZE}" height="${LOGO_SIZE}"><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -0.2126 -0.7152 -0.0722 0 1"/><feComposite in2="SourceGraphic" operator="in"/></filter></defs>
+<g transform="scale(${scale}) translate(${-ISLAND.x} ${-ISLAND.y})" filter="url(#ink)">
+  <image clip-path="url(#island)" width="${LOGO_SIZE}" height="${LOGO_SIZE}" xlink:href="${href}"/>
+</g>
+</svg>`
+  return new Resvg(svg).render().asPng()
+}
+
 mkdirSync(OUT, { recursive: true })
 writeFileSync(resolve(OUT, 'icon-512.png'), png(512))
 writeFileSync(resolve(OUT, 'icon-192.png'), png(192))
 writeFileSync(resolve(OUT, 'icon-maskable-512.png'), png(512, true))
 writeFileSync(resolve(OUT, 'favicon-48.png'), favicon(48))
+writeFileSync(resolve(OUT, 'mark.png'), mark(96))
 // Facebook 開發者後台的應用程式圖示（1024×1024、透明背景），不放進網站
 writeFileSync(resolve(ROOT, 'assets/facebook-app-icon-1024.png'), png(1024, false, true))
 console.log('icons written to', OUT)
