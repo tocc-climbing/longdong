@@ -49,6 +49,7 @@ export const en: Messages = {
   'type.toprope': 'Top rope',
   'type.boulder': 'Boulder',
   'type.mixed': 'Mixed',
+  'type.other': 'Other',
   'type.fixture': 'Fixed anchor',
   'type.tradOther': 'Trad/other',
   'type.quickdraws': '{n} {n|draw|draws}',

@@ -53,6 +53,7 @@ export const ja: Messages = {
   'type.toprope': 'トップロープ',
   'type.boulder': 'ボルダー',
   'type.mixed': 'ミックス',
+  'type.other': 'その他',
   'type.fixture': '支点',
   'type.tradOther': 'トラッド／その他',
   'type.quickdraws': 'ヌンチャク {n} 本',

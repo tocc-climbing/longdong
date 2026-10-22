@@ -47,6 +47,7 @@ export const zh = {
   'type.toprope': '上方架繩',
   'type.boulder': '抱石',
   'type.mixed': '混合',
+  'type.other': '其他',
   'type.fixture': '固定點',
   'type.tradOther': '傳攀／其他',
   'type.quickdraws': '{n}快扣',
