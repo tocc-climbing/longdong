@@ -1,8 +1,9 @@
-import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import type { KeyboardEvent } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Area } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useScaleMap } from '../map/mapData'
+import { useHorizontalSwipe } from '../swipeGesture'
 
 /**
  * 用大區域的地圖形狀（public/rescue/areas.geojson，與地圖頁相同）畫的圖：
@@ -47,17 +48,18 @@ const STRIP = { w: 343, h: 96 }
  * 龍洞橫放（順時針轉 90 度：北邊朝右、海在下方），左邊是最南邊的後門，與首頁的區域順序相同。
  * 放大到選到的區域、置中，左右露出相鄰的區域；換區域時平移、縮放（CSS transition）。
  * 選區域：左右滑（往左滑換到右邊、北邊的下一個區域）、點區域，或用左右的箭頭按鈕。
+ * 再點一次選到的區域：縮回整個龍洞（value 為 undefined，全部實色）；這時往左滑到第一個區域。
  */
-export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: string; onChange: (areaId: string) => void }) {
+export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: string | undefined; onChange: (areaId: string | undefined) => void }) {
   const { lang, t } = useLang()
   const map = useScaleMap()
-  const swipe = useRef<{ x: number; y: number; moved: boolean }>(undefined)
   const areas = data.dataset.areas
   const index = areas.findIndex((a) => a.id === value)
   const step = (by: number) => {
-    const next = areas[index + by]
+    const next = areas[index + by] ?? (index < 0 && by > 0 ? areas[0] : undefined)
     if (next) onChange(next.id)
   }
+  const swipe = useHorizontalSwipe(step, 30)
   const arrows = (
     <>
       <button type="button" className="area-strip-prev" aria-label={localName(areas[index - 1]?.name ?? areas[0].name, lang).main} disabled={index <= 0} onClick={() => step(-1)}>
@@ -75,9 +77,11 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
   // 放大的範圍：最大的一塊（有的區域另有離得較遠的小塊，算進去會縮得太小）
   const mainBox = (rings: Ring[]) => rings.map((r) => bounds(r.map(turn))).reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a))
   const shapes = new Map(map.data.areas.map((a) => [a.id, { d: ringsPath(a.rings, turn), box: mainBox(a.rings) }]))
-  const box = shapes.get(areaKey(areas[index]))?.box ?? { x: 0, y: 0, w: STRIP.w, h: STRIP.h }
-  // 選到的區域約佔寬度的一半、高度的八成；很小的區域最多放大到畫面寬約 320 公尺，旁邊的區域還看得到
-  const k = Math.min((STRIP.w * 0.5) / box.w, (STRIP.h * 0.8) / box.h, STRIP.w / 320)
+  const selected = index >= 0 ? shapes.get(areaKey(areas[index]))?.box : undefined
+  const all = bounds([...shapes.values()].flatMap(({ box: b }) => [[b.x, b.y], [b.x + b.w, b.y + b.h]] as [number, number][]))
+  const box = selected ?? all
+  // 選到的區域約佔寬度的一半、高度的八成（很小的區域最多放大到畫面寬約 320 公尺，旁邊的區域還看得到）；全區時整個放進來
+  const k = selected ? Math.min((STRIP.w * 0.5) / box.w, (STRIP.h * 0.8) / box.h, STRIP.w / 320) : Math.min((STRIP.w * 0.9) / box.w, (STRIP.h * 0.9) / box.h)
   const tx = STRIP.w / 2 - (box.x + box.w / 2) * k
   const ty = STRIP.h / 2 - (box.y + box.h / 2) * k
 
@@ -90,32 +94,10 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
       step(e.key === 'ArrowLeft' ? -1 : 1)
     }
   }
-  const down = (e: PointerEvent) => {
-    swipe.current = { x: e.clientX, y: e.clientY, moved: false }
-  }
-  const up = (e: PointerEvent) => {
-    const start = swipe.current
-    if (!start) return
-    const dx = e.clientX - start.x
-    // 水平滑超過 30px 才算：往左滑 → 右邊的下一個區域
-    if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(e.clientY - start.y)) {
-      start.moved = true
-      step(dx < 0 ? 1 : -1)
-    }
-  }
-
   return (
     <div className="area-strip">
-      <svg
-        viewBox={`0 0 ${STRIP.w} ${STRIP.h}`}
-        role="group"
-        aria-label={t('checklist.areas')}
-        onPointerDown={down}
-        onPointerUp={up}
-        // 滑動結束時也會觸發 click：已經換過區域就不要再當成點選
-        onClickCapture={(e) => swipe.current?.moved && e.stopPropagation()}
-      >
-        <g className="area-strip-view" style={{ transform: `translate(${tx}px, ${ty}px) scale(${k})` }}>
+      <svg viewBox={`0 0 ${STRIP.w} ${STRIP.h}`} role="group" aria-label={t('checklist.areas')} {...swipe}>
+        <g className={`area-strip-view${index < 0 ? ' all' : ''}`} style={{ transform: `translate(${tx}px, ${ty}px) scale(${k})` }}>
           {areas.map((area) => {
             const shape = shapes.get(areaKey(area))
             if (!shape) return null
@@ -124,11 +106,11 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
               <g
                 key={area.id}
                 role="button"
-                tabIndex={on ? 0 : -1}
+                tabIndex={on || (index < 0 && area === areas[0]) ? 0 : -1}
                 aria-label={localName(area.name, lang).main}
                 aria-pressed={on}
                 className={on ? 'on' : undefined}
-                onClick={() => onChange(area.id)}
+                onClick={() => onChange(on ? undefined : area.id)}
                 onKeyDown={(e) => press(e, area.id)}
               >
                 <path className="hit" d={shape.d} />

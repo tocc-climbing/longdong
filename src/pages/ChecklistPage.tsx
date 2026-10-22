@@ -11,11 +11,14 @@ import { BEST_STYLES, bestStyle, checklistStyle, isSent, sentRouteIds } from '..
 import { setBest, usePersonal } from '../personal/store'
 import { useCloud } from '../personal/sync'
 import { href } from '../router'
+import { useHorizontalSwipe } from '../swipeGesture'
 import { rate } from '../social/actions'
 import { routeKey } from '../social/model'
 import { setLocalRating, useSocial } from '../social/store'
 
 const AREA_KEY = 'longdong.checklist.area'
+/** 存在 AREA_KEY 的「全區」（手機的總覽） */
+const ALL = 'all'
 const TYPES_KEY = 'longdong.checklist.types'
 
 type Style = (typeof BEST_STYLES)[number]
@@ -48,7 +51,8 @@ function loadTypes(): RouteType[] {
 /**
  * 路線清單（/checklist，像攀岩指南書最後的路線表）：依區域、分區列出全部路線，
  * 每條路線直接點選最佳攀登方式（OS／RP／TR，不記日期）與星等評分。
- * 手機：用龍洞的地圖形狀選區域（AreaStrip），篩選放一行（可左右滑），每條路線一行，點星號才展開評分。
+ * 手機：用龍洞的地圖形狀選區域（AreaStrip），篩選放一行（可左右滑），每條路線一行，點星號才展開評分；
+ * 清單也可以左右滑換區域。再點一次地圖上選到的區域是全區：不列路線，只列各區域的完攀統計。
  * 最佳攀登方式存在手機上並同步到雲端（v2/personal/<uid>/best）；評分與路線頁的評分相同（公開平均）。
  */
 export function ChecklistPage({ data }: { data: LoadedData }) {
@@ -57,13 +61,19 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
   const cloud = useCloud()
   const personal = usePersonal()
   const areas = data.dataset.areas
-  const [areaId, setAreaId] = useState(() => {
+  // undefined：全區（只有手機有）
+  const [areaId, setAreaId] = useState<string | undefined>(() => {
     const saved = load(AREA_KEY)
-    return areas.some((a) => a.id === saved) ? saved! : areas[0].id
+    return saved === ALL ? undefined : areas.some((a) => a.id === saved) ? saved! : areas[0].id
   })
   const [types, setTypes] = useState(loadTypes)
   const [onlyOpen, setOnlyOpen] = useState(false)
   const [error, setError] = useState<string>()
+  const [slide, setSlide] = useState<'next' | 'prev'>()
+  const swipe = useHorizontalSwipe((by) => {
+    const next = areas[index + by] ?? (index < 0 && by > 0 ? areas[0] : undefined)
+    if (next) pick(next.id)
+  })
 
   if (cloud.status !== 'signed-in') {
     return (
@@ -80,10 +90,13 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
   const sent = sentRouteIds(personal.ticks, personal.best)
   const total = areas.reduce((n, a) => n + routesOf(a).length, 0)
   const done = areas.reduce((n, a) => n + routesOf(a).filter((r) => sent.has(r.id)).length, 0)
-  const area = areas.find((a) => a.id === areaId)!
-  const pick = (id: string) => {
+  const area = areas.find((a) => a.id === areaId) ?? (wide ? areas[0] : undefined)
+  const index = area ? areas.indexOf(area) : -1
+  const pick = (id: string | undefined) => {
+    // 換區域時清單從旁邊滑進來（方向與手指相同）
+    setSlide(id === undefined || index < 0 ? undefined : areas.findIndex((a) => a.id === id) > index ? 'next' : 'prev')
     setAreaId(id)
-    save(AREA_KEY, id)
+    save(AREA_KEY, id ?? ALL)
   }
   const pickTypes = (next: RouteType[]) => {
     setTypes(next)
@@ -94,6 +107,7 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
     const rs = routesOf(a)
     return `${rs.filter((r) => sent.has(r.id)).length}/${rs.length}`
   }
+  const styleOf = (id: string) => routeStyle(personal, id)
 
   return (
     <article className="checklist">
@@ -121,21 +135,36 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
         </div>
       ) : (
         <>
-          <AreaStrip data={data} value={areaId} onChange={pick} />
+          <AreaStrip data={data} value={area?.id} onChange={pick} />
           <p className="checklist-picked">
-            <span className="color-dot" style={{ background: area.color }} aria-hidden />
-            <strong>{localName(area.name, lang).main}</strong>
-            <span className="muted">{progress(area)}</span>
+            {area ? (
+              <>
+                <span className="color-dot" style={{ background: area.color }} aria-hidden />
+                <strong>{localName(area.name, lang).main}</strong>
+                <span className="muted">{progress(area)}</span>
+              </>
+            ) : (
+              <>
+                <strong>{t('checklist.allAreas')}</strong>
+                <span className="muted">
+                  {done}/{total}
+                </span>
+              </>
+            )}
           </p>
         </>
       )}
 
       <div className="chips checklist-filter" role="group" aria-label={t('type.filter')}>
         <TypeFilter value={types} onChange={pickTypes} />
-        <span className="chip-sep" aria-hidden />
-        <button type="button" className="chip" aria-pressed={onlyOpen} onClick={() => setOnlyOpen((o) => !o)}>
-          {t('checklist.onlyOpen')}
-        </button>
+        {area && (
+          <>
+            <span className="chip-sep" aria-hidden />
+            <button type="button" className="chip" aria-pressed={onlyOpen} onClick={() => setOnlyOpen((o) => !o)}>
+              {t('checklist.onlyOpen')}
+            </button>
+          </>
+        )}
       </div>
 
       {error && (
@@ -144,21 +173,100 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
         </p>
       )}
 
-      {area.sectors.map((sector) => {
-        const routes = sector.routes.filter((r) => included(r) && !(onlyOpen && sent.has(r.id)))
-        if (routes.length === 0) return null
+      {area ? (
+        // 手機：清單也可以左右滑換區域；換區域時從旁邊滑進來
+        <div key={area.id} className={`checklist-sectors${slide ? ` slide-${slide}` : ''}`} {...(wide ? {} : swipe)}>
+          {area.sectors.map((sector) => {
+            const routes = sector.routes.filter((r) => included(r) && !(onlyOpen && sent.has(r.id)))
+            if (routes.length === 0) return null
+            return (
+              <section key={sector.id} aria-labelledby={`cl-${sector.id}`}>
+                <h2 id={`cl-${sector.id}`}>{localName(sector.name, lang).main}</h2>
+                <ul className="list-card checklist-list">
+                  {routes.map((r) => (
+                    <ChecklistRow key={r.id} route={r} compact={!wide} onError={setError} />
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
+        </div>
+      ) : (
+        <AreaStats areas={areas} routesOf={routesOf} sent={sent} styleOf={styleOf} onPick={pick} {...swipe} />
+      )}
+    </article>
+  )
+}
+
+type Personal = ReturnType<typeof usePersonal>
+
+/** 路線的最佳攀登方式：在清單勾選的（chosen），沒有勾選時是攀登紀錄裡最好的完攀方式（fromLog） */
+function routeStyle(personal: Personal, routeId: string): { chosen?: Style; fromLog?: Style } {
+  const saved = personal.best.get(routeId)
+  const chosen = saved && checklistStyle(saved)
+  if (chosen) return { chosen }
+  const logged = bestStyle(personal.ticks.filter((tk) => tk.routeId === routeId && isSent(tk.style)).map((tk) => tk.style))
+  return { fromLog: logged && checklistStyle(logged) }
+}
+
+/**
+ * 全區（手機）：各區域的完攀統計，不列路線。一列一個區域：名稱、完攀數、OS／RP／TR 分色的進度條；點了進到那個區域。
+ */
+function AreaStats({
+  areas,
+  routesOf,
+  sent,
+  styleOf,
+  onPick,
+  ...swipe
+}: {
+  areas: LoadedData['dataset']['areas']
+  routesOf: (area: LoadedData['dataset']['areas'][number]) => Route[]
+  sent: Set<string>
+  styleOf: (id: string) => { chosen?: Style; fromLog?: Style }
+  onPick: (id: string) => void
+} & ReturnType<typeof useHorizontalSwipe>) {
+  const { lang } = useLang()
+  return (
+    <ul className="checklist-stats" {...swipe}>
+      {areas.map((area) => {
+        const routes = routesOf(area)
+        const count = { onsight: 0, redpoint: 0, toprope: 0 }
+        let other = 0
+        for (const r of routes) {
+          if (!sent.has(r.id)) continue
+          const { chosen, fromLog } = styleOf(r.id)
+          const style = chosen ?? fromLog
+          if (style) count[style]++
+          else other++
+        }
+        const done = Object.values(count).reduce((a, b) => a + b, other)
+        const share = (n: number) => `${routes.length ? (n / routes.length) * 100 : 0}%`
         return (
-          <section key={sector.id} aria-labelledby={`cl-${sector.id}`}>
-            <h2 id={`cl-${sector.id}`}>{localName(sector.name, lang).main}</h2>
-            <ul className="list-card checklist-list">
-              {routes.map((r) => (
-                <ChecklistRow key={r.id} route={r} compact={!wide} onError={setError} />
-              ))}
-            </ul>
-          </section>
+          <li key={area.id}>
+            <button type="button" onClick={() => onPick(area.id)}>
+              <span className="color-dot" style={{ background: area.color }} aria-hidden />
+              <strong>{localName(area.name, lang).main}</strong>
+              <span className="checklist-stats-count">
+                {done}
+                <span className="muted">/{routes.length}</span>
+              </span>
+              <span className="checklist-stats-bar" aria-hidden>
+                {BEST_STYLES.map((s) => (
+                  <span key={s} className={`style-${SHORT[s].toLowerCase()}`} style={{ width: share(count[s]) }} />
+                ))}
+                <span className="other" style={{ width: share(other) }} />
+              </span>
+              {done > 0 && (
+                <span className="checklist-stats-styles small" aria-hidden>
+                  {BEST_STYLES.map((s) => (count[s] ? <span key={s} className={`style-${SHORT[s].toLowerCase()}`}>{`${SHORT[s]} ${count[s]}`}</span> : null))}
+                </span>
+              )}
+            </button>
+          </li>
         )
       })}
-    </article>
+    </ul>
   )
 }
 
@@ -173,11 +281,8 @@ function ChecklistRow({ route, compact, onError }: { route: Route; compact: bool
   const social = useSocial()
   const uid = cloud.user?.uid
   const mine = uid ? social.ratings[routeKey(route.id)]?.[uid] : undefined
-  const saved = personal.best.get(route.id)
-  const chosen = saved && checklistStyle(saved)
-  // 沒有在清單勾選時，顯示攀登紀錄裡最好的完攀方式（淡色）
-  const logged = chosen ? undefined : bestStyle(personal.ticks.filter((tk) => tk.routeId === route.id && isSent(tk.style)).map((tk) => tk.style))
-  const fromLog = logged && checklistStyle(logged)
+  // 沒有在清單勾選時，顯示攀登紀錄裡最好的完攀方式（外框）
+  const { chosen, fromLog } = routeStyle(personal, route.id)
   const name = localName(route.name, lang)
   const [rating, setRating] = useState(false)
 
@@ -243,9 +348,10 @@ function ChecklistRow({ route, compact, onError }: { route: Route; compact: bool
           aria-expanded={rating}
           onClick={() => setRating((open) => !open)}
         >
-          {mine ? `★${mine.stars}` : '☆'}
+          <StarIcon filled={!!mine} />
+          {mine?.stars}
         </button>
-        {rating && stars}
+        {rating && <StarPick stars={mine?.stars} label={t('checklist.starsAria', { route: name.main })} onPick={star} />}
       </li>
     )
   }
@@ -257,5 +363,46 @@ function ChecklistRow({ route, compact, onError }: { route: Route; compact: bool
         {stars}
       </div>
     </li>
+  )
+}
+
+/** 星星圖示（評分） */
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+      <path
+        d="M12 2.8l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 16.8l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+/**
+ * 手機版的評分：五顆圓形的星星，選到的星星彈一下，下面一句話說明這個分數（再點同一顆清除）。
+ */
+function StarPick({ stars, label, onPick }: { stars?: number; label: string; onPick: (n: number) => void }) {
+  const { t } = useLang()
+  return (
+    <div className="star-pick" role="group" aria-label={label}>
+      <div className="star-pick-row">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={`${(stars ?? 0) >= n ? 'on' : ''}${stars === n ? ' picked' : ''}`}
+            aria-label={`${t('checklist.star', { n })}：${t(`checklist.feel.${n}` as 'checklist.feel.1')}`}
+            aria-pressed={stars === n}
+            onClick={() => onPick(n)}
+          >
+            <StarIcon filled={(stars ?? 0) >= n} />
+          </button>
+        ))}
+      </div>
+      <span className="star-pick-label small">{stars ? t(`checklist.feel.${stars}` as 'checklist.feel.1') : t('checklist.ratePrompt')}</span>
+    </div>
   )
 }

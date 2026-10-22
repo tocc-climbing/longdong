@@ -4050,7 +4050,7 @@ main.map > div {
   outline: none;
 }
 
-.area-strip-view > g:not(.on) path:not(.hit) {
+.area-strip-view:not(.all) > g:not(.on) path:not(.hit) {
   opacity: 0.28;
 }
 
@@ -4188,22 +4188,6 @@ main.map > div {
   color: var(--star);
 }
 
-/* 展開的五顆星：在這一行下面，靠右 */
-.checklist-row-m .checklist-stars {
-  grid-column: 1 / -1;
-  justify-content: flex-end;
-  gap: 4px;
-  padding-bottom: 4px;
-}
-
-.checklist-row-m .checklist-stars button {
-  min-width: 42px;
-  min-height: 38px;
-  border-radius: 10px;
-  box-shadow: inset 0 0 0 1px var(--border);
-  background: var(--surface);
-}
-
 /* ---------- 區域頁（手機）：名稱在左，區域的地圖形狀在右 ---------- */
 
 .area-hero {
@@ -4229,4 +4213,188 @@ main.map > div {
   display: block;
   width: 100%;
   height: 170px;
+}
+
+/* 路線清單：清單左右滑換區域，換的時候從旁邊滑進來 */
+.checklist-sectors {
+  touch-action: pan-y;
+}
+
+.checklist-sectors.slide-next {
+  animation: checklist-in-next 0.25s ease-out;
+}
+
+.checklist-sectors.slide-prev {
+  animation: checklist-in-prev 0.25s ease-out;
+}
+
+@keyframes checklist-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+@keyframes checklist-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checklist-sectors.slide-next,
+  .checklist-sectors.slide-prev {
+    animation: none;
+  }
+}
+
+/* 全區：各區域的完攀統計 */
+.checklist-stats {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  touch-action: pan-y;
+}
+
+.checklist-stats > li {
+  border-bottom: 1px solid var(--border);
+}
+
+.checklist-stats button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.checklist-stats strong {
+  font-size: 1.05rem;
+}
+
+.checklist-stats-count {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist-stats-count .muted {
+  font-weight: 500;
+}
+
+.checklist-stats-bar {
+  grid-column: 2 / -1;
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.checklist-stats-bar > span {
+  background: var(--style);
+}
+
+.checklist-stats-bar > .other {
+  background: var(--faint);
+}
+
+.checklist-stats-styles {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.checklist-stats-styles > span {
+  color: var(--style);
+}
+
+/* 評分按鈕：一行裡只放一個星星與分數 */
+.checklist-rate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.checklist-rate svg {
+  transition: transform 0.15s;
+}
+
+.checklist-rate[aria-expanded='true'] svg {
+  transform: scale(1.2) rotate(-12deg);
+}
+
+/* 展開的評分：五顆圓形星星，選到的彈一下，下面一句話 */
+.star-pick {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin: 2px 0 6px;
+  padding: 10px 0 8px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--star) 10%, var(--surface));
+}
+
+.star-pick-row {
+  display: flex;
+  gap: 8px;
+}
+
+.star-pick button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--faint);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.star-pick button svg {
+  width: 24px;
+  height: 24px;
+}
+
+.star-pick button.on {
+  background: linear-gradient(135deg, #ffc93c, #f08c00);
+  box-shadow: none;
+  color: #fff;
+}
+
+.star-pick button.picked svg {
+  animation: star-pop 0.35s ease-out;
+}
+
+@keyframes star-pop {
+  40% {
+    transform: scale(1.35) rotate(-15deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star-pick button.picked svg {
+    animation: none;
+  }
+}
+
+.star-pick-label {
+  color: var(--muted);
+  font-weight: 700;
 }
