@@ -6,6 +6,7 @@
  * 網站本身（dist/index.html，首頁與其他頁面共用）的分享圖片是 dist/og/home.png。
  * 圖片要用的字型（Noto Sans、Noto Sans TC，見 scripts/install-og-fonts.sh；Windows 用 Segoe UI、微軟正黑體）找不到時：
  * CI 直接失敗；本機只印警告，分享頁改用網站圖示。
+ * OG_IMAGE_LIMIT=n：路線的圖片只畫前 n 張（PR 的 CI 用，確認畫得出來就好；部署時畫全部）。
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -31,6 +32,7 @@ if (!withImage) {
   console.warn(`${message}，分享頁改用網站圖示`)
 }
 const map = withImage ? loadOgMap('dist/rescue') : undefined
+const imageLimit = Number(process.env.OG_IMAGE_LIMIT) || Infinity
 // 地圖上各大區域的顏色（Sheet 上的區域色），key 是區域 ID 的最後一段（與 areas.geojson 相同）
 const areaColors = Object.fromEntries(dataset.areas.flatMap((a) => (a.color ? [[a.id.split('/').pop()!, a.color]] : [])))
 
@@ -38,8 +40,8 @@ const write = (file: string, content: string | Buffer) => {
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, content)
 }
-for (const ref of routes) {
-  if (map) write(join('dist', ogImagePath(ref.route.id)), await ogImagePng(ogImageSvg(ref.route, ref.area, ref.sector, map, dataset.crag.name, areaColors)))
+for (const [i, ref] of routes.entries()) {
+  if (map && i < imageLimit) write(join('dist', ogImagePath(ref.route.id)), await ogImagePng(ogImageSvg(ref.route, ref.area, ref.sector, map, dataset.crag.name, areaColors)))
   write(join('dist', `${sharePagePath(ref.route.id)}.html`), sharePageHtml(ref, site, shell, withImage))
 }
 

@@ -65,7 +65,7 @@
 
 - **不直接推 `main`**（受保護）：從最新的 `main` 開分支（`feat/`、`fix/`、`docs/`、`chore/`），推上分支後開 PR，依 `.github/pull_request_template.md` 填寫。
 - **CI（`ci`）必須通過**；引入新行為的 PR 依審查規範審查。
-- **合併上開發站，發布上正式站**：`main` 自動部署到開發站 https://longdong-dev.web.app/ ，`release` 部署到正式站 https://longdong.web.app/ 。使用者交代的工作即為授權，Claude 開好 PR、CI 通過後**直接 squash 合併**再回報（2026-10-18 使用者指示），回報時給開發站網址。
+- **合併上開發站，發布上正式站**：`main` 自動部署到開發站 https://longdong-dev.web.app/ ，`release` 部署到正式站 https://longdong.web.app/ 。使用者交代的工作即為授權，Claude 開好 PR、CI 通過後**直接 squash 合併**再回報（2026-10-18 使用者指示），回報時給開發站網址。開 PR 時就設定自動合併（`gh pr merge <n> --auto --squash --delete-branch`），CI 通過即合併，不必等 CI 跑完再下指令；同一輪的小改動盡量合成一個 PR。
 - **發布要使用者說「發布」**：先列出 `release..main` 的 commit 給使用者看，再 `git push origin main:release`（只能快轉，不可 force push）。路線資料（`public/data`）合併到 `main` 後會直接更新正式站，不必發布。部署資料庫規則、寫入或刪除正式資料、修改 Firebase 設定仍須先取得明確同意。
 - **重構與新行為分開成不同 PR**（規範 7.5）。
 - **每日資料同步**由 `.github/workflows/sync.yml` 開 `data-sync` PR，不直接推 `main`。

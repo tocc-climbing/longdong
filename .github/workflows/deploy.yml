@@ -33,7 +33,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm test
+      # 測試在 PR 的 CI 已經跑過（main 只接受通過 CI 的 PR），這裡直接建置部署
 
       # 分享圖片的字型（scripts/lib/ogImage.ts）
       - run: bash scripts/install-og-fonts.sh
