@@ -7,7 +7,10 @@ import { useCloud, withCloud } from '../personal/sync'
 import { href } from '../router'
 import type { Comment } from '../social/model'
 import { displayName } from '../social/store'
+import { MapReports } from './MapReports'
 import './AdminPage.css'
+
+export type AdminTab = 'reports' | 'comments' | 'map'
 
 /** 一則留言與它所在的路線（v2/comments/<routeKey>/<id>） */
 interface AdminComment extends Comment {
@@ -26,17 +29,17 @@ interface AdminReport {
 }
 
 /**
- * 管理（/admin）：所有留言（新到舊，可刪除）、檢舉（刪除留言或忽略），以及地圖回報（/reports）的入口。
+ * 管理（/admin）：檢舉（刪除留言或忽略）、所有留言（新到舊，可刪除）、地圖回報（/reports 直接開這一頁）。
  * 入口只顯示給管理員（src/admin.ts）；刪除、讀檢舉的權限由資料庫規則把關。
  */
-export function AdminPage({ data }: { data: LoadedData }) {
+export function AdminPage({ data, initialTab = 'reports' }: { data: LoadedData; initialTab?: AdminTab }) {
   const { lang, t } = useLang()
   const cloud = useCloud()
   const admin = useIsAdmin()
   const [profiles, setProfiles] = useState<Record<string, { name: string; updatedAt: string }>>({})
   const [comments, setComments] = useState<AdminComment[]>()
   const [reports, setReports] = useState<AdminReport[]>()
-  const [tab, setTab] = useState<'reports' | 'comments'>('reports')
+  const [tab, setTab] = useState<AdminTab>(initialTab)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState<string>()
 
@@ -125,7 +128,7 @@ export function AdminPage({ data }: { data: LoadedData }) {
   }
 
   return (
-    <article className="admin">
+    <article className={`admin${tab === 'map' ? ' admin-map' : ''}`}>
       <h1>{t('admin.title')}</h1>
       {cloud.status !== 'signed-in' ? (
         <SignInPrompt message={t('reports.signIn')} />
@@ -144,17 +147,18 @@ export function AdminPage({ data }: { data: LoadedData }) {
               {t('admin.comments')}
               {comments && <span className="admin-count muted">{comments.length}</span>}
             </button>
+            <button type="button" role="tab" aria-selected={tab === 'map'} onClick={() => setTab('map')}>
+              {t('admin.mapReports')}
+            </button>
           </div>
-          <p className="small">
-            <a href={href.reports()}>{t('admin.mapReports')} ›</a>
-          </p>
+          {tab === 'map' && <MapReports data={data} profiles={profiles} />}
 
           {error && (
             <p className="error" role="alert">
               {t('reports.loadFailed', { error })}
             </p>
           )}
-          {!error && (!comments || !reports) && <p className="muted">{t('app.loading')}</p>}
+          {!error && tab !== 'map' && (!comments || !reports) && <p className="muted">{t('app.loading')}</p>}
 
           {tab === 'reports' && reports && (
             <ul className="admin-list">

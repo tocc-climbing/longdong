@@ -393,17 +393,19 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               </text>
             )
           })}
-          {marks.map((m, i) => {
+          {[...marks].sort((a, b) => Number(!!a.selected) - Number(!!b.selected)).map((m, i) => {
             const [x, y] = screen(project(m.at))
             const p = m.picked && screen(project(m.picked))
-            const r = m.selected ? 7 : 5
+            // 有編號時寫在圓點裡（與清單對照），圓點放大
+            const r = (m.label ? 9 : 5) + (m.selected ? 3 : 0)
+            const d = m.label ? 6 : r + 1
             return (
               <g key={i} className={`sm-mark${m.selected ? ' selected' : ''}`}>
                 {p && <line className="sm-mark-link" x1={x} y1={y} x2={p[0]} y2={p[1]} />}
-                {p && <path className="sm-mark-picked" d={`M${p[0]} ${p[1] - r - 1}l${r + 1} ${r + 1}l${-r - 1} ${r + 1}l${-r - 1} ${-r - 1}z`} />}
+                {p && <path className="sm-mark-picked" d={`M${p[0]} ${p[1] - d}l${d} ${d}l${-d} ${d}l${-d} ${-d}z`} />}
                 <circle className="sm-mark-gps" cx={x} cy={y} r={r} />
                 {m.label && (
-                  <text x={x + r + 3} y={y} fontSize={m.selected ? 12 : 10} dominantBaseline="central">
+                  <text x={x} y={y} fontSize={m.selected ? 12 : 10} textAnchor="middle" dominantBaseline="central">
                     {m.label}
                   </text>
                 )}

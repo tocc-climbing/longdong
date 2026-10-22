@@ -58,7 +58,7 @@ export const href = {
   rescue: (area?: string) => (area ? `/rescue/${area}` : '/rescue'),
   /** 照比例尺的龍洞地圖（測試版，可回報位置幫忙校正） */
   map: () => '/map',
-  /** 管理員：所有人的地圖回報 */
+  /** 管理員：所有人的地圖回報（管理頁的「地圖回報」分頁） */
   reports: () => '/reports',
   /** 管理員：所有留言（可刪除）與檢舉 */
   admin: () => '/admin',

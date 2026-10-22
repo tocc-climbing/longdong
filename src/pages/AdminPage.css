@@ -64,3 +64,125 @@
 .admin-actions .action.danger {
   color: var(--danger);
 }
+
+/* ---------- 地圖回報（MapReports） ---------- */
+
+/* 手機：地圖在上方固定，清單在下 */
+.map-reports-map {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 42vh;
+  margin: 8px -16px 0;
+  --map-bottom: 12px;
+}
+
+.map-reports-tools {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.map-reports-tools input {
+  flex: 1;
+  min-width: 0;
+}
+
+.map-reports-tools :is(input, select) {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.map-report-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-report-rows > li {
+  border-bottom: 1px solid var(--border);
+}
+
+/* 一筆一行：編號、說明、回報者與誤差（放不下就省略） */
+.map-report-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0 10px;
+  width: 100%;
+  padding: 10px 4px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.map-report-row[aria-pressed='true'] {
+  background: color-mix(in srgb, #e46300 10%, transparent);
+}
+
+.map-report-note,
+.map-report-meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.map-report-note {
+  font-weight: 700;
+}
+
+.map-report-meta {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.report-no {
+  min-width: 1.8em;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e46300;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* 在地圖上點的位置和 GPS 差多少（紫色，與地圖上的菱形同色） */
+.report-offset {
+  color: #7b3fe4;
+  font-weight: 700;
+}
+
+/* 電腦：清單在左、地圖在右（固定在畫面上，不隨清單捲動） */
+[data-layout='wide'] .map-reports {
+  display: grid;
+  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+[data-layout='wide'] .map-reports-map {
+  order: 2;
+  top: 24px;
+  height: calc(100vh - 48px);
+  margin: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+[data-layout='wide'] .map-report-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+[data-layout='wide'] .map-report-meta {
+  grid-column: auto;
+}

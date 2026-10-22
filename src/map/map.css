@@ -334,11 +334,9 @@
   stroke-dasharray: 4 3;
 }
 .sm-mark text {
-  fill: #141414;
+  fill: #ffffff;
   font-weight: 800;
-  paint-order: stroke;
-  stroke: #ffffff;
-  stroke-width: 3px;
+  pointer-events: none;
 }
 .sm-mark.selected .sm-mark-gps {
   stroke-width: 2.5;
