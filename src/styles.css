@@ -3963,3 +3963,270 @@ main.map > div {
   opacity: 0.4;
   cursor: default;
 }
+
+/* ---------- 路線清單：標題列、龍洞地圖選區域、一行一條路線（手機） ---------- */
+
+.checklist-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.checklist-head h1 {
+  margin: 0;
+}
+
+.checklist-head .checklist-total {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+[data-layout='mobile'] .checklist-legend {
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin: 6px 0 4px;
+  white-space: nowrap;
+}
+
+/* 龍洞橫放的一條，放大到選到的區域：左右滑、點區域或按箭頭切換 */
+.area-strip {
+  position: relative;
+  margin: 8px -16px 0;
+  aspect-ratio: 343 / 96;
+  background: color-mix(in srgb, var(--brand) 7%, var(--bg));
+}
+
+.area-strip svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.area-strip-view {
+  transition: transform 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .area-strip-view {
+    transition: none;
+  }
+}
+
+.area-strip-prev,
+.area-strip-next {
+  position: absolute;
+  top: 50%;
+  width: 36px;
+  height: 44px;
+  margin-top: -22px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.area-strip-prev {
+  left: 0;
+}
+
+.area-strip-next {
+  right: 0;
+}
+
+.area-strip-prev:disabled,
+.area-strip-next:disabled {
+  visibility: hidden;
+}
+
+.area-strip-view > g {
+  cursor: pointer;
+  outline: none;
+}
+
+.area-strip-view > g:not(.on) path:not(.hit) {
+  opacity: 0.28;
+}
+
+.area-strip-view > g:focus-visible path:not(.hit) {
+  opacity: 1;
+}
+
+/* 看不見的可點範圍：形狀外面多一圈 */
+.area-strip .hit {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 18px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.checklist-picked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+}
+
+.checklist-picked strong {
+  font-size: 1.15rem;
+}
+
+.checklist-picked .muted {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+
+/* 篩選：一行，放不下就左右滑 */
+[data-layout='mobile'] .checklist-filter {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: 8px -16px 0;
+  padding: 2px 16px 4px;
+  scrollbar-width: none;
+}
+
+[data-layout='mobile'] .checklist-filter::-webkit-scrollbar {
+  display: none;
+}
+
+[data-layout='mobile'] .checklist-filter .chip {
+  flex: none;
+}
+
+[data-layout='mobile'] .checklist section h2 {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* 手機：清單不用卡片，細線分隔（與路線清單相同） */
+[data-layout='mobile'] .checklist-list {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+[data-layout='mobile'] .checklist-list > li {
+  border-bottom: 1px solid var(--border);
+}
+
+[data-layout='mobile'] .checklist-list > li + li {
+  border-top: 0;
+}
+
+/* 一條路線一行：編號、名稱、難度｜OS RP TR｜評分 */
+.checklist-row-m {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+}
+
+[data-layout='mobile'] .checklist-list > li.checklist-row-m {
+  padding: 6px 0;
+}
+
+.checklist-row-m .checklist-route {
+  grid-template-columns: 2.7em minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.checklist-row-m .checklist-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+
+/* OS RP TR 連成一組 */
+.checklist-row-m .checklist-styles {
+  gap: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.checklist-row-m .checklist-style {
+  min-width: 34px;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 0.72rem;
+}
+
+.checklist-row-m .checklist-style + .checklist-style {
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+.checklist-row-m .checklist-style.from-log {
+  box-shadow: inset 0 0 0 1.5px var(--style);
+}
+
+.checklist-rate {
+  min-width: 34px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.checklist-rate.on {
+  color: var(--star);
+}
+
+/* 展開的五顆星：在這一行下面，靠右 */
+.checklist-row-m .checklist-stars {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.checklist-row-m .checklist-stars button {
+  min-width: 42px;
+  min-height: 38px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--surface);
+}
+
+/* ---------- 區域頁（手機）：名稱在左，區域的地圖形狀在右 ---------- */
+
+.area-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46%;
+  align-items: center;
+  gap: 12px;
+  min-height: 170px;
+  margin-bottom: 8px;
+}
+
+.area-hero h1 {
+  margin: 0;
+  font-size: 2.2rem;
+  line-height: 1.15;
+}
+
+.area-hero .page-sub {
+  margin: 4px 0 12px;
+}
+
+.area-hero-shape {
+  display: block;
+  width: 100%;
+  height: 170px;
+}
