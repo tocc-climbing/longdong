@@ -6,3 +6,4 @@ dist-e2e/
 *.log
 .DS_Store
 .claude/
+shots/
