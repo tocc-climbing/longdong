@@ -2,7 +2,7 @@
  * 建置後替每條路線產生分享頁（dist/route/<路線ID>.html，網址 /route/<路線ID>），見 scripts/lib/sharePages.ts：
  * 內容是 dist/index.html，換上這條路線的預覽資訊。不放進 Service Worker 的預先快取（vite.config.ts 的 globIgnores）。
  * 也替每條路線畫分享圖片（dist/og/<路線ID>.png，見 scripts/lib/ogImage.ts）。
- * 圖片要用的字型（Noto Sans、Noto Sans CJK；Windows 用 Segoe UI、微軟正黑體）找不到時：
+ * 圖片要用的字型（Noto Sans、Noto Sans TC，見 scripts/install-og-fonts.sh；Windows 用 Segoe UI、微軟正黑體）找不到時：
  * CI 直接失敗；本機只印警告，分享頁改用網站圖示。
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -20,7 +20,7 @@ const { routes } = indexDataset(dataset)
 
 const withImage = Boolean(findOgFonts())
 if (!withImage) {
-  const message = '找不到分享圖片的字型（Linux 請安裝 fonts-noto-core 與 fonts-noto-cjk）'
+  const message = '找不到分享圖片的字型（Linux 請執行 scripts/install-og-fonts.sh）'
   if (process.env.CI) throw new Error(message)
   console.warn(`${message}，分享頁改用網站圖示`)
 }

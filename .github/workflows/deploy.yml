@@ -36,7 +36,7 @@ jobs:
       - run: npm test
 
       # 分享圖片的字型（scripts/lib/ogImage.ts）
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-core fonts-noto-cjk
+      - run: bash scripts/install-og-fonts.sh
 
       # VITE_CHANNEL=dev：畫面上標示「開發版」、不讓搜尋引擎收錄
       - run: npm run build
@@ -104,8 +104,9 @@ jobs:
       - if: steps.data.outputs.deploy == 'true'
         run: npm test
 
+      # 分享圖片的字型；正式版的程式還沒有分享圖片時（發布前）沒有這支腳本，跳過
       - if: steps.data.outputs.deploy == 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-core fonts-noto-cjk
+        run: if [ -f scripts/install-og-fonts.sh ]; then bash scripts/install-og-fonts.sh; fi
 
       - if: steps.data.outputs.deploy == 'true'
         run: npm run build

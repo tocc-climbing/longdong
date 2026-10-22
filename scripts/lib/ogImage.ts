@@ -12,18 +12,18 @@ export const OG_SIZE = { w: 1200, h: 630 }
 
 /**
  * 字型檔：英數用西文字型（中文字型裡的 ’ 等標點是全形寬度），中文用無襯線黑體。
- * GitHub Actions 用 Noto Sans 與 Noto Sans CJK（apt 的 fonts-noto-core、fonts-noto-cjk），Windows 本機用 Segoe UI 與微軟正黑體。
+ * GitHub Actions 用 Noto Sans 與 Noto Sans TC（scripts/install-og-fonts.sh 安裝），Windows 本機用 Segoe UI 與微軟正黑體。
  * 不用系統字型的自動挑選：挑到的可能是書法體。
  */
 const FONT_CANDIDATES = [
   {
     latin: 'Noto Sans',
-    cjk: 'Noto Sans CJK TC',
+    cjk: 'Noto Sans TC',
     files: [
       '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
       '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
+      '/usr/share/fonts/opentype/noto-tc/NotoSansTC-Regular.otf',
+      '/usr/share/fonts/opentype/noto-tc/NotoSansTC-Bold.otf',
     ],
   },
   {
@@ -42,7 +42,7 @@ export function findOgFonts() {
 
 function ogFonts() {
   const found = findOgFonts()
-  if (!found) throw new Error('找不到字型：Linux 請安裝 fonts-noto-core 與 fonts-noto-cjk')
+  if (!found) throw new Error('找不到字型：Linux 請執行 scripts/install-og-fonts.sh')
   return found
 }
 
