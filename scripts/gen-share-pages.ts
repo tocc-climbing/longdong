@@ -15,6 +15,10 @@ import { checklistPageSvg, findOgFonts, loadOgMap, mapPageSvg, ogImagePng, ogIma
 import { ogImagePath, pageShareHtml, sharePageHtml } from './lib/sharePages'
 import { SITE_URL } from './sheet.config'
 
+// 開發站（VITE_CHANNEL=dev）的分享頁用開發站自己的網址：圖片、og:url 指向正式站的話，
+// 正式站還沒發布這些圖片，Facebook 抓到的是網頁而不是圖片
+const site = process.env.VITE_CHANNEL === 'dev' ? 'https://longdong-dev.web.app/' : SITE_URL
+
 const dataset = JSON.parse(readFileSync('dist/data/longdong.json', 'utf8')) as Dataset
 const shell = readFileSync('dist/index.html', 'utf8')
 const { routes } = indexDataset(dataset)
@@ -35,7 +39,7 @@ const write = (file: string, content: string | Buffer) => {
 }
 for (const ref of routes) {
   if (map) write(join('dist', ogImagePath(ref.route.id)), await ogImagePng(ogImageSvg(ref.route, ref.area, ref.sector, map, dataset.crag.name, areaColors)))
-  write(join('dist', `${sharePagePath(ref.route.id)}.html`), sharePageHtml(ref, SITE_URL, shell, withImage))
+  write(join('dist', `${sharePagePath(ref.route.id)}.html`), sharePageHtml(ref, site, shell, withImage))
 }
 
 // 地圖、路線清單：有字型時才產生（沒有圖片的話，用 index.html 本身的預覽就好）
@@ -59,7 +63,7 @@ if (map) {
   ]
   for (const { svg, ...page } of pages) {
     write(join('dist', 'og', `${page.path}.png`), await ogImagePng(svg))
-    write(join('dist', `${page.path}.html`), pageShareHtml(page, SITE_URL, shell))
+    write(join('dist', `${page.path}.html`), pageShareHtml(page, site, shell))
   }
 }
 console.log(`分享頁：${routes.length} 條路線${withImage ? '（含分享圖片）、地圖、路線清單' : ''}`)
