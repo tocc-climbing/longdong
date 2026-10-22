@@ -3724,6 +3724,7 @@ main.map > div {
 }
 
 .route-actions .icon-action,
+.route-actions .place-report-button,
 [data-layout] .route-actions .share-button {
   min-width: 46px;
   min-height: 44px;
@@ -4480,4 +4481,9 @@ main.map > div {
 /* 區域頁上方：區域形狀不要佔太寬 */
 [data-layout='wide'] .area-hero {
   grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+/* 回報位置送出後：打勾、綠色 */
+.route-actions .place-report-button.on {
+  color: var(--style-os);
 }

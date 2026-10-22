@@ -17,7 +17,7 @@ export function PersonalPanel({ route, extra }: { route: Route; extra?: ReactNod
 
   return (
     <section className="personal">
-      // 手機版：記錄攀登為主按鈕，收藏是愛心圖示
+      {/* 記錄攀登為主按鈕，收藏是愛心圖示，extra（回報位置、分享）接在後面 */}
       <div className="route-actions">
         <button className="action primary" onClick={() => setOpen(true)} disabled={!personal.ready || open}>
           {t('tick.add')}

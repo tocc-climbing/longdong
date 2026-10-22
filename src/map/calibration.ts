@@ -19,8 +19,21 @@ export interface Fix {
   time: number
 }
 
+/**
+ * 回報的是哪裡（從路線頁回報時）：路線的起攀點、休息點、頂端，或整面牆（分區）的牆底。
+ * 累積起來可以得到各分區、各路線起攀點在地圖上的位置。
+ */
+export interface ReportTarget {
+  kind: 'start' | 'rest' | 'top' | 'base'
+  areaId: string
+  sectorId: string
+  /** 牆底（base）沒有路線 */
+  routeId?: string
+}
+
 export interface Mark extends Fix {
   note: string
+  target?: ReportTarget
   /** 回報者在地圖上點出的、自己認為所在的位置（選填）；和 GPS 位置的差距就是地圖或 GPS 的誤差 */
   picked?: LatLng
 }
@@ -48,7 +61,7 @@ export function toGeoJSON({ marks }: Calibration): object {
     type: 'FeatureCollection',
     features: marks.map((m) => ({
       type: 'Feature',
-      properties: { note: m.note, accuracy: Math.round(m.accuracy), time: iso(m.time), ...(m.picked ? { picked: lngLat(m.picked).map((n) => +n.toFixed(6)) } : {}) },
+      properties: { note: m.note, accuracy: Math.round(m.accuracy), time: iso(m.time), ...(m.picked ? { picked: lngLat(m.picked).map((n) => +n.toFixed(6)) } : {}), ...(m.target ? { target: m.target } : {}) },
       geometry: { type: 'Point', coordinates: lngLat(m.coords) },
     })),
   }

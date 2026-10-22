@@ -532,3 +532,13 @@
   gap: 8px 12px;
   margin-bottom: 10px;
 }
+
+/* 路線頁的回報位置：彈窗裡的地圖 */
+.place-report-map {
+  height: 42vh;
+  min-height: 240px;
+  margin: 4px 0 6px;
+  border-radius: 12px;
+  overflow: hidden;
+  --map-bottom: 8px;
+}

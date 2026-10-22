@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { inMapBounds } from '../map/bounds'
 import { ScaleMap } from '../map/ScaleMap'
 import { useGeolocation } from '../components/MyLocation'
+import { Sheet } from '../components/Sheet'
 import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration } from '../map/calibration'
 import type { LoadedData } from '../data/dataset'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
@@ -305,30 +306,5 @@ function ReportForm({
         </button>
       </div>
     </form>
-  )
-}
-
-/** 彈窗：手機從下方滑出、電腦置中；Esc 或點外面關閉 */
-function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
-  const ref = useRef<HTMLDialogElement>(null)
-  const id = useId()
-  useEffect(() => {
-    const d = ref.current!
-    if (open && !d.open) d.showModal()
-    if (!open && d.open) d.close()
-  }, [open])
-  return (
-    <dialog
-      ref={ref}
-      className="sheet"
-      onClose={onClose}
-      onClick={(e) => e.target === ref.current && onClose()}
-      aria-labelledby={id}
-    >
-      <div className="sheet-body">
-        <h2 id={id}>{title}</h2>
-        {open && children}
-      </div>
-    </dialog>
   )
 }

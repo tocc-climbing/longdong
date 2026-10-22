@@ -2,6 +2,7 @@ import { BoltTable } from '../components/BoltTable'
 import { CommentsSection } from '../components/CommentsSection'
 import { GradePill } from '../components/GradePill'
 import { PersonalPanel } from '../components/PersonalPanel'
+import { PlaceReport } from '../components/PlaceReport'
 import { RatingSection } from '../components/RatingSection'
 import { SafetyLight } from '../components/SafetyLight'
 import { ShareButton } from '../components/ShareButton'
@@ -68,9 +69,18 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
       {!route.isFixture && <RouteStatus route={route} />}
 
       {signedIn && !route.isFixture ? (
-        <PersonalPanel route={route} extra={<ShareButton item={ref} />} />
+        <PersonalPanel
+          route={route}
+          extra={
+            <>
+              <PlaceReport data={data} item={ref} />
+              <ShareButton item={ref} />
+            </>
+          }
+        />
       ) : (
         <div className="route-actions">
+          <PlaceReport data={data} item={ref} />
           <ShareButton item={ref} />
         </div>
       )}
