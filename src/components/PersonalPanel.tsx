@@ -4,13 +4,11 @@ import { formatDate } from '../format'
 import { useLang } from '../i18n'
 import { TICK_STYLES, today, type TickStyle } from '../personal/model'
 import { addTick, deleteTick, setFavorite, usePersonal } from '../personal/store'
-import { useWide } from '../layout'
 
-/** 路線頁上的收藏按鈕與個人攀登紀錄；extra 放在按鈕列最後（手機版的分享） */
+/** 路線頁上的按鈕列（記錄攀登、收藏的愛心）與個人攀登紀錄；extra 放在按鈕列最後（分享） */
 export function PersonalPanel({ route, extra }: { route: Route; extra?: ReactNode }) {
   const personal = usePersonal()
   const { t } = useLang()
-  const wide = useWide()
   const [open, setOpen] = useState(false)
   const favorite = personal.favorites.has(route.id)
   const ticks = personal.ticks.filter((t) => t.routeId === route.id)
@@ -19,46 +17,30 @@ export function PersonalPanel({ route, extra }: { route: Route; extra?: ReactNod
 
   return (
     <section className="personal">
-      {!wide ? (
-        // 手機版：記錄攀登為主按鈕，收藏是愛心圖示
-        <div className="route-actions">
-          <button className="action primary" onClick={() => setOpen(true)} disabled={!personal.ready || open}>
-            {t('tick.add')}
-          </button>
-          <button
-            className={`action icon-action${favorite ? ' on' : ''}`}
-            aria-pressed={favorite}
-            aria-label={favorite ? t('fav.on') : t('fav.off')}
-            title={favorite ? t('fav.on') : t('fav.off')}
-            onClick={() => setFavorite(route.id, !favorite)}
-            disabled={!personal.ready}
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-              <path
-                d="M12 21s-7-4.4-9.5-9C.8 8.6 3 5 6.5 5c2 0 3.5 1.2 5.5 3 2-1.8 3.5-3 5.5-3C21 5 23.2 8.6 21.5 12 19 16.6 12 21 12 21z"
-                fill={favorite ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-            </svg>
-          </button>
-          {extra}
-        </div>
-      ) : (
-        <div className="actions">
-          <button
-            className={`action${favorite ? ' on' : ''}`}
-            aria-pressed={favorite}
-            onClick={() => setFavorite(route.id, !favorite)}
-            disabled={!personal.ready}
-          >
-            {favorite ? t('fav.on') : t('fav.off')}
-          </button>
-          <button className="action" onClick={() => setOpen(true)} disabled={!personal.ready || open}>
-            {t('tick.add')}
-          </button>
-        </div>
-      )}
+      // 手機版：記錄攀登為主按鈕，收藏是愛心圖示
+      <div className="route-actions">
+        <button className="action primary" onClick={() => setOpen(true)} disabled={!personal.ready || open}>
+          {t('tick.add')}
+        </button>
+        <button
+          className={`action icon-action${favorite ? ' on' : ''}`}
+          aria-pressed={favorite}
+          aria-label={favorite ? t('fav.on') : t('fav.off')}
+          title={favorite ? t('fav.on') : t('fav.off')}
+          onClick={() => setFavorite(route.id, !favorite)}
+          disabled={!personal.ready}
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+            <path
+              d="M12 21s-7-4.4-9.5-9C.8 8.6 3 5 6.5 5c2 0 3.5 1.2 5.5 3 2-1.8 3.5-3 5.5-3C21 5 23.2 8.6 21.5 12 19 16.6 12 21 12 21z"
+              fill={favorite ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+          </svg>
+        </button>
+        {extra}
+      </div>
 
       {open && <TickForm routeId={route.id} onDone={() => setOpen(false)} />}
 

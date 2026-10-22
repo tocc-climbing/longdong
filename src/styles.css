@@ -2980,10 +2980,10 @@ main.map > div {
 /* ==========================================================================
    手機版：參考臺灣戶外攀岩協會（https://www.tocc-climbing.org/）的風格
    米色紙張底、白色卡片、TOCC 藍色塊、桃紅只用在救援與警告、粗黑幾何字的標題、
-   英文大寫副標、黑框膠囊按鈕、較小的圓角。只套用在 <html data-layout="mobile">（src/layout.ts），電腦版不變。
+   英文大寫副標、較小的圓角。手機版、電腦版相同（<html data-layout> 由 src/layout.ts 設定）。
    ========================================================================== */
 
-:root[data-layout='mobile'] {
+:root[data-layout] {
   --bg: #efece5;
   --surface: #ffffff;
   --surface-2: #f4f1ea;
@@ -3010,7 +3010,7 @@ main.map > div {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root[data-layout='mobile']:not([data-theme='light']) {
+  :root[data-layout]:not([data-theme='light']) {
     --bg: #0e0e0e;
     --surface: #1a1a1a;
     --surface-2: #242424;
@@ -3030,7 +3030,7 @@ main.map > div {
   }
 }
 
-:root[data-layout='mobile'][data-theme='dark'] {
+:root[data-layout][data-theme='dark'] {
   --bg: #0e0e0e;
   --surface: #1a1a1a;
   --surface-2: #242424;
@@ -3050,22 +3050,22 @@ main.map > div {
 }
 
 /* 標題：粗黑幾何字 */
-[data-layout='mobile'] :is(h1, h2, .brand, .area-name, .sector-card strong, .home-hero) {
+[data-layout] :is(h1, h2, .brand, .area-name, .sector-card strong, .home-hero) {
   font-family: var(--display);
 }
 
-[data-layout='mobile'] h1 {
+[data-layout] h1 {
   font-weight: 900;
   letter-spacing: 0;
 }
 
-[data-layout='mobile'] h2 {
+[data-layout] h2 {
   font-size: 1.15rem;
   font-weight: 800;
 }
 
 /* 英文名稱：大寫副標（像 TOCC 的「岩場回報 / CRAG REPORT」） */
-[data-layout='mobile'] :is(.area-info .en, .sector-card .en, h1 .en):not(.route-head .en) {
+[data-layout] :is(.area-info .en, .sector-card .en, h1 .en):not(.route-head .en) {
   font-family: var(--display);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -3073,17 +3073,17 @@ main.map > div {
   font-size: 0.72rem;
 }
 
-[data-layout='mobile'] h1 .en:not(.route-head .en) {
+[data-layout] h1 .en:not(.route-head .en) {
   font-size: 0.85rem;
 }
 
 /* 頂欄、底部分頁：白底，不用毛玻璃 */
-[data-layout='mobile'] :is(.topbar, .bottom-nav) {
+[data-layout] :is(.topbar, .bottom-nav) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-[data-layout='mobile'] .brand {
+[data-layout] .brand {
   font-weight: 800;
 }
 
@@ -3097,35 +3097,35 @@ main.map > div {
 }
 
 /* 按鈕與膠囊：黑框（像 TOCC 的「所有文章 | Articles」） */
-[data-layout='mobile'] :is(.action, .banner button) {
+[data-layout] :is(.action, .banner button) {
   background: transparent;
   box-shadow: inset 0 0 0 2px var(--text);
   font-weight: 700;
 }
 
-[data-layout='mobile'] .action.primary {
+[data-layout] .action.primary {
   background: var(--text);
   color: var(--surface);
   box-shadow: none;
 }
 
-[data-layout='mobile'] .chip,
-[data-layout='mobile'] .fact {
+[data-layout] .chip,
+[data-layout] .fact {
   box-shadow: inset 0 0 0 1.5px var(--text);
   font-weight: 600;
 }
 
-[data-layout='mobile'] .chip[aria-pressed='true'] {
+[data-layout] .chip[aria-pressed='true'] {
   background: var(--text);
   color: var(--surface);
 }
 
-[data-layout='mobile'] .segmented {
+[data-layout] .segmented {
   background: transparent;
   box-shadow: inset 0 0 0 2px var(--text);
 }
 
-[data-layout='mobile'] .segmented button[aria-selected='true'] {
+[data-layout] .segmented button[aria-selected='true'] {
   background: var(--text);
   color: var(--surface);
 }
@@ -3160,51 +3160,51 @@ main.map > div {
 }
 
 /* 救援入口與救援按鈕：桃紅實心色塊（像 TOCC 的「攀岩是危險活動」）；深淺色模式都用同一個深桃紅，白字才看得清楚 */
-[data-layout='mobile'] .rescue-entry {
+[data-layout] .rescue-entry {
   border: 0;
   background: #d40442;
   color: #fff;
 }
 
-[data-layout='mobile'] .rescue-button {
+[data-layout] .rescue-button {
   border: 0;
   background: #d40442;
   color: #fff;
 }
 
-[data-layout='mobile'] .rescue-entry :is(strong, .small) {
+[data-layout] .rescue-entry :is(strong, .small) {
   color: #fff;
 }
 
-[data-layout='mobile'] .rescue-entry .small {
+[data-layout] .rescue-entry .small {
   opacity: 0.9;
 }
 
-[data-layout='mobile'] :is(.rescue-entry, .rescue-button) .rescue-cross {
+[data-layout] :is(.rescue-entry, .rescue-button) .rescue-cross {
   background: #fff;
   color: #d40442;
 }
 
-[data-layout='mobile'] :is(.rescue-entry, .rescue-button):is(:hover, :active) {
+[data-layout] :is(.rescue-entry, .rescue-button):is(:hover, :active) {
   background: #b0033a;
 }
 
 /* 救援頁的緊急電話等紅色：改用 TOCC 的深桃紅（深淺色模式都一樣） */
-[data-layout='mobile'] .rescue {
+[data-layout] .rescue {
   --emergency: #d40442;
 }
 
 /* 手機版的卡片（區域、分區、上一區／下一區）：按下時不換底色——米色背景上換成淺色，卡片看起來像閃一下；
    改成微微縮小的按壓效果，卡片維持白色 */
-[data-layout='mobile'] :is(.area-row, .sector-card, .pager a) {
+[data-layout] :is(.area-row, .sector-card, .pager a) {
   transition: transform 0.08s ease-out;
 }
 
-[data-layout='mobile'] :is(.area-row, .sector-card, .pager a):is(:hover, :active) {
+[data-layout] :is(.area-row, .sector-card, .pager a):is(:hover, :active) {
   background: var(--surface);
 }
 
-[data-layout='mobile'] :is(.area-row, .sector-card, .pager a):active {
+[data-layout] :is(.area-row, .sector-card, .pager a):active {
   transform: scale(0.985);
 }
 
@@ -3430,62 +3430,62 @@ main.map > div {
 
 /* ==========================================================================
    手機版改版（2026-10）：TOCC 配色與漸層標題區＋清單、路線頁用細線分隔、少用卡片。
-   手機只放必要的資訊：清單只有編號、名稱、難度；路線頁的次要資訊收在「更多資訊」。電腦版不變。
+   清單只放必要的資訊；路線頁的次要資訊收在「更多資訊」。電腦版也用同一套（只有版面不同，見最後的電腦版一節）。
    ========================================================================== */
 
-:root[data-layout='mobile'] {
+:root[data-layout] {
   --border: #ebe6dc;
   --brand-dark: #0a6f90;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root[data-layout='mobile']:not([data-theme='light']) {
+  :root[data-layout]:not([data-theme='light']) {
     --border: #2a2a2a;
     --brand-dark: #5fc8ea;
   }
 }
 
-:root[data-layout='mobile'][data-theme='dark'] {
+:root[data-layout][data-theme='dark'] {
   --border: #2a2a2a;
   --brand-dark: #5fc8ea;
 }
 
 /* 按鈕與篩選：圓角膠囊、淺色底，取代黑框 */
-[data-layout='mobile'] :is(.action, .banner button) {
+[data-layout] :is(.action, .banner button) {
   border-radius: 999px;
   background: var(--brand-soft);
   color: var(--brand-dark);
   box-shadow: none;
 }
 
-[data-layout='mobile'] .action.primary {
+[data-layout] .action.primary {
   background: var(--brand);
   color: #fff;
 }
 
-[data-layout='mobile'] .chip,
-[data-layout='mobile'] .fact {
+[data-layout] .chip,
+[data-layout] .fact {
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
-[data-layout='mobile'] .chip[aria-pressed='true'] {
+[data-layout] .chip[aria-pressed='true'] {
   background: var(--brand);
   color: #fff;
   box-shadow: none;
 }
 
-[data-layout='mobile'] .segmented {
+[data-layout] .segmented {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
-[data-layout='mobile'] .segmented button[aria-selected='true'] {
+[data-layout] .segmented button[aria-selected='true'] {
   background: var(--brand);
   color: #fff;
 }
 
 /* ── 首頁：藍色漸層標題區，搜尋框在裡面 ── */
-[data-layout='mobile'] .home-hero {
+[data-layout] .home-hero {
   background: linear-gradient(135deg, #0395c3, #0a6f90);
   border-radius: 0 0 24px 24px;
 }
@@ -3507,7 +3507,7 @@ main.map > div {
 }
 
 /* 救援資訊：一行，桃紅色字 */
-[data-layout='mobile'] .rescue-entry {
+[data-layout] .rescue-entry {
   margin: 0;
   padding: 12px 0;
   border-radius: 0;
@@ -3516,7 +3516,7 @@ main.map > div {
   color: #d40442;
 }
 
-[data-layout='mobile'] .rescue-entry > span:last-child {
+[data-layout] .rescue-entry > span:last-child {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -3524,16 +3524,16 @@ main.map > div {
 }
 
 /* 權重要高過前面白字的 .rescue-entry :is(strong, .small) */
-[data-layout='mobile'] .rescue-entry > span > strong:first-child {
+[data-layout] .rescue-entry > span > strong:first-child {
   color: #d40442;
 }
 
-[data-layout='mobile'] .rescue-entry > span > span.small {
+[data-layout] .rescue-entry > span > span.small {
   color: var(--muted);
   opacity: 1;
 }
 
-[data-layout='mobile'] .rescue-entry .rescue-cross {
+[data-layout] .rescue-entry .rescue-cross {
   width: 26px;
   height: 26px;
   border-radius: 8px;
@@ -3542,16 +3542,16 @@ main.map > div {
   font-size: 1.1rem;
 }
 
-[data-layout='mobile'] .rescue-entry:is(:hover, :active) {
+[data-layout] .rescue-entry:is(:hover, :active) {
   background: transparent;
 }
 
 /* ── 區域、分區清單：細線分隔，左邊區域色點，不用卡片 ── */
-[data-layout='mobile'] .area-list {
+[data-layout] .area-list {
   gap: 0;
 }
 
-[data-layout='mobile'] .area-row {
+[data-layout] .area-row {
   padding: 14px 0 12px 20px;
   border: 0;
   border-bottom: 1px solid var(--border);
@@ -3561,7 +3561,7 @@ main.map > div {
   overflow: visible;
 }
 
-[data-layout='mobile'] .area-row::before {
+[data-layout] .area-row::before {
   top: 21px;
   bottom: auto;
   width: 10px;
@@ -3569,24 +3569,24 @@ main.map > div {
   border-radius: 50%;
 }
 
-[data-layout='mobile'] .area-row:is(:hover, :active) {
+[data-layout] .area-row:is(:hover, :active) {
   background: transparent;
 }
 
 /* 手機上不放的次要資訊：英文名、種類統計、分區數 */
-[data-layout='mobile'] .area-row :is(.en, .area-types),
-[data-layout='mobile'] .area-row .area-count .muted {
+[data-layout] .area-row :is(.en, .area-types),
+[data-layout] .area-row .area-count .muted {
   display: none;
 }
 
-[data-layout='mobile'] .area-info .area-count {
+[data-layout] .area-info .area-count {
   margin-top: 2px;
   color: var(--muted);
   font-weight: 400;
 }
 
 /* ── 路線清單：細線分隔 ── */
-[data-layout='mobile'] .route-list {
+[data-layout] .route-list {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -3594,24 +3594,24 @@ main.map > div {
   overflow: visible;
 }
 
-[data-layout='mobile'] .route-list > li {
+[data-layout] .route-list > li {
   border-bottom: 1px solid var(--border);
 }
 
-[data-layout='mobile'] .route-list > li + li {
+[data-layout] .route-list > li + li {
   border-top: 0;
 }
 
-[data-layout='mobile'] .route-row {
+[data-layout] .route-row {
   padding-left: 0;
   padding-right: 0;
 }
 
-[data-layout='mobile'] .route-row:is(:hover, :active) {
+[data-layout] .route-row:is(:hover, :active) {
   background: transparent;
 }
 
-[data-layout='mobile'] .route-row .route-no {
+[data-layout] .route-row .route-no {
   color: var(--faint);
 }
 
@@ -3635,7 +3635,7 @@ main.map > div {
   color: var(--danger);
 }
 
-/* ── 路線頁（RouteMobile） ── */
+/* ── 路線頁（RoutePage） ── */
 .route-m h1 {
   margin: 4px 0 2px;
   font-size: 1.9rem;
@@ -3724,7 +3724,7 @@ main.map > div {
 }
 
 .route-actions .icon-action,
-[data-layout='mobile'] .route-actions .share-button {
+[data-layout] .route-actions .share-button {
   min-width: 46px;
   min-height: 44px;
   justify-content: center;
@@ -4005,7 +4005,7 @@ main.map > div {
   font-size: 0.85rem;
 }
 
-[data-layout='mobile'] .checklist-legend {
+[data-layout] .checklist-legend {
   flex-wrap: nowrap;
   gap: 12px;
   margin: 6px 0 4px;
@@ -4139,14 +4139,14 @@ main.map > div {
   flex: none;
 }
 
-[data-layout='mobile'] .checklist section h2 {
+[data-layout] .checklist section h2 {
   margin: 18px 0 0;
   color: var(--muted);
   font-size: 0.8rem;
 }
 
 /* 手機：清單不用卡片，細線分隔（與路線清單相同） */
-[data-layout='mobile'] .checklist-list {
+[data-layout] .checklist-list {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -4154,11 +4154,11 @@ main.map > div {
   overflow: visible;
 }
 
-[data-layout='mobile'] .checklist-list > li {
+[data-layout] .checklist-list > li {
   border-bottom: 1px solid var(--border);
 }
 
-[data-layout='mobile'] .checklist-list > li + li {
+[data-layout] .checklist-list > li + li {
   border-top: 0;
 }
 
@@ -4171,7 +4171,7 @@ main.map > div {
   min-height: 52px;
 }
 
-[data-layout='mobile'] .checklist-list > li.checklist-row-m {
+[data-layout] .checklist-list > li.checklist-row-m {
   padding: 6px 0;
 }
 
@@ -4436,4 +4436,48 @@ main.map > div {
 .star-pick-label {
   color: var(--muted);
   font-weight: 700;
+}
+
+/* ==========================================================================
+   電腦版：和手機版同一套設計，只調整版面（側欄＋內容＋右邊的路線頁）
+   ========================================================================== */
+
+/* 首頁標題區：內容欄裡的圓角色塊（手機是左右滿版） */
+[data-layout='wide'] .home-hero {
+  margin: 0 0 16px;
+  padding: 28px 32px 26px;
+  border-radius: 24px;
+}
+
+/* 側欄已有搜尋框 */
+[data-layout='wide'] .hero-search {
+  display: none;
+}
+
+/* 區域清單：兩欄，細線分隔 */
+[data-layout='wide'] .area-list {
+  grid-template-columns: 1fr 1fr;
+  column-gap: 32px;
+}
+
+/* 路線清單的地圖：內容欄裡的圓角色塊 */
+[data-layout='wide'] .area-strip {
+  margin: 8px 0 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+[data-layout='wide'] .checklist-filter {
+  margin-top: 10px;
+}
+
+/* 路線表格：列的左右留白與欄位標題對齊 */
+[data-layout='wide'] .route-list .route-row {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+/* 區域頁上方：區域形狀不要佔太寬 */
+[data-layout='wide'] .area-hero {
+  grid-template-columns: minmax(0, 1fr) 280px;
 }

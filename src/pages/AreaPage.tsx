@@ -7,16 +7,14 @@ import { RescueButton } from '../components/RescueButton'
 import { RouteList } from '../components/RouteList'
 import { gradeDistribution, sectorColor, typeSummary } from '../format'
 import { localName, useLang } from '../i18n'
-import { useWide } from '../layout'
 import { href } from '../router'
 
 /**
  * 區域頁：列出分區，點進去才看路線（只有一個分區時直接顯示路線）。
- * 手機：上方左邊是名稱、路線數與救援按鈕，右邊是這個區域的地圖形狀。
+ * 上方左邊是名稱、路線數與救援按鈕，右邊是這個區域的地圖形狀。
  */
 export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
   const { lang, t } = useLang()
-  const wide = useWide()
   const area = data.areaById.get(id)
   if (!area) return <NotFound />
   const routeCount = area.sectors.reduce((n, s) => n + s.routes.filter((r) => !r.isFixture).length, 0)
@@ -29,21 +27,14 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
 
   return (
     <>
-      {wide ? (
-        <>
-          <Title name={area.name} color={area.color} areaId={area.id} />
+      <div className="area-hero">
+        <div className="area-hero-text">
+          <h1>{localName(area.name, lang).main}</h1>
           {sub}
-        </>
-      ) : (
-        <div className="area-hero">
-          <div className="area-hero-text">
-            <h1>{localName(area.name, lang).main}</h1>
-            {sub}
-            <RescueButton areaId={area.id} />
-          </div>
-          <AreaShape area={area} className="area-hero-shape" />
+          <RescueButton areaId={area.id} />
         </div>
-      )}
+        <AreaShape area={area} className="area-hero-shape" />
+      </div>
 
       {area.sectors.length === 1 ? (
         <SectorRoutes data={data} sector={area.sectors[0]} />

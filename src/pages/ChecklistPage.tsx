@@ -6,7 +6,6 @@ import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route, RouteType } from '../data/schema'
 import { localName, useLang } from '../i18n'
-import { useWide } from '../layout'
 import { BEST_STYLES, bestStyle, checklistStyle, isSent, sentRouteIds } from '../personal/model'
 import { setBest, usePersonal } from '../personal/store'
 import { useCloud } from '../personal/sync'
@@ -57,7 +56,6 @@ function loadTypes(): RouteType[] {
  */
 export function ChecklistPage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
-  const wide = useWide()
   const cloud = useCloud()
   const personal = usePersonal()
   const areas = data.dataset.areas
@@ -90,7 +88,7 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
   const sent = sentRouteIds(personal.ticks, personal.best)
   const total = areas.reduce((n, a) => n + routesOf(a).length, 0)
   const done = areas.reduce((n, a) => n + routesOf(a).filter((r) => sent.has(r.id)).length, 0)
-  const area = areas.find((a) => a.id === areaId) ?? (wide ? areas[0] : undefined)
+  const area = areas.find((a) => a.id === areaId)
   const index = area ? areas.indexOf(area) : -1
   const pick = (id: string | undefined) => {
     // 換區域時清單從旁邊滑進來（方向與手指相同）
@@ -107,7 +105,6 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
     const rs = routesOf(a)
     return { done: rs.filter((r) => sent.has(r.id)).length, total: rs.length }
   }
-  const progress = (a: (typeof areas)[number]) => `${progressOf(a).done}/${progressOf(a).total}`
   const styleOf = (id: string) => routeStyle(personal, id)
 
   return (
@@ -125,33 +122,20 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
         ))}
       </p>
 
-      {wide ? (
-        <div className="chips checklist-areas" role="tablist" aria-label={t('checklist.areas')}>
-          {areas.map((a) => (
-            <button key={a.id} type="button" role="tab" className="chip" aria-selected={a.id === areaId} aria-pressed={a.id === areaId} onClick={() => pick(a.id)}>
-              {localName(a.name, lang).main}
-              <span className="chip-meta">{progress(a)}</span>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <>
-          <AreaStrip data={data} value={area?.id} onChange={pick} />
-          <p className="checklist-picked">
-            {area ? (
-              // 名稱標在地圖上了，這裡只留完攀數
-              <span className="muted">{t('checklist.total', { done: progressOf(area).done, total: progressOf(area).total })}</span>
-            ) : (
-              <>
-                <strong>{t('checklist.allAreas')}</strong>
-                <span className="muted">
-                  {done}/{total}
-                </span>
-              </>
-            )}
-          </p>
-        </>
-      )}
+      <AreaStrip data={data} value={area?.id} onChange={pick} />
+      <p className="checklist-picked">
+        {area ? (
+          // 名稱標在地圖上了，這裡只留完攀數
+          <span className="muted">{t('checklist.total', { done: progressOf(area).done, total: progressOf(area).total })}</span>
+        ) : (
+          <>
+            <strong>{t('checklist.allAreas')}</strong>
+            <span className="muted">
+              {done}/{total}
+            </span>
+          </>
+        )}
+      </p>
 
       <div className="chips checklist-filter" role="group" aria-label={t('type.filter')}>
         <TypeFilter value={types} onChange={pickTypes} />
@@ -173,7 +157,7 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
 
       {area ? (
         // 手機：清單也可以左右滑換區域；換區域時從旁邊滑進來
-        <div key={area.id} className={`checklist-sectors${slide ? ` slide-${slide}` : ''}`} {...(wide ? {} : swipe)}>
+        <div key={area.id} className={`checklist-sectors${slide ? ` slide-${slide}` : ''}`} {...swipe}>
           {area.sectors.map((sector) => {
             const routes = sector.routes.filter((r) => included(r) && !(onlyOpen && sent.has(r.id)))
             if (routes.length === 0) return null
@@ -182,7 +166,7 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
                 <h2 id={`cl-${sector.id}`}>{localName(sector.name, lang).main}</h2>
                 <ul className="list-card checklist-list">
                   {routes.map((r) => (
-                    <ChecklistRow key={r.id} route={r} compact={!wide} onError={setError} />
+                    <ChecklistRow key={r.id} route={r} onError={setError} />
                   ))}
                 </ul>
               </section>
@@ -270,9 +254,9 @@ function AreaStats({
 
 /**
  * 一條路線：編號、名稱、難度；最佳攀登方式（再點一次清除）、我的評分（再點同一顆清除）。
- * compact（手機）：全部放一行（只有主要名稱），評分只顯示一個星號與分數，點了才在下面展開五顆星，選好就收起。
+ * 全部放一行（只有主要名稱），評分只顯示一個星號與分數，點了才在下面展開五顆星，選好就收起。
  */
-function ChecklistRow({ route, compact, onError }: { route: Route; compact: boolean; onError: (message: string | undefined) => void }) {
+function ChecklistRow({ route, onError }: { route: Route; onError: (message: string | undefined) => void }) {
   const { lang, t } = useLang()
   const personal = usePersonal()
   const cloud = useCloud()
@@ -303,7 +287,6 @@ function ChecklistRow({ route, compact, onError }: { route: Route; compact: bool
       <span className="checklist-no muted">{route.number ? `#${route.number}` : ''}</span>
       <span className="checklist-name">
         {name.main}
-        {!compact && name.sub && <span className="en">{name.sub}</span>}
       </span>
       <GradePill grade={route.grade} value={route.gradeValue} size="sm" />
     </a>
@@ -324,42 +307,21 @@ function ChecklistRow({ route, compact, onError }: { route: Route; compact: bool
       ))}
     </div>
   )
-  const stars = (
-    <div className="checklist-stars" role="group" aria-label={t('checklist.starsAria', { route: name.main })}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" className={(mine?.stars ?? 0) >= n ? 'on' : undefined} aria-label={t('checklist.star', { n })} aria-pressed={mine?.stars === n} onClick={() => star(n)}>
-          ★
-        </button>
-      ))}
-    </div>
-  )
-
-  if (compact) {
-    return (
-      <li className="checklist-row checklist-row-m">
-        {routeLink}
-        {styles}
-        <button
-          type="button"
-          className={`checklist-rate${mine ? ' on' : ''}`}
-          aria-label={t('checklist.starsAria', { route: name.main })}
-          aria-expanded={rating}
-          onClick={() => setRating((open) => !open)}
-        >
-          <StarIcon filled={!!mine} />
-          {mine?.stars}
-        </button>
-        {rating && <StarPick stars={mine?.stars} label={t('checklist.starsAria', { route: name.main })} onPick={star} />}
-      </li>
-    )
-  }
   return (
-    <li className="checklist-row">
+    <li className="checklist-row checklist-row-m">
       {routeLink}
-      <div className="checklist-controls">
-        {styles}
-        {stars}
-      </div>
+      {styles}
+      <button
+        type="button"
+        className={`checklist-rate${mine ? ' on' : ''}`}
+        aria-label={t('checklist.starsAria', { route: name.main })}
+        aria-expanded={rating}
+        onClick={() => setRating((open) => !open)}
+      >
+        <StarIcon filled={!!mine} />
+        {mine?.stars}
+      </button>
+      {rating && <StarPick stars={mine?.stars} label={t('checklist.starsAria', { route: name.main })} onPick={star} />}
     </li>
   )
 }
