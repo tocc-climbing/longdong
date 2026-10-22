@@ -59,6 +59,7 @@ const LIGHT = {
   paper: '#faf8f4',
   text: '#141414',
   muted: '#6b675f',
+  line: '#ebe6dc',
   brand: '#0395c3',
   land: '#ffffff',
   sea: '#dcedf3',
@@ -67,7 +68,7 @@ const LIGHT = {
   warn: { color: '#d99a00', bg: '#fbf0d3', fg: '#7a5600' },
   danger: { color: '#d40442', bg: '#fbe1e8', fg: '#a3032f' },
 }
-type Palette = typeof LIGHT
+const C = LIGHT
 
 const TYPE_ZH: Record<string, string> = { sport: '運攀', trad: '傳攀', toprope: '上方架繩', boulder: '抱石', mixed: '混合' }
 
@@ -130,25 +131,29 @@ function pill(x: number, y: number, text: string, opts: { size: number; bg: stri
   return { svg: rect + label, w }
 }
 
+/** 右邊的圓角框 */
+type Box = { x: number; y: number; w: number; h: number; r: number }
+const PANEL: Box = { x: 760, y: 32, w: 408, h: OG_SIZE.h - 64, r: 28 }
+
 /** 地圖範圍至少這麼大（度，約 400 公尺），小區域（第一洞）也看得到周圍 */
 const MAP_MIN_SPAN = 0.0036
 
 /**
- * 右邊的地圖：放大到路線所在的大區域附近。所在區域實色（不描邊），附近的區域用各自的顏色、半透明。
+ * 右邊的地圖：放大到路線所在的大區域附近（areaKey 省略時是整個龍洞）。所在區域實色（不描邊），附近的區域用各自的顏色、半透明。
  * areaColors：大區域 key → 顏色（Sheet 上的區域色）
  */
-function areaMap(C: Palette, map: OgMap, areaKey: string, areaColors: Record<string, string>, box: { x: number; y: number; w: number; h: number; r: number }): string {
-  const rings = map.areas[areaKey] ?? Object.values(map.areas).flat()
+function areaMap(map: OgMap, areaKey: string | undefined, areaColors: Record<string, string>, box: Box, othersOpacity = 0.22, pad = 1.5): string {
+  const rings = (areaKey && map.areas[areaKey]) || Object.values(map.areas).flat()
   const pts = rings.flat()
   const lat0 = pts.reduce((n, p) => n + p[1], 0) / pts.length
   const kx = Math.cos((lat0 * Math.PI) / 180)
-  // 範圍：區域外接矩形放大 1.5 倍、至少 MAP_MIN_SPAN，再配合框的長寬比（經度依緯度縮放，比例正確）
+  // 範圍：區域外接矩形放大 pad 倍（預設 1.5）、至少 MAP_MIN_SPAN，再配合框的長寬比（經度依緯度縮放，比例正確）
   const xs = pts.map((p) => p[0] * kx)
   const ys = pts.map((p) => p[1])
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2
   const cy = (Math.min(...ys) + Math.max(...ys)) / 2
-  let spanX = Math.max(MAP_MIN_SPAN, (Math.max(...xs) - Math.min(...xs)) * 1.5)
-  let spanY = Math.max(MAP_MIN_SPAN, (Math.max(...ys) - Math.min(...ys)) * 1.5)
+  let spanX = Math.max(MAP_MIN_SPAN, (Math.max(...xs) - Math.min(...xs)) * pad)
+  let spanY = Math.max(MAP_MIN_SPAN, (Math.max(...ys) - Math.min(...ys)) * pad)
   if (spanX / spanY > box.w / box.h) spanY = (spanX * box.h) / box.w
   else spanX = (spanY * box.w) / box.h
   const scale = box.w / spanX
@@ -156,9 +161,9 @@ function areaMap(C: Palette, map: OgMap, areaKey: string, areaColors: Record<str
   const path = (r: Ring[]) => r.map((ring) => `M${ring.map(xy).join('L')}Z`).join('')
   const others = Object.entries(map.areas)
     .filter(([k]) => k !== areaKey)
-    .map(([k, r]) => `<path d="${path(r)}" fill="${areaColors[k] ?? C.areaLine}" fill-opacity="0.22"/>`)
+    .map(([k, r]) => `<path d="${path(r)}" fill="${areaColors[k] ?? C.areaLine}" fill-opacity="${othersOpacity}"/>`)
     .join('')
-  const target = map.areas[areaKey] ? `<path d="${path(map.areas[areaKey])}" fill="${areaColors[areaKey] ?? C.brand}"/>` : ''
+  const target = areaKey && map.areas[areaKey] ? `<path d="${path(map.areas[areaKey])}" fill="${areaColors[areaKey] ?? C.brand}"/>` : ''
   return `<clipPath id="map"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="${box.r}"/></clipPath>
 <g clip-path="url(#map)"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="${C.sea}"/>
 <path d="${path(map.land)}" fill="${C.land}" fill-rule="evenodd"/>${others}${target}</g>`
@@ -234,23 +239,11 @@ function drawToccMark(ctx: SKRSContext2D, image: Image) {
 
 /** 一條路線的分享圖片（SVG） */
 export function ogImageSvg(route: Route, area: Area, sector: Sector, map: OgMap, crag: { zh: string }, areaColors: Record<string, string>): string {
-  const C = LIGHT
-  const { w, h } = OG_SIZE
   const areaKey = area.id.split('/').pop()!
-  const areaColor = area.color ?? C.brand
   const left = MARK.x
-  const textW = 720 - left
-  const parts: string[] = []
-
-  // 背景；右邊圓角地圖
-  parts.push(`<rect width="${w}" height="${h}" fill="${C.paper}"/>`)
-  parts.push(areaMap(C, map, areaKey, areaColors, { x: 760, y: 32, w: 408, h: h - 64, r: 28 }))
-
-  // 左邊的內容先從 y=0 排，最後在地圖高度內垂直置中
-  const body: string[] = []
-  const place = fit(`${crag.zh} · ${area.name.zh} · ${sector.name.zh}`, 26, 22, textW - 30)
-  body.push(`<circle cx="${left + 8}" cy="0" r="8" fill="${areaColor}"/>`)
-  body.push(`<text x="${left + 28}" y="${mid(0, place.size)}" font-size="${place.size}" font-weight="700" fill="${C.muted}">${rich(place.text)}</text>`)
+  const textW = TEXT_W
+  // 左邊的內容從 y=0 排，frame() 再垂直置中
+  const body = [placeLine(`${crag.zh} · ${area.name.zh} · ${sector.name.zh}`, area.color ?? C.brand)]
 
   // 名稱（括號裡的說明不放）；太長分兩行
   let y = 94
@@ -303,18 +296,121 @@ export function ogImageSvg(route: Route, area: Area, sector: Sector, map: OgMap,
     body.push(`<text x="${left + 60}" y="${mid(by + 29, 26)}" font-size="26" font-weight="700" fill="${c.fg}">${rich(label)}</text>`)
   }
 
-  // 內容的範圍：地點那行（上緣 -20）到最後一個元素的下緣；置中在 40～（左下角標誌上方 28）之間
   const bottom = level ? y + pillSize * 1.6 + 30 + 56 : y + pillSize * 1.6
+  return frame(areaMap(map, areaKey, areaColors, PANEL), body, bottom)
+}
+
+const TEXT_W = 720 - MARK.x
+
+/** 最上面一行：色點＋地點（岩場／區域／分區），文字中線在 y=0 */
+function placeLine(text: string, color: string): string {
+  const left = MARK.x
+  const place = fit(text, 26, 22, TEXT_W - 30)
+  return (
+    `<circle cx="${left + 8}" cy="0" r="8" fill="${color}"/>` +
+    `<text x="${left + 28}" y="${mid(0, place.size)}" font-size="${place.size}" font-weight="700" fill="${C.muted}">${rich(place.text)}</text>`
+  )
+}
+
+/**
+ * 整張圖：背景、右邊的圓角框（right）、左邊的內容（body，從 y=0 排到 bottom）、左下角的標誌。
+ * 左邊的內容在 40～（左下角標誌上方 28）之間垂直置中；上緣是地點那行的 -20。
+ * 左下角：TOCC 的臺灣島（drawToccMark 另外畫）＋LongDong，字後面一顆小岩點當簽名（Climbio 的岩點）。
+ */
+function frame(right: string, body: string[], bottom: number): string {
+  const { w, h } = OG_SIZE
+  const left = MARK.x
   const top = -20
-  const space = h - 36 - 60 - 28 - 40
+  const space = MARK.y - 28 - 40
   const dy = 40 - top + Math.max(0, (space - (bottom - top)) / 2)
-  parts.push(`<g transform="translate(0 ${dy.toFixed(0)})">${body.join('')}</g>`)
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="${ogFonts().latin}">` +
+    `<rect width="${w}" height="${h}" fill="${C.paper}"/>${right}` +
+    `<g transform="translate(0 ${dy.toFixed(0)})">${body.join('')}</g>` +
+    `<text x="${left + 46}" y="${MARK.y + MARK.h - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>` +
+    holdMark(left + 46 + textWidth('LongDong', 28) * 1.25 + 16, MARK.y + MARK.h - 30, 0.22, C.brand, C.paper) +
+    '</svg>'
+  )
+}
 
-  // 左下角：TOCC 的臺灣島（drawToccMark）＋LongDong，字後面一顆小岩點當簽名（Climbio 的岩點）
-  const markH = MARK.h
-  const my = MARK.y
-  parts.push(`<text x="${left + 46}" y="${my + markH - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>`)
-  parts.push(holdMark(left + 46 + textWidth('LongDong', 28) * 1.25 + 16, my + markH - 30, 0.22, C.brand, C.paper))
+/** 頁面的分享圖片（地圖、路線清單）：地點那行、標題、說明，回傳下一段的 y */
+function pageTitle(body: string[], title: string, description: string): number {
+  body.push(placeLine('龍洞', C.brand))
+  body.push(`<text x="${MARK.x}" y="94" font-size="64" font-weight="700" fill="${C.text}">${rich(title)}</text>`)
+  body.push(`<text x="${MARK.x}" y="144" font-size="28" font-weight="500" fill="${C.muted}">${rich(description)}</text>`)
+  return 144 + 44
+}
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="${ogFonts().latin}">${parts.join('')}</svg>`
+/** 地圖頁（/map）的分享圖片：右邊是整個龍洞與各大區域 */
+export function mapPageSvg(map: OgMap, areaColors: Record<string, string>, stats: { areas: number; routes: number }): string {
+  const body: string[] = []
+  const y = pageTitle(body, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`)
+  body.push(`<text x="${MARK.x}" y="${mid(y + 24, 28)}" font-size="28" font-weight="700" fill="${C.text}">${rich('救援點 · 急救器材 · 離線可用')}</text>`)
+  return frame(areaMap(map, undefined, areaColors, PANEL, 0.9, 1.06), body, y + 48)
+}
+
+/** 完攀方式的縮寫與顏色（與網站的 --style-os 等相同） */
+const STYLES = {
+  onsight: { abbr: 'OS', name: 'Onsight', color: '#1f7a45' },
+  redpoint: { abbr: 'RP', name: 'Redpoint', color: '#c62828' },
+  toprope: { abbr: 'TR', name: 'Top-rope', color: '#1565c0' },
+}
+
+/**
+ * 路線清單頁（/checklist）的分享圖片：左邊是 OS／RP／TR 的圖例，
+ * 右邊是清單的樣子（一個分區的前幾條路線，一條一行：編號、名稱、難度、OS RP TR；完攀方式是示範的）。
+ */
+export function checklistPageSvg(area: Area, sector: Sector): string {
+  const body: string[] = []
+  const y = pageTitle(body, '路線清單', '每條路線的最佳攀登與評分')
+  let x = MARK.x
+  for (const style of Object.values(STYLES)) {
+    const p = pill(x, y, style.abbr, { size: 22, bg: style.color, fg: '#fff', bold: true })
+    body.push(p.svg, `<text x="${x + p.w + 8}" y="${mid(y + 22 * 0.8, 24)}" font-size="24" font-weight="500" fill="${C.text}">${style.name}</text>`)
+    x += p.w + 8 + textWidth(style.name, 24) + 26
+  }
+
+  // 右邊：白色圓角框裡的清單
+  const demo = ['onsight', 'redpoint', 'redpoint', 'toprope', undefined, 'onsight'] as const
+  const routes = sector.routes.filter((r) => !r.isFixture && r.grade).slice(0, demo.length)
+  const { x: px, y: py, w: pw, h: ph, r } = PANEL
+  const head = 96
+  const rowH = (ph - head - 16) / routes.length
+  const rows = routes.map((route, i) => {
+    const ry = py + head + i * rowH
+    const cy = ry + rowH / 2
+    const grade = route.grade!.replace(/\s.*$/, '')
+    // OS RP TR 連成一組（與手機版的路線清單相同），選到的填色
+    const cell = 34
+    const sx = px + pw - 20 - cell * 3
+    const segment =
+      `<rect x="${sx}" y="${cy - 16}" width="${cell * 3}" height="32" rx="9" fill="#ffffff" stroke="${C.line}" stroke-width="1.5"/>` +
+      Object.entries(STYLES)
+        .map(([key, style], j) => {
+          const cx = sx + cell * j
+          const on = demo[i] === key
+          return (
+            (on ? `<rect x="${cx}" y="${cy - 16}" width="${cell}" height="32" rx="${j === 1 ? 0 : 9}" fill="${style.color}"/>` : '') +
+            (j ? `<line x1="${cx}" y1="${cy - 16}" x2="${cx}" y2="${cy + 16}" stroke="${C.line}" stroke-width="1.5"/>` : '') +
+            `<text x="${cx + cell / 2}" y="${mid(cy, 13)}" font-size="13" font-weight="700" fill="${on ? '#ffffff' : C.muted}" text-anchor="middle">${style.abbr}</text>`
+          )
+        })
+        .join('')
+    const gw = textWidth(grade, 18) + 18
+    const gx = sx - 10 - gw
+    return (
+      `<line x1="${px + 20}" y1="${ry}" x2="${px + pw - 20}" y2="${ry}" stroke="${C.line}" stroke-width="2"/>` +
+      `<text x="${px + 20}" y="${mid(cy, 16)}" font-size="16" font-weight="500" fill="${C.muted}">${rich(`#${route.number ?? ''}`)}</text>` +
+      `<text x="${px + 72}" y="${mid(cy, 22)}" font-size="22" font-weight="700" fill="${C.text}">${rich(fit(plainName(route.name.zh), 22, 16, gx - px - 92).text)}</text>` +
+      pill(gx, cy - 14, grade, { size: 18, bg: C.band[gradeBand(route.gradeValue) ?? 'easy'], fg: C.text, bold: true }).svg +
+      segment
+    )
+  })
+  const done = demo.slice(0, routes.length).filter(Boolean).length
+  const right =
+    `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="${r}" fill="#ffffff"/>` +
+    `<text x="${px + 20}" y="${py + 58}" font-size="26" font-weight="700" fill="${C.text}">${rich(`${area.name.zh} · ${sector.name.zh}`)}</text>` +
+    `<text x="${px + pw - 20}" y="${py + 58}" font-size="20" font-weight="500" fill="${C.muted}" text-anchor="end">${rich(`${done} / ${routes.length}`)}</text>` +
+    rows.join('')
+  return frame(right, body, y + 22 * 1.6)
 }

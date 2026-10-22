@@ -2,6 +2,7 @@
  * 建置後替每條路線產生分享頁（dist/route/<路線ID>.html，網址 /route/<路線ID>），見 scripts/lib/sharePages.ts：
  * 內容是 dist/index.html，換上這條路線的預覽資訊。不放進 Service Worker 的預先快取（vite.config.ts 的 globIgnores）。
  * 也替每條路線畫分享圖片（dist/og/<路線ID>.png，見 scripts/lib/ogImage.ts）。
+ * 地圖、路線清單也各有分享頁與圖片（dist/map.html、dist/og/map.png 等）。
  * 圖片要用的字型（Noto Sans、Noto Sans TC，見 scripts/install-og-fonts.sh；Windows 用 Segoe UI、微軟正黑體）找不到時：
  * CI 直接失敗；本機只印警告，分享頁改用網站圖示。
  */
@@ -10,8 +11,8 @@ import { dirname, join } from 'node:path'
 import { indexDataset } from '../src/data/dataset'
 import type { Dataset } from '../src/data/schema'
 import { sharePagePath } from '../src/share'
-import { findOgFonts, loadOgMap, ogImagePng, ogImageSvg } from './lib/ogImage'
-import { ogImagePath, sharePageHtml } from './lib/sharePages'
+import { checklistPageSvg, findOgFonts, loadOgMap, mapPageSvg, ogImagePng, ogImageSvg } from './lib/ogImage'
+import { ogImagePath, pageShareHtml, sharePageHtml } from './lib/sharePages'
 import { SITE_URL } from './sheet.config'
 
 const dataset = JSON.parse(readFileSync('dist/data/longdong.json', 'utf8')) as Dataset
@@ -36,4 +37,29 @@ for (const ref of routes) {
   if (map) write(join('dist', ogImagePath(ref.route.id)), await ogImagePng(ogImageSvg(ref.route, ref.area, ref.sector, map, dataset.crag.name, areaColors)))
   write(join('dist', `${sharePagePath(ref.route.id)}.html`), sharePageHtml(ref, SITE_URL, shell, withImage))
 }
-console.log(`分享頁：${routes.length} 條路線${withImage ? '（含分享圖片）' : ''}`)
+
+// 地圖、路線清單：有字型時才產生（沒有圖片的話，用 index.html 本身的預覽就好）
+if (map) {
+  const area = dataset.areas.find((a) => a.id.endsWith('/golden-valley')) ?? dataset.areas[0]
+  // 路線數與首頁相同：不算固定點（垂降站等）
+  const routeCount = routes.filter((r) => !r.route.isFixture).length
+  const pages = [
+    {
+      path: 'map',
+      title: '龍洞地圖',
+      description: `${dataset.areas.length} 個區域、${routeCount} 條路線的位置，救援點與急救器材，離線可用`,
+      svg: mapPageSvg(map, areaColors, { areas: dataset.areas.length, routes: routeCount }),
+    },
+    {
+      path: 'checklist',
+      title: '路線清單',
+      description: '記錄每條路線的最佳攀登（OS、RP、TR）與評分',
+      svg: checklistPageSvg(area, area.sectors[0]),
+    },
+  ]
+  for (const { svg, ...page } of pages) {
+    write(join('dist', 'og', `${page.path}.png`), await ogImagePng(svg))
+    write(join('dist', `${page.path}.html`), pageShareHtml(page, SITE_URL, shell))
+  }
+}
+console.log(`分享頁：${routes.length} 條路線${withImage ? '（含分享圖片）、地圖、路線清單' : ''}`)

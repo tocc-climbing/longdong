@@ -37,6 +37,34 @@ function setMeta(html: string, key: 'name' | 'property', id: string, content: st
   return existing.test(html) ? html.replace(existing, () => tag) : html.replace('</head>', () => `  ${tag}\n  </head>`)
 }
 
+/** 有自己分享圖片的頁面：網址路徑、預覽卡片的標題與說明 */
+export interface SharePage {
+  path: string
+  title: string
+  description: string
+}
+
+/** 地圖、路線清單的分享頁（dist/<path>.html）與圖片（og/<path>.png） */
+export function pageShareHtml(page: SharePage, siteUrl: string, shell: string): string {
+  const url = siteUrl + page.path
+  let html = shell.replace(/<title>[^<]*<\/title>/, () => `<title>${escape(page.title)}｜${escape(t('app.title'))}</title>`)
+  html = setMeta(html, 'name', 'description', page.description)
+  html = setMeta(html, 'property', 'og:title', page.title)
+  html = setMeta(html, 'property', 'og:description', page.description)
+  html = setMeta(html, 'property', 'og:url', url)
+  html = withImageMeta(html, `${siteUrl}og/${page.path}.png`, page.title)
+  return html.replace('</head>', () => `  <link rel="canonical" href="${escape(url)}" />\n  </head>`)
+}
+
+/** 大圖預覽：og:image（1200×630）與 summary_large_image */
+function withImageMeta(html: string, image: string, alt: string): string {
+  html = setMeta(html, 'property', 'og:image', image)
+  html = setMeta(html, 'property', 'og:image:width', String(OG_SIZE.w))
+  html = setMeta(html, 'property', 'og:image:height', String(OG_SIZE.h))
+  html = setMeta(html, 'property', 'og:image:alt', alt)
+  return setMeta(html, 'name', 'twitter:card', 'summary_large_image')
+}
+
 /** 路線的分享圖片（scripts/lib/ogImage.ts）放在網站的這個路徑 */
 export function ogImagePath(routeId: string): string {
   return `og/${routeId}.png`
@@ -55,11 +83,7 @@ export function sharePageHtml(ref: RouteRef, siteUrl: string, shell: string, wit
   html = setMeta(html, 'property', 'og:description', description)
   html = setMeta(html, 'property', 'og:url', url)
   if (withImage) {
-    html = setMeta(html, 'property', 'og:image', siteUrl + ogImagePath(ref.route.id))
-    html = setMeta(html, 'property', 'og:image:width', String(OG_SIZE.w))
-    html = setMeta(html, 'property', 'og:image:height', String(OG_SIZE.h))
-    html = setMeta(html, 'property', 'og:image:alt', title)
-    html = setMeta(html, 'name', 'twitter:card', 'summary_large_image')
+    html = withImageMeta(html, siteUrl + ogImagePath(ref.route.id), title)
   } else {
     html = setMeta(html, 'property', 'og:image', `${siteUrl}icons/icon-512.png`)
     html = setMeta(html, 'name', 'twitter:card', 'summary')

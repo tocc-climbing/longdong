@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RouteRef } from '../src/data/dataset'
-import { sharePageHtml, sharePreview } from '../scripts/lib/sharePages'
+import { pageShareHtml, sharePageHtml, sharePreview } from '../scripts/lib/sharePages'
 
 const SITE = 'https://longdong.web.app/'
 /** 和 index.html 一樣的開頭 */
@@ -54,6 +54,15 @@ describe('路線分享頁', () => {
     expect(html).toContain('<meta property="og:image:height" content="630" />')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />')
     expect(html.match(/property="og:image"/g)).toHaveLength(1)
+  })
+
+  it('地圖、路線清單的分享頁：標題、說明、網址與圖片', () => {
+    const html = pageShareHtml({ path: 'map', title: '龍洞地圖', description: '9 個區域' }, SITE, SHELL)
+    expect(html).toContain('<title>龍洞地圖｜龍洞攀岩資料庫</title>')
+    expect(html).toContain('<meta property="og:url" content="https://longdong.web.app/map" />')
+    expect(html).toContain('<meta property="og:image" content="https://longdong.web.app/og/map.png" />')
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />')
+    expect(html).toContain('<link rel="canonical" href="https://longdong.web.app/map" />')
   })
 
   it('名稱裡的特殊字元會跳脫，不會破壞頁面', () => {
