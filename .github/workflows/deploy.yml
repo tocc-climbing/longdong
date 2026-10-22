@@ -49,6 +49,8 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321 }}
           projectId: project-2803619783974357321
           channelId: live
+          # 15.34.1 起部署前會查 Service Usage API，專案沒開這個 API 就 403；先固定在可用的版本
+          firebaseToolsVersion: 15.34.0
 
   live:
     runs-on: ubuntu-latest
@@ -108,6 +110,8 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321 }}
           projectId: project-2803619783974357321
           channelId: live
+          # 15.34.1 起部署前會查 Service Usage API，專案沒開這個 API 就 403；先固定在可用的版本
+          firebaseToolsVersion: 15.34.0
 
       # 發布時打上版號標籤（例如 v1.0.98），GitHub 上看得到每次發布的是哪個 commit
       - name: 版號標籤
