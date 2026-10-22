@@ -314,7 +314,7 @@ export function ogImageSvg(route: Route, area: Area, sector: Sector, map: OgMap,
   const markH = MARK.h
   const my = MARK.y
   parts.push(`<text x="${left + 46}" y="${my + markH - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>`)
-  parts.push(holdMark(left + 46 + textWidth('LongDong', 28) * 1.12 + 14, my + markH - 30, 0.22, C.brand, C.paper))
+  parts.push(holdMark(left + 46 + textWidth('LongDong', 28) * 1.25 + 16, my + markH - 30, 0.22, C.brand, C.paper))
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="${ogFonts().latin}">${parts.join('')}</svg>`
 }
