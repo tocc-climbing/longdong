@@ -199,6 +199,7 @@ export const en: Messages = {
   'reports.notAdmin': 'Admins only',
   'reports.loadFailed': 'Couldn’t load reports: {error}',
   'reports.empty': 'No reports yet.',
+  'reports.unknownSector': 'Sector {id} no longer exists',
   'reports.anon': 'Signed-out phone {id}',
   'myloc.outside': 'Not near Long Dong (nearest rescue point: {dist})',
   'myloc.away': '{dist} {dir}',

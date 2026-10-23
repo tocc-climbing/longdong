@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { LoadedData } from '../data/dataset'
+import { findSector, type LoadedData } from '../data/dataset'
 import { distanceM, type LatLng } from '../geo'
-import { LOCALES, useLang } from '../i18n'
+import { LOCALES, localName, useLang } from '../i18n'
+import type { ReportTarget } from '../map/calibration'
 import { areaNames, useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
 import type { CalibrationUploads } from '../personal/firebase'
@@ -13,6 +14,8 @@ interface Report {
   /** 清單與地圖上的編號（1 起算，依回報時間由舊到新，不隨排序改變） */
   no: number
   note: string
+  /** 從路線頁回報時，回報的區域與分區（分區已不存在時寫明舊 ID） */
+  place?: string
   /** 回報者（暱稱，或「未登入的手機 xxxx」） */
   who: string
   /** GPS 位置 */
@@ -24,10 +27,10 @@ interface Report {
   offset?: number
 }
 
-type Feature = { properties: { note: string; accuracy: number; time: string; picked?: [number, number] }; geometry: { coordinates: [number, number] } }
+type Feature = { properties: { note: string; accuracy: number; time: string; picked?: [number, number]; target?: ReportTarget }; geometry: { coordinates: [number, number] } }
 
 /** 每個人（或沒登入的每台手機）只看最新上傳的那一份（每次上傳都是完整的一份） */
-function reportsOf(all: CalibrationUploads, who: (id: string) => string): Omit<Report, 'no'>[] {
+function reportsOf(all: CalibrationUploads, who: (id: string) => string, place: (target: ReportTarget) => string): Omit<Report, 'no'>[] {
   return Object.entries(all).flatMap(([id, uploads]) => {
     const latest = Object.values(uploads).reduce((a, b) => (b.createdAt > a.createdAt ? b : a))
     return (JSON.parse(latest.geojson) as { features: Feature[] }).features.map((f) => {
@@ -35,6 +38,7 @@ function reportsOf(all: CalibrationUploads, who: (id: string) => string): Omit<R
       const picked: LatLng | undefined = f.properties.picked && [f.properties.picked[1], f.properties.picked[0]]
       return {
         note: f.properties.note,
+        place: f.properties.target && place(f.properties.target),
         who: who(id),
         coords,
         accuracy: f.properties.accuracy,
@@ -77,14 +81,21 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
 
   const all = useMemo<Report[]>(() => {
     if (!raw) return []
-    return [...reportsOf(raw.signedIn, (uid) => displayName(profiles, uid)), ...reportsOf(raw.anon, (id) => t('reports.anon', { id: id.slice(0, 4) }))]
+    const place = ({ sectorId }: ReportTarget) => {
+      const found = findSector(data, sectorId)
+      return found ? `${localName(found.area.name, lang).main} · ${localName(found.sector.name, lang).main}` : t('reports.unknownSector', { id: sectorId })
+    }
+    return [
+      ...reportsOf(raw.signedIn, (uid) => displayName(profiles, uid), place),
+      ...reportsOf(raw.anon, (id) => t('reports.anon', { id: id.slice(0, 4) }), place),
+    ]
       .sort((a, b) => a.time - b.time)
       .map((r, i) => ({ ...r, no: i + 1 }))
-  }, [raw, profiles, t])
+  }, [raw, profiles, t, data, lang])
 
   const q = query.trim().toLowerCase()
   const shown = all
-    .filter((r) => !q || r.note.toLowerCase().includes(q) || r.who.toLowerCase().includes(q) || String(r.no) === q)
+    .filter((r) => !q || r.note.toLowerCase().includes(q) || r.place?.toLowerCase().includes(q) || r.who.toLowerCase().includes(q) || String(r.no) === q)
     .sort((a, b) => (sort === 'old' ? a.time - b.time : sort === 'offset' ? (b.offset ?? -1) - (a.offset ?? -1) : sort === 'accuracy' ? b.accuracy - a.accuracy : b.time - a.time))
   const focused = all.find((r) => r.no === selected)
   const time = (ms: number) => new Date(ms).toLocaleString(LOCALES[lang], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -130,6 +141,7 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
                 <span className="report-no">{r.no}</span>
                 <span className="map-report-note">{r.note}</span>
                 <span className="map-report-meta">
+                  {r.place && `${r.place} · `}
                   {r.who} · ±{r.accuracy} m{r.offset !== undefined && <span className="report-offset"> · {t('admin.offset', { m: r.offset })}</span>} · {time(r.time)}
                 </span>
               </button>

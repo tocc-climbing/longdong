@@ -197,6 +197,7 @@ export const zh = {
   'reports.notAdmin': '限管理員',
   'reports.loadFailed': '讀取失敗：{error}',
   'reports.empty': '還沒有人回報。',
+  'reports.unknownSector': '分區 {id} 已不存在',
   'reports.anon': '未登入的手機 {id}',
   'myloc.outside': '不在龍洞岩場附近（離最近的救援點 {dist}）',
   'myloc.away': '{dir}方 {dist}',

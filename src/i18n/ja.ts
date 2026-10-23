@@ -203,6 +203,7 @@ export const ja: Messages = {
   'reports.notAdmin': '管理者のみ',
   'reports.loadFailed': '読み込めません：{error}',
   'reports.empty': 'まだ報告はありません。',
+  'reports.unknownSector': 'セクター {id} は存在しません',
   'reports.anon': '未ログインの端末 {id}',
   'myloc.outside': '龍洞岩場の近くではありません（最寄りの救助地点まで {dist}）',
   'myloc.away': '{dir} {dist}',

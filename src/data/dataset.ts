@@ -18,6 +18,11 @@ export interface LoadedData {
   hardwareByCode: Map<string, string>
 }
 
+/** 分區 ID 對應的分區：現在的 ID，或以前依位置編號的舊 ID（舊的現場回報、舊網址）；都對不到時 undefined */
+export function findSector(data: LoadedData, id: string): { sector: Sector; area: Area } | undefined {
+  return data.sectorById.get(data.sectorIdByLegacyId.get(id) ?? id)
+}
+
 export function indexDataset(dataset: Dataset): LoadedData {
   const routes: RouteRef[] = []
   for (const area of dataset.areas)
