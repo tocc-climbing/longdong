@@ -14,20 +14,26 @@ describe('parseSafetyHtml', () => {
       tr(5, dots('#ffe3e3', '#f1c232', '#d9ead3')),
       tr(8, dots('#CC0000', '#fff2cc', '#d9ead3')),
       tr(11, '<td class="s79" rowspan="3">●●●</td>'),
-      tr(14, dots('#cc0000', '#f1c232', '#d9ead3')),
     ].join('')
-    const { ratings, unreadable } = parseSafetyHtml(html, '123')
-    expect([...ratings]).toEqual([
+    expect([...parseSafetyHtml(html, '123', 'back-door')]).toEqual([
       [2, 'green'],
       [5, 'yellow'],
       [8, 'red'],
       [11, null],
     ])
-    expect(unreadable).toEqual([14])
+  })
+
+  it('亮燈不是剛好一顆時停止匯入，列出這些列（Sheet 的列號）', () => {
+    const html = [
+      tr(2, dots('#ffe3e3', '#fff2cc', '#6aa84f')),
+      tr(14, dots('#cc0000', '#f1c232', '#d9ead3')),
+      tr(17, dots('#ffe3e3', '#fff2cc', '#d9ead3')),
+    ].join('')
+    expect(() => parseSafetyHtml(html, '123', 'back-door')).toThrow('[back-door] 第 15、18 列：安全評級燈號無法判讀')
   })
 
   it('只讀指定分頁的列', () => {
-    expect(parseSafetyHtml(tr(2, dots('#ffe3e3', '#fff2cc', '#6aa84f')), '999').ratings.size).toBe(0)
+    expect(parseSafetyHtml(tr(2, dots('#ffe3e3', '#fff2cc', '#6aa84f')), '999', 'back-door').size).toBe(0)
   })
 })
 

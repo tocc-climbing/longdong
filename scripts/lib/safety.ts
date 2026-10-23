@@ -21,12 +21,9 @@ export function htmlUrl(sheetId: string, gid: string): string {
 
 /**
  * 回傳 列索引 → 燈號（null 表示尚未評級）。
- * 有個別上色但亮燈數不是剛好一顆的列，放進 unreadable。
+ * 有個別上色但亮燈數不是剛好一顆的列無法判讀，停止匯入並列出這些列。
  */
-export function parseSafetyHtml(
-  html: string,
-  gid: string,
-): { ratings: Map<number, Safety | null>; unreadable: number[] } {
+export function parseSafetyHtml(html: string, gid: string, areaId: string): Map<number, Safety | null> {
   const ratings = new Map<number, Safety | null>()
   const unreadable: number[] = []
   const rowId = new RegExp(`id="${gid}R(\\d+)"`)
@@ -41,9 +38,12 @@ export function parseSafetyHtml(
     const colors = [...dots[0].matchAll(/color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
     const lit = colors.map((c) => LIT[c]).filter(Boolean)
     if (lit.length === 1) ratings.set(Number(row[1]), lit[0])
-    else unreadable.push(Number(row[1]))
+    else unreadable.push(Number(row[1]) + 1)
   }
-  return { ratings, unreadable }
+  if (unreadable.length) {
+    throw new Error(`[${areaId}] 第 ${unreadable.join('、')} 列：安全評級燈號無法判讀（不是剛好一顆亮燈），請在 Sheet 修正燈號顏色`)
+  }
+  return ratings
 }
 
 /** 分頁標題列（第 1 列）的底色，例如後門 #cc0000；讀不到時回傳 undefined */

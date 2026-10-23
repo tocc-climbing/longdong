@@ -55,9 +55,8 @@ async function main() {
   const idErrors: string[] = []
   const withIdColumn: string[] = []
   const areas: Area[] = AREA_TABS.map((tab, i) => {
-    const { ratings, unreadable } = parseSafetyHtml(areaHtmls[i], tab.gid)
+    const ratings = parseSafetyHtml(areaHtmls[i], tab.gid, tab.id)
     if (ratings.size === 0) throw new Error(`[${tab.id}] htmlview 裡找不到任何安全評級燈號，Sheet 版面可能變了`)
-    for (const row of unreadable) warnings.push(`[${tab.id}] 第 ${row + 1} 列：安全評級燈號無法判讀`)
     const { warnings: w, idErrors: e, hasIdColumn, ...area } = parseAreaSheet(areaCsvs[i], {
       cragId: CRAG.id,
       areaId: tab.id,

@@ -117,6 +117,17 @@ describe('parseAreaSheet', () => {
     expect(fixture.number).toBeUndefined()
   })
 
+  it('有燈號但讀不到評級的路線，停止匯入並列出', () => {
+    const lights = sheet([
+      row({ 路線編號: '# 1', 路線名稱: 'ㄅ', 難度: '5.7', 安全評級: '●●●' }),
+      row({ 路線編號: '# 2', 路線名稱: 'ㄆ', 難度: '5.8', 安全評級: '●●●' }),
+    ])
+    const opts = { cragId: 'longdong', areaId: 'back-door', expectedZh: '後門' }
+    expect(() => parseAreaSheet(lights, { ...opts, safety: new Map([[2, 'green' as const]]) })).toThrow(
+      '[back-door] 讀不到安全評級燈號，Sheet 版面可能變了：\n  第 4 列 #2 ㄆ',
+    )
+  })
+
   it('分頁標題不符時報錯', () => {
     expect(() => parseAreaSheet(csv, { cragId: 'longdong', areaId: 'golden-valley', expectedZh: '黃金谷' })).toThrow(/gid/)
   })

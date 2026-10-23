@@ -137,6 +137,7 @@ export function parseAreaSheet(text: string, opts: AreaSheetOptions): ParsedArea
   // 2. 區塊轉成路線，並依分區分組
   const sectors: Sector[] = []
   const sectorByKey = new Map<string, Sector>()
+  const unreadableSafety: string[] = []
 
   for (const block of blocks) {
     const first = block.rows[0]
@@ -196,7 +197,7 @@ export function parseAreaSheet(text: string, opts: AreaSheetOptions): ParsedArea
       notes: cleanText(first[C.notes]),
     }
     if (cell(C.safety).includes('●') && !safety.has(block.line - 1)) {
-      warnings.push(`[${areaId}] #${number ?? '0'} ${name.zh}：讀不到安全評級燈號`)
+      unreadableSafety.push(`第 ${block.line} 列 #${number ?? '0'} ${name.zh}`)
     }
     if (grade && route.gradeValue === undefined && !/\?\?/.test(grade)) {
       warnings.push(`[${areaId}] #${number ?? '0'} ${name.zh}：無法判讀難度「${grade}」`)
@@ -211,6 +212,10 @@ export function parseAreaSheet(text: string, opts: AreaSheetOptions): ParsedArea
       sectors.push(sector)
     }
     sector.routes.push(stripUndefined(route))
+  }
+
+  if (unreadableSafety.length) {
+    throw new Error(`[${areaId}] 讀不到安全評級燈號，Sheet 版面可能變了：\n  ${unreadableSafety.join('\n  ')}`)
   }
 
   const [, bolts, , routes] = rows[0]
