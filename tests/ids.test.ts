@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import Papa from 'papaparse'
 import { describe, expect, it } from 'vitest'
@@ -11,6 +12,8 @@ const appsScript = createRequire(import.meta.url)('../apps-script/RouteIds.gs') 
   resolveRowId: (current: string, candidates: string[], isUsed: (id: string) => boolean) => { id: string | null }
   normalizeNumber: (raw: string) => string
   zhName: (raw: string) => string
+  parsePublished: (status: number, text: string) => Record<string, string[]>
+  PUBLISHED_URL: string
 }
 
 describe('Apps Script', () => {
@@ -29,6 +32,27 @@ describe('Apps Script', () => {
     expect(appsScript.isRouteRow('314.1', '左翼')).toBe(true)
     expect(appsScript.isRouteRow('', '')).toBe(false)
     expect(appsScript.isRouteRow('316-TW', '316 - 台製')).toBe(false)
+  })
+})
+
+describe('Apps Script 讀取已發布的網站資料', () => {
+  it('網址指向正式站（firebase.json 的 hosting.site）', () => {
+    const site = JSON.parse(readFileSync(new URL('../firebase.json', import.meta.url), 'utf8')).hosting.site
+    expect(appsScript.PUBLISHED_URL).toBe(`https://${site}.web.app/data/longdong.json`)
+  })
+
+  it('讀不到或讀不懂時丟出錯誤，不當成沒有已發布的 ID', () => {
+    expect(() => appsScript.parsePublished(404, 'Not Found')).toThrow(/讀不到已發布的網站資料.*HTTP 404/)
+    expect(() => appsScript.parsePublished(200, '<html>')).toThrow(/內容不是 JSON/)
+  })
+
+  it('網站資料還是舊規則的 ID 時，沒有可找回的 ID', () => {
+    expect(appsScript.parsePublished(200, JSON.stringify({ idSource: 'legacy', areas: [] }))).toEqual({})
+  })
+
+  it('建立對照', () => {
+    const data = { idSource: 'sheet', areas: [{ name: { zh: '後門' }, sectors: [{ routes: [{ id: 'longdong/7kq2mx', number: '1', name: { zh: 'ㄅ' } }] }] }] }
+    expect(appsScript.parsePublished(200, JSON.stringify(data))['full|後門|1|ㄅ']).toEqual(['7kq2mx'])
   })
 })
 

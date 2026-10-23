@@ -12,7 +12,8 @@
 
 var ID_HEADER = '路線ID'
 var HEADER_FIRST_CELL = '分區'
-var PUBLISHED_URL = 'https://tocc-climbing.github.io/longdong/data/longdong.json'
+// 正式站（firebase.json 的 hosting.site）
+var PUBLISHED_URL = 'https://longdong.web.app/data/longdong.json'
 // 不含容易看錯的 0/o、1/l/i
 var ALPHABET = '23456789abcdefghjkmnpqrstuvwxyz'
 var ID_LENGTH = 6
@@ -86,8 +87,16 @@ function handleEdit(e) {
   try {
     // 單一儲存格的編輯，Google 會提供編輯前的值
     var oldValue = touchesId && e.range.getNumRows() === 1 && e.range.getNumColumns() === 1 ? e.oldValue : null
+    var published
+    try {
+      published = loadPublished(false)
+    } catch (err) {
+      // 讀不到已發布資料就不動任何 ID：產生新 ID 會取代原本的 ID，交給維護者稍後重跑
+      sheet.getParent().toast(err.message + '。這次沒有處理路線ID，請稍後執行「路線ID → 補上缺少的 ID」。', '路線ID', 30)
+      return
+    }
     var rows = { from: e.range.getRow(), to: e.range.getLastRow() }
-    var result = repairRows(sheet, layout, rows, oldValue, loadPublished(false))
+    var result = repairRows(sheet, layout, rows, oldValue, published)
     if (touchesId && result.restored + result.created > 0) {
       sheet.getParent().toast('「路線ID」欄不能手動修改，已自動還原。', '路線ID', 5)
     }
@@ -139,7 +148,7 @@ function repairRows(sheet, layout, rows, oldValue, published) {
     var current = String(ids[k][0]).trim()
     var candidates = []
     if (oldValue) candidates.push(String(oldValue).trim())
-    var fromPublished = published ? lookupPublished(published, sheet.getName(), numbers[k][0], names[k][0]) : []
+    var fromPublished = lookupPublished(published, sheet.getName(), numbers[k][0], names[k][0])
     candidates = candidates.concat(fromPublished)
     var decision = resolveRowId(current, candidates, function (id) {
       return usedElsewhere[id] === true || claimed[id] === true
@@ -174,22 +183,41 @@ function resolveRowId(current, candidates, isUsed) {
 
 /* ---------- 已發布的網站資料 ---------- */
 
-/** 讀取已發布的資料，建立「分頁|編號|名稱」等對照。forceRefresh 為 true 時不用快取 */
+/**
+ * 讀取已發布的資料，建立「分頁|編號|名稱」等對照。forceRefresh 為 true 時不用快取。
+ * 讀不到時丟出錯誤：當成「沒有已發布的 ID」繼續，會替路線產生新 ID 取代原本的。
+ */
 function loadPublished(forceRefresh) {
   var cache = CacheService.getScriptCache()
   var cached = forceRefresh ? null : cache.get('published-ids')
   if (cached) return JSON.parse(cached)
+  var res
   try {
-    var res = UrlFetchApp.fetch(PUBLISHED_URL, { muteHttpExceptions: true })
-    if (res.getResponseCode() !== 200) return null
-    var data = JSON.parse(res.getContentText())
-    if (data.idSource !== 'sheet') return null
-    var index = buildPublishedIndex(data)
-    cache.put('published-ids', JSON.stringify(index), 21600)
-    return index
+    res = UrlFetchApp.fetch(PUBLISHED_URL, { muteHttpExceptions: true })
   } catch (err) {
-    return null
+    throw new Error(publishedError(err.message))
   }
+  var index = parsePublished(res.getResponseCode(), res.getContentText())
+  cache.put('published-ids', JSON.stringify(index), 21600)
+  return index
+}
+
+/** 已發布資料的回應 → 對照表（純函式，方便測試）；讀不懂就丟出錯誤 */
+function parsePublished(status, text) {
+  if (status !== 200) throw new Error(publishedError('HTTP ' + status))
+  var data
+  try {
+    data = JSON.parse(text)
+  } catch (err) {
+    throw new Error(publishedError('內容不是 JSON'))
+  }
+  // 網站資料還是舊規則的 ID（尚未改用 Sheet 的「路線ID」）：本來就沒有可找回的 ID
+  if (data.idSource !== 'sheet') return {}
+  return buildPublishedIndex(data)
+}
+
+function publishedError(reason) {
+  return '讀不到已發布的網站資料（' + PUBLISHED_URL + '，' + reason + '），無法找回原本的路線ID'
 }
 
 /** 已發布資料 → { 鍵: [ID…] }。鍵有三種：分頁|編號|名稱、分頁|名稱、分頁|編號 */
@@ -337,9 +365,11 @@ if (typeof module !== 'undefined') {
     isRouteRow: isRouteRow,
     resolveRowId: resolveRowId,
     buildPublishedIndex: buildPublishedIndex,
+    parsePublished: parsePublished,
     lookupPublished: lookupPublished,
     normalizeNumber: normalizeNumber,
     zhName: zhName,
     ID_PATTERN: ID_PATTERN,
+    PUBLISHED_URL: PUBLISHED_URL,
   }
 }
