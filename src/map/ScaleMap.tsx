@@ -42,6 +42,11 @@ const placeName = (m: Extract<Marker, { kind: 'place' }>, lang: string) => (lang
 /** 危險地形的圖示（半徑）與右邊的文字 */
 const HAZARD_R = 7
 
+/** 急救器材被擋住時，往旁邊挪的候選位置（螢幕像素）：由近到遠、八個方向 */
+const EMS_NUDGES: Vec[] = [0, 18, 26, 36].flatMap((d) =>
+  d === 0 ? [[0, 0] as Vec] : Array.from({ length: 8 }, (_, k): Vec => [Math.round(d * Math.cos((k * Math.PI) / 4)), Math.round(d * Math.sin((k * Math.PI) / 4))]),
+)
+
 function markerBox(m: Marker, at: Vec, lang: string, hazardLabel: string): Box {
   if (m.kind === 'place') return around(at, textWidth(placeName(m, lang), 11) / 2 + 2, 7)
   if (m.kind === 'hazard') {
@@ -56,6 +61,7 @@ function markerBox(m: Marker, at: Vec, lang: string, hazardLabel: string): Box {
 /**
  * 決定要畫哪些圖示與區域名稱（都在螢幕座標上算，旋轉後也正確）：
  * 救援點、停車場、危險地形一定畫（救援時最重要；停車場是進出岩場的集合點）。停車場 P 的位置在產生地圖時就避開救援點，畫在救援點上面；
+ * 急救器材也一定畫：和上面這些重疊時往旁邊空的地方挪（nudged，螢幕座標），畫一條細線連回實際位置；
  * 其他依 priority、區域名稱依面積大小，和已畫的東西重疊就先不畫。
  */
 function declutter(
@@ -65,8 +71,6 @@ function declutter(
   screen: (p: Vec) => Vec,
   lang: string,
   hazardLabel: string,
-  /** 聚焦或選中的急救器材：一定畫 */
-  forceEms: number[],
 ) {
   const occupied: Box[] = located.map(({ at }) => around(screen(at), 8, 8))
   const fits = (box: Box) => {
@@ -74,14 +78,24 @@ function declutter(
     occupied.push(box)
     return true
   }
-  const always = (m: Marker) => m.kind === 'parking' || m.kind === 'hazard' || (m.kind === 'ems' && forceEms.includes(m.no))
+  const always = (m: Marker) => m.kind === 'parking' || m.kind === 'hazard'
   const fixed = markers.flatMap((m, i) => (always(m) ? [i] : []))
   for (const i of fixed) occupied.push(markerBox(markers[i], screen(markers[i].at), lang, hazardLabel))
+  const nudged = new Map<number, Vec>()
+  const ems = markers.flatMap((m, i) => (m.kind === 'ems' ? [i] : []))
+  for (const i of ems) {
+    const at = screen(markers[i].at)
+    const free = EMS_NUDGES.map(([dx, dy]): Vec => [at[0] + dx, at[1] + dy]).find((p) => !occupied.some((o) => overlaps(around(p, 7.5, 7.5), o)))
+    const p = free ?? at
+    occupied.push(around(p, 7.5, 7.5))
+    if (p[0] !== at[0] || p[1] !== at[1]) nudged.set(i, p)
+  }
   const shown = new Set([
     ...fixed,
+    ...ems,
     ...markers
       .map((m, i) => ({ m, i }))
-      .filter(({ m }) => !always(m))
+      .filter(({ m }) => !always(m) && m.kind !== 'ems')
       .sort((a, b) => priority(a.m) - priority(b.m))
       .filter(({ m }) => fits(markerBox(m, screen(m.at), lang, hazardLabel)))
       .map(({ i }) => i),
@@ -90,7 +104,7 @@ function declutter(
     .sort((x, y) => y.size - x.size)
     .map((a) => ({ id: a.id, text: names[a.id] ?? a.id, at: screen(a.label) }))
     .filter((l) => fits(around(l.at, textWidth(l.text, LABEL_PX) / 2 + 4, LABEL_PX / 2 + 2)))
-  return { shown, labels }
+  return { shown, labels, nudged }
 }
 
 /** 聚焦：地圖移到這些東西（大區域、救援點）並放大到剛好放進框裡；key 改變時重新聚焦 */
@@ -222,6 +236,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     if (target) apply(() => focusView(target, BOUNDS, frame))
   }, [focus?.key, !!frame])
 
+  // 急救器材實際畫在螢幕上的位置（被擋住時挪到旁邊），點按判斷用
+  const emsAt = useRef(new Map<number, Vec>())
   // 拖曳、縮放、旋轉、長按區域（useMapGestures）
   const gestures = useRef<MapGestures>(undefined!)
   gestures.current = {
@@ -237,13 +253,13 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       const { frame: f, view: v } = latest.current
       if (f && v && pick) return pick.onPick(unproject(toMap(v, f, [p.x, p.y])))
       if (!f || !v || !onSelect) return
-      const distance = (at: Vec) => {
-        const [x, y] = toScreen(v, f, at)
-        return Math.hypot(x - p.x, y - p.y)
-      }
+      const distance = ([x, y]: Vec) => Math.hypot(x - p.x, y - p.y)
       const candidates = [
-        ...located.map((pt) => ({ selection: { kind: 'rescue', key: pt.key } as MapSelection, at: pt.at })),
-        ...map.markers.flatMap((m) => (m.kind === 'ems' ? [{ selection: { kind: 'ems', no: m.no } as MapSelection, at: m.at }] : [])),
+        ...located.map((pt) => ({ selection: { kind: 'rescue', key: pt.key } as MapSelection, at: toScreen(v, f, pt.at) })),
+        // 急救器材點在畫出來的位置（可能挪到旁邊）
+        ...map.markers.flatMap((m, i) =>
+          m.kind === 'ems' ? [{ selection: { kind: 'ems', no: m.no } as MapSelection, at: emsAt.current.get(i) ?? toScreen(v, f, m.at) }] : [],
+        ),
       ]
       const hit = candidates
         .map((c) => ({ ...c, d: distance(c.at) }))
@@ -291,10 +307,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   const trailDash = dashLength(3, px)
   const tunnelDash = dashLength(6, px)
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
-  const { shown, labels } = declutter(map.markers, map.areas, areaNames, screen, lang, t('map.hazard'), [
-    ...(focus?.ems ?? []),
-    ...(selected?.kind === 'ems' ? [selected.no] : []),
-  ])
+  const { shown, labels, nudged } = declutter(map.markers, map.areas, areaNames, screen, lang, t('map.hazard'))
+  emsAt.current = nudged
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
   const cover = Math.hypot(frame.w, frame.h) * px
 
@@ -361,11 +375,16 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               )
             // 停車場的 P 畫在救援點上面（見下方）
             if (m.kind === 'parking') return null
+            // 被擋住時挪到旁邊（見 declutter），細線連回實際位置
+            const moved = nudged.get(i)
+            const [ex, ey] = moved ?? [x, y]
             return (
               <g key={i} className={`sm-ems${isSelectedEms(m.no) ? ' selected' : ''}`}>
                 <title>{t('map.ems', { n: m.no })}</title>
-                <rect x={x - 6} y={y - 7} width={12} height={14} rx={4} />
-                <path d={`M${x - 3.5} ${y}h7M${x} ${y - 3.5}v7`} strokeWidth={2} />
+                {moved && <line className="sm-ems-link" x1={x} y1={y} x2={ex} y2={ey} />}
+                {moved && <circle className="sm-ems-dot" cx={x} cy={y} r={2} />}
+                <rect x={ex - 6} y={ey - 7} width={12} height={14} rx={4} />
+                <path d={`M${ex - 3.5} ${ey}h7M${ex} ${ey - 3.5}v7`} strokeWidth={2} />
               </g>
             )
           })}

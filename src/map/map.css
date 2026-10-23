@@ -305,6 +305,14 @@
 .sm-ems rect {
   fill: #0c4f8b;
 }
+/* 被擋住、挪到旁邊時連回實際位置的細線與小點 */
+.sm-ems-link {
+  stroke: #0c4f8b;
+  stroke-width: 1.5;
+}
+.sm-ems-dot {
+  fill: #0c4f8b;
+}
 .sm-ems path {
   stroke: #ffffff;
   fill: none;
