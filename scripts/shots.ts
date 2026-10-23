@@ -7,7 +7,7 @@
  *   路徑            要拍的頁面，例如 / /route/longdong/ww2tzc /checklist；預設拍首頁
  *   --login=信箱    先用這個信箱登入（模擬器的帳號，例如管理員 kant.kang@gmail.com）；要登入才看得到的頁面用
  *   --sim=緯度,經度 模擬位置（同 /map@緯度,經度），例如 --sim=25.1105,121.9228
- *   --mobile        只拍手機（390×844）；--desktop 只拍電腦（1366×860）
+ *   --mobile        只拍手機（390×844）；--desktop 只拍電腦（1366×860）；--imac 只拍 24 吋 iMac（2240×1260）
  *   --dark          只拍深色；--light 只拍淺色
  *   --full          拍整頁（預設只拍一個畫面）
  *   --seed          先放一些測試資料：留言、檢舉、地圖回報（管理頁用）
@@ -41,7 +41,8 @@ const DB = 'http://127.0.0.1:9000'
 const viewports = [
   { name: 'mobile', width: 390, height: 844, mobile: true },
   { name: 'desktop', width: 1366, height: 860, mobile: false },
-].filter((v) => !(flag('mobile') && !v.mobile) && !(flag('desktop') && v.mobile))
+  { name: 'imac', width: 2240, height: 1260, mobile: false },
+].filter((v) => (flag('imac') ? v.name === 'imac' : v.name !== 'imac' && !(flag('mobile') && !v.mobile) && !(flag('desktop') && v.mobile)))
 const schemes = (['light', 'dark'] as const).filter((s) => !(flag('dark') && s === 'light') && !(flag('light') && s === 'dark'))
 
 /** 測試資料：兩則留言（一則被檢舉）、兩筆地圖回報（一筆有在地圖上點的位置） */
@@ -93,7 +94,7 @@ try {
     for (const scheme of schemes) {
       const ctx = await browser.newContext({
         viewport: { width: vp.width, height: vp.height },
-        deviceScaleFactor: 2,
+        deviceScaleFactor: vp.name === 'imac' ? 1 : 2,
         isMobile: vp.mobile,
         hasTouch: vp.mobile,
         colorScheme: scheme,

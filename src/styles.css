@@ -132,7 +132,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, 'SF Pro Text', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -1964,7 +1964,7 @@ a.action {
 /* 整頁不捲動，側欄、內容（並排時為清單、路線）各自捲動：捲軸都貼在欄位的分隔線上 */
 .shell {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 15.5rem minmax(0, 1fr);
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -2121,16 +2121,16 @@ a.action {
 }
 
 .shell main {
-  max-width: 760px;
+  max-width: 47.5rem;
   padding: 24px 32px 48px;
 }
 
 .shell main.roomy {
-  max-width: 1600px;
+  max-width: 100rem;
 }
 
 .shell main.roomy .area-list {
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(21.25rem, 1fr));
 }
 
 .shell main.split {
@@ -2141,13 +2141,13 @@ a.action {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: minmax(380px, 1.2fr) minmax(400px, 1fr);
+  grid-template-columns: minmax(23.75rem, 1.2fr) minmax(25rem, 1fr);
 }
 
 /* 很寬的螢幕：清單最寬 760px，其餘給路線 */
 @media (min-width: 1650px) {
   .shell main.split {
-    grid-template-columns: 760px minmax(400px, 1fr);
+    grid-template-columns: 47.5rem minmax(25rem, 1fr);
   }
 }
 
@@ -2177,13 +2177,13 @@ a.action {
   container: detail / inline-size;
 }
 
-@container detail (min-width: 1000px) {
+@container detail (min-width: 62.5rem) {
   .detail-pane > .route {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 32px;
     align-items: start;
-    max-width: 1400px;
+    max-width: 87.5rem;
   }
 
   .detail-pane > .route > * {
@@ -2413,12 +2413,12 @@ a.action {
 }
 
 .shell main.roomy > section.card {
-  max-width: 720px;
+  max-width: 45rem;
 }
 
 /* 未登入的「我的」：介紹與設定在寬版面中置中 */
 .shell main.roomy > .me-signed-out {
-  max-width: 720px;
+  max-width: 45rem;
   margin: 0 auto;
 }
 
@@ -4578,7 +4578,7 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 }
 
 [data-layout='wide'] .area-row {
-  grid-template-columns: minmax(0, 1fr) 190px;
+  grid-template-columns: minmax(0, 1fr) 12rem;
   gap: 20px;
   padding: 16px 0 14px 22px;
 }
@@ -4596,7 +4596,7 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 
 /* 標題卡：名稱與資訊、整區的難度分佈、區域形狀排成一列 */
 [data-layout='wide'] .area-hero {
-  grid-template-columns: minmax(0, 1fr) 260px 180px;
+  grid-template-columns: minmax(0, 1fr) 16.25rem 11.25rem;
   gap: 32px;
   padding: 24px 28px 24px 32px;
 }
@@ -4619,7 +4619,7 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 }
 
 [data-layout='wide'] .area-hero-shape {
-  height: 160px;
+  height: 10rem;
 }
 
 /* 電腦版區域、分區列：滑鼠移上去時整列（含左邊的色點）淡淡上區域色、圓角；不用白底，也不縮小 */
@@ -4646,4 +4646,11 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 /* 清單裡的難度分佈只是概覽，長條不跟著滑鼠變亮 */
 .area-row .grade-dist g:hover .bar {
   filter: none;
+}
+
+/* ---------- 大螢幕的字級：電腦版依視窗寬度放大 ----------
+ * 1440px 以下 16px；越寬越大，2560px（27 吋 iMac、2K 螢幕）以上 20px。
+ * 字級和側欄、內容欄寬都用 rem，一起放大，版面比例不變（24 吋 iMac 約 2240px 寬 → 約 19px）。 */
+:root[data-layout='wide'] {
+  font-size: clamp(16px, 0.357vw + 10.86px, 20px);
 }
