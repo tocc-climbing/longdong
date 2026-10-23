@@ -43,6 +43,7 @@ export const en: Messages = {
   'count.routes': '{n} {n|route|routes}',
   'count.routesShort': '{n} {n|route|routes}',
   'count.sectors': '{n} {n|sector|sectors}',
+  'count.bolts': '{n} bolts',
 
   'type.sport': 'Sport',
   'type.trad': 'Trad',

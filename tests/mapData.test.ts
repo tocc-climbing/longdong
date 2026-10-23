@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hasUnuploaded, toGeoJSON, type Fix } from '../src/map/calibration'
 import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseLocation } from '../src/router'
-import { centroid, project, unproject } from '../src/map/mapData'
+import { centroid, loadScaleMap, project, unproject } from '../src/map/mapData'
 
 const fix = (lat: number, lng: number, accuracy = 5, time = 0): Fix => ({ coords: [lat, lng], accuracy, time })
 
@@ -101,5 +101,26 @@ describe('比例尺地圖資料', () => {
 
   it('/map 是地圖', () => {
     expect(parseLocation('/map')).toEqual({ name: 'map' })
+  })
+})
+
+describe('地圖資料只載入一次', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('各頁的地圖共用同一份；載入失敗時下次重新下載', async () => {
+    const urls: string[] = []
+    let offline = true
+    vi.stubGlobal('fetch', async (url: string) => {
+      urls.push(url)
+      if (offline) return new Response(null, { status: 503 })
+      return new Response(readFileSync(`public${url}`, 'utf8'))
+    })
+    await expect(loadScaleMap()).rejects.toThrow('503')
+    offline = false
+    const first = await loadScaleMap()
+    expect(await loadScaleMap()).toBe(first)
+    expect(urls).toEqual(['/rescue/scale-map.geojson', '/rescue/areas.geojson', '/rescue/scale-map.geojson', '/rescue/areas.geojson'])
   })
 })

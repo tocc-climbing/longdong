@@ -3,7 +3,7 @@ import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
 import { project, unproject, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
-import { MIN_SCALE, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Rect, type Size } from './mapView'
+import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
 import './map.css'
@@ -98,8 +98,8 @@ export interface MapFocus {
   key: string
   /** 大區域 key：其他區域變淡 */
   area?: string
-  /** 救援點編號：加大標示 */
-  points?: number[]
+  /** 救援點（RescuePoint 的 key）：加大標示 */
+  points?: string[]
   /** 急救器材編號：加大標示 */
   ems?: number[]
   /** 其他位置（例如一筆回報的 GPS 與在地圖上點的位置） */
@@ -117,8 +117,8 @@ export interface MapMark {
   selected?: boolean
 }
 
-/** 選中的救援點或急救器材 */
-export type MapSelection = { kind: 'rescue' | 'ems'; no: number }
+/** 選中的救援點（#12 有兩個點共用編號，用 key 區分）或急救器材 */
+export type MapSelection = { kind: 'rescue'; key: string } | { kind: 'ems'; no: number }
 
 /** 聚焦範圍外留的邊（公尺）；範圍至少這麼大，只聚焦一個救援點時也看得到周圍的區域與步道 */
 const FOCUS_PADDING_M = 30
@@ -130,7 +130,7 @@ const POINT_HIT_PX = 18
 function focusRect(focus: MapFocus, map: ScaleMapData): Rect | undefined {
   const xy = [
     ...(map.areas.find((a) => a.id === focus.area)?.rings.flat() ?? []),
-    ...located.filter((p) => focus.points?.includes(p.no)).map((p) => p.at),
+    ...located.filter((p) => focus.points?.includes(p.key)).map((p) => p.at),
     ...map.markers.flatMap((m) => (m.kind === 'ems' && focus.ems?.includes(m.no) ? [m.at] : [])),
     ...(focus.coords ?? []).map(project),
   ]
@@ -242,35 +242,36 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
         return Math.hypot(x - p.x, y - p.y)
       }
       const candidates = [
-        ...located.map((pt) => ({ kind: 'rescue' as const, no: pt.no, at: pt.at })),
-        ...map.markers.flatMap((m) => (m.kind === 'ems' ? [{ kind: 'ems' as const, no: m.no, at: m.at }] : [])),
+        ...located.map((pt) => ({ selection: { kind: 'rescue', key: pt.key } as MapSelection, at: pt.at })),
+        ...map.markers.flatMap((m) => (m.kind === 'ems' ? [{ selection: { kind: 'ems', no: m.no } as MapSelection, at: m.at }] : [])),
       ]
       const hit = candidates
         .map((c) => ({ ...c, d: distance(c.at) }))
         .filter((h) => h.d <= POINT_HIT_PX)
         .sort((a, b) => a.d - b.d)[0]
-      if (hit) onSelect({ kind: hit.kind, no: hit.no })
+      if (hit) onSelect(hit.selection)
     },
   }
   useMapGestures(box, gestures)
 
   const me = here && project(here.coords)
 
-  // 移到目前位置：第一次定位到（在龍洞範圍內）時自動移過去；按了「回到我的位置」但還沒定位時，定位到再移過去
-  const pendingCenter = useRef(!focus)
+  // 移到目前位置：第一次定位到（在龍洞範圍內）時自動移過去；按了「回到我的位置」但還沒定位時，定位到再移過去。
+  // 之後換了聚焦就以聚焦為準（centerPending）
+  const centerRequest = useRef<CenterRequest | undefined>(focus ? undefined : { focus: undefined })
   const goToMe = (at: Vec) => {
-    pendingCenter.current = false
+    centerRequest.current = undefined
     apply((v) => ({ ...v, cx: at[0], cy: at[1], s: Math.min(v.s, ME_SCALE) }))
   }
   useEffect(() => {
-    if (pendingCenter.current && me && view && inBounds(me)) goToMe(me)
+    if (centerPending(centerRequest.current, focus?.key) && me && view && inBounds(me)) goToMe(me)
   }, [me?.[0], me?.[1], !!view])
 
   const locate = () => {
     // 在範圍外：移過去只會看到範圍邊緣的空白，地圖不動
     if (me) {
       if (inBounds(me)) goToMe(me)
-    } else pendingCenter.current = true
+    } else centerRequest.current = { focus: focus?.key }
     onLocate?.()
   }
 
@@ -279,7 +280,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   }
 
   const screen = (p: Vec) => toScreen(view, frame, p)
-  const isSelected = (kind: MapSelection['kind'], no: number) => selected?.kind === kind && selected.no === no
+  const isSelectedRescue = (key: string) => selected?.kind === 'rescue' && selected.key === key
+  const isSelectedEms = (no: number) => selected?.kind === 'ems' && selected.no === no
   /** 一個螢幕像素等於幾公尺：地圖圖形的線寬、虛線用它換算成固定的螢幕大小 */
   const px = view.s
   const atMax = view.s <= MIN_SCALE * 1.0001
@@ -360,7 +362,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             // 停車場的 P 畫在救援點上面（見下方）
             if (m.kind === 'parking') return null
             return (
-              <g key={i} className={`sm-ems${isSelected('ems', m.no) ? ' selected' : ''}`}>
+              <g key={i} className={`sm-ems${isSelectedEms(m.no) ? ' selected' : ''}`}>
                 <title>{t('map.ems', { n: m.no })}</title>
                 <rect x={x - 6} y={y - 7} width={12} height={14} rx={4} />
                 <path d={`M${x - 3.5} ${y}h7M${x} ${y - 3.5}v7`} strokeWidth={2} />
@@ -374,9 +376,9 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           ))}
           {located.map((p, i) => {
             const [x, y] = screen(p.at)
-            const on = isSelected('rescue', p.no) || !!focus?.points?.includes(p.no)
+            const on = isSelectedRescue(p.key) || !!focus?.points?.includes(p.key)
             return (
-              <g key={i} className={`sm-rescue${on ? ' on' : ''}${isSelected('rescue', p.no) ? ' selected' : ''}`}>
+              <g key={i} className={`sm-rescue${on ? ' on' : ''}${isSelectedRescue(p.key) ? ' selected' : ''}`}>
                 <circle cx={x} cy={y} r={on ? 10 : 7} />
                 <text x={x} y={y} fontSize={on ? 11 : 9} textAnchor="middle" dominantBaseline="central">
                   {p.no}

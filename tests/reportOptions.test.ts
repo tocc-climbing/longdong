@@ -16,7 +16,7 @@ describe('回報位置的選項', () => {
 
   it('在區域內排第一，附近的救援點、標示、區域依距離排序；太遠的不列', () => {
     // 救援點在投影原點 (0, 0)；目前位置在它南方 10 公尺，落在 clocktower（x -50～50、y 0～100）裡
-    const point: RescuePoint = { no: 4, name: { zh: '鐘塔' }, coords: [25.107, 121.92] }
+    const point: RescuePoint = { key: '4', no: 4, name: { zh: '鐘塔' }, coords: [25.107, 121.92] }
     expect(project(point.coords!)).toEqual([0, 0])
     const map = {
       areas: [area('clocktower', -50), area('long-lane', 60), area('far', 500)],

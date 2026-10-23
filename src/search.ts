@@ -1,5 +1,5 @@
 import MiniSearch from 'minisearch'
-import type { RouteRef } from './data/dataset'
+import type { LoadedData, RouteRef } from './data/dataset'
 
 const CJK_RUN = /[㐀-鿿豈-﫿]+/g
 
@@ -54,6 +54,18 @@ export function buildIndex(routes: RouteRef[]): MiniSearch<Doc> {
       grade: route.grade ?? '',
     })),
   )
+  return index
+}
+
+const indexes = new WeakMap<LoadedData, MiniSearch<Doc>>()
+
+/** 每份資料只建一次搜尋索引（600 多條路線約 40ms），不在每次打開搜尋頁時重建 */
+export function searchIndex(data: LoadedData): MiniSearch<Doc> {
+  let index = indexes.get(data)
+  if (!index) {
+    index = buildIndex(data.routes)
+    indexes.set(data, index)
+  }
   return index
 }
 

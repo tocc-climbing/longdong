@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { isWide } from './layout'
 import type { LatLng } from './geo'
 import { parseSimulation } from './simulate'
@@ -23,6 +23,8 @@ export type Page = (
   | { name: 'admin' }
   | { name: 'bolts' }
   | { name: 'checklist' }
+  /** 不是 App 的頁面（例如 /terms.html 等靜態檔案）：站內連結不攔，直接載入時顯示找不到頁面 */
+  | { name: 'notFound' }
 ) & { detail?: string }
 
 /** 解析網址的路徑與查詢字串（/area/…?r=…） */
@@ -31,7 +33,9 @@ export function parseLocation(location: string): Page {
   const params = new URLSearchParams(query)
   const r = params.get('r')
   const extra = r ? { detail: r } : {}
-  const [, kind, ...rest] = decodeURIComponent(rawPath).replace(/\/+$/, '').split('/')
+  const path = decodePath(rawPath)
+  if (path === undefined) return { name: 'notFound' }
+  const [, kind, ...rest] = path.replace(/\/+$/, '').split('/')
   const id = rest.join('/')
   if (kind === 'area' && id) return { name: 'area', id, ...extra }
   if (kind === 'route' && id) return { name: 'route', id }
@@ -49,7 +53,18 @@ export function parseLocation(location: string): Page {
   if (kind === 'bolts') return { name: 'bolts' }
   if (kind === 'checklist') return { name: 'checklist' }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
-  return { name: 'home' }
+  if (!kind) return { name: 'home' }
+  return { name: 'notFound' }
+}
+
+/** 解碼網址的路徑；% 後面不是合法的編碼（例如 /area/%）時不是任何頁面，回傳 undefined */
+function decodePath(rawPath: string): string | undefined {
+  try {
+    return decodeURIComponent(rawPath)
+  } catch {
+    // decodeURIComponent 只會因為編碼不合法丟出 URIError
+    return undefined
+  }
 }
 
 // ID 只含 [a-z0-9./-]，不需要編碼
@@ -92,20 +107,33 @@ const CHANGE = 'locationchange'
 export function navigate(to: string, { replace = false } = {}): void {
   if (to === here()) return
   if (replace) history.replaceState(null, '', to)
-  else history.pushState(null, '', to)
+  else {
+    // 離開前把這一頁的捲動位置記在它的瀏覽紀錄裡，按上一頁回來時捲回去（scrollAfter）
+    history.replaceState({ scroll: scrollPositions() }, '')
+    history.pushState(null, '', to)
+  }
   window.dispatchEvent(new Event(CHANGE))
 }
 
+/** 連結要由路由換頁時的路徑（路徑＋查詢字串）；外部連結、不是 App 頁面的靜態檔案（/terms.html）回傳 undefined，交給瀏覽器載入 */
+export function appPath(url: URL, origin: string): string | undefined {
+  if (url.origin !== origin) return undefined
+  const path = url.pathname + url.search
+  return parseLocation(path).name === 'notFound' ? undefined : path
+}
+
 if (typeof document !== 'undefined') {
-  // 站內連結（<a href="/…">）不重新載入，改由路由換頁；新分頁、下載、外部連結照常
+  // 上一頁、下一頁的捲動位置由 usePage 在新的頁面畫好後捲回去；瀏覽器自己捲會在舊的頁面上先跳一下
+  history.scrollRestoration = 'manual'
+  // 站內連結（<a href="/…">）不重新載入，改由路由換頁；新分頁、下載、外部連結、靜態檔案照常
   document.addEventListener('click', (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
     const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
     if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return
-    const url = new URL(a.href)
-    if (url.origin !== location.origin) return
+    const path = appPath(new URL(a.href), location.origin)
+    if (path === undefined) return
     e.preventDefault()
-    navigate(url.pathname + url.search)
+    navigate(path)
   })
 }
 
@@ -127,19 +155,44 @@ export function samePlace(a: Page, b: Page): boolean {
   return (a as { id?: string }).id === (b as { id?: string }).id
 }
 
-/** 換頁時捲回頂端：手機版是整頁；電腦版是內容區與清單欄（各自捲動） */
-function scrollToTop() {
-  window.scrollTo(0, 0)
-  for (const el of document.querySelectorAll('.shell-main, .list-pane')) el.scrollTo(0, 0)
+/** 各自捲動的區塊：手機版是整頁（window）；電腦版是內容區與清單欄 */
+const SCROLLERS = ['.shell-main', '.list-pane']
+
+/** 一頁的捲動位置：key 是 window 或 SCROLLERS 的選擇器；畫面上沒有的區塊（例如手機版的清單欄）不記 */
+export type ScrollPositions = Record<string, number>
+
+function scrollPositions(): ScrollPositions {
+  const positions: ScrollPositions = { window: window.scrollY }
+  for (const selector of SCROLLERS) {
+    const el = document.querySelector(selector)
+    if (el) positions[selector] = el.scrollTop
+  }
+  return positions
+}
+
+/** 捲到記下的位置；沒有記下的區塊捲回頂端（傳 {} 就是全部捲回頂端） */
+function scrollToPositions(positions: ScrollPositions) {
+  window.scrollTo(0, positions.window ?? 0)
+  for (const selector of SCROLLERS) document.querySelector(selector)?.scrollTo(0, positions[selector] ?? 0)
+}
+
+/**
+ * 換頁後要捲到哪裡：上一頁、下一頁回到離開那一頁時記下的位置（navigate 記在 history.state）；
+ * 其他換頁捲回頂端（{}）；還在同一頁時不動（undefined）
+ */
+export function scrollAfter(from: Page, to: Page, state: unknown): ScrollPositions | undefined {
+  const saved = (state as { scroll?: ScrollPositions } | null)?.scroll
+  return saved ?? (samePlace(from, to) ? undefined : {})
 }
 
 export function usePage(): Page {
   const [page, setPage] = useState(() => parseLocation(here()))
   const current = useRef(page)
+  const scroll = useRef<ScrollPositions>(undefined)
   useEffect(() => {
     const onChange = () => {
       const next = parseLocation(here())
-      if (!samePlace(current.current, next)) scrollToTop()
+      scroll.current = scrollAfter(current.current, next, history.state)
       current.current = next
       setPage(next)
     }
@@ -151,6 +204,12 @@ export function usePage(): Page {
       window.removeEventListener('popstate', onChange)
     }
   }, [])
+  // 新的頁面畫好後才捲動：畫好前內容的高度不夠，捲不到記下的位置
+  useLayoutEffect(() => {
+    if (!scroll.current) return
+    scrollToPositions(scroll.current)
+    scroll.current = undefined
+  }, [page])
   return page
 }
 

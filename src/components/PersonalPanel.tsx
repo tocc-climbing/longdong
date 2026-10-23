@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { Route } from '../data/schema'
 import { formatDate } from '../format'
 import { useLang } from '../i18n'
-import { TICK_STYLES, today, type TickStyle } from '../personal/model'
+import { NOTE_MAX, TICK_STYLES, today, type TickStyle } from '../personal/model'
 import { addTick, deleteTick, setFavorite, usePersonal } from '../personal/store'
 
 /** 路線頁上的按鈕列（記錄攀登、收藏的愛心）與個人攀登紀錄；extra 放在按鈕列最後（分享） */
@@ -109,7 +109,7 @@ function TickForm({ routeId, onDone }: { routeId: string; onDone: () => void }) 
       </fieldset>
       <label>
         {t('tick.note')}
-        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+        <textarea rows={2} maxLength={NOTE_MAX} value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       <div className="actions">
         <button type="submit" className="action primary" disabled={saving || !date}>

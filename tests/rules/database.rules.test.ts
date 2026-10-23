@@ -9,7 +9,8 @@
 import { readFileSync } from 'node:fs'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestContext, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
-import { nameKey } from '../../src/social/model'
+import { NOTE_MAX } from '../../src/personal/model'
+import { nameKey, routeKey } from '../../src/social/model'
 
 /** context.database() 是相容版（compat）的 Database */
 type Database = ReturnType<RulesTestContext['database']>
@@ -181,6 +182,43 @@ describe('路線清單的最佳攀登方式（v2/personal/<uid>/best）', () => 
   })
 })
 
+describe('評分、留言的路線 key 必須是路線ID 的格式（每位訪客都會下載整個評分節點）', () => {
+  const data = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as { areas: { sectors: { routes: { id: string }[] }[] }[] }
+  const routeIds = data.areas.flatMap((a) => a.sectors.flatMap((s) => s.routes.map((r) => r.id)))
+
+  it('資料檔裡每一條路線都可以評分、留言', async () => {
+    await assertSucceeds(update(mallory, Object.fromEntries(routeIds.map((id) => [`v2/ratings/${routeKey(id)}/mallory`, { stars: 3, updatedAt: iso() }]))))
+    await assertSucceeds(
+      update(mallory, Object.fromEntries(routeIds.map((id) => [`v2/comments/${routeKey(id)}/c1`, { uid: 'mallory', text: '+1', createdAt: serverTimestamp() }]))),
+    )
+  })
+
+  it('不是路線ID 格式的 key 不能新增', async () => {
+    for (const key of ['junk', 'longdong:jar2yu0', 'longdong:jar2y', 'longdong:JAR2YU', 'longdong:jar2y0', 'other:jar2yu', `longdong:${'x'.repeat(90)}`]) {
+      await assertFails(set(mallory, `v2/ratings/${key}/mallory`, { stars: 5, updatedAt: iso() }))
+      await assertFails(push(mallory, `v2/comments/${key}`, { uid: 'mallory', text: 'spam', createdAt: serverTimestamp() }))
+    }
+  })
+
+  it('舊格式 key 底下已有的評分、留言仍可刪除（刪除帳號時一併刪）', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      ctx.database().ref('v2').update({ 'ratings/longdong:523/alice': { stars: 4, updatedAt: iso() }, 'comments/longdong:523/m2': { uid: 'alice', text: '舊', createdAt: 1 } }),
+    )
+    await assertSucceeds(update(alice, { 'v2/ratings/longdong:523/alice': null, 'v2/comments/longdong:523/m2': null }))
+  })
+})
+
+describe('攀登紀錄的備註（v2/personal/<uid>/ticks）', () => {
+  it('上限與 App 的 NOTE_MAX 相同（中文字也以一個字計）', async () => {
+    await assertSucceeds(set(alice, 'v2/personal/alice/ticks/t1', { ...tick('t1'), note: '龍'.repeat(NOTE_MAX) }))
+    await assertFails(set(alice, 'v2/personal/alice/ticks/t1', { ...tick('t1'), note: 'x'.repeat(NOTE_MAX + 1) }))
+  })
+
+  it('刪除標記（沒有備註）可以寫入', async () => {
+    await assertSucceeds(set(alice, 'v2/personal/alice/ticks/t1', { ...tick('t1'), deleted: true }))
+  })
+})
+
 describe('既有行為不變', () => {
   it('本人可以讀寫自己的紀錄；別人不能讀', async () => {
     await assertSucceeds(get(alice, 'v2/personal/alice'))
@@ -325,6 +363,16 @@ describe('暱稱不能重複（不分大小寫、看起來一樣的寫法視為�
   it('不能刪除別人的登記；自己的可以', async () => {
     await assertFails(remove(mallory, 'v2/names/alice'))
     await assertSucceeds(update(alice, { 'v2/names/alice': null, 'v2/profiles/alice': null }))
+  })
+
+  it('刪除個人資料時必須同時釋放暱稱，不能用刪除再改名的方式佔用多個暱稱', async () => {
+    await assertSucceeds(claim(mallory, 'mallory', 'Bob'))
+    await assertFails(remove(mallory, 'v2/profiles/mallory'))
+    await assertSucceeds(update(mallory, { 'v2/profiles/mallory': null, 'v2/names/bob': null }))
+    // 舊帳號（沒有登記 names）、沒有個人資料的帳號：刪除帳號照常
+    const carol = env.authenticatedContext('carol').database()
+    await assertSucceeds(remove(carol, 'v2/profiles/carol'))
+    await assertSucceeds(update(mallory, { 'v2/profiles/mallory': null, 'v2/personal/mallory': null }))
   })
 
   it('舊帳號（沒有登記 names）改暱稱：登記新的即可', async () => {

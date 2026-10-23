@@ -239,8 +239,27 @@ export async function uploadCalibration(uid: string, geojson: string): Promise<v
 }
 
 /**
+ * Firebase 只讓最近登入過（約 5 分鐘內）的人刪除帳號，否則 deleteUser 回 auth/requires-recent-login。
+ * 預留 1 分鐘給刪除資料的時間：超過 4 分鐘沒登入就先跳出登入視窗重新驗證。
+ */
+const RECENT_SIGN_IN_MS = 4 * 60 * 1000
+
+/**
+ * 刪除帳號前呼叫，而且必須是按下按鈕後第一個等待的動作：iPhone、iPad 的 Safari 只在按下按鈕的當下
+ * 允許開新視窗（見 sync.ts 的 preloadSignIn）；放在刪除資料之後，視窗會被擋，資料刪了一半帳號卻還在。
+ */
+export async function reauthenticateIfStale(): Promise<void> {
+  const user = auth.currentUser
+  if (!user) throw new Error('not signed in')
+  // 沒有登入時間時 Date.parse 為 NaN，比較結果為 false，一律重新驗證
+  if (Date.now() - Date.parse(user.metadata.lastSignInTime ?? '') < RECENT_SIGN_IN_MS) return
+  const providerId = user.providerData[0]?.providerId
+  await reauthenticateWithPopup(user, makeProvider(providerId === 'facebook.com' ? 'facebook' : 'google'))
+}
+
+/**
  * 刪除帳號：先刪除資料庫中屬於這個使用者的資料（paths 由呼叫端整理，值為 null），再刪除登入帳號。
- * 太久沒登入時 Firebase 會要求重新驗證，自動跳出登入視窗。
+ * 呼叫前先以 reauthenticateIfStale 重新驗證；手機時間不準等情況仍被要求重新驗證時，再跳出登入視窗。
  */
 export async function deleteAccount(paths: Record<string, null>): Promise<void> {
   const user = auth.currentUser

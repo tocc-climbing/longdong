@@ -2,7 +2,7 @@ import { lazy, Suspense, useRef, useState } from 'react'
 import { CopyButton } from '../components/CopyButton'
 import { MyLocation, useGeolocation } from '../components/MyLocation'
 import type { LoadedData } from '../data/dataset'
-import { AREA_RESCUE, EMERGENCY_NUMBERS, EMS_LOCATIONS, RESCUE_POINTS, RESCUE_SOURCE, formatCoords, mapUrl, type RescuePoint } from '../data/rescue'
+import { AREA_RESCUE, EMERGENCY_NUMBERS, EMS_LOCATIONS, RESCUE_POINTS, RESCUE_SOURCE, formatCoords, mapUrl, rescuePoint, type RescuePoint } from '../data/rescue'
 import { localName, useLang } from '../i18n'
 import type { MapFocus, MapSelection } from '../map/ScaleMap'
 
@@ -26,16 +26,18 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
   const mapSection = useRef<HTMLElement>(null)
 
   const focus: MapFocus | undefined = flyTo
-    ? { key: `${flyTo.kind}:${flyTo.no}:${flyTo.n}`, ...(flyTo.kind === 'rescue' ? { points: [flyTo.no] } : { ems: [flyTo.no] }) }
+    ? flyTo.kind === 'rescue'
+      ? { key: `rescue:${flyTo.key}:${flyTo.n}`, points: [flyTo.key] }
+      : { key: `ems:${flyTo.no}:${flyTo.n}`, ems: [flyTo.no] }
     : area && local && areaKey
-      ? { key: `area:${areaKey}`, area: areaKey, points: local.points, ems: [local.ems] }
+      ? { key: `area:${areaKey}`, area: areaKey, points: RESCUE_POINTS.filter((p) => local.points.includes(p.no)).map((p) => p.key), ems: [local.ems] }
       : undefined
   const showOnMap = (selection: MapSelection) => {
     setSelected(selection)
     setFlyTo((f) => ({ ...selection, n: (f?.n ?? 0) + 1 }))
     mapSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  const selectedPoint = selected?.kind === 'rescue' ? RESCUE_POINTS.find((p) => p.no === selected.no && p.coords) : undefined
+  const selectedPoint = selected?.kind === 'rescue' ? rescuePoint(selected.key) : undefined
   const selectedEms = selected?.kind === 'ems' ? selected.no : undefined
   const areaName = area && localName(area.name, lang).main
 
@@ -143,7 +145,7 @@ function PointList({ points, onShow }: { points: RescuePoint[]; onShow: (selecti
     <ul className="list-card point-list">
       {points.map((point) => (
         <li key={`${point.no}-${point.name.zh}`}>
-          <button type="button" className="point-item rescue-row" disabled={!point.coords} onClick={() => onShow({ kind: 'rescue', no: point.no })}>
+          <button type="button" className="point-item rescue-row" disabled={!point.coords} onClick={() => onShow({ kind: 'rescue', key: point.key })}>
             <span className="point-no" aria-hidden>
               {point.no}
             </span>

@@ -108,7 +108,7 @@ async function fetchJSON(url: string): Promise<FeatureCollection> {
   return (await res.json()) as FeatureCollection
 }
 
-export async function loadScaleMap(): Promise<ScaleMapData> {
+async function readScaleMap(): Promise<ScaleMapData> {
   const [base, areas] = await Promise.all([fetchJSON(`${import.meta.env.BASE_URL}rescue/scale-map.geojson`), fetchJSON(`${import.meta.env.BASE_URL}rescue/areas.geojson`)])
   return {
     layers: Object.fromEntries(
@@ -128,6 +128,17 @@ export async function loadScaleMap(): Promise<ScaleMapData> {
       }
     }),
   }
+}
+
+let cache: Promise<ScaleMapData> | undefined
+
+/** 地圖資料只下載、換算一次，各頁的地圖共用（路線頁每次都會用到）；失敗時不留著，下次打開地圖再重新載入 */
+export function loadScaleMap(): Promise<ScaleMapData> {
+  cache ??= readScaleMap().catch((err) => {
+    cache = undefined
+    throw err
+  })
+  return cache
 }
 
 export type ScaleMapState = { status: 'loading' } | { status: 'ok'; data: ScaleMapData } | { status: 'error'; message: string }

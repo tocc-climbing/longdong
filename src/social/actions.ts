@@ -48,10 +48,12 @@ export async function rename(name: string): Promise<string> {
 
 /**
  * 刪除我的帳號：個人紀錄、暱稱、所有評分與留言，最後刪除登入帳號。
- * 以最新的雲端資料找出屬於自己的評分與留言，一次刪除。
+ * 先重新驗證（太久沒登入時跳出登入視窗），再以最新的雲端資料找出屬於自己的評分與留言，一次刪除。
  */
 export async function deleteMyAccount(): Promise<void> {
-  const { uid } = await withCloud()
+  const { m, uid } = await withCloud()
+  // 必須在任何網路讀寫之前：Safari 只在按下按鈕的當下允許開登入視窗
+  await m.reauthenticateIfStale()
   const [ratings, comments, profile] = await Promise.all([
     get<Record<string, Record<string, Rating>>>('v2/ratings'),
     get<Record<string, Record<string, Omit<Comment, 'id'>>>>('v2/comments'),

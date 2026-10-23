@@ -3,7 +3,7 @@ import type { LoadedData } from '../data/dataset'
 import { RouteList } from '../components/RouteList'
 import { useWide } from '../layout'
 import { href, navigate } from '../router'
-import { buildIndex, search } from '../search'
+import { search, searchIndex } from '../search'
 import { useLang, type Lang } from '../i18n'
 
 const MAX_RESULTS = 100
@@ -19,7 +19,7 @@ export function SearchPage({ data, query, detail }: { data: LoadedData; query: s
   const { lang, t } = useLang()
   const wide = useWide()
   const input = useRef<HTMLInputElement>(null)
-  const index = useMemo(() => buildIndex(data.routes), [data])
+  const index = searchIndex(data)
   const results = useMemo(() => {
     const found = search(index, query).map((id) => data.routeById.get(id)!)
     // 查難度（例如 5.12）時，依難度排序比依相關度直覺

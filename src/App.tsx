@@ -12,7 +12,7 @@ import { whenActive } from './freshness'
 import { useLang } from './i18n'
 import { useWide } from './layout'
 import { AboutPage } from './pages/AboutPage'
-import { AreaPage, SectorPage } from './pages/AreaPage'
+import { AreaPage, NotFound, SectorPage } from './pages/AreaPage'
 import { HomePage } from './pages/HomePage'
 import { MePage } from './pages/MePage'
 import { RescuePage } from './pages/RescuePage'
@@ -233,6 +233,8 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
           <AdminPage data={data} initialTab="map" />
         </Suspense>
       )
+    case 'notFound':
+      return <NotFound />
     default:
       return <HomePage data={data} />
   }

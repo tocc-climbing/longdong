@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { href, legacySectorHref, parseLocation, samePlace, withDetail } from '../src/router'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { appPath, href, legacySectorHref, navigate, parseLocation, samePlace, scrollAfter, withDetail } from '../src/router'
 
 describe('parseLocation', () => {
   it('ID 可以含 "/"', () => {
@@ -17,6 +17,11 @@ describe('parseLocation', () => {
     expect(parseLocation('/')).toEqual({ name: 'home' })
   })
 
+  it('路徑的 % 編碼不合法（/area/%）：找不到頁面，不丟出例外讓整個 App 空白', () => {
+    expect(parseLocation('/area/%')).toEqual({ name: 'notFound' })
+    expect(parseLocation('/route/longdong/%E9%BB')).toEqual({ name: 'notFound' })
+  })
+
   it('結尾的 / 不影響', () => {
     expect(parseLocation('/route/longdong/jar2yu/')).toEqual({ name: 'route', id: 'longdong/jar2yu' })
   })
@@ -31,6 +36,22 @@ describe('parseLocation', () => {
     expect(parseLocation('/me?r=longdong/523')).toEqual({ name: 'me', detail: 'longdong/523' })
     // 路線頁本身不帶右側路線
     expect(parseLocation('/route/longdong/1?r=longdong/2')).toEqual({ name: 'route', id: 'longdong/1' })
+  })
+})
+
+describe('站內連結由路由換頁', () => {
+  const origin = 'https://longdong.web.app'
+  it('App 的頁面由路由換頁；服務條款、隱私權政策等靜態檔案交給瀏覽器載入', () => {
+    expect(appPath(new URL('/about', origin), origin)).toBe('/about')
+    expect(appPath(new URL('/search?q=5.10', origin), origin)).toBe('/search?q=5.10')
+    expect(appPath(new URL('/', origin), origin)).toBe('/')
+    expect(appPath(new URL('./terms.html', `${origin}/about`), origin)).toBeUndefined()
+    expect(appPath(new URL('./privacy.html', `${origin}/about`), origin)).toBeUndefined()
+    expect(parseLocation('/terms.html')).toEqual({ name: 'notFound' })
+  })
+
+  it('外部連結交給瀏覽器', () => {
+    expect(appPath(new URL('https://www.tocc-climbing.org/ems-project'), origin)).toBeUndefined()
   })
 })
 
@@ -64,6 +85,42 @@ describe('samePlace：換頁時要不要捲回頂端', () => {
     expect(samePlace({ name: 'rescue' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
     expect(samePlace({ name: 'rescue', id: 'back-door' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
     expect(samePlace({ name: 'sector', id: 'a' }, { name: 'sector', id: 'b' })).toBe(false)
+  })
+})
+
+describe('上一頁回到原本的捲動位置', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('換頁前把這一頁的捲動位置記在它的瀏覽紀錄裡', () => {
+    const entries: { state: unknown; url: string }[] = [{ state: null, url: '/area/longdong/back-door' }]
+    vi.stubGlobal('location', {
+      get pathname() {
+        return entries.at(-1)!.url.split('?')[0]
+      },
+      search: '',
+    })
+    vi.stubGlobal('history', {
+      replaceState: (state: unknown, _: string, url?: string) => (entries[entries.length - 1] = { state, url: url ?? entries.at(-1)!.url }),
+      pushState: (state: unknown, _: string, url: string) => entries.push({ state, url }),
+    })
+    // 電腦版：內容區捲到 300，沒有清單欄
+    vi.stubGlobal('document', { querySelector: (selector: string) => (selector === '.shell-main' ? { scrollTop: 300 } : null) })
+    vi.stubGlobal('window', { scrollY: 2400, dispatchEvent: () => true })
+    navigate('/route/longdong/100')
+    expect(entries).toEqual([
+      { state: { scroll: { window: 2400, '.shell-main': 300 } }, url: '/area/longdong/back-door' },
+      { state: null, url: '/route/longdong/100' },
+    ])
+  })
+
+  it('上一頁、下一頁捲到記下的位置；其他換頁捲回頂端；同一頁不動', () => {
+    const area = { name: 'area', id: 'longdong/back-door' } as const
+    const route = { name: 'route', id: 'longdong/100' } as const
+    expect(scrollAfter(route, area, { scroll: { window: 2400 } })).toEqual({ window: 2400 })
+    expect(scrollAfter(area, route, null)).toEqual({})
+    expect(scrollAfter({ name: 'search', q: 'a' }, { name: 'search', q: 'ab' }, null)).toBeUndefined()
   })
 })
 

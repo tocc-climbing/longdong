@@ -4228,21 +4228,52 @@ main.map > div {
   color: var(--star);
 }
 
-/* ---------- 區域頁（手機）：名稱在左，區域的地圖形狀在右 ---------- */
+/* ---------- 區域頁的標題卡：區域顏色淡淡上色，名稱在左，區域的地圖形狀在右 ---------- */
 
 .area-hero {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 46%;
+  grid-template-columns: minmax(0, 1fr) 42%;
   align-items: center;
-  gap: 12px;
-  min-height: 170px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 18px 16px 18px 20px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--area-color) 14%, var(--surface));
+  overflow: hidden;
+}
+
+/* 左邊一條區域色，和清單的色點呼應 */
+.area-hero::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--area-color);
+}
+
+.area-hero-crag {
+  margin: 0;
+  color: color-mix(in srgb, var(--area-color) 55%, var(--text));
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .area-hero h1 {
-  margin: 0;
-  font-size: 2.2rem;
+  margin: 2px 0 0;
+  font-size: 2.1rem;
   line-height: 1.15;
+}
+
+.area-hero h1 .en {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .area-hero .page-sub {
@@ -4252,7 +4283,7 @@ main.map > div {
 .area-hero-shape {
   display: block;
   width: 100%;
-  height: 170px;
+  height: 140px;
 }
 
 /* 路線清單：清單左右滑換區域，換的時候從旁邊滑進來 */
@@ -4479,9 +4510,6 @@ main.map > div {
 }
 
 /* 區域頁上方：區域形狀不要佔太寬 */
-[data-layout='wide'] .area-hero {
-  grid-template-columns: minmax(0, 1fr) 280px;
-}
 
 /* 回報位置送出後：打勾、綠色 */
 .route-actions .place-report-button.on {
@@ -4517,4 +4545,79 @@ main.map > div {
 
 body:has(.sim-banner) main.map:not(.shell main.map) {
   top: calc(52px + 32px + env(safe-area-inset-top));
+}
+
+/* ---------- 區域頁、首頁的區域列表（電腦版）：多放英文名、種類、需要注意的路線數 ---------- */
+
+.area-alerts {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: 10px;
+  font-weight: 700;
+}
+
+.area-alerts .warn {
+  color: #b77800;
+}
+
+.area-alerts .danger {
+  color: var(--danger);
+}
+
+/* 手機只放名稱、路線數與難度分佈 */
+[data-layout='mobile'] .area-alerts {
+  display: none;
+}
+
+[data-layout='wide'] .area-row :is(.en, .area-types) {
+  display: block;
+}
+
+[data-layout='wide'] .area-row .area-count .muted {
+  display: inline;
+}
+
+[data-layout='wide'] .area-row {
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 20px;
+  padding: 16px 0 14px 22px;
+}
+
+[data-layout='wide'] .area-row .en {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+[data-layout='wide'] .area-row .area-types {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* 標題卡：名稱與資訊、整區的難度分佈、區域形狀排成一列 */
+[data-layout='wide'] .area-hero {
+  grid-template-columns: minmax(0, 1fr) 260px 180px;
+  gap: 32px;
+  padding: 24px 28px 24px 32px;
+}
+
+[data-layout='wide'] .area-hero h1 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+[data-layout='wide'] .area-hero-facts {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+/* 難度分佈在上色的卡片上：軸線、底色用卡片色 */
+[data-layout='wide'] .area-hero-chart .grade-dist .axis {
+  stroke: color-mix(in srgb, var(--area-color) 30%, var(--surface));
+}
+
+[data-layout='wide'] .area-hero-shape {
+  height: 160px;
 }
