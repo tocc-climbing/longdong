@@ -129,6 +129,7 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
               <dd className="pre">
                 {route.firstAscent}
                 {route.firstAscentDate && <span className="muted"> · {formatDate(route.firstAscentDate)}</span>}
+                {route.firstAscentDateLabel && <span className="muted"> · {route.firstAscentDateLabel}</span>}
               </dd>
             </dl>
           )}

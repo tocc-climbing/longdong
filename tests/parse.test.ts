@@ -117,6 +117,22 @@ describe('parseAreaSheet', () => {
     expect(fixture.number).toBeUndefined()
   })
 
+  it('首攀日期讀不成日期時保留原文，不推測日期', () => {
+    const fa = parseAreaSheet(
+      sheet([
+        row({ 路線編號: '# 1', 路線名稱: 'ㄅ', 難度: '5.7', 首攀: '甲', 首攀日期: '1990年代' }),
+        row({ 路線編號: '# 2', 路線名稱: 'ㄆ', 難度: '5.7', 首攀: '乙', 首攀日期: '1990 / 夏' }),
+        row({ 路線編號: '# 3', 路線名稱: 'ㄇ', 難度: '5.7', 首攀: '丙', 首攀日期: '1991 / 06' }),
+      ]),
+      { cragId: 'longdong', areaId: 'back-door', expectedZh: '後門' },
+    ).sectors[0].routes
+    expect(fa.map((r) => [r.firstAscentDate, r.firstAscentDateLabel])).toEqual([
+      [undefined, '1990年代'],
+      [undefined, '1990 / 夏'],
+      ['1991-06', undefined],
+    ])
+  })
+
   it('有燈號但讀不到評級的路線，停止匯入並列出', () => {
     const lights = sheet([
       row({ 路線編號: '# 1', 路線名稱: 'ㄅ', 難度: '5.7', 安全評級: '●●●' }),

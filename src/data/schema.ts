@@ -64,6 +64,8 @@ export const Route = z.object({
   heightM: z.number().positive().optional(),
   firstAscent: z.string().optional(),
   firstAscentDate: PartialDate.optional(),
+  /** 首攀日期讀不成日期時的原文，例如「1990年代」 */
+  firstAscentDateLabel: z.string().optional(),
   description: z.string().optional(),
   safety: Safety.optional(),
   bolts: z.array(Bolt),

@@ -184,6 +184,8 @@ export function parseAreaSheet(text: string, opts: AreaSheetOptions): ParsedArea
       heightM: parseHeight(cell(C.height)),
       firstAscent: cleanPeople(first[C.fa]),
       firstAscentDate: parseDate(cell(C.faDate)),
+      // 讀不成日期的首攀日期（例如「1990年代」）保留原文，不推測日期
+      firstAscentDateLabel: parseDate(cell(C.faDate)) ? undefined : cleanText(first[C.faDate]),
       description: cleanParagraphs(first[C.description]),
       safety: safety.get(block.line - 1) ?? undefined,
       bolts,
