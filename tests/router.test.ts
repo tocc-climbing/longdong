@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { appPath, href, parseLocation, samePlace, withDetail } from '../src/router'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { appPath, href, navigate, parseLocation, samePlace, scrollAfter, withDetail } from '../src/router'
 
 describe('parseLocation', () => {
   it('ID 可以含 "/"', () => {
@@ -85,6 +85,42 @@ describe('samePlace：換頁時要不要捲回頂端', () => {
     expect(samePlace({ name: 'rescue' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
     expect(samePlace({ name: 'rescue', id: 'back-door' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
     expect(samePlace({ name: 'sector', id: 'a' }, { name: 'sector', id: 'b' })).toBe(false)
+  })
+})
+
+describe('上一頁回到原本的捲動位置', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('換頁前把這一頁的捲動位置記在它的瀏覽紀錄裡', () => {
+    const entries: { state: unknown; url: string }[] = [{ state: null, url: '/area/longdong/back-door' }]
+    vi.stubGlobal('location', {
+      get pathname() {
+        return entries.at(-1)!.url.split('?')[0]
+      },
+      search: '',
+    })
+    vi.stubGlobal('history', {
+      replaceState: (state: unknown, _: string, url?: string) => (entries[entries.length - 1] = { state, url: url ?? entries.at(-1)!.url }),
+      pushState: (state: unknown, _: string, url: string) => entries.push({ state, url }),
+    })
+    // 電腦版：內容區捲到 300，沒有清單欄
+    vi.stubGlobal('document', { querySelector: (selector: string) => (selector === '.shell-main' ? { scrollTop: 300 } : null) })
+    vi.stubGlobal('window', { scrollY: 2400, dispatchEvent: () => true })
+    navigate('/route/longdong/100')
+    expect(entries).toEqual([
+      { state: { scroll: { window: 2400, '.shell-main': 300 } }, url: '/area/longdong/back-door' },
+      { state: null, url: '/route/longdong/100' },
+    ])
+  })
+
+  it('上一頁、下一頁捲到記下的位置；其他換頁捲回頂端；同一頁不動', () => {
+    const area = { name: 'area', id: 'longdong/back-door' } as const
+    const route = { name: 'route', id: 'longdong/100' } as const
+    expect(scrollAfter(route, area, { scroll: { window: 2400 } })).toEqual({ window: 2400 })
+    expect(scrollAfter(area, route, null)).toEqual({})
+    expect(scrollAfter({ name: 'search', q: 'a' }, { name: 'search', q: 'ab' }, null)).toBeUndefined()
   })
 })
 
