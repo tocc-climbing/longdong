@@ -12,7 +12,7 @@ import { href } from '../router'
 
 /**
  * 區域頁：列出分區，點進去才看路線（只有一個分區時直接顯示路線）。
- * 上方左邊是名稱、路線數與救援按鈕，右邊是這個區域的地圖形狀。
+ * 上方是用區域顏色淡淡上色的標題卡：岩場名、名稱、路線數與救援按鈕，右側是這個區域的地圖形狀。
  * 電腦版畫面寬：標題區多放英文名、難度範圍、Bolt 數、路線種類、需要注意的路線數與整區的難度分佈；
  * 分區也多放英文名、難度範圍、種類與需要注意的路線數。
  */
@@ -34,8 +34,9 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
 
   return (
     <>
-      <div className="area-hero">
+      <div className="area-hero" style={{ '--area-color': area.color ?? 'var(--brand)' } as CSSProperties}>
         <div className="area-hero-text">
+          <p className="area-hero-crag">{localName(data.dataset.crag.name, lang).main}</p>
           <h1>
             {name.main}
             {wide && name.sub && <span className="en">{name.sub}</span>}
