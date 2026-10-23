@@ -6,13 +6,15 @@
  * - 每條路線一個固定不變的 ID（6 碼短碼，例如 7kq2mx），App 用它記錄使用者的收藏與攀登紀錄。
  * - 新增路線（填好編號與名稱）時自動產生 ID。
  * - 「路線ID」欄不能手動修改：任何人改到這一欄（打字、清除、貼上），都會立刻還原成原本的 ID。
- *   原本的 ID 依序從：編輯前的值 → 已發布的網站資料（同分頁、同編號、同名）找回；都找不到才產生新的。
+ *   原本的 ID 依序從：編輯前的值 → 已發布的網站資料（同編號、同名，未編號者同分頁、同名）找回；都找不到才產生新的。
  *   例外：改成已發布、且沒被其他路線使用的 ID 會被接受（匯入錯誤訊息要維護者把 ID 改回原本的）。
  * - 選單「路線ID → 補上缺少的 ID」：替沒有 ID 的路線找回或產生 ID，也會修正重複的 ID。
  *   先保留格式正確且不重複的現有 ID，再處理其餘的列，新路線不會搶走既有路線的 ID。
  */
 
 var ID_HEADER = '路線ID'
+// 對照表的鍵改變時換名稱，避免讀到舊格式的快取
+var CACHE_KEY = 'published-ids-v2'
 var HEADER_FIRST_CELL = '分區'
 // 正式站（firebase.json 的 hosting.site）
 var PUBLISHED_URL = 'https://longdong.web.app/data/longdong.json'
@@ -224,7 +226,7 @@ function resolveRowId(current, candidates, isUsed, currentIsPublished) {
  */
 function loadPublished(forceRefresh) {
   var cache = CacheService.getScriptCache()
-  var cached = forceRefresh ? null : cache.get('published-ids')
+  var cached = forceRefresh ? null : cache.get(CACHE_KEY)
   if (cached) return JSON.parse(cached)
   var res
   try {
@@ -233,7 +235,7 @@ function loadPublished(forceRefresh) {
     throw new Error(publishedError(err.message))
   }
   var index = parsePublished(res.getResponseCode(), res.getContentText())
-  cache.put('published-ids', JSON.stringify(index), 21600)
+  cache.put(CACHE_KEY, JSON.stringify(index), 21600)
   return index
 }
 
@@ -255,7 +257,11 @@ function publishedError(reason) {
   return '讀不到已發布的網站資料（' + PUBLISHED_URL + '，' + reason + '），無法找回原本的路線ID'
 }
 
-/** 已發布資料 → { 鍵: [ID…] }。鍵有三種：分頁|編號|名稱、分頁|名稱、分頁|編號 */
+/**
+ * 已發布資料 → { 鍵: [ID…] }。鍵有三種：
+ * - 編號|名稱（路線編號在全龍洞唯一，搬到別的分頁也找得到；未編號者為 分頁|名稱）
+ * - 分頁|名稱、分頁|編號
+ */
 function buildPublishedIndex(data) {
   var index = {}
   var add = function (key, id) {
@@ -270,7 +276,7 @@ function buildPublishedIndex(data) {
         var id = routes[r].id.split('/').pop()
         var no = routes[r].number || ''
         var name = routes[r].name.zh
-        add('full|' + area.name.zh + '|' + no + '|' + name, id)
+        add(fullKey(area.name.zh, no, name), id)
         add('name|' + area.name.zh + '|' + name, id)
         if (no) add('number|' + area.name.zh + '|' + no, id)
       }
@@ -292,7 +298,7 @@ function collectPublishedIds(index) {
 function lookupPublished(index, sheetName, rawNumber, rawName) {
   var no = normalizeNumber(rawNumber)
   var name = zhName(rawName)
-  var keys = ['full|' + sheetName + '|' + no + '|' + name, 'name|' + sheetName + '|' + name]
+  var keys = [fullKey(sheetName, no, name), 'name|' + sheetName + '|' + name]
   if (no) keys.push('number|' + sheetName + '|' + no)
   var out = []
   for (var i = 0; i < keys.length; i++) {
@@ -300,6 +306,11 @@ function lookupPublished(index, sheetName, rawNumber, rawName) {
     if (ids && ids.length === 1 && out.indexOf(ids[0]) < 0) out.push(ids[0])
   }
   return out
+}
+
+/** 同一條路線的鍵：有編號時不分分頁（與匯入程式的 ID 檢查一致） */
+function fullKey(sheetName, no, name) {
+  return no ? 'full|#' + no + '|' + name : 'full|' + sheetName + '|' + name
 }
 
 /** "# 523" → "523"；"0"、"# 0"、"0.00" 視為未編號 */

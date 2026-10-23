@@ -34,7 +34,8 @@ export function publishedRoutes(areas: Area[]): PublishedRoute[] {
  * 路線ID 的防呆檢查：
  * - ID 不可重複
  * - 已發布的 ID 不見了：
- *   - 同區域、同編號、同名的路線還在但 ID 不同 → ID 被改掉或清除後重新產生，擋下並提示改回原 ID
+ *   - 同編號、同名的路線還在但 ID 不同 → ID 被改掉或清除後重新產生，擋下並提示改回原 ID
+ *     （路線編號在全龍洞唯一，搬到別的分頁也找得到；未編號者限同區域）
  *   - 路線本身也不見了 → 視為刪除路線，放行
  *   - 一次刪除超過 MAX_REMOVALS_PER_IMPORT 條 → 多半是誤操作，擋下
  *     （確定要大量刪除時，把 ID 列入 allowRemoved，見 scripts/retired-ids.ts）
@@ -61,7 +62,7 @@ export function checkRouteIds(
   if (previous?.idSource !== 'sheet') return { errors, removed }
 
   const sameRoute = (a: PublishedRoute, b: PublishedRoute) =>
-    a.areaId === b.areaId && a.number === b.number && a.name === b.name
+    a.number === b.number && a.name === b.name && (a.number !== undefined || a.areaId === b.areaId)
   const allowed = new Set(allowRemoved)
 
   for (const old of previous.routes) {

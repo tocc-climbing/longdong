@@ -17,6 +17,7 @@ const appsScript = createRequire(import.meta.url)('../apps-script/RouteIds.gs') 
   ) => { id: string | null }
   normalizeNumber: (raw: string) => string
   zhName: (raw: string) => string
+  lookupPublished: (index: Record<string, string[]>, sheetName: string, rawNumber: string, rawName: string) => string[]
   parsePublished: (status: number, text: string) => Record<string, string[]>
   buildPublishedIndex: (data: unknown) => Record<string, string[]>
   repairRows: (
@@ -65,7 +66,7 @@ describe('Apps Script 讀取已發布的網站資料', () => {
 
   it('建立對照', () => {
     const data = { idSource: 'sheet', areas: [{ name: { zh: '後門' }, sectors: [{ routes: [{ id: 'longdong/7kq2mx', number: '1', name: { zh: 'ㄅ' } }] }] }] }
-    expect(appsScript.parsePublished(200, JSON.stringify(data))['full|後門|1|ㄅ']).toEqual(['7kq2mx'])
+    expect(appsScript.parsePublished(200, JSON.stringify(data))['full|#1|ㄅ']).toEqual(['7kq2mx'])
   })
 })
 
@@ -96,11 +97,11 @@ function fakeSpreadsheet(tabs: Record<string, string[][]>) {
   return { sheets }
 }
 
-/** 已發布資料的對照：[分頁, 編號, 名稱, ID] */
+/** 已發布資料的對照：[分頁, 編號（未編號為空字串）, 名稱, ID] */
 function publishedIndex(routes: [string, string, string, string][]) {
   const areas = [...new Set(routes.map((r) => r[0]))].map((zh) => ({
     name: { zh },
-    sectors: [{ routes: routes.filter((r) => r[0] === zh).map(([, number, name, id]) => ({ id: `longdong/${id}`, number, name: { zh: name } })) }],
+    sectors: [{ routes: routes.filter((r) => r[0] === zh).map(([, number, name, id]) => ({ id: `longdong/${id}`, number: number || undefined, name: { zh: name } })) }],
   }))
   return appsScript.buildPublishedIndex({ idSource: 'sheet', areas })
 }
@@ -162,6 +163,19 @@ describe('Apps Script「補上缺少的 ID」', () => {
 
   it('格式正確、不重複的現有 ID 保留', () => {
     expect(fill([['', '# 5', '甲', 'bbbbbb'], ['', '# 6', '乙', 'cccccc']], []).ids).toEqual(['bbbbbb', 'cccccc'])
+  })
+})
+
+describe('Apps Script 從已發布資料找回 ID', () => {
+  it('路線搬到別的分頁，以編號與名稱找回原本的 ID', () => {
+    const index = publishedIndex([['後門', '5', '甲', 'aaaaaa']])
+    expect(appsScript.lookupPublished(index, '黃金谷', '# 5', '甲')).toEqual(['aaaaaa'])
+  })
+
+  it('未編號的項目只找同分頁', () => {
+    const index = publishedIndex([['後門', '', '私設固定點', 'aaaaaa']])
+    expect(appsScript.lookupPublished(index, '黃金谷', '# 0', '私設固定點')).toEqual([])
+    expect(appsScript.lookupPublished(index, '後門', '# 0', '私設固定點')).toEqual(['aaaaaa'])
   })
 })
 
@@ -263,6 +277,27 @@ describe('checkRouteIds', () => {
   it('同一條路線的 ID 被改掉時擋下，並提示原本的 ID', () => {
     const { errors } = checkRouteIds('sheet', [pr('zzzzzz', '1', 'ㄅ')], prev([pr('ygapmg', '1', 'ㄅ')]))
     expect(errors).toEqual(['#1 ㄅ 的路線ID 從 ygapmg 變成 zzzzzz，請在 Sheet 把它改回 ygapmg'])
+  })
+
+  it('路線搬到別的分頁且 ID 被換掉時擋下（編號在全龍洞唯一）', () => {
+    const { errors, removed } = checkRouteIds(
+      'sheet',
+      [pr('zzzzzz', '1', 'ㄅ', 'longdong/golden-valley')],
+      prev([pr('ygapmg', '1', 'ㄅ')]),
+    )
+    expect(errors).toEqual(['#1 ㄅ 的路線ID 從 ygapmg 變成 zzzzzz，請在 Sheet 把它改回 ygapmg'])
+    expect(removed).toEqual([])
+  })
+
+  it('未編號的項目只在同區域比對（不同區域可能有同名的固定點）', () => {
+    const fixture = (id: string, areaId: string): PublishedRoute => ({ id: `longdong/${id}`, areaId, name: '私設固定點' })
+    const { errors, removed } = checkRouteIds(
+      'sheet',
+      [fixture('zzzzzz', 'longdong/golden-valley')],
+      prev([fixture('ygapmg', 'longdong/back-door')]),
+    )
+    expect(errors).toEqual([])
+    expect(removed.map((r) => r.id)).toEqual(['longdong/ygapmg'])
   })
 
   it('一次消失太多條視為誤刪，列入 allowRemoved 則放行', () => {
