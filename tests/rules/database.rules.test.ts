@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestContext, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 import { NOTE_MAX } from '../../src/personal/model'
-import { nameKey } from '../../src/social/model'
+import { nameKey, routeKey } from '../../src/social/model'
 
 /** context.database() 是相容版（compat）的 Database */
 type Database = ReturnType<RulesTestContext['database']>
@@ -179,6 +179,32 @@ describe('路線清單的最佳攀登方式（v2/personal/<uid>/best）', () => 
     await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, best('attempt')))
     await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, { routeId: ROUTE_ID, style: 'onsight' }))
     await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, best('onsight', { deleted: 'yes' })))
+  })
+})
+
+describe('評分、留言的路線 key 必須是路線ID 的格式（每位訪客都會下載整個評分節點）', () => {
+  const data = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as { areas: { sectors: { routes: { id: string }[] }[] }[] }
+  const routeIds = data.areas.flatMap((a) => a.sectors.flatMap((s) => s.routes.map((r) => r.id)))
+
+  it('資料檔裡每一條路線都可以評分、留言', async () => {
+    await assertSucceeds(update(mallory, Object.fromEntries(routeIds.map((id) => [`v2/ratings/${routeKey(id)}/mallory`, { stars: 3, updatedAt: iso() }]))))
+    await assertSucceeds(
+      update(mallory, Object.fromEntries(routeIds.map((id) => [`v2/comments/${routeKey(id)}/c1`, { uid: 'mallory', text: '+1', createdAt: serverTimestamp() }]))),
+    )
+  })
+
+  it('不是路線ID 格式的 key 不能新增', async () => {
+    for (const key of ['junk', 'longdong:jar2yu0', 'longdong:jar2y', 'longdong:JAR2YU', 'longdong:jar2y0', 'other:jar2yu', `longdong:${'x'.repeat(90)}`]) {
+      await assertFails(set(mallory, `v2/ratings/${key}/mallory`, { stars: 5, updatedAt: iso() }))
+      await assertFails(push(mallory, `v2/comments/${key}`, { uid: 'mallory', text: 'spam', createdAt: serverTimestamp() }))
+    }
+  })
+
+  it('舊格式 key 底下已有的評分、留言仍可刪除（刪除帳號時一併刪）', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      ctx.database().ref('v2').update({ 'ratings/longdong:523/alice': { stars: 4, updatedAt: iso() }, 'comments/longdong:523/m2': { uid: 'alice', text: '舊', createdAt: 1 } }),
+    )
+    await assertSucceeds(update(alice, { 'v2/ratings/longdong:523/alice': null, 'v2/comments/longdong:523/m2': null }))
   })
 })
 
