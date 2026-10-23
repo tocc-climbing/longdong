@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { href, parseLocation, samePlace, withDetail } from '../src/router'
+import { appPath, href, parseLocation, samePlace, withDetail } from '../src/router'
 
 describe('parseLocation', () => {
   it('ID 可以含 "/"', () => {
@@ -31,6 +31,22 @@ describe('parseLocation', () => {
     expect(parseLocation('/me?r=longdong/523')).toEqual({ name: 'me', detail: 'longdong/523' })
     // 路線頁本身不帶右側路線
     expect(parseLocation('/route/longdong/1?r=longdong/2')).toEqual({ name: 'route', id: 'longdong/1' })
+  })
+})
+
+describe('站內連結由路由換頁', () => {
+  const origin = 'https://longdong.web.app'
+  it('App 的頁面由路由換頁；服務條款、隱私權政策等靜態檔案交給瀏覽器載入', () => {
+    expect(appPath(new URL('/about', origin), origin)).toBe('/about')
+    expect(appPath(new URL('/search?q=5.10', origin), origin)).toBe('/search?q=5.10')
+    expect(appPath(new URL('/', origin), origin)).toBe('/')
+    expect(appPath(new URL('./terms.html', `${origin}/about`), origin)).toBeUndefined()
+    expect(appPath(new URL('./privacy.html', `${origin}/about`), origin)).toBeUndefined()
+    expect(parseLocation('/terms.html')).toEqual({ name: 'notFound' })
+  })
+
+  it('外部連結交給瀏覽器', () => {
+    expect(appPath(new URL('https://www.tocc-climbing.org/ems-project'), origin)).toBeUndefined()
   })
 })
 

@@ -23,6 +23,8 @@ export type Page = (
   | { name: 'admin' }
   | { name: 'bolts' }
   | { name: 'checklist' }
+  /** 不是 App 的頁面（例如 /terms.html 等靜態檔案）：站內連結不攔，直接載入時顯示找不到頁面 */
+  | { name: 'notFound' }
 ) & { detail?: string }
 
 /** 解析網址的路徑與查詢字串（/area/…?r=…） */
@@ -49,7 +51,8 @@ export function parseLocation(location: string): Page {
   if (kind === 'bolts') return { name: 'bolts' }
   if (kind === 'checklist') return { name: 'checklist' }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
-  return { name: 'home' }
+  if (!kind) return { name: 'home' }
+  return { name: 'notFound' }
 }
 
 // ID 只含 [a-z0-9./-]，不需要編碼
@@ -90,16 +93,23 @@ export function navigate(to: string, { replace = false } = {}): void {
   window.dispatchEvent(new Event(CHANGE))
 }
 
+/** 連結要由路由換頁時的路徑（路徑＋查詢字串）；外部連結、不是 App 頁面的靜態檔案（/terms.html）回傳 undefined，交給瀏覽器載入 */
+export function appPath(url: URL, origin: string): string | undefined {
+  if (url.origin !== origin) return undefined
+  const path = url.pathname + url.search
+  return parseLocation(path).name === 'notFound' ? undefined : path
+}
+
 if (typeof document !== 'undefined') {
-  // 站內連結（<a href="/…">）不重新載入，改由路由換頁；新分頁、下載、外部連結照常
+  // 站內連結（<a href="/…">）不重新載入，改由路由換頁；新分頁、下載、外部連結、靜態檔案照常
   document.addEventListener('click', (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
     const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
     if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return
-    const url = new URL(a.href)
-    if (url.origin !== location.origin) return
+    const path = appPath(new URL(a.href), location.origin)
+    if (path === undefined) return
     e.preventDefault()
-    navigate(url.pathname + url.search)
+    navigate(path)
   })
 }
 
