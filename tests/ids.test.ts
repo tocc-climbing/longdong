@@ -76,7 +76,7 @@ type FakeSheet = ReturnType<typeof fakeSpreadsheet>['sheets'][number]
 function fakeSpreadsheet(tabs: Record<string, string[][]>) {
   const ss = { getSheets: () => sheets }
   const sheets = Object.entries(tabs).map(([name, rows], i) => {
-    const grid = [['分區', '路線編號', '路線名稱', '路線ID'], ...rows]
+    const grid = [['分區', '路線編號', '路線名稱', '路線ID'], ...rows.map((r) => [...r])]
     return {
       grid,
       getName: () => name,
@@ -120,6 +120,48 @@ describe('Apps Script 編輯「路線ID」欄', () => {
     const { sheets } = fakeSpreadsheet({ 後門: [['', '# 1', 'ㄅ', 'abcdef']] })
     appsScript.repairRows(sheets[0], LAYOUT, { from: 2, to: 2 }, 'ygapmg', publishedIndex([['後門', '1', 'ㄅ', 'ygapmg']]))
     expect(ids(sheets[0])).toEqual(['ygapmg'])
+  })
+})
+
+describe('Apps Script「補上缺少的 ID」', () => {
+  const fill = (rows: string[][], published: [string, string, string, string][]) => {
+    const { sheets } = fakeSpreadsheet({ 後門: rows })
+    const result = appsScript.repairRows(sheets[0], LAYOUT, null, null, publishedIndex(published))
+    return { ids: ids(sheets[0]), result }
+  }
+
+  it('新路線不會搶走改了編號的路線原本的 ID，結果與列的順序無關', () => {
+    // 甲從 #5 改成 #6（ID aaaaaa 不變），之後在 #5 新增乙
+    const published: [string, string, string, string][] = [['後門', '5', '甲', 'aaaaaa']]
+    const newRoute = ['', '# 5', '乙', '']
+    const renumbered = ['', '# 6', '甲', 'aaaaaa']
+    for (const rows of [[newRoute, renumbered], [renumbered, newRoute]]) {
+      const { ids: out, result } = fill(rows, published)
+      expect(out[rows.indexOf(renumbered)]).toBe('aaaaaa')
+      expect(out[rows.indexOf(newRoute)]).toMatch(ROUTE_ID)
+      expect(out[rows.indexOf(newRoute)]).not.toBe('aaaaaa')
+      expect(result).toEqual({ restored: 0, created: 1 })
+    }
+  })
+
+  it('複製整列造成的重複 ID，原路線保留、複製的換新，與列的順序無關', () => {
+    const published: [string, string, string, string][] = [['後門', '5', '甲', 'aaaaaa']]
+    const original = ['', '# 5', '甲', 'aaaaaa']
+    const copy = ['', '# 7', '丙', 'aaaaaa']
+    for (const rows of [[original, copy], [copy, original]]) {
+      const { ids: out } = fill(rows, published)
+      expect(out[rows.indexOf(original)]).toBe('aaaaaa')
+      expect(out[rows.indexOf(copy)]).toMatch(ROUTE_ID)
+      expect(out[rows.indexOf(copy)]).not.toBe('aaaaaa')
+    }
+  })
+
+  it('現有 ID 沒發布過、而這條路線已發布的 ID 沒被使用時，找回已發布的 ID', () => {
+    expect(fill([['', '# 5', '甲', 'bbbbbb']], [['後門', '5', '甲', 'aaaaaa']]).ids).toEqual(['aaaaaa'])
+  })
+
+  it('格式正確、不重複的現有 ID 保留', () => {
+    expect(fill([['', '# 5', '甲', 'bbbbbb'], ['', '# 6', '乙', 'cccccc']], []).ids).toEqual(['bbbbbb', 'cccccc'])
   })
 })
 

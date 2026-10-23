@@ -9,6 +9,7 @@
  *   原本的 ID 依序從：編輯前的值 → 已發布的網站資料（同分頁、同編號、同名）找回；都找不到才產生新的。
  *   例外：改成已發布、且沒被其他路線使用的 ID 會被接受（匯入錯誤訊息要維護者把 ID 改回原本的）。
  * - 選單「路線ID → 補上缺少的 ID」：替沒有 ID 的路線找回或產生 ID，也會修正重複的 ID。
+ *   先保留格式正確且不重複的現有 ID，再處理其餘的列，新路線不會搶走既有路線的 ID。
  */
 
 var ID_HEADER = '路線ID'
@@ -145,14 +146,24 @@ function repairRows(sheet, layout, rows, oldValue, published) {
   var changed = false
   var claimed = {}
   var publishedIds = collectPublishedIds(published)
+  var currents = []
+  var candidatesOf = []
   for (var t = 0; t < targets.length; t++) {
     var k = targets[t]
-    var current = String(ids[k][0]).trim()
-    var candidates = []
-    if (oldValue) candidates.push(String(oldValue).trim())
-    var fromPublished = lookupPublished(published, sheet.getName(), numbers[k][0], names[k][0])
-    candidates = candidates.concat(fromPublished)
-    var decision = resolveRowId(current, candidates, function (id) {
+    currents[t] = String(ids[k][0]).trim()
+    candidatesOf[t] = (oldValue ? [String(oldValue).trim()] : []).concat(
+      lookupPublished(published, sheet.getName(), numbers[k][0], names[k][0]),
+    )
+  }
+  // 整頁補上時分兩輪，結果不受列的順序影響：先保留現有的 ID，再替其餘的列找回或產生
+  var kept = rows ? [] : keepExistingIds(currents, candidatesOf, usedElsewhere, publishedIds)
+  for (var j = 0; j < kept.length; j++) if (kept[j]) claimed[currents[j]] = true
+  for (t = 0; t < targets.length; t++) {
+    if (kept[t]) continue
+    k = targets[t]
+    var current = currents[t]
+    // 整頁補上的第二輪只處理空白、格式不對或重複的 ID，現有值不再採用
+    var decision = resolveRowId(rows ? current : '', candidatesOf[t], function (id) {
       return usedElsewhere[id] === true || claimed[id] === true
     }, publishedIds[current] === true)
     var id = decision.id || newUniqueId(mergeUsed(usedElsewhere, claimed))
@@ -166,6 +177,26 @@ function repairRows(sheet, layout, rows, oldValue, published) {
   }
   if (changed) idRange.setValues(ids)
   return { restored: restored, created: created }
+}
+
+/**
+ * 整頁補上的第一輪（純函式，方便測試）：回傳各列是否保留現有的 ID。保留的條件：
+ * - 格式正確、在 Sheet 中不重複
+ * - 是已發布的 ID；或不是，但這條路線沒有可找回的已發布 ID（沒被任何列使用的候選）
+ */
+function keepExistingIds(currents, candidatesOf, usedElsewhere, publishedIds) {
+  var count = {}
+  for (var i = 0; i < currents.length; i++) count[currents[i]] = (count[currents[i]] || 0) + 1
+  var free = function (id) {
+    return ID_PATTERN.test(id) && !usedElsewhere[id] && !count[id]
+  }
+  var kept = []
+  for (i = 0; i < currents.length; i++) {
+    var c = currents[i]
+    kept[i] =
+      ID_PATTERN.test(c) && count[c] === 1 && !usedElsewhere[c] && (publishedIds[c] === true || !candidatesOf[i].some(free))
+  }
+  return kept
 }
 
 /**
