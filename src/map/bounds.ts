@@ -7,7 +7,7 @@ import type { Rect } from './mapView'
 const PADDING_M = { west: 80, east: 220, north: 200, south: 40 }
 
 /** 有座標的救援點（地圖座標） */
-export const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ no: p.no, at: project(p.coords!) }))
+export const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ key: p.key, no: p.no, at: project(p.coords!) }))
 const xs = located.map((p) => p.at[0])
 const ys = located.map((p) => p.at[1])
 

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset } from '../src/data/schema'
-import { AREA_RESCUE, EMS_LOCATIONS, RESCUE_POINTS, formatCoords, mapUrl, rescueKey } from '../src/data/rescue'
+import { AREA_RESCUE, EMS_LOCATIONS, RESCUE_POINTS, formatCoords, mapUrl, rescueKey, rescuePoint } from '../src/data/rescue'
 import { parseLocation } from '../src/router'
 
 const dataset = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as Dataset
@@ -27,6 +27,13 @@ describe('救援資訊', () => {
   it('15 個救援點、6 處急救器材', () => {
     expect(new Set(RESCUE_POINTS.map((p) => p.no)).size).toBe(15)
     expect(EMS_LOCATIONS.map((e) => e.no)).toEqual([1, 2, 3, 4, 5, 6])
+  })
+
+  it('#12 的兩個救援點（地下二樓、地下一樓）各自選得到自己的座標', () => {
+    expect(new Set(RESCUE_POINTS.map((p) => p.key)).size).toBe(RESCUE_POINTS.length)
+    const [b2, b1] = RESCUE_POINTS.filter((p) => p.no === 12)
+    expect(rescuePoint(b2.key)?.coords).toEqual([25.104733, 121.922833])
+    expect(rescuePoint(b1.key)?.coords).toEqual([25.103783, 121.922933])
   })
 
   it('座標都在龍洞一帶，且不同救援點不共用座標（地圖上「第二洞外」誤植為 #1 的座標）', () => {

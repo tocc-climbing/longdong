@@ -21,6 +21,8 @@ export const RESCUE_SOURCE = {
 export const EMERGENCY_NUMBERS = ['119', '112', '118'] as const
 
 export interface RescuePoint {
+  /** 救援點的識別：#12 有地下二樓、地下一樓兩個點共用編號，選取與比對一律用 key，不用 no */
+  key: string
   /** 地圖上的編號 */
   no: number
   name: LocalizedName
@@ -34,22 +36,22 @@ export interface RescuePoint {
  * 救援計畫團隊確認正確座標前不列入。英文名稱只列地圖或救援計畫頁上有的，其餘顯示中文原名。
  */
 export const RESCUE_POINTS: RescuePoint[] = [
-  { no: 1, name: { zh: '龍洞安檢所', en: 'Coast Guard Long-Dong Inspection Office' }, coords: [25.111783, 121.91515] },
-  { no: 2, name: { zh: '龍洞岩場入口／校門口小徑', en: '龍洞岩場入口／School Gate Trail' }, coords: [25.113133, 121.92035] },
-  { no: 3, name: { zh: '校門口', en: 'School Gate' }, coords: [25.1129, 121.921617] },
-  { no: 4, name: { zh: '鐘塔', en: 'Clocktower' }, coords: [25.111367, 121.922917] },
-  { no: 5, name: { zh: '訓導處' }, coords: [25.110967, 121.922767] },
-  { no: 6, name: { zh: '長巷', en: 'Long Lane' }, coords: [25.11065, 121.922983] },
-  { no: 7, name: { zh: '音樂廳／演奏台', en: 'Music Hall / Recital Stage' }, coords: [25.110067, 121.922767] },
-  { no: 8, name: { zh: '大禮堂／第一洞', en: 'Grand Auditorium / First Cave' }, coords: [25.109867, 121.922233] },
-  { no: 9, name: { zh: '黃金谷小徑／龍洞灣步道', en: 'Golden Valley Trail / Long Dong Cape Bay Trail' } },
-  { no: 10, name: { zh: '黃金谷', en: 'Golden Valley' }, coords: [25.1067, 121.922483] },
-  { no: 11, name: { zh: '鱷魚岬', en: 'Crocodile Cape' }, coords: [25.105583, 121.923117] },
-  { no: 12, name: { zh: '後門－地下二樓', en: 'Back Door – Basement' }, coords: [25.104733, 121.922833] },
-  { no: 12, name: { zh: '後門－地下一樓', en: 'Back Door – B1' }, coords: [25.103783, 121.922933] },
-  { no: 13, name: { zh: '後門小徑', en: 'Back Door Trail' } },
-  { no: 14, name: { zh: '南側停車場（西靈巖寺）', en: 'South Parking Lot (Hsilingyan Temple)' }, coords: [25.105167, 121.922183] },
-  { no: 15, name: { zh: '龍洞南口海洋公園', en: 'Long Dong South Ocean Park' }, coords: [25.101567, 121.919333] },
+  { key: '1', no: 1, name: { zh: '龍洞安檢所', en: 'Coast Guard Long-Dong Inspection Office' }, coords: [25.111783, 121.91515] },
+  { key: '2', no: 2, name: { zh: '龍洞岩場入口／校門口小徑', en: '龍洞岩場入口／School Gate Trail' }, coords: [25.113133, 121.92035] },
+  { key: '3', no: 3, name: { zh: '校門口', en: 'School Gate' }, coords: [25.1129, 121.921617] },
+  { key: '4', no: 4, name: { zh: '鐘塔', en: 'Clocktower' }, coords: [25.111367, 121.922917] },
+  { key: '5', no: 5, name: { zh: '訓導處' }, coords: [25.110967, 121.922767] },
+  { key: '6', no: 6, name: { zh: '長巷', en: 'Long Lane' }, coords: [25.11065, 121.922983] },
+  { key: '7', no: 7, name: { zh: '音樂廳／演奏台', en: 'Music Hall / Recital Stage' }, coords: [25.110067, 121.922767] },
+  { key: '8', no: 8, name: { zh: '大禮堂／第一洞', en: 'Grand Auditorium / First Cave' }, coords: [25.109867, 121.922233] },
+  { key: '9', no: 9, name: { zh: '黃金谷小徑／龍洞灣步道', en: 'Golden Valley Trail / Long Dong Cape Bay Trail' } },
+  { key: '10', no: 10, name: { zh: '黃金谷', en: 'Golden Valley' }, coords: [25.1067, 121.922483] },
+  { key: '11', no: 11, name: { zh: '鱷魚岬', en: 'Crocodile Cape' }, coords: [25.105583, 121.923117] },
+  { key: '12-b2', no: 12, name: { zh: '後門－地下二樓', en: 'Back Door – Basement' }, coords: [25.104733, 121.922833] },
+  { key: '12-b1', no: 12, name: { zh: '後門－地下一樓', en: 'Back Door – B1' }, coords: [25.103783, 121.922933] },
+  { key: '13', no: 13, name: { zh: '後門小徑', en: 'Back Door Trail' } },
+  { key: '14', no: 14, name: { zh: '南側停車場（西靈巖寺）', en: 'South Parking Lot (Hsilingyan Temple)' }, coords: [25.105167, 121.922183] },
+  { key: '15', no: 15, name: { zh: '龍洞南口海洋公園', en: 'Long Dong South Ocean Park' }, coords: [25.101567, 121.919333] },
 ]
 
 export interface EmsLocation {
@@ -101,6 +103,11 @@ export const AREA_RESCUE: Record<string, { points: number[]; ems: number }> = {
 export function rescueKey(areaId: string): string | undefined {
   const key = areaId.split('/').pop()!
   return key in AREA_RESCUE ? key : undefined
+}
+
+/** 依 key 找救援點 */
+export function rescuePoint(key: string): RescuePoint | undefined {
+  return RESCUE_POINTS.find((p) => p.key === key)
 }
 
 /** 「25.106700, 121.922483」：照地圖上的寫法固定 6 位小數 */
