@@ -1,0 +1,74 @@
+name: Database rules
+
+# 資料庫規則（firebase/database.rules.json）的檢查與部署。
+# 開發站與正式站共用同一個資料庫（longdong.firebaseio.com），規則一部署正式站立即生效，
+# 所以只在發布（推送 release）時部署，與正式版程式一起上線：
+# - PR 改到規則：伺服器端 dry-run 檢查語法，並在檢查結果的摘要列出與線上規則的差異
+# - 推送 release 且規則有變：部署
+# - 手動執行：部署 release 的規則（例如補部署）
+# 直接用 REST API 指定 longdong 這個資料庫，不經 firebase deploy（firebase.json 沒指定 instance 時會部署到專案的預設資料庫）
+on:
+  pull_request:
+    # 改到這個 workflow 本身時也檢查一次（確認服務帳號的權限）
+    paths: [firebase/database.rules.json, .github/workflows/rules.yml]
+  push:
+    branches: [release]
+    paths: [firebase/database.rules.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rules-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: false
+
+env:
+  RULES_URL: https://longdong.firebaseio.com/.settings/rules.json
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 手動執行時部署正式版（release）的規則
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'release' || '' }}
+
+      # 服務帳號需要 Firebase Realtime Database Admin 角色
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321 }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/firebase.database,https://www.googleapis.com/auth/userinfo.email
+          create_credentials_file: false
+
+      - name: 與線上規則的差異
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          curl -sSf -H "Authorization: Bearer $TOKEN" "$RULES_URL" > "$RUNNER_TEMP/live.json"
+          set +e
+          diff -u <(jq -S . "$RUNNER_TEMP/live.json") <(jq -S . firebase/database.rules.json) > "$RUNNER_TEMP/rules.diff"
+          rc=$?
+          set -e
+          [ "$rc" -le 1 ] || exit "$rc"
+          {
+            echo "## 與線上規則的差異"
+            if [ "$rc" = 0 ]; then echo "與線上規則相同"; else echo '```diff'; cat "$RUNNER_TEMP/rules.diff"; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/rules.diff"
+
+      - name: 檢查規則（dry-run）
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          curl -sS --fail-with-body -X PUT -H "Authorization: Bearer $TOKEN" --data-binary @firebase/database.rules.json "$RULES_URL?dryRun=true"
+
+      - name: 部署規則
+        if: github.event_name != 'pull_request'
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          curl -sS --fail-with-body -X PUT -H "Authorization: Bearer $TOKEN" --data-binary @firebase/database.rules.json "$RULES_URL"
