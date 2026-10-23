@@ -3,7 +3,7 @@ import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
 import { project, unproject, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
-import { MIN_SCALE, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type MapView, type Rect, type Size } from './mapView'
+import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
 import './map.css'
@@ -256,21 +256,22 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
 
   const me = here && project(here.coords)
 
-  // 移到目前位置：第一次定位到（在龍洞範圍內）時自動移過去；按了「回到我的位置」但還沒定位時，定位到再移過去
-  const pendingCenter = useRef(!focus)
+  // 移到目前位置：第一次定位到（在龍洞範圍內）時自動移過去；按了「回到我的位置」但還沒定位時，定位到再移過去。
+  // 之後換了聚焦就以聚焦為準（centerPending）
+  const centerRequest = useRef<CenterRequest | undefined>(focus ? undefined : { focus: undefined })
   const goToMe = (at: Vec) => {
-    pendingCenter.current = false
+    centerRequest.current = undefined
     apply((v) => ({ ...v, cx: at[0], cy: at[1], s: Math.min(v.s, ME_SCALE) }))
   }
   useEffect(() => {
-    if (pendingCenter.current && me && view && inBounds(me)) goToMe(me)
+    if (centerPending(centerRequest.current, focus?.key) && me && view && inBounds(me)) goToMe(me)
   }, [me?.[0], me?.[1], !!view])
 
   const locate = () => {
     // 在範圍外：移過去只會看到範圍邊緣的空白，地圖不動
     if (me) {
       if (inBounds(me)) goToMe(me)
-    } else pendingCenter.current = true
+    } else centerRequest.current = { focus: focus?.key }
     onLocate?.()
   }
 
