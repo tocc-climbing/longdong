@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { bestStyle, mergeRecords, sentRouteIds, today, type Tick } from '../src/personal/model'
+import { bestStyle, mergeRecords, NOTE_MAX, sentRouteIds, today, type Tick } from '../src/personal/model'
 import { addTick, applyRecords, clearAll, deleteTick, exportAll, setBest, setFavorite } from '../src/personal/store'
 
 const tick = (id: string, updatedAt: string, over: Partial<Tick> = {}): Tick => ({
@@ -59,6 +59,25 @@ describe('store（IndexedDB）', () => {
     // 較舊的版本（例如另一台裝置）不會蓋掉清除
     const older = { ...best!.find((b) => b.routeId === 'longdong/bbbbbb')!, deleted: false, updatedAt: '2000-01-01T00:00:00Z' }
     expect((await applyRecords([], [], [older])).best).toBe(0)
+    await clearAll()
+  })
+
+  it('備註超過上限（資料庫規則會拒絕）時不寫入本機', async () => {
+    await expect(addTick({ routeId: 'longdong/328ac2', date: '2026-10-01', style: 'redpoint', note: 'x'.repeat(NOTE_MAX + 1) })).rejects.toThrow()
+    await addTick({ routeId: 'longdong/328ac2', date: '2026-10-01', style: 'redpoint', note: 'x'.repeat(NOTE_MAX) })
+    const { ticks } = await exportAll()
+    expect(ticks.map((t) => t.note?.length)).toEqual([NOTE_MAX])
+    await clearAll()
+  })
+
+  it('刪除標記不留備註：本機留有超過上限備註的舊紀錄也能刪除並同步', async () => {
+    // 加上上限之前存下的紀錄
+    await applyRecords([], [tick('old', '2026-10-01T00:00:00Z', { note: 'x'.repeat(NOTE_MAX + 1) })])
+    await deleteTick('old')
+    const { ticks } = await exportAll()
+    expect(ticks).toEqual([
+      { id: 'old', routeId: 'longdong/328ac2', date: '2026-10-01', style: 'redpoint', createdAt: '2026-10-01T00:00:00Z', updatedAt: expect.any(String), deleted: true },
+    ])
     await clearAll()
   })
 })

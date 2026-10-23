@@ -53,6 +53,9 @@ export interface Favorite extends Syncable {
   routeId: string
 }
 
+/** 攀登紀錄備註的字數上限（UTF-16 字元數，與 firebase/database.rules.json 的 ticks.note 相同） */
+export const NOTE_MAX = 1000
+
 export interface Tick extends Syncable {
   id: string
   routeId: string

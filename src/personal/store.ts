@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { useSyncExternalStore } from 'react'
-import { mergeRecords, newId, type Best, type BestStyle, type Favorite, type PersonalExport, type Tick } from './model'
+import { mergeRecords, newId, NOTE_MAX, type Best, type BestStyle, type Favorite, type PersonalExport, type Tick } from './model'
 
 interface PersonalDB extends DBSchema {
   favorites: { key: string; value: Favorite }
@@ -101,6 +101,8 @@ export async function setFavorite(routeId: string, on: boolean): Promise<void> {
 }
 
 export async function addTick(input: Pick<Tick, 'routeId' | 'date' | 'style' | 'note'>): Promise<void> {
+  // 超過上限的備註會被資料庫規則拒絕，同步時不斷重寫；在寫入本機前就拒絕
+  if (input.note && input.note.length > NOTE_MAX) throw new Error(`note longer than ${NOTE_MAX}`)
   const t = now()
   const tick: Tick = { id: newId(), ...input, createdAt: t, updatedAt: t }
   if (!tick.note) delete tick.note
@@ -113,7 +115,8 @@ export async function deleteTick(id: string): Promise<void> {
   const d = await db()
   const tick = await d.get('ticks', id)
   if (!tick) return
-  const deleted: Tick = { ...tick, deleted: true, updatedAt: now() }
+  // 刪除標記不留備註：已刪除的不需要，也讓本機留有超過上限備註的舊紀錄能被刪掉並同步
+  const deleted: Tick = { id: tick.id, routeId: tick.routeId, date: tick.date, style: tick.style, createdAt: tick.createdAt, updatedAt: now(), deleted: true }
   await d.put('ticks', deleted)
   await refresh()
   notify({ tick: deleted })

@@ -9,6 +9,7 @@
 import { readFileSync } from 'node:fs'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestContext, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
+import { NOTE_MAX } from '../../src/personal/model'
 import { nameKey } from '../../src/social/model'
 
 /** context.database() 是相容版（compat）的 Database */
@@ -178,6 +179,17 @@ describe('路線清單的最佳攀登方式（v2/personal/<uid>/best）', () => 
     await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, best('attempt')))
     await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, { routeId: ROUTE_ID, style: 'onsight' }))
     await assertFails(set(alice, `v2/personal/alice/best/${ROUTE}`, best('onsight', { deleted: 'yes' })))
+  })
+})
+
+describe('攀登紀錄的備註（v2/personal/<uid>/ticks）', () => {
+  it('上限與 App 的 NOTE_MAX 相同（中文字也以一個字計）', async () => {
+    await assertSucceeds(set(alice, 'v2/personal/alice/ticks/t1', { ...tick('t1'), note: '龍'.repeat(NOTE_MAX) }))
+    await assertFails(set(alice, 'v2/personal/alice/ticks/t1', { ...tick('t1'), note: 'x'.repeat(NOTE_MAX + 1) }))
+  })
+
+  it('刪除標記（沒有備註）可以寫入', async () => {
+    await assertSucceeds(set(alice, 'v2/personal/alice/ticks/t1', { ...tick('t1'), deleted: true }))
   })
 })
 
