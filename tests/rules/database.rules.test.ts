@@ -339,6 +339,16 @@ describe('暱稱不能重複（不分大小寫、看起來一樣的寫法視為�
     await assertSucceeds(update(alice, { 'v2/names/alice': null, 'v2/profiles/alice': null }))
   })
 
+  it('刪除個人資料時必須同時釋放暱稱，不能用刪除再改名的方式佔用多個暱稱', async () => {
+    await assertSucceeds(claim(mallory, 'mallory', 'Bob'))
+    await assertFails(remove(mallory, 'v2/profiles/mallory'))
+    await assertSucceeds(update(mallory, { 'v2/profiles/mallory': null, 'v2/names/bob': null }))
+    // 舊帳號（沒有登記 names）、沒有個人資料的帳號：刪除帳號照常
+    const carol = env.authenticatedContext('carol').database()
+    await assertSucceeds(remove(carol, 'v2/profiles/carol'))
+    await assertSucceeds(update(mallory, { 'v2/profiles/mallory': null, 'v2/personal/mallory': null }))
+  })
+
   it('舊帳號（沒有登記 names）改暱稱：登記新的即可', async () => {
     const carol = env.authenticatedContext('carol').database()
     await assertSucceeds(claim(carol, 'carol', 'Caroline'))
