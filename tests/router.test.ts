@@ -17,6 +17,11 @@ describe('parseLocation', () => {
     expect(parseLocation('/')).toEqual({ name: 'home' })
   })
 
+  it('路徑的 % 編碼不合法（/area/%）：找不到頁面，不丟出例外讓整個 App 空白', () => {
+    expect(parseLocation('/area/%')).toEqual({ name: 'notFound' })
+    expect(parseLocation('/route/longdong/%E9%BB')).toEqual({ name: 'notFound' })
+  })
+
   it('結尾的 / 不影響', () => {
     expect(parseLocation('/route/longdong/jar2yu/')).toEqual({ name: 'route', id: 'longdong/jar2yu' })
   })

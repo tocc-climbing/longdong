@@ -33,7 +33,9 @@ export function parseLocation(location: string): Page {
   const params = new URLSearchParams(query)
   const r = params.get('r')
   const extra = r ? { detail: r } : {}
-  const [, kind, ...rest] = decodeURIComponent(rawPath).replace(/\/+$/, '').split('/')
+  const path = decodePath(rawPath)
+  if (path === undefined) return { name: 'notFound' }
+  const [, kind, ...rest] = path.replace(/\/+$/, '').split('/')
   const id = rest.join('/')
   if (kind === 'area' && id) return { name: 'area', id, ...extra }
   if (kind === 'route' && id) return { name: 'route', id }
@@ -53,6 +55,16 @@ export function parseLocation(location: string): Page {
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
   if (!kind) return { name: 'home' }
   return { name: 'notFound' }
+}
+
+/** 解碼網址的路徑；% 後面不是合法的編碼（例如 /area/%）時不是任何頁面，回傳 undefined */
+function decodePath(rawPath: string): string | undefined {
+  try {
+    return decodeURIComponent(rawPath)
+  } catch {
+    // decodeURIComponent 只會因為編碼不合法丟出 URIError
+    return undefined
+  }
 }
 
 // ID 只含 [a-z0-9./-]，不需要編碼
