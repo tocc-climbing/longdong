@@ -35,14 +35,32 @@ jobs:
           # 手動執行時部署正式版（release）的規則
           ref: ${{ github.event_name == 'workflow_dispatch' && 'release' || '' }}
 
-      # 服務帳號需要 Firebase Realtime Database Admin 角色
+      # 服務帳號需要 Firebase Realtime Database Admin 角色。
+      # 以服務帳號金鑰簽 JWT 向 Google 換存取權杖（OAuth 2.0 JWT bearer）；
+      # 不用 google-github-actions/auth 的 token_format，它要專案啟用 IAM Service Account Credentials API
       - id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321 }}
-          token_format: access_token
-          access_token_scopes: https://www.googleapis.com/auth/firebase.database,https://www.googleapis.com/auth/userinfo.email
-          create_credentials_file: false
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROJECT_2803619783974357321 }}
+        run: |
+          node --input-type=module -e '
+            import { createSign } from "node:crypto"
+            import { appendFileSync } from "node:fs"
+            const sa = JSON.parse(process.env.SERVICE_ACCOUNT)
+            const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url")
+            const now = Math.floor(Date.now() / 1000)
+            const scope = "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email"
+            const body = b64({ alg: "RS256", typ: "JWT" }) + "." + b64({ iss: sa.client_email, scope, aud: sa.token_uri, iat: now, exp: now + 3600 })
+            const jwt = body + "." + createSign("RSA-SHA256").update(body).sign(sa.private_key, "base64url")
+            const res = await fetch(sa.token_uri, {
+              method: "POST",
+              headers: { "content-type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
+            })
+            const json = await res.json()
+            if (!res.ok) throw new Error(`換取存取權杖失敗：${res.status} ${JSON.stringify(json)}`)
+            console.log(`::add-mask::${json.access_token}`)
+            appendFileSync(process.env.GITHUB_OUTPUT, `access_token=${json.access_token}\n`)
+          '
 
       - name: 與線上規則的差異
         env:
