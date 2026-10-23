@@ -47,6 +47,7 @@ export const ja: Messages = {
   'count.routes': '{n} ルート',
   'count.routesShort': '{n} 本',
   'count.sectors': '{n} セクター',
+  'count.bolts': 'ボルト {n} 本',
 
   'type.sport': 'スポーツ',
   'type.trad': 'トラッド',

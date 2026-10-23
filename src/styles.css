@@ -4479,9 +4479,6 @@ main.map > div {
 }
 
 /* 區域頁上方：區域形狀不要佔太寬 */
-[data-layout='wide'] .area-hero {
-  grid-template-columns: minmax(0, 1fr) 280px;
-}
 
 /* 回報位置送出後：打勾、綠色 */
 .route-actions .place-report-button.on {
@@ -4517,4 +4514,76 @@ main.map > div {
 
 body:has(.sim-banner) main.map:not(.shell main.map) {
   top: calc(52px + 32px + env(safe-area-inset-top));
+}
+
+/* ---------- 區域頁、首頁的區域列表（電腦版）：多放英文名、種類、需要注意的路線數 ---------- */
+
+.area-alerts {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: 10px;
+  font-weight: 700;
+}
+
+.area-alerts .warn {
+  color: #b77800;
+}
+
+.area-alerts .danger {
+  color: var(--danger);
+}
+
+/* 手機只放名稱、路線數與難度分佈 */
+[data-layout='mobile'] .area-alerts {
+  display: none;
+}
+
+[data-layout='wide'] .area-row :is(.en, .area-types) {
+  display: block;
+}
+
+[data-layout='wide'] .area-row .area-count .muted {
+  display: inline;
+}
+
+[data-layout='wide'] .area-row {
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 20px;
+  padding: 16px 0 14px 22px;
+}
+
+[data-layout='wide'] .area-row .en {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+[data-layout='wide'] .area-row .area-types {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* 標題區：名稱與資訊、整區的難度分佈、區域形狀排成一列 */
+[data-layout='wide'] .area-hero {
+  grid-template-columns: minmax(0, 1fr) 280px 200px;
+  gap: 32px;
+  min-height: 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+[data-layout='wide'] .area-hero h1 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+[data-layout='wide'] .area-hero-facts {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+[data-layout='wide'] .area-hero-shape {
+  height: 180px;
 }

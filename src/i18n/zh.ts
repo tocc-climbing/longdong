@@ -41,6 +41,7 @@ export const zh = {
   'count.routes': '{n} 條路線',
   'count.routesShort': '{n} 條',
   'count.sectors': '{n} 個分區',
+  'count.bolts': '{n} 個 Bolt',
 
   'type.sport': '運攀',
   'type.trad': '傳攀',

@@ -7,17 +7,24 @@ import { RescueButton } from '../components/RescueButton'
 import { RouteList } from '../components/RouteList'
 import { gradeDistribution, sectorColor, typeSummary } from '../format'
 import { localName, useLang } from '../i18n'
+import { useWide } from '../layout'
 import { href } from '../router'
 
 /**
  * 區域頁：列出分區，點進去才看路線（只有一個分區時直接顯示路線）。
  * 上方左邊是名稱、路線數與救援按鈕，右邊是這個區域的地圖形狀。
+ * 電腦版畫面寬：標題區多放英文名、難度範圍、Bolt 數、路線種類、需要注意的路線數與整區的難度分佈；
+ * 分區也多放英文名、難度範圍、種類與需要注意的路線數。
  */
 export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
   const { lang, t } = useLang()
+  const wide = useWide()
   const area = data.areaById.get(id)
   if (!area) return <NotFound />
-  const routeCount = area.sectors.reduce((n, s) => n + s.routes.filter((r) => !r.isFixture).length, 0)
+  const routes = area.sectors.flatMap((s) => s.routes).filter((r) => !r.isFixture)
+  const routeCount = routes.length
+  const name = localName(area.name, lang)
+  const range = gradeRange(routes)
   const sub = (
     <p className="muted small page-sub">
       {area.sectors.length > 1 && `${t('count.sectors', { n: area.sectors.length })} · `}
@@ -29,10 +36,24 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
     <>
       <div className="area-hero">
         <div className="area-hero-text">
-          <h1>{localName(area.name, lang).main}</h1>
+          <h1>
+            {name.main}
+            {wide && name.sub && <span className="en">{name.sub}</span>}
+          </h1>
           {sub}
+          {wide && (
+            <p className="area-hero-facts">
+              {[range, area.summary?.bolts && t('count.bolts', { n: area.summary.bolts }), typeSummary(routes, t)].filter(Boolean).join(' · ')}
+              <Alerts routes={routes} />
+            </p>
+          )}
           <RescueButton areaId={area.id} />
         </div>
+        {wide && (
+          <div className="area-hero-chart">
+            <GradeDistribution bands={gradeDistribution(routes)} />
+          </div>
+        )}
         <AreaShape area={area} className="area-hero-shape" />
       </div>
 
@@ -71,10 +92,27 @@ function SectorCard({ sector, color }: { sector: Sector; color?: string }) {
             </>
           )}
         </span>
-        <span className="area-types">{typeSummary(routes, t)}</span>
+        <span className="area-types">
+          {typeSummary(routes, t)}
+          <Alerts routes={routes} />
+        </span>
       </span>
       <GradeDistribution bands={gradeDistribution(routes)} />
     </a>
+  )
+}
+
+/** 需要注意的路線數：小心（黃燈）、危險（紅燈，含待移除、封閉）；都沒有時不顯示 */
+function Alerts({ routes }: { routes: Route[] }) {
+  const { t } = useLang()
+  const danger = routes.filter((r) => r.safety === 'red' || r.status === 'closed' || r.status === 'to-remove').length
+  const warn = routes.filter((r) => r.safety === 'yellow' && r.status !== 'closed' && r.status !== 'to-remove').length
+  if (!danger && !warn) return null
+  return (
+    <span className="area-alerts">
+      {warn > 0 && <span className="warn">● {t('safety.yellow')} {warn}</span>}
+      {danger > 0 && <span className="danger">● {t('safety.red')} {danger}</span>}
+    </span>
   )
 }
 
