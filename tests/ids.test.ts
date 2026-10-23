@@ -9,10 +9,23 @@ const appsScript = createRequire(import.meta.url)('../apps-script/RouteIds.gs') 
   randomId: () => string
   newUniqueId: (used: Record<string, boolean>) => string
   isRouteRow: (no: string, name: string) => boolean
-  resolveRowId: (current: string, candidates: string[], isUsed: (id: string) => boolean) => { id: string | null }
+  resolveRowId: (
+    current: string,
+    candidates: string[],
+    isUsed: (id: string) => boolean,
+    currentIsPublished: boolean,
+  ) => { id: string | null }
   normalizeNumber: (raw: string) => string
   zhName: (raw: string) => string
   parsePublished: (status: number, text: string) => Record<string, string[]>
+  buildPublishedIndex: (data: unknown) => Record<string, string[]>
+  repairRows: (
+    sheet: FakeSheet,
+    layout: typeof LAYOUT,
+    rows: { from: number; to: number } | null,
+    oldValue: string | null,
+    published: Record<string, string[]>,
+  ) => { restored: number; created: number }
   PUBLISHED_URL: string
 }
 
@@ -56,27 +69,88 @@ describe('Apps Script 讀取已發布的網站資料', () => {
   })
 })
 
+/* 模擬 Google Sheet：第 1 列是欄位標題，之後每列為 [分區, 路線編號, 路線名稱, 路線ID] */
+const LAYOUT = { headerRow: 1, numberCol: 2, nameCol: 3, idCol: 4 }
+type FakeSheet = ReturnType<typeof fakeSpreadsheet>['sheets'][number]
+
+function fakeSpreadsheet(tabs: Record<string, string[][]>) {
+  const ss = { getSheets: () => sheets }
+  const sheets = Object.entries(tabs).map(([name, rows], i) => {
+    const grid = [['分區', '路線編號', '路線名稱', '路線ID'], ...rows]
+    return {
+      grid,
+      getName: () => name,
+      getSheetId: () => i,
+      getParent: () => ss,
+      getLastRow: () => grid.length,
+      getMaxRows: () => grid.length,
+      getLastColumn: () => 4,
+      getRange: (row: number, col: number, numRows = 1, numCols = 1) => ({
+        getDisplayValues: () =>
+          Array.from({ length: numRows }, (_, r) => Array.from({ length: numCols }, (_, c) => grid[row - 1 + r][col - 1 + c])),
+        setValues: (values: string[][]) =>
+          values.forEach((line, r) => line.forEach((v, c) => (grid[row - 1 + r][col - 1 + c] = v))),
+      }),
+    }
+  })
+  return { sheets }
+}
+
+/** 已發布資料的對照：[分頁, 編號, 名稱, ID] */
+function publishedIndex(routes: [string, string, string, string][]) {
+  const areas = [...new Set(routes.map((r) => r[0]))].map((zh) => ({
+    name: { zh },
+    sectors: [{ routes: routes.filter((r) => r[0] === zh).map(([, number, name, id]) => ({ id: `longdong/${id}`, number, name: { zh: name } })) }],
+  }))
+  return appsScript.buildPublishedIndex({ idSource: 'sheet', areas })
+}
+
+const ids = (sheet: FakeSheet) => sheet.grid.slice(1).map((r) => r[3])
+
+describe('Apps Script 編輯「路線ID」欄', () => {
+  it('維護者依匯入錯誤訊息把 ID 改回原本的，接受而不還原', () => {
+    // 已發布為 ygapmg，Sheet 上被改成 zzzzzz；維護者在儲存格打回 ygapmg（編輯前的值是 zzzzzz）
+    const { sheets } = fakeSpreadsheet({ 後門: [['', '# 1', 'ㄅ', 'ygapmg']] })
+    const result = appsScript.repairRows(sheets[0], LAYOUT, { from: 2, to: 2 }, 'zzzzzz', publishedIndex([['後門', '1', 'ㄅ', 'ygapmg']]))
+    expect(ids(sheets[0])).toEqual(['ygapmg'])
+    expect(result).toEqual({ restored: 0, created: 0 })
+  })
+
+  it('打字改掉 ID 時還原成編輯前的值', () => {
+    const { sheets } = fakeSpreadsheet({ 後門: [['', '# 1', 'ㄅ', 'abcdef']] })
+    appsScript.repairRows(sheets[0], LAYOUT, { from: 2, to: 2 }, 'ygapmg', publishedIndex([['後門', '1', 'ㄅ', 'ygapmg']]))
+    expect(ids(sheets[0])).toEqual(['ygapmg'])
+  })
+})
+
 describe('Apps Script 還原 ID', () => {
   const none = () => false
 
   it('改掉或清除時，還原成編輯前的值', () => {
-    expect(appsScript.resolveRowId('zzzzzz', ['7kq2mx'], none)).toEqual({ id: '7kq2mx' })
-    expect(appsScript.resolveRowId('', ['7kq2mx'], none)).toEqual({ id: '7kq2mx' })
+    expect(appsScript.resolveRowId('zzzzzz', ['7kq2mx'], none, false)).toEqual({ id: '7kq2mx' })
+    expect(appsScript.resolveRowId('', ['7kq2mx'], none, false)).toEqual({ id: '7kq2mx' })
   })
 
   it('沒有編輯前的值時，用已發布資料中的 ID', () => {
-    expect(appsScript.resolveRowId('', ['h3w9tc'], none)).toEqual({ id: 'h3w9tc' })
+    expect(appsScript.resolveRowId('', ['h3w9tc'], none, false)).toEqual({ id: 'h3w9tc' })
   })
 
   it('候選 ID 已被別列使用時不採用（例如複製整列新增路線）', () => {
     const used = (id: string) => id === '7kq2mx'
-    expect(appsScript.resolveRowId('7kq2mx', [], used)).toEqual({ id: null })
-    expect(appsScript.resolveRowId('', ['7kq2mx', 'h3w9tc'], used)).toEqual({ id: 'h3w9tc' })
+    expect(appsScript.resolveRowId('7kq2mx', [], used, false)).toEqual({ id: null })
+    expect(appsScript.resolveRowId('', ['7kq2mx', 'h3w9tc'], used, false)).toEqual({ id: 'h3w9tc' })
+  })
+
+  it('維護者把 ID 改回已發布的原 ID 時接受，不還原成編輯前的錯誤 ID', () => {
+    // 匯入錯誤訊息要維護者「在 Sheet 把它改回 ygapmg」：編輯前的值是錯的新 ID zzzzzz
+    expect(appsScript.resolveRowId('ygapmg', ['zzzzzz'], none, true)).toEqual({ id: 'ygapmg' })
+    // 已發布的 ID 已被別列使用時不接受
+    expect(appsScript.resolveRowId('ygapmg', ['zzzzzz'], (id) => id === 'ygapmg', true)).toEqual({ id: 'zzzzzz' })
   })
 
   it('沒有候選時保留格式正確的現有值，否則產生新的', () => {
-    expect(appsScript.resolveRowId('7kq2mx', [], none)).toEqual({ id: '7kq2mx' })
-    expect(appsScript.resolveRowId('ABC', [], none)).toEqual({ id: null })
+    expect(appsScript.resolveRowId('7kq2mx', [], none, false)).toEqual({ id: '7kq2mx' })
+    expect(appsScript.resolveRowId('ABC', [], none, false)).toEqual({ id: null })
   })
 
   it('編號與名稱的正規化和匯入程式一致', () => {
