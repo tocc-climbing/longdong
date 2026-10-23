@@ -108,7 +108,7 @@ export function GradeDistribution({ bands }: { bands: { band: GradeBand; label: 
   const { t } = useLang()
   const top = Math.max(1, ...bands.map((b) => b.count))
   const W = 160
-  const H = 44
+  const H = 30
   const gap = 6
   const barW = (W - gap * (bands.length - 1)) / bands.length
   const summary = bands.map((b) => t('chart.distBar', { band: b.label, n: b.count })).join(', ')

@@ -3196,15 +3196,15 @@ main.map > div {
 
 /* 手機版的卡片（區域、分區、上一區／下一區）：按下時不換底色——米色背景上換成淺色，卡片看起來像閃一下；
    改成微微縮小的按壓效果，卡片維持白色 */
-[data-layout] :is(.area-row, .sector-card, .pager a) {
+[data-layout='mobile'] :is(.area-row, .sector-card, .pager a) {
   transition: transform 0.08s ease-out;
 }
 
-[data-layout] :is(.area-row, .sector-card, .pager a):is(:hover, :active) {
+[data-layout='mobile'] :is(.area-row, .sector-card, .pager a):is(:hover, :active) {
   background: var(--surface);
 }
 
-[data-layout] :is(.area-row, .sector-card, .pager a):active {
+[data-layout='mobile'] :is(.area-row, .sector-card, .pager a):active {
   transform: scale(0.985);
 }
 
@@ -4586,4 +4586,30 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 
 [data-layout='wide'] .area-hero-shape {
   height: 180px;
+}
+
+/* 電腦版區域、分區列：滑鼠移上去時整列（含左邊的色點）淡淡上區域色、圓角；不用白底，也不縮小 */
+[data-layout='wide'] .area-row {
+  margin: 0 -12px;
+  padding-left: 34px;
+  padding-right: 12px;
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+
+[data-layout='wide'] .area-row::before {
+  left: 12px;
+}
+
+[data-layout='wide'] .area-row:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--area-color, var(--brand)) 9%, transparent);
+}
+
+[data-layout='wide'] .area-row:active {
+  transform: none;
+}
+
+/* 清單裡的難度分佈只是概覽，長條不跟著滑鼠變亮 */
+.area-row .grade-dist g:hover .bar {
+  filter: none;
 }
