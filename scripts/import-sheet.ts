@@ -11,13 +11,15 @@ import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { Dataset, type Area } from '../src/data/schema'
-import { parseAreaSheet, parseHardwareSheet } from './lib/parse'
+import { attachLegacySectorIds, parseAreaSheet, parseHardwareSheet } from './lib/parse'
 import { htmlUrl, parseSafetyHtml, parseTitleColor } from './lib/safety'
 import { checkRouteIds, publishedRoutes, type IdSource, type PreviousIds } from './lib/ids'
 import { RETIRED_ROUTE_IDS } from './retired-ids'
 import { AREA_TABS, CRAG, DATA_ATTRIBUTION, DATA_LICENSE, PROJECT_URL, SHEET_ID, SHEET_URL, STATS_GID, csvUrl } from './sheet.config'
 
 const OUT = resolve(import.meta.dirname, '../public/data/longdong.json')
+// 舊的分區 ID（依位置編號）→ 現在的 ID，凍結在改用名稱雜湊當天的對照，之後不再重算
+const LEGACY_SECTOR_IDS = resolve(import.meta.dirname, 'data/legacy-sector-ids.json')
 
 const args = process.argv.slice(2)
 const fromDir = args.includes('--from') ? args[args.indexOf('--from') + 1] : undefined
@@ -71,6 +73,9 @@ async function main() {
     if (hasIdColumn) withIdColumn.push(tab.zh)
     return area
   })
+
+  const orphans = attachLegacySectorIds(areas, JSON.parse(readFileSync(LEGACY_SECTOR_IDS, 'utf8')) as Record<string, string>)
+  if (orphans.length) warnings.push(`舊的分區 ID 對不到現在的分區（分區改名或刪除），舊網址會找不到：${orphans.join(', ')}`)
 
   // 所有區域分頁都有「路線ID」欄才改用它；只有部分分頁有，代表 Apps Script 還沒跑完
   if (withIdColumn.length > 0 && withIdColumn.length < AREA_TABS.length) {

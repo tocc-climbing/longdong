@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { href, parseLocation, samePlace, withDetail } from '../src/router'
+import { href, legacySectorHref, parseLocation, samePlace, withDetail } from '../src/router'
 
 describe('parseLocation', () => {
   it('ID 可以含 "/"', () => {
@@ -72,5 +72,21 @@ describe('模擬位置（/map@緯度,經度）', () => {
     expect(parseLocation('/map@24.9305758,121.4902086')).toEqual({ name: 'map', simulate: [24.9305758, 121.4902086] })
     expect(parseLocation('/map@abc')).toEqual({ name: 'map' })
     expect(parseLocation('/map@95,121')).toEqual({ name: 'map' })
+  })
+})
+
+describe('legacySectorHref', () => {
+  const legacy = new Map([['longdong/back-door-s1', 'longdong/back-door-92kxxd']])
+
+  it('舊的分區網址換成現在的 ID，?r= 照留', () => {
+    expect(legacySectorHref(parseLocation('/sector/longdong/back-door-s1'), legacy)).toBe('/sector/longdong/back-door-92kxxd')
+    expect(legacySectorHref(parseLocation('/sector/longdong/back-door-s1?r=longdong/7kq2mx'), legacy)).toBe(
+      '/sector/longdong/back-door-92kxxd?r=longdong/7kq2mx',
+    )
+  })
+
+  it('現在的網址、其他頁面不換', () => {
+    expect(legacySectorHref(parseLocation('/sector/longdong/back-door-92kxxd'), legacy)).toBeUndefined()
+    expect(legacySectorHref(parseLocation('/area/longdong/back-door-s1'), legacy)).toBeUndefined()
   })
 })

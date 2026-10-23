@@ -75,6 +75,12 @@ export const href = {
   checklist: () => '/checklist',
 }
 
+/** 舊的分區網址（依位置編號的 ID）要換成的網址，?r= 照留；不是舊網址時回傳 undefined */
+export function legacySectorHref(page: Page, sectorIdByLegacyId: Map<string, string>): string | undefined {
+  const id = page.name === 'sector' ? sectorIdByLegacyId.get(page.id) : undefined
+  return id && withDetail(href.sector(id), page.detail)
+}
+
 /** 目前的網址（路徑＋查詢字串） */
 export function here(): string {
   return location.pathname + location.search

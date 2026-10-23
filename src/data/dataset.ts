@@ -13,6 +13,8 @@ export interface LoadedData {
   routeById: Map<string, RouteRef>
   areaById: Map<string, Area>
   sectorById: Map<string, { sector: Sector; area: Area }>
+  /** 舊的分區 ID（依位置編號）→ 現在的 ID */
+  sectorIdByLegacyId: Map<string, string>
   hardwareByCode: Map<string, string>
 }
 
@@ -26,6 +28,9 @@ export function indexDataset(dataset: Dataset): LoadedData {
     routeById: new Map(routes.map((r) => [r.route.id, r])),
     areaById: new Map(dataset.areas.map((a) => [a.id, a])),
     sectorById: new Map(dataset.areas.flatMap((area) => area.sectors.map((sector) => [sector.id, { sector, area }] as const))),
+    sectorIdByLegacyId: new Map(
+      dataset.areas.flatMap((area) => area.sectors.flatMap((sector) => (sector.legacyIds ?? []).map((old) => [old, sector.id] as const))),
+    ),
     hardwareByCode: new Map(dataset.hardware.map((h) => [h.code, h.description])),
   }
 }

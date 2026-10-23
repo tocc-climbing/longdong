@@ -81,7 +81,10 @@ export const Route = z.object({
 })
 
 export const Sector = z.object({
+  /** <岩場>/<區域>-<中文名稱雜湊>，例如 longdong/back-door-k3x9a2 */
   id: GlobalId,
+  /** 以前依位置編號的 ID（longdong/back-door-s1），舊網址與舊的現場回報用它找到分區 */
+  legacyIds: z.array(GlobalId).optional(),
   name: LocalizedName,
   routes: z.array(Route),
 })

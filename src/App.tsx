@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { HoldMark } from './components/HoldMark'
 import { useAppUpdate } from './appUpdate'
 import { DevBadge } from './components/DevBadge'
@@ -19,7 +19,7 @@ import { RescuePage } from './pages/RescuePage'
 import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
 import { loadRatings, useSocial } from './social/store'
-import { here, href, navigate, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
+import { here, href, legacySectorHref, navigate, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 import { useListView } from './listView'
 import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Dir } from './swipe'
@@ -49,6 +49,11 @@ export function App() {
   }, [])
 
   const data = state.status === 'ready' ? state.data : undefined
+  // 舊的分區網址換成現在的 ID（不新增瀏覽紀錄）；畫面更新前就換，不會閃過「找不到」
+  useLayoutEffect(() => {
+    const to = data && legacySectorHref(page, data.sectorIdByLegacyId)
+    if (to) navigate(to, { replace: true })
+  }, [page, data])
   const view = useMemo(() => (data && wide ? desktopView(page, data) : undefined), [page, data, wide])
   const routeLink = useMemo<RouteLink>(
     () =>

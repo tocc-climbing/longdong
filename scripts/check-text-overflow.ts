@@ -26,7 +26,7 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
   { name: '區域', path: '/area/longdong/golden-valley' },
   {
     name: '分區（展開篩選）',
-    path: '/sector/longdong/golden-valley-s1',
+    path: '/sector/longdong/golden-valley-2xxoyr',
     prepare: async (page, mobile) => {
       if (mobile) await page.click('.list-tools .chip')
     },
