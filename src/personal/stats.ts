@@ -68,26 +68,70 @@ export function gradePyramid(sends: Map<string, SendStyle>, lookup: (id: string)
   return [...byValue.values()].sort((a, b) => b.value - a.value)
 }
 
-export interface MonthCount {
-  /** YYYY-MM */
-  key: string
+/** 近期攀登的區間：依有紀錄的範圍自動選最短、又包含所有紀錄的一個 */
+export type ActivityRange = '7d' | '14d' | '1m' | '3m' | '6m' | '12m'
+
+export interface ActivityBin {
+  /** 第一天 YYYY-MM-DD */
+  from: string
+  /** 最後一天 YYYY-MM-DD（按日的與 from 相同） */
+  to: string
   count: number
 }
 
-/** 最近 12 個月（含本月）每月的攀登紀錄筆數 */
-export function monthlyCounts(ticks: Tick[], now = new Date()): MonthCount[] {
-  const months: MonthCount[] = []
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    months.push({ key, count: 0 })
+export interface Activity {
+  range: ActivityRange
+  /** 按日（7 天、14 天、1 個月）、按週（3 個月）或按月（6、12 個月） */
+  unit: 'day' | 'week' | 'month'
+  bins: ActivityBin[]
+}
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
+const DAYS: Partial<Record<ActivityRange, number>> = { '7d': 7, '14d': 14, '1m': 30 }
+
+/** 每個區間的長條：按日、按週從今天往回數，按月含本月 */
+function activityBins(range: ActivityRange, now: Date): Activity {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const days = DAYS[range]
+  if (days) {
+    const bins = Array.from({ length: days }, (_, i) => {
+      const d = ymd(addDays(today, i - days + 1))
+      return { from: d, to: d, count: 0 }
+    })
+    return { range, unit: 'day', bins }
   }
-  const index = new Map(months.map((m) => [m.key, m]))
-  for (const t of ticks) {
-    const m = index.get(t.date.slice(0, 7))
-    if (m) m.count++
+  if (range === '3m') {
+    const bins = Array.from({ length: 13 }, (_, i) => ({ from: ymd(addDays(today, (i - 13) * 7 + 1)), to: ymd(addDays(today, (i - 12) * 7)), count: 0 }))
+    return { range, unit: 'week', bins }
   }
-  return months
+  const n = range === '6m' ? 6 : 12
+  const bins = Array.from({ length: n }, (_, i) => {
+    const first = new Date(today.getFullYear(), today.getMonth() - n + 1 + i, 1)
+    return { from: ymd(first), to: ymd(new Date(first.getFullYear(), first.getMonth() + 1, 0)), count: 0 }
+  })
+  return { range, unit: 'month', bins }
+}
+
+const RANGES: ActivityRange[] = ['7d', '14d', '1m', '3m', '6m', '12m']
+
+/**
+ * 近期每日／週／月的攀登紀錄筆數。區間依有紀錄的範圍自動調整：
+ * 7 天、14 天、1 個月、3 個月、6 個月、12 個月中，第一個包含近 12 個月內所有紀錄的；
+ * 近 12 個月都沒有紀錄時回傳 undefined（不顯示）。
+ */
+export function recentActivity(ticks: Tick[], now = new Date()): Activity | undefined {
+  const today = ymd(now)
+  const year = activityBins('12m', now).bins[0].from
+  const dates = ticks.map((t) => t.date).filter((d) => year <= d && d <= today)
+  if (dates.length === 0) return undefined
+  const oldest = dates.reduce((a, b) => (a < b ? a : b))
+  const activity = RANGES.map((r) => activityBins(r, now)).find((a) => a.bins[0].from <= oldest)!
+  for (const d of dates) {
+    const bin = activity.bins.find((b) => b.from <= d && d <= b.to)
+    if (bin) bin.count++
+  }
+  return activity
 }
 
 /** 依月份（YYYY-MM）分組（新到舊），給時間軸用 */

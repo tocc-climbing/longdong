@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { LoadedData } from '../data/dataset'
-import { GradePyramid, MonthlyChart } from '../components/Charts'
+import { ActivityChart, GradePyramid } from '../components/Charts'
 import { GradePill } from '../components/GradePill'
 import { InstallButton } from '../components/InstallPrompt'
 import { RouteRow } from '../components/RouteRow'
@@ -8,7 +8,7 @@ import { FACEBOOK_LOGIN_ENABLED, SignInPrompt } from '../components/SignInPrompt
 import { relativeTime } from '../format'
 import { LANGS, localName, monthTitle, setLangSetting, useLang, type LangSetting } from '../i18n'
 import { sentRouteIds } from '../personal/model'
-import { gradePyramid, groupByMonth, monthlyCounts, sendStyles } from '../personal/stats'
+import { gradePyramid, groupByMonth, recentActivity, sendStyles } from '../personal/stats'
 import { ROUTE_TYPES, TypeFilter } from '../components/TypeFilter'
 import type { RouteType } from '../data/schema'
 import { deleteTick, setFavorite, usePersonal } from '../personal/store'
@@ -105,6 +105,7 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
   const sentTypes = ROUTE_TYPES.filter((type) => [...sends.keys()].some((id) => route(id)?.type === type))
   const shownTypes = pyramidTypes.filter((type) => sentTypes.includes(type))
   const pyramid = gradePyramid(sends, route, shownTypes)
+  const activity = recentActivity(personal.ticks)
 
   return (
     <>
@@ -179,10 +180,12 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
             <GradePyramid rows={pyramid} />
           </section>
 
-          <section className="card">
-            <h2>{t('me.months')}</h2>
-            <MonthlyChart months={monthlyCounts(personal.ticks)} />
-          </section>
+          {activity && (
+            <section className="card">
+              <h2>{t(`me.activity.${activity.range}`)}</h2>
+              <ActivityChart activity={activity} />
+            </section>
+          )}
         </div>
 
         <div className="me-log">

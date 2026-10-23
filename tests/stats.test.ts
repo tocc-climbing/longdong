@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Route } from '../src/data/schema'
 import type { Tick } from '../src/personal/model'
-import { gradePyramid, groupByMonth, monthlyCounts, sendStyles } from '../src/personal/stats'
+import { gradePyramid, groupByMonth, recentActivity, sendStyles } from '../src/personal/stats'
 
 const tick = (routeId: string, date: string, style: Tick['style'] = 'redpoint'): Tick => ({
   id: `${routeId}-${date}-${style}`, routeId, date, style, createdAt: 'x', updatedAt: 'x',
@@ -68,12 +68,45 @@ describe('gradePyramid', () => {
   })
 })
 
-describe('monthlyCounts', () => {
-  it('最近 12 個月，含本月', () => {
-    const m = monthlyCounts([tick('a', '2026-10-01'), tick('b', '2026-10-09'), tick('c', '2025-11-30'), tick('c', '2025-10-30')], new Date(2026, 9, 11))
-    expect(m).toHaveLength(12)
-    expect(m[0]).toEqual({ key: '2025-11', count: 1 })
-    expect(m[11]).toEqual({ key: '2026-10', count: 2 })
+describe('recentActivity', () => {
+  const now = new Date(2026, 9, 11)
+  const range = (dates: string[]) => recentActivity(dates.map((d, i) => tick(String(i), d)), now)
+
+  it('近 12 個月沒有紀錄時不顯示', () => {
+    expect(range([])).toBeUndefined()
+    expect(range(['2025-10-30', '2026-10-12'])).toBeUndefined()
+  })
+
+  it('依最早的紀錄選最短的區間', () => {
+    expect(range(['2026-10-05'])?.range).toBe('7d')
+    expect(range(['2026-10-04'])?.range).toBe('14d')
+    expect(range(['2026-09-20'])?.range).toBe('1m')
+    expect(range(['2026-08-01'])?.range).toBe('3m')
+    expect(range(['2026-05-01'])?.range).toBe('6m')
+    expect(range(['2025-11-30', '2026-10-01'])?.range).toBe('12m')
+  })
+
+  it('按日：含今天的 7 天', () => {
+    const a = range(['2026-10-05', '2026-10-11', '2026-10-11'])!
+    expect(a.unit).toBe('day')
+    expect(a.bins).toHaveLength(7)
+    expect(a.bins[0]).toEqual({ from: '2026-10-05', to: '2026-10-05', count: 1 })
+    expect(a.bins[6]).toEqual({ from: '2026-10-11', to: '2026-10-11', count: 2 })
+  })
+
+  it('按週：3 個月 13 週，最後一週到今天', () => {
+    const a = range(['2026-08-01', '2026-10-11'])!
+    expect(a.unit).toBe('week')
+    expect(a.bins).toHaveLength(13)
+    expect(a.bins[12]).toEqual({ from: '2026-10-05', to: '2026-10-11', count: 1 })
+    expect(a.bins.reduce((n, b) => n + b.count, 0)).toBe(2)
+  })
+
+  it('按月：12 個月含本月，12 個月前的不算', () => {
+    const a = range(['2026-10-01', '2026-10-09', '2025-11-30', '2025-10-30'])!
+    expect(a.bins).toHaveLength(12)
+    expect(a.bins[0]).toEqual({ from: '2025-11-01', to: '2025-11-30', count: 1 })
+    expect(a.bins[11]).toEqual({ from: '2026-10-01', to: '2026-10-31', count: 2 })
   })
 })
 

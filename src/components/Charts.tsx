@@ -1,4 +1,4 @@
-import type { MonthCount, PyramidRow, SendStyle } from '../personal/stats'
+import type { Activity, PyramidRow, SendStyle } from '../personal/stats'
 import type { GradeBand } from '../format'
 import { monthShort, useLang } from '../i18n'
 
@@ -54,25 +54,36 @@ export function GradePyramid({ rows }: { rows: PyramidRow[] }) {
   )
 }
 
-/** 最近 12 個月每月攀登紀錄筆數：直條，只標月份；數值在滑鼠停留／點按時顯示 */
-export function MonthlyChart({ months }: { months: MonthCount[] }) {
+/** 月/日，例如 10/23 */
+const monthDay = (ymd: string) => `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}`
+
+/**
+ * 近期攀登紀錄筆數：每日、每週或每月一條直條（見 recentActivity），只標部分日期；數值在滑鼠停留／點按時顯示。
+ * 按日的標最後一天往回每 7 天（7、14 天的再標第一天）；按週的標頭尾；按月的標頭尾與一月。
+ */
+export function ActivityChart({ activity }: { activity: Activity }) {
   const { lang, t } = useLang()
+  const { unit, bins: months } = activity
   const top = Math.max(1, ...months.map((m) => m.count))
   const W = 336
   const H = 96
-  const gap = 6
+  // 30 天的長條較多：間距跟著變窄
+  const gap = Math.min(6, (W / months.length) * 0.25)
   const barW = (W - gap * (months.length - 1)) / months.length
   const total = months.reduce((n, m) => n + m.count, 0)
   return (
     <figure className="chart monthly">
-      <svg viewBox={`0 0 ${W} ${H + 18}`} role="img" aria-label={t('chart.monthsAria', { n: total })}>
+      <svg viewBox={`0 0 ${W} ${H + 18}`} role="img" aria-label={t('chart.activityAria', { range: t(`me.activity.${activity.range}`), n: total })}>
         <line x1="0" x2={W} y1={H + 0.5} y2={H + 0.5} className="axis" />
         {months.map((m, i) => {
           const h = m.count === 0 ? 0 : Math.max(4, (m.count / top) * (H - 14))
           const x = i * (barW + gap)
+          const last = i === months.length - 1
+          const label = unit === 'month' ? m.from.slice(0, 7).replace('-', '/') : unit === 'week' ? `${monthDay(m.from)}–${monthDay(m.to)}` : monthDay(m.from)
+          const ticked = unit === 'day' ? (months.length - 1 - i) % 7 === 0 || (i === 0 && months.length <= 14) : i === 0 || last || (unit === 'month' && m.from.endsWith('-01-01'))
           return (
-            <g key={m.key}>
-              <title>{t('chart.monthBar', { month: m.key.replace('-', '/'), n: m.count })}</title>
+            <g key={m.from}>
+              <title>{t('chart.monthBar', { month: label, n: m.count })}</title>
               {/* 加大的透明感應區，方便手機點按 */}
               <rect x={x} y={0} width={barW} height={H} fill="transparent" />
               {h > 0 && <path className="bar" d={roundedTop(x, H - h, barW, h, Math.min(4, barW / 2))} />}
@@ -81,9 +92,9 @@ export function MonthlyChart({ months }: { months: MonthCount[] }) {
                   {m.count}
                 </text>
               )}
-              {(i === 0 || i === months.length - 1 || m.key.endsWith('-01')) && (
-                <text x={x + barW / 2} y={H + 14} className="tick" textAnchor="middle">
-                  {monthShort(m.key, lang)}
+              {ticked && (
+                <text x={unit !== 'week' ? x + barW / 2 : i === 0 ? x : x + barW} y={H + 14} className="tick" textAnchor={unit !== 'week' ? 'middle' : i === 0 ? 'start' : 'end'}>
+                  {unit === 'month' ? monthShort(m.from.slice(0, 7), lang) : unit === 'week' ? monthDay(i === 0 ? m.from : m.to) : label}
                 </text>
               )}
             </g>
