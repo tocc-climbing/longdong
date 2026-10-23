@@ -107,6 +107,7 @@ const TYPE_MAP: Record<string, RouteType> = {
   混合: 'mixed',
 }
 
+/** 對照表沒有的種類回傳 undefined（由呼叫端停止匯入） */
 export function parseRouteType(raw: string | undefined): RouteType | undefined {
   if (!raw) return undefined
   const key = raw.normalize('NFKC').split('|')[0].trim()
@@ -124,9 +125,10 @@ const STATUS_MAP: Record<string, RouteStatus> = {
   待確認: 'unknown',
 }
 
+/** 對照表沒有的狀態回傳 undefined（由呼叫端停止匯入） */
 export function parseStatus(raw: string | undefined): RouteStatus | undefined {
   if (!raw) return undefined
-  return STATUS_MAP[raw.trim()] ?? 'unknown'
+  return STATUS_MAP[raw.trim()]
 }
 
 export function parseHeight(raw: string | undefined): number | undefined {

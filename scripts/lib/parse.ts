@@ -137,7 +137,7 @@ export function parseAreaSheet(text: string, opts: AreaSheetOptions): ParsedArea
   // 2. 區塊轉成路線，並依分區分組
   const sectors: Sector[] = []
   const sectorByKey = new Map<string, Sector>()
-  const unreadableSafety: string[] = []
+  const unreadable: string[] = []
 
   for (const block of blocks) {
     const first = block.rows[0]
@@ -198,9 +198,12 @@ export function parseAreaSheet(text: string, opts: AreaSheetOptions): ParsedArea
       lastTested: latestDate([...bolts, ...anchors].flatMap((b) => b.tests)),
       notes: cleanText(first[C.notes]),
     }
+    const at = `第 ${block.line} 列 #${number ?? '0'} ${name.zh}`
     if (cell(C.safety).includes('●') && !safety.has(block.line - 1)) {
-      unreadableSafety.push(`第 ${block.line} 列 #${number ?? '0'} ${name.zh}`)
+      unreadable.push(`${at}：讀不到安全評級燈號，Sheet 版面可能變了`)
     }
+    if (cell(C.type) && !type) unreadable.push(`${at}：路線種類「${cell(C.type)}」不在對照表`)
+    if (statusLabel && !route.status) unreadable.push(`${at}：路線狀態「${statusLabel}」不在對照表`)
     if (grade && route.gradeValue === undefined && !/\?\?/.test(grade)) {
       warnings.push(`[${areaId}] #${number ?? '0'} ${name.zh}：無法判讀難度「${grade}」`)
     }
@@ -216,8 +219,10 @@ export function parseAreaSheet(text: string, opts: AreaSheetOptions): ParsedArea
     sector.routes.push(stripUndefined(route))
   }
 
-  if (unreadableSafety.length) {
-    throw new Error(`[${areaId}] 讀不到安全評級燈號，Sheet 版面可能變了：\n  ${unreadableSafety.join('\n  ')}`)
+  if (unreadable.length) {
+    throw new Error(
+      `[${areaId}] 以下路線讀不懂，已停止匯入（修正 Sheet，或把新的種類、狀態加進 scripts/lib/normalize.ts 的對照表）：\n  ${unreadable.join('\n  ')}`,
+    )
   }
 
   const [, bolts, , routes] = rows[0]

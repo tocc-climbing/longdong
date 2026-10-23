@@ -140,7 +140,18 @@ describe('parseAreaSheet', () => {
     ])
     const opts = { cragId: 'longdong', areaId: 'back-door', expectedZh: '後門' }
     expect(() => parseAreaSheet(lights, { ...opts, safety: new Map([[2, 'green' as const]]) })).toThrow(
-      '[back-door] 讀不到安全評級燈號，Sheet 版面可能變了：\n  第 4 列 #2 ㄆ',
+      /\n {2}第 4 列 #2 ㄆ：讀不到安全評級燈號，Sheet 版面可能變了$/,
+    )
+  })
+
+  it('路線種類、路線狀態不在對照表時停止匯入，列出原文', () => {
+    const unknown = sheet([
+      row({ 路線編號: '# 1', 路線名稱: 'ㄅ', 難度: '5.7', 路線種類: '運攀 | Sport', 路線狀態: '已拉測' }),
+      row({ 路線編號: '# 2', 路線名稱: 'ㄆ', 路線種類: '冰攀 | Ice' }),
+      row({ 路線編號: '# 3', 路線名稱: 'ㄇ', 難度: '5.8', 路線狀態: '施工中' }),
+    ])
+    expect(() => parseAreaSheet(unknown, { cragId: 'longdong', areaId: 'back-door', expectedZh: '後門' })).toThrow(
+      /\n {2}第 4 列 #2 ㄆ：路線種類「冰攀 \| Ice」不在對照表\n {2}第 5 列 #3 ㄇ：路線狀態「施工中」不在對照表$/,
     )
   })
 
