@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=24.12"
   },
   "scripts": {
     "dev": "vite",
@@ -17,34 +17,34 @@
     "test": "vitest run",
     "check:text": "tsx scripts/check-text-overflow.ts",
     "shots": "tsx scripts/shots.ts",
-    "test:e2e": "vite build --mode e2e --outDir dist-e2e && npx -y firebase-tools@15.33.0 emulators:exec --config firebase.e2e.json --only auth,database --project demo-longdong \"tsx scripts/e2e-report.ts\"",
-    "test:rules": "npx -y firebase-tools@15.33.0 emulators:exec --only database --project demo-longdong \"vitest run --config vitest.rules.config.ts\"",
+    "test:e2e": "vite build --mode e2e --outDir dist-e2e && npx -y firebase-tools@15.34.1 emulators:exec --config firebase.e2e.json --only auth,database --project demo-longdong \"tsx scripts/e2e-report.ts\"",
+    "test:rules": "npx -y firebase-tools@15.34.1 emulators:exec --only database --project demo-longdong \"vitest run --config vitest.rules.config.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "firebase": "^12.19.0",
+    "firebase": "^13.1.0",
     "idb": "^8.0.4",
     "minisearch": "^7.2.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^5.0.2",
-    "@napi-rs/canvas": "^1.0.11",
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@napi-rs/canvas": "^1.0.13",
     "@resvg/resvg-js": "^2.6.2",
-    "@types/node": "^22.20.5",
+    "@types/node": "^24.19.2",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^4.7.0",
-    "fake-indexeddb": "^6.2.5",
+    "@vitejs/plugin-react": "^6.1.2",
+    "fake-indexeddb": "^6.2.6",
     "papaparse": "^5.7.0",
     "pdfjs-dist": "^6.4.299",
     "playwright-core": "^1.64.1",
     "tsx": "^4.23.15",
-    "typescript": "~5.9.3",
-    "vite": "^6.4.4",
-    "vite-plugin-pwa": "^1.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vite-plugin-pwa": "^2.0.0",
     "vitest": "^5.0.5",
     "zod": "^4.6.7"
   },

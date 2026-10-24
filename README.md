@@ -62,7 +62,7 @@ public/data/longdong.json（commit 進 repo，每次變動都有 diff 可查）
 
 ## 開發
 
-需要 Node.js 20 以上（CI 使用 `.nvmrc` 指定的 22）。
+需要 Node.js 24.12 以上（CI 使用 `.nvmrc` 指定的 24）。
 
 ```bash
 npm install
