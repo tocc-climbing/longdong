@@ -64,7 +64,7 @@ export function siteShareHtml(siteUrl: string, shell: string): string {
   return withImageMeta(shell, `${siteUrl}og/home.png`, t('app.title'))
 }
 
-/** 大圖預覽：og:image（1200×630）與 summary_large_image */
+/** 大圖預覽：og:image（1200×1200）與 summary_large_image */
 function withImageMeta(html: string, image: string, alt: string): string {
   html = setMeta(html, 'property', 'og:image', image)
   html = setMeta(html, 'property', 'og:image:width', String(OG_SIZE.w))

@@ -51,7 +51,7 @@ describe('路線分享頁', () => {
     const html = sharePageHtml(ref({ number: '102', grade: '5.9' }), SITE, SHELL, true)
     expect(html).toContain('<meta property="og:image" content="https://longdong.web.app/og/longdong/jar2yu.png" />')
     expect(html).toContain('<meta property="og:image:width" content="1200" />')
-    expect(html).toContain('<meta property="og:image:height" content="630" />')
+    expect(html).toContain('<meta property="og:image:height" content="1200" />')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />')
     expect(html.match(/property="og:image"/g)).toHaveLength(1)
   })

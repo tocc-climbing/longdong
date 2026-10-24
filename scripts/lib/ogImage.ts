@@ -1,14 +1,18 @@
 /**
- * 路線的分享圖片（Open Graph，1200×630）：Facebook、LINE 分享路線時顯示，不再每條都是網站圖示。
- * 左邊是路線資訊（岩場／區域／分區、編號與名稱、難度、種類、高度；黃燈、紅燈時加上提醒），
- * 右邊是路線所在區域附近的放大地圖（圓角），下方是網站名稱與網址。配色與手機版相同。
+ * 路線的分享圖片（Open Graph，1200×1200 正方形）：Facebook、LINE 分享路線時顯示，不再每條都是網站圖示。
+ * 正方形：Facebook 手機版把寬圖裁成正方形，左右的內容會被切掉。
+ * 上半部是路線資訊（岩場／區域／分區、編號與名稱、難度、種類、高度；黃燈、紅燈時加上提醒），
+ * 下半部是路線所在區域附近的放大地圖（圓角），左下角是網站名稱。配色與手機版相同。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { GlobalFonts, type Image, type SKRSContext2D, createCanvas, loadImage } from '@napi-rs/canvas'
 import type { Area, Route, Sector } from '../../src/data/schema'
 import { gradeBand, quickdraws } from '../../src/format'
 
-export const OG_SIZE = { w: 1200, h: 630 }
+export const OG_SIZE = { w: 1200, h: 1200 }
+/** 版面以 840×840 設計、放大輸出成 OG_SIZE：手機上縮成小卡時，字和地圖才夠大 */
+const D = { w: 840, h: 840 }
+const ZOOM = OG_SIZE.w / D.w
 
 /**
  * 字型檔：英數用西文字型（中文字型裡的 ’ 等標點是全形寬度），中文用無襯線黑體。
@@ -131,9 +135,9 @@ function pill(x: number, y: number, text: string, opts: { size: number; bg: stri
   return { svg: rect + label, w }
 }
 
-/** 右邊的圓角框 */
+/** 下半部的圓角框（地圖、清單）：在左下角標誌上方；上半部的內容放不下時往下移、變矮（見 frame） */
 type Box = { x: number; y: number; w: number; h: number; r: number }
-const PANEL: Box = { x: 760, y: 32, w: 408, h: OG_SIZE.h - 64, r: 28 }
+const PANEL: Box = { x: 32, y: 360, w: D.w - 64, h: 360, r: 24 }
 
 /** 地圖範圍至少這麼大（度，約 400 公尺），小區域（第一洞）也看得到周圍 */
 const MAP_MIN_SPAN = 0.0036
@@ -187,6 +191,7 @@ export async function ogImagePng(svg: string): Promise<Buffer> {
   const canvas = createCanvas(OG_SIZE.w, OG_SIZE.h)
   const ctx = canvas.getContext('2d')
   ctx.drawImage(await loadImage(Buffer.from(svg)), 0, 0)
+  ctx.scale(ZOOM, ZOOM)
   drawToccMark(ctx, await toccImage)
   return canvas.toBuffer('image/png')
 }
@@ -222,7 +227,7 @@ const TOCC_OUTLINE = [
   [455, 810], [415, 730], [380, 665], [378, 575], [425, 505], [478, 455], [530, 370],
 ]
 /** 左下角的臺灣島（TOCC 標誌中央的臺灣島與攀岩者）：左上角與高度 */
-const MARK = { x: 76, y: OG_SIZE.h - 36 - 60, h: 60 }
+const MARK = { x: 56, y: D.h - 32 - 60, h: 60 }
 /** 臺灣島＋攀岩者畫在 canvas 上（Skia 的 SVG 不畫內嵌的圖片，所以不放在 SVG 裡） */
 function drawToccMark(ctx: SKRSContext2D, image: Image) {
   const k = MARK.h / TOCC_ISLAND.height
@@ -297,10 +302,10 @@ export function ogImageSvg(route: Route, area: Area, sector: Sector, map: OgMap,
   }
 
   const bottom = level ? y + pillSize * 1.6 + 30 + 56 : y + pillSize * 1.6
-  return frame(areaMap(map, areaKey, areaColors, PANEL), body, bottom)
+  return frame((box) => areaMap(map, areaKey, areaColors, box), body, bottom)
 }
 
-const TEXT_W = 720 - MARK.x
+const TEXT_W = D.w - MARK.x * 2
 
 /** 最上面一行：色點＋地點（岩場／區域／分區），文字中線在 y=0 */
 function placeLine(text: string, color: string): string {
@@ -313,18 +318,22 @@ function placeLine(text: string, color: string): string {
 }
 
 /**
- * 整張圖：背景、右邊的圓角框（right）、左邊的內容（body，從 y=0 排到 bottom）、左下角的標誌。
- * 左邊的內容在 40～（左下角標誌上方 28）之間垂直置中；上緣是地點那行的 -20。
+ * 整張圖：背景、下半部的圓角框（panel 依框的位置畫）、上半部的內容（body，從 y=0 排到 bottom）、左下角的標誌。
+ * 上半部的內容在 40～（圓角框上方 28）之間垂直置中；上緣是地點那行的 -20。
+ * 內容較多（例如有危險提醒）放不下時，圓角框往下移、底部不動。
  * 左下角：TOCC 的臺灣島（drawToccMark 另外畫）＋LongDong，字後面一顆小岩點當簽名（Climbio 的岩點）。
  */
-function frame(right: string, body: string[], bottom: number): string {
-  const { w, h } = OG_SIZE
+function frame(panel: (box: Box) => string, body: string[], bottom: number): string {
+  const { w, h } = D
   const left = MARK.x
   const top = -20
-  const space = MARK.y - 28 - 40
+  const y = Math.max(PANEL.y, 40 + bottom - top + 28)
+  const box = { ...PANEL, y, h: PANEL.y + PANEL.h - y }
+  const space = box.y - 28 - 40
   const dy = 40 - top + Math.max(0, (space - (bottom - top)) / 2)
+  const right = panel(box)
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="${ogFonts().latin}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${OG_SIZE.w}" height="${OG_SIZE.h}" viewBox="0 0 ${w} ${h}" font-family="${ogFonts().latin}">` +
     `<rect width="${w}" height="${h}" fill="${C.paper}"/>${right}` +
     `<g transform="translate(0 ${dy.toFixed(0)})">${body.join('')}</g>` +
     `<text x="${left + 46}" y="${MARK.y + MARK.h - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>` +
@@ -341,7 +350,7 @@ function pageTitle(body: string[], title: string, description: string): number {
   return 144 + 44
 }
 
-/** 地圖頁（/map）的分享圖片：右邊是整個龍洞與各大區域 */
+/** 地圖頁（/map）的分享圖片：下半部是整個龍洞與各大區域 */
 export function mapPageSvg(map: OgMap, areaColors: Record<string, string>, stats: { areas: number; routes: number }): string {
   return crag(map, areaColors, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '救援點 · 急救器材 · 離線可用')
 }
@@ -351,12 +360,12 @@ export function homePageSvg(map: OgMap, areaColors: Record<string, string>, stat
   return crag(map, areaColors, '龍洞攀岩資料庫', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '路線 · Bolt · 救援資訊 · 離線可用')
 }
 
-/** 左邊標題、說明、一行重點；右邊放大到 9 個大區域的龍洞地圖 */
+/** 上半部標題、說明、一行重點；下半部放大到 9 個大區域的龍洞地圖 */
 function crag(map: OgMap, areaColors: Record<string, string>, title: string, description: string, facts: string): string {
   const body: string[] = []
   const y = pageTitle(body, title, description)
   body.push(`<text x="${MARK.x}" y="${mid(y + 24, 28)}" font-size="28" font-weight="700" fill="${C.text}">${rich(facts)}</text>`)
-  return frame(areaMap(map, undefined, areaColors, PANEL, 0.9, 1.06), body, y + 48)
+  return frame((box) => areaMap(map, undefined, areaColors, box, 0.9, 1.06), body, y + 48)
 }
 
 /** 完攀方式的縮寫與顏色（與網站的 --style-os 等相同） */
@@ -367,8 +376,8 @@ const STYLES = {
 }
 
 /**
- * 路線清單頁（/checklist）的分享圖片：左邊是 OS／RP／TR 的圖例，
- * 右邊是清單的樣子（一個分區的前幾條路線，一條一行：編號、名稱、難度、OS RP TR；完攀方式是示範的）。
+ * 路線清單頁（/checklist）的分享圖片：上半部是 OS／RP／TR 的圖例，
+ * 下半部是清單的樣子（一個分區的前幾條路線，一條一行：編號、名稱、難度、OS RP TR；完攀方式是示範的）。
  */
 export function checklistPageSvg(area: Area, sector: Sector): string {
   const body: string[] = []
@@ -380,11 +389,15 @@ export function checklistPageSvg(area: Area, sector: Sector): string {
     x += p.w + 8 + textWidth(style.name, 24) + 26
   }
 
-  // 右邊：白色圓角框裡的清單
+  return frame((box) => checklistPanel(area, sector, box), body, y + 22 * 1.6)
+}
+
+/** 路線清單的分享圖片下半部：白色圓角框裡的清單 */
+function checklistPanel(area: Area, sector: Sector, box: Box): string {
   const demo = ['onsight', 'redpoint', 'redpoint', 'toprope', undefined, 'onsight'] as const
   const routes = sector.routes.filter((r) => !r.isFixture && r.grade).slice(0, demo.length)
-  const { x: px, y: py, w: pw, h: ph, r } = PANEL
-  const head = 96
+  const { x: px, y: py, w: pw, h: ph, r } = box
+  const head = 72
   const rowH = (ph - head - 16) / routes.length
   const rows = routes.map((route, i) => {
     const ry = py + head + i * rowH
@@ -417,10 +430,10 @@ export function checklistPageSvg(area: Area, sector: Sector): string {
     )
   })
   const done = demo.slice(0, routes.length).filter(Boolean).length
-  const right =
+  return (
     `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="${r}" fill="#ffffff"/>` +
-    `<text x="${px + 20}" y="${py + 58}" font-size="26" font-weight="700" fill="${C.text}">${rich(`${area.name.zh} · ${sector.name.zh}`)}</text>` +
-    `<text x="${px + pw - 20}" y="${py + 58}" font-size="20" font-weight="500" fill="${C.muted}" text-anchor="end">${rich(`${done} / ${routes.length}`)}</text>` +
+    `<text x="${px + 20}" y="${py + 46}" font-size="26" font-weight="700" fill="${C.text}">${rich(`${area.name.zh} · ${sector.name.zh}`)}</text>` +
+    `<text x="${px + pw - 20}" y="${py + 46}" font-size="20" font-weight="500" fill="${C.muted}" text-anchor="end">${rich(`${done} / ${routes.length}`)}</text>` +
     rows.join('')
-  return frame(right, body, y + 22 * 1.6)
+  )
 }
