@@ -385,3 +385,104 @@ describe('暱稱不能重複（不分大小寫、看起來一樣的寫法視為�
   })
 })
 
+
+describe('Topo（v2/topos、v2/topoEdits）', () => {
+  const SECTOR = 'longdong/music-hall-vab61c'
+  /** App 寫入的照片（src/personal/firebase.ts 的 createTopo） */
+  const photo = (uid: string, id: string, ext = 'webp') => ({ uid, sector: SECTOR, image: `topos/${uid}/${id}.${ext}`, width: 2560, height: 1707, createdAt: serverTimestamp() })
+  /** App 寫入的版本（addTopoEdit，routes 由 src/topo/model.ts 的 encodeMarks 產生） */
+  const edit = (uid: string, routes: Record<string, unknown> = { [ROUTE]: { line: '5000,9500 4800,5000 5000,0', bolts: { B01: '5000,8000', A01: '5000,100' } } }) => ({
+    uid,
+    createdAt: serverTimestamp(),
+    routes,
+  })
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref('v2').update({
+        topos: { p1: { uid: 'alice', sector: SECTOR, image: 'topos/alice/p1.webp', width: 100, height: 100, createdAt: 1 } },
+        topoEdits: { p1: { e1: { uid: 'alice', createdAt: 1, routes: { [ROUTE]: { line: '1,1 2,2' } } }, e2: { uid: 'mallory', createdAt: 2, routes: { [ROUTE]: { line: '1,1 3,3' } } } } },
+      })
+    })
+  })
+
+  it('訪客可以讀照片與所有版本', async () => {
+    await assertSucceeds(get(guest, 'v2/topos'))
+    await assertSucceeds(get(guest, 'v2/topoEdits'))
+  })
+
+  it('照片：登入者可以新增自己的（WebP 或 JPEG）；不能替別人新增，訪客不能新增', async () => {
+    await assertSucceeds(set(mallory, 'v2/topos/p2', photo('mallory', 'p2')))
+    await assertSucceeds(set(mallory, 'v2/topos/p3', photo('mallory', 'p3', 'jpg')))
+    await assertFails(set(mallory, 'v2/topos/p4', photo('alice', 'p4')))
+    await assertFails(set(guest, 'v2/topos/p5', photo('alice', 'p5')))
+  })
+
+  it('照片：檔案路徑必須是自己的資料夾＋照片 id，分區要是分區 ID，尺寸有上限，不能有其他欄位', async () => {
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), image: 'topos/alice/p2.webp' }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), image: 'topos/mallory/other.webp' }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), image: 'topos/mallory/p2.png' }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), sector: 'x' }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), width: 9000 }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), createdAt: 1 }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), note: 'x' }))
+  })
+
+  it('照片：不能修改（原圖不動）；本人與管理員可以連同所有版本一起刪除，別人不能', async () => {
+    await assertFails(set(alice, 'v2/topos/p1/width', 200))
+    await assertFails(update(mallory, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null }))
+    await assertSucceeds(update(alice, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null }))
+  })
+
+  it('照片：管理員（/role 與名單上的信箱）可以刪除別人的', async () => {
+    await assertSucceeds(update(admin, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null }))
+  })
+
+  it('照片：名單上的信箱可以刪除別人的；沒驗證過的同一個信箱不行', async () => {
+    await assertFails(update(unverified, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null }))
+    await assertSucceeds(update(emailAdmin, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null }))
+  })
+
+  it('版本：任何登入者都可以在別人的照片上提交；訪客不能，不能冒用別人的 uid，照片不存在時不能提交', async () => {
+    await assertSucceeds(push(mallory, 'v2/topoEdits/p1', edit('mallory')))
+    await assertFails(push(guest, 'v2/topoEdits/p1', edit('alice')))
+    await assertFails(push(mallory, 'v2/topoEdits/p1', edit('alice')))
+    await assertFails(push(mallory, 'v2/topoEdits/nope', edit('mallory')))
+  })
+
+  it('版本：路線 key 要是路線ID，線段至少兩點，bolt 位置是 B／A 加兩位數，要有伺服器時間，不能有其他欄位', async () => {
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', { 'longdong:x': { line: '1,1 2,2' } })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', { [ROUTE]: { line: '1,1' } })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', { [ROUTE]: { line: '1,1 2,x' } })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', { [ROUTE]: { line: Array(201).fill('9999,9999').join(' ') } })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', { [ROUTE]: { bolts: { X1: '1,1' } } })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', { [ROUTE]: { bolts: { B01: '1;1' } } })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', { [ROUTE]: { note: 'x' } })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', edit('alice', {})))
+    await assertFails(push(alice, 'v2/topoEdits/p1', { ...edit('alice'), createdAt: 1 }))
+    await assertFails(push(alice, 'v2/topoEdits/p1', { ...edit('alice'), note: 'x' }))
+  })
+
+  it('版本：不能修改；本人與管理員可以刪除，別人不能（照片的主人也不能只刪別人的一個版本）', async () => {
+    await assertFails(set(mallory, 'v2/topoEdits/p1/e2/routes', { [ROUTE]: { line: '1,1 9,9' } }))
+    await assertFails(remove(mallory, 'v2/topoEdits/p1/e1'))
+    await assertFails(remove(alice, 'v2/topoEdits/p1/e2'))
+    await assertSucceeds(remove(mallory, 'v2/topoEdits/p1/e2'))
+    await assertSucceeds(remove(admin, 'v2/topoEdits/p1/e1'))
+  })
+
+  it('不能整個刪掉別人照片的所有版本', async () => {
+    await assertFails(remove(mallory, 'v2/topoEdits/p1'))
+    await assertFails(remove(mallory, 'v2/topoEdits'))
+  })
+
+  it('刪除帳號：一次刪除自己的照片（連同別人的版本）與自己在別人照片上的版本', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref('v2').update({
+        'topos/p9': { uid: 'mallory', sector: SECTOR, image: 'topos/mallory/p9.webp', width: 100, height: 100, createdAt: 1 },
+        'topoEdits/p9/e9': { uid: 'alice', createdAt: 1, routes: { [ROUTE]: { line: '1,1 2,2' } } },
+      })
+    })
+    await assertSucceeds(update(alice, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null, 'v2/topoEdits/p9/e9': null }))
+  })
+})

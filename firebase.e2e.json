@@ -1,9 +1,11 @@
 {
   "database": [{ "instance": "longdong", "rules": "firebase/database.rules.json" }],
+  "storage": { "rules": "firebase/storage.rules" },
   "emulators": {
     "singleProjectMode": false,
     "auth": { "port": 9099 },
     "database": { "port": 9000 },
+    "storage": { "port": 9199 },
     "ui": { "enabled": false }
   }
 }

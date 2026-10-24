@@ -52,15 +52,26 @@ export default defineConfig({
         navigateFallback: 'index.html',
         // Firebase 的保留路徑（/__/auth/handler 等，登入用）交給網路
         navigateFallbackDenylist: [/^\/__\//],
-        // 評分、留言、暱稱：有網路時讀最新，離線時用最後一次讀到的
+        // 評分、留言、暱稱、Topo：有網路時讀最新，離線時用最後一次讀到的
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/longdong\.firebaseio\.com\/v2\/(ratings|comments|profiles)/,
+            urlPattern: /^https:\/\/longdong\.firebaseio\.com\/v2\/(ratings|comments|profiles|topos|topoEdits)/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'social',
               networkTimeoutSeconds: 4,
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          // Topo 照片：檔案上傳後不會覆蓋（Storage 規則），看過的直接用快取。
+          // Storage 沒有設定 CORS，快取的是 opaque 回應（瀏覽器每筆以數 MB 計入配額），所以數量不多
+          {
+            urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/topos%2F/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'topo-photos',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 365, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],

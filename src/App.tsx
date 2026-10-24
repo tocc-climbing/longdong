@@ -33,6 +33,8 @@ const BoltsPage = lazy(() => import('./pages/BoltsPage').then((m) => ({ default:
 const ChecklistPage = lazy(() => import('./pages/ChecklistPage').then((m) => ({ default: m.ChecklistPage })))
 /** 管理員的回報紀錄，只有少數人用 */
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+/** Topo 編輯（電腦版） */
+const TopoEditor = lazy(() => import('./topo/TopoEditor').then((m) => ({ default: m.TopoEditor })))
 
 export function App() {
   const page = usePage()
@@ -231,6 +233,12 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
       return (
         <Suspense>
           <AdminPage data={data} initialTab="map" />
+        </Suspense>
+      )
+    case 'topo':
+      return (
+        <Suspense>
+          <TopoEditor key={page.id} data={data} id={page.id} />
         </Suspense>
       )
     case 'notFound':

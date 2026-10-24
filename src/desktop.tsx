@@ -36,7 +36,7 @@ export function desktopView(page: Page, data: LoadedData): DesktopView {
   const closeHref = withDetail(here(), undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
   if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'admin' || page.name === 'bolts' || page.name === 'checklist')
+  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'admin' || page.name === 'bolts' || page.name === 'checklist' || page.name === 'topo')
 }
 
 export function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {

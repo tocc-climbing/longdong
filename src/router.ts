@@ -4,7 +4,7 @@ import type { LatLng } from './geo'
 import { parseSimulation } from './simulate'
 
 /**
- * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map、/reports、/admin、/bolts（id 本身含 "/"）。
+ * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map、/reports、/admin、/bolts、/topo/<照片>（id 本身含 "/"）。
  * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
  * 伺服器（Firebase Hosting）把所有路徑都交給 index.html；站內連結由這裡攔下來換頁，不重新載入。
  */
@@ -23,6 +23,8 @@ export type Page = (
   | { name: 'admin' }
   | { name: 'bolts' }
   | { name: 'checklist' }
+  /** Topo 編輯（電腦版）；id 是照片 id */
+  | { name: 'topo'; id: string }
   /** 不是 App 的頁面（例如 /terms.html 等靜態檔案）：站內連結不攔，直接載入時顯示找不到頁面 */
   | { name: 'notFound' }
 ) & { detail?: string }
@@ -52,6 +54,7 @@ export function parseLocation(location: string): Page {
   if (kind === 'admin') return { name: 'admin' }
   if (kind === 'bolts') return { name: 'bolts' }
   if (kind === 'checklist') return { name: 'checklist' }
+  if (kind === 'topo' && id) return { name: 'topo', id }
   if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
   if (!kind) return { name: 'home' }
   return { name: 'notFound' }
@@ -88,6 +91,8 @@ export const href = {
   bolts: () => '/bolts',
   /** 路線清單：快速記錄每條路線的最佳攀登方式與評分（我的 → 路線清單） */
   checklist: () => '/checklist',
+  /** Topo 編輯（電腦版） */
+  topo: (id: string) => `/topo/${id}`,
 }
 
 /** 舊的分區網址（依位置編號的 ID）要換成的網址，?r= 照留；不是舊網址時回傳 undefined */

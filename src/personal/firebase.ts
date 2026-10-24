@@ -24,6 +24,7 @@ import {
 } from 'firebase/auth'
 import { connectDatabaseEmulator, get, getDatabase, onValue, push, ref, remove, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
 import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
+import { STORAGE_BUCKET, type StoredRoutes, type TopoPhoto } from '../topo/model'
 
 const app = initializeApp({
   // 前端用的公開設定（不是密鑰）；存取權限由 Realtime Database 規則控管
@@ -34,6 +35,7 @@ const app = initializeApp({
   authDomain: typeof location !== 'undefined' && location.hostname.endsWith('.web.app') ? location.hostname : 'longdong.firebaseapp.com',
   databaseURL: 'https://longdong.firebaseio.com',
   projectId: 'project-2803619783974357321',
+  storageBucket: STORAGE_BUCKET,
 })
 
 const auth = getAuth(app)
@@ -236,6 +238,53 @@ export async function loadCalibrationUploads(): Promise<{ signedIn: CalibrationU
 /** 上傳比例尺地圖的現場校正記錄（GeoJSON 文字）；只有本人與管理員讀得到 */
 export async function uploadCalibration(uid: string, geojson: string): Promise<void> {
   await push(ref(db, `v2/calibration/${uid}`), { geojson, createdAt: serverTimestamp() })
+}
+
+/* ---------- Topo（讀取走 REST，見 topo/store.ts） ---------- */
+
+/** Cloud Storage 只在上傳、刪除照片時才載入 */
+async function storage() {
+  const s = await import('firebase/storage')
+  const instance = s.getStorage(app)
+  if (import.meta.env.MODE === 'e2e') s.connectStorageEmulator(instance, '127.0.0.1', 9199)
+  return { s, instance }
+}
+
+/** 上傳照片（不能覆蓋）並建立 Topo；資料庫寫入失敗時刪掉剛上傳的檔案。回傳照片 id */
+export async function createTopo(uid: string, sector: string, image: Blob, width: number, height: number): Promise<string> {
+  const id = push(ref(db, 'v2/topos')).key!
+  const path = `topos/${uid}/${id}.${image.type === 'image/webp' ? 'webp' : 'jpg'}`
+  const { s, instance } = await storage()
+  const file = s.ref(instance, path)
+  await s.uploadBytes(file, image, { contentType: image.type })
+  try {
+    await set(ref(db, `v2/topos/${id}`), { uid, sector, image: path, width, height, createdAt: serverTimestamp() })
+  } catch (err) {
+    await s.deleteObject(file).catch(() => {})
+    throw err
+  }
+  return id
+}
+
+/** 提交一個版本（完整的標記） */
+export async function addTopoEdit(uid: string, photo: string, routes: StoredRoutes): Promise<void> {
+  await push(ref(db, `v2/topoEdits/${photo}`), { uid, createdAt: serverTimestamp(), routes })
+}
+
+export function deleteTopoEdit(photo: string, edit: string): Promise<void> {
+  return remove(ref(db, `v2/topoEdits/${photo}/${edit}`))
+}
+
+/** 刪除照片：先刪資料庫的照片與所有版本（畫面上消失），再刪檔案 */
+export async function deleteTopo(photo: TopoPhoto): Promise<void> {
+  await update(ref(db), { [`v2/topos/${photo.id}`]: null, [`v2/topoEdits/${photo.id}`]: null })
+  await deleteTopoFiles([photo.image])
+}
+
+export async function deleteTopoFiles(paths: string[]): Promise<void> {
+  if (paths.length === 0) return
+  const { s, instance } = await storage()
+  await Promise.all(paths.map((p) => s.deleteObject(s.ref(instance, p))))
 }
 
 /**

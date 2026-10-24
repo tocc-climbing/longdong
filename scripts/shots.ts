@@ -21,7 +21,7 @@ import { preview } from 'vite'
 
 if (!process.env.SHOTS_ARGS) {
   execSync('npx vite build --mode e2e --outDir dist-e2e', { stdio: 'inherit' })
-  execSync('npx -y firebase-tools@15.34.1 emulators:exec --config firebase.e2e.json --only auth,database --project demo-longdong "tsx scripts/shots.ts"', {
+  execSync('npx -y firebase-tools@15.34.1 emulators:exec --config firebase.e2e.json --only auth,database,storage --project demo-longdong "tsx scripts/shots.ts"', {
     stdio: 'inherit',
     env: { ...process.env, SHOTS_ARGS: JSON.stringify(process.argv.slice(2)) },
   })

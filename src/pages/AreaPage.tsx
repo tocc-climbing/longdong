@@ -5,6 +5,7 @@ import { AreaShape } from '../components/AreaShape'
 import { GradeDistribution } from '../components/Charts'
 import { RescueButton } from '../components/RescueButton'
 import { RouteList } from '../components/RouteList'
+import { SectorTopos } from '../topo/TopoSection'
 import { gradeDistribution, sectorColor, typeSummary } from '../format'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
@@ -136,7 +137,7 @@ export function areaSectorColor(area: Area, sector: Sector): string | undefined 
   return sectorColor(area.color, area.sectors.indexOf(sector), area.sectors.length)
 }
 
-/** 分區頁：路線清單，可排序、篩選 */
+/** 分區頁：Topo 與路線清單，可排序、篩選 */
 export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
   const { lang } = useLang()
   const found = data.sectorById.get(id)
@@ -154,7 +155,12 @@ export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
 }
 
 function SectorRoutes({ data, sector }: { data: LoadedData; sector: Sector }) {
-  return <RouteList items={sector.routes.map((r) => data.routeById.get(r.id)!)} defaultLabel="list.sort.number" />
+  return (
+    <>
+      <SectorTopos sector={sector} />
+      <RouteList items={sector.routes.map((r) => data.routeById.get(r.id)!)} defaultLabel="list.sort.number" />
+    </>
+  )
 }
 
 /** 「5.7–5.12a」；只有一種難度時只顯示一個 */

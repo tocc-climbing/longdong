@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Cloud Storage 規則。只開放 Topo 照片（src/topo），其他路徑一律拒絕
+// （舊站 2016 年的照片以下載網址的 token 讀取，不受規則影響）。
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 管理員名單同 firebase/database.rules.json 與 src/admin.ts 的 ADMIN_EMAILS（Storage 規則讀不到資料庫的 /role）
+    function isAdmin() {
+      return request.auth != null && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.email in ['jinlung.you@gmail.com', 'maurice.chen67@gmail.com', 'kant.kang@gmail.com'];
+    }
+
+    // topos/<uid>/<照片 id>.webp（瀏覽器不能輸出 WebP 時為 .jpg）：公開可讀；登入者只能上傳到自己的資料夾，
+    // 不能覆蓋（原圖不動）；本人與管理員可以刪除
+    match /topos/{uid}/{file} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid && resource == null
+        && ((file.matches('[A-Za-z0-9_-]{1,40}[.]webp') && request.resource.contentType == 'image/webp')
+          || (file.matches('[A-Za-z0-9_-]{1,40}[.]jpg') && request.resource.contentType == 'image/jpeg'))
+        && request.resource.size <= 3 * 1024 * 1024;
+      allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
+    }
+  }
+}

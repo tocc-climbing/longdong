@@ -2,6 +2,9 @@
   "database": {
     "rules": "firebase/database.rules.json"
   },
+  "storage": {
+    "rules": "firebase/storage.rules"
+  },
   "hosting": {
     "site": "longdong",
     "public": "dist",
@@ -24,7 +27,7 @@
         ]
       },
       {
-        "regex": "^/((area|sector|route|search|me|about|rescue|map|reports|admin|bolts|checklist)(/.*)?)?$",
+        "regex": "^/((area|sector|route|search|me|about|rescue|map|reports|admin|bolts|checklist|topo)(/.*)?)?$",
         "headers": [
           {
             "key": "Cache-Control",

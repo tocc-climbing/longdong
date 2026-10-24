@@ -11,6 +11,9 @@ vi.mock('../src/personal/sync', () => ({
       reauthenticateIfStale: async () => {
         calls.push('reauth')
       },
+      deleteTopoFiles: async () => {
+        calls.push('deleteTopoFiles')
+      },
     },
     uid: 'alice',
   }),

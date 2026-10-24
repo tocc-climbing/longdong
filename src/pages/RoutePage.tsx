@@ -14,12 +14,13 @@ import { localName, useLang } from '../i18n'
 import { useCloud } from '../personal/sync'
 import { href, useRouteLink } from '../router'
 import { routeKey, summarize } from '../social/model'
+import { RouteTopos } from '../topo/TopoSection'
 import { useSocial } from '../social/store'
 import { NotFound } from './AreaPage'
 
 /**
  * 路線頁（手機版與電腦版的右側相同）：名稱、一行重點（難度、種類、高度、評分）、安全與狀態合併的一個色塊、
- * 記錄／收藏／分享、路線資訊；首攀、Bolt、Anchor 收在「更多資訊」；最後是評分與留言。
+ * 記錄／收藏／分享、Topo、路線資訊；首攀、Bolt、Anchor 收在「更多資訊」；最後是評分與留言。
  */
 export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
   const ref = data.routeById.get(id)
@@ -84,6 +85,8 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
           <ShareButton item={ref} />
         </div>
       )}
+
+      <RouteTopos sector={sector} routeId={route.id} />
 
       {pitches.length > 1 && (
         <section className="route-block">
