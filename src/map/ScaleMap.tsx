@@ -393,7 +393,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           <path className="sm-building" d={map.layers.building} />
           {ortho &&
             orthoTiles(view, frame, window.devicePixelRatio).map((tile) => (
-              <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" />
+              // CORS 載入：Service Worker 才能存成一般的回應（離線快取，見 ortho.ts）
+              <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" crossOrigin="anonymous" />
             ))}
           {map.areas.map((a) => (
             <path key={a.id} className={`sm-area sm-area-${a.id}${focus?.area && a.id !== focus.area ? ' sm-dim' : ''}`} d={a.path} strokeWidth={px} />

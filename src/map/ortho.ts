@@ -1,10 +1,12 @@
 import type { LatLng } from '../geo'
+import { BOUNDS } from './bounds'
 import { project, unproject } from './mapData'
 import { toMap, type MapView, type Size } from './mapView'
 
 /**
  * 內政部國土測繪中心的臺灣通用正射影像（航照，WMTS 圖磚，政府資料開放授權，需標示出處）。
- * 管理頁電腦版的地圖回報用來對照回報點、區域邊界與真實岩壁的位置。
+ * 圖磚以 CORS 載入（伺服器允許），Service Worker 存進 ORTHO_CACHE（vite.config.ts），看過的地方離線時照樣顯示；
+ * 也可以一次下載整個地圖範圍（downloadOrtho）。
  */
 const TILE_URL = 'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}'
 /** 圖磚的縮放層級：z19 每像素約 0.27 公尺，再放大只是放大同一張照片 */
@@ -15,6 +17,12 @@ const MAX_TILES = 64
 /** 最底下固定墊一層：縮放時這層的圖磚不換，新的圖磚載入前不會整片空白（閃一下） */
 const BASE_Z = 16
 const EARTH_M = 2 * Math.PI * 6_378_137
+/** Service Worker 快取航照圖磚的 cache 名稱（同 vite.config.ts） */
+export const ORTHO_CACHE = 'ortho'
+/** 整個地圖範圍 z14–19 的圖磚實測大小（2026-10-26，544 張） */
+export const ORTHO_DOWNLOAD_MB = 6.4
+/** 下載整個範圍時同時抓幾張 */
+const DOWNLOAD_PARALLEL = 6
 
 export interface OrthoTile {
   key: string
@@ -31,6 +39,7 @@ const tileY = (lat: number, n: number) => {
   const r = (lat * Math.PI) / 180
   return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n
 }
+const tileUrl = (z: number, x: number, y: number) => TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
 const tileLatLng = (x: number, y: number, n: number): LatLng => [(Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI, (x / n) * 360 - 180]
 
 /** 畫面上看得到的圖磚：一層清楚的（圖磚像素不大於螢幕像素），底下墊一層粗兩級的，最底下再墊固定的 BASE_Z，換層級時不會整片空白 */
@@ -50,7 +59,7 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1): OrthoTile[] {
       for (let y = y0; y <= y1; y++) {
         const [left, top] = project(tileLatLng(x, y, n))
         const [right, bottom] = project(tileLatLng(x + 1, y + 1, n))
-        tiles.push({ key: `${z}/${x}/${y}`, href: TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)), x: left, y: top, w: right - left, h: bottom - top })
+        tiles.push({ key: `${z}/${x}/${y}`, href: tileUrl(z, x, y), x: left, y: top, w: right - left, h: bottom - top })
       }
     }
     return tiles
@@ -63,4 +72,52 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1): OrthoTile[] {
   const coarse = z - 2 > BASE_Z ? layer(z - 2) : undefined
   const base = z > BASE_Z ? layer(BASE_Z) : undefined
   return [...(base ?? []), ...(coarse ?? []), ...(fine ?? [])]
+}
+
+/** 整個地圖範圍（BOUNDS）MIN_Z–MAX_Z 的所有圖磚 */
+export function orthoDownloadUrls(): string[] {
+  const [nw, se] = [unproject([BOUNDS.x, BOUNDS.y]), unproject([BOUNDS.x + BOUNDS.w, BOUNDS.y + BOUNDS.h])]
+  const urls: string[] = []
+  for (let z = MIN_Z; z <= MAX_Z; z++) {
+    const n = 2 ** z
+    for (let x = Math.floor(tileX(nw[1], n)); x <= Math.floor(tileX(se[1], n)); x++) {
+      for (let y = Math.floor(tileY(nw[0], n)); y <= Math.floor(tileY(se[0], n)); y++) urls.push(tileUrl(z, x, y))
+    }
+  }
+  return urls
+}
+
+/** 離線快取裡已經有幾張（整個範圍的圖磚中） */
+export async function cachedOrthoCount(): Promise<number> {
+  if (!('caches' in window)) return 0
+  const cache = await caches.open(ORTHO_CACHE)
+  const have = new Set((await cache.keys()).map((r) => r.url))
+  return orthoDownloadUrls().filter((u) => have.has(u)).length
+}
+
+/**
+ * 下載整個範圍存進離線快取（已經有的跳過），onProgress 回報完成幾張；
+ * 任何一張失敗就停下來丟出錯誤（已下載的留著，下次從缺的繼續）。
+ */
+export async function downloadOrtho(onProgress: (done: number, total: number) => void): Promise<void> {
+  const cache = await caches.open(ORTHO_CACHE)
+  const have = new Set((await cache.keys()).map((r) => r.url))
+  const urls = orthoDownloadUrls()
+  const missing = urls.filter((u) => !have.has(u))
+  let done = urls.length - missing.length
+  onProgress(done, urls.length)
+  // 盡量不要被瀏覽器在空間不足時清掉
+  void navigator.storage?.persist?.()
+  let next = 0
+  await Promise.all(
+    Array.from({ length: DOWNLOAD_PARALLEL }, async () => {
+      while (next < missing.length) {
+        const url = missing[next++]
+        const res = await fetch(url, { mode: 'cors' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        await cache.put(url, res)
+        onProgress(++done, urls.length)
+      }
+    }),
+  )
 }

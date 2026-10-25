@@ -15,6 +15,7 @@ import { useCloud } from '../personal/sync'
 import { reportOptions, type ReportOption } from '../map/reportOptions'
 import { href, navigate } from '../router'
 import { areaNames, project, useScaleMap } from '../map/mapData'
+import { ORTHO_DOWNLOAD_MB, cachedOrthoCount, downloadOrtho, orthoDownloadUrls } from '../map/ortho'
 import { insideRing } from '../map/reportOptions'
 import { WALL_MAX_POINTS, encodeLine, useWalls } from '../map/walls'
 import { withCloud } from '../personal/sync'
@@ -39,7 +40,7 @@ const TOAST_MS = 4000
  * 回報時也可以在地圖上點出自己認為所在的位置（選填）：和 GPS 的差距可以看出地圖或 GPS 偏了多少。
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
- * 「航照」切換國土測繪中心的正射影像底圖。電腦版登入後可以「畫岩壁」：選分區，沿著牆底點出折線；登入者看得到所有人畫的岩壁。
+ * 「航照」切換國土測繪中心的正射影像底圖；看過的地方離線時照樣顯示，還沒存齊時可以「下載離線航照」一次存下整個範圍。電腦版登入後可以「畫岩壁」：選分區，沿著牆底點出折線；登入者看得到所有人畫的岩壁。
  * 電腦版的管理員可以「編輯區域」：調整大區域的形狀、畫分區的範圍（src/pages/ShapeEditor.tsx）。
  */
 export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
@@ -64,6 +65,8 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const [picking, setPicking] = useState(false)
   const [toast, setToast] = useState<string>()
   const [ortho, setOrtho] = useState(() => readFlag(ORTHO_KEY))
+  /** 離線航照：整個範圍存齊了沒、下載進度；undefined 表示還沒查（或這個瀏覽器不能離線快取） */
+  const [offline, setOffline] = useState<{ done: number; total: number; downloading: boolean }>()
   /** 手動回報：在地圖上點位置中／點好的位置（表單開著） */
   const [manualPicking, setManualPicking] = useState(false)
   const [manualAt, setManualAt] = useState<LatLng>()
@@ -110,6 +113,31 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
     const timer = setTimeout(() => setToast(undefined), TOAST_MS)
     return () => clearTimeout(timer)
   }, [toast])
+
+  // 開著航照時查離線快取存齊了沒
+  useEffect(() => {
+    if (!ortho || !('caches' in window)) return
+    let alive = true
+    cachedOrthoCount().then(
+      (done) => alive && setOffline((o) => o ?? { done, total: orthoDownloadUrls().length, downloading: false }),
+      () => {},
+    )
+    return () => {
+      alive = false
+    }
+  }, [ortho])
+
+  const downloadOffline = async () => {
+    setOffline((o) => o && { ...o, downloading: true })
+    try {
+      await downloadOrtho((done, total) => setOffline({ done, total, downloading: true }))
+      setOffline((o) => o && { ...o, downloading: false })
+      setToast(t('map.orthoDownloaded'))
+    } catch (err) {
+      setOffline((o) => o && { ...o, downloading: false })
+      setToast(t('map.orthoDownloadFailed', { error: (err as Error).message }))
+    }
+  }
 
   const toggleOrtho = () => {
     writeFlag(ORTHO_KEY, !ortho)
@@ -226,6 +254,11 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
               <button type="button" className="sm-chip" aria-pressed={ortho} onClick={toggleOrtho}>
                 {t('map.ortho')}
               </button>
+              {ortho && offline && offline.done < offline.total && (
+                <button type="button" className="sm-chip" disabled={offline.downloading} onClick={() => void downloadOffline()}>
+                  {offline.downloading ? t('map.orthoDownloading', { done: offline.done, total: offline.total }) : t('map.orthoDownload', { mb: ORTHO_DOWNLOAD_MB })}
+                </button>
+              )}
               {wide && uid && !wallDraft && !shapeEditor.active && (
                 <button type="button" className="sm-chip" onClick={() => setWallDraft({ points: [], sector: '', saving: false })}>
                   {t('wall.draw')}

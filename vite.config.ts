@@ -63,6 +63,16 @@ export default defineConfig({
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+          // 航照圖磚（國土測繪中心，允許 CORS）：同一張圖磚內容不變，看過的直接用快取；地圖頁也可以一次下載整個範圍（src/map/ortho.ts）
+          {
+            urlPattern: /^https:\/\/wmts\.nlsc\.gov\.tw\/wmts\/PHOTO2\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ortho',
+              expiration: { maxEntries: 2000, maxAgeSeconds: 60 * 60 * 24 * 365, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           // Topo 照片：檔案上傳後不會覆蓋（Storage 規則），看過的直接用快取。
           // Storage 沒有設定 CORS，快取的是 opaque 回應（瀏覽器每筆以數 MB 計入配額），所以數量不多
           {
