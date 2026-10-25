@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
-import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks } from '../src/topo/model'
+import { drawnRuns, forkLine, moveSharedPoint, spreadBadges } from '../src/topo/lines'
+import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
 
 const rules = JSON.parse(readFileSync('firebase/database.rules.json', 'utf8')).rules.v2.topoEdits.$photo.$edit.routes.$route
 /** 規則裡 .validate 的 /…/ 正規表示式 */
@@ -117,5 +118,57 @@ describe('裁切', () => {
     expect(moveCrop(crop, [3000, 3000], [3500, 2500])).toEqual({ x: 2500, y: 500, w: 4000, h: 6000 })
     expect(moveCrop(crop, [0, 0], [-9999, -9999])).toEqual({ x: 0, y: 0, w: 4000, h: 6000 })
     expect(moveCrop(crop, [0, 0], [9999, 9999])).toEqual({ x: 6000, y: 4000, w: 4000, h: 6000 })
+  })
+})
+
+describe('共用線段', () => {
+  const trunk: Point[] = [[5000, 9000], [4800, 6000], [5000, 3000]]
+  const branch: Point[] = [...forkLine(trunk, 1), [3000, 2000], [2900, 500]]
+
+  it('分岔出來的路線複製到分岔點為止的前段', () => {
+    expect(forkLine(trunk, 1)).toEqual([[5000, 9000], [4800, 6000]])
+    expect(forkLine(trunk, 0)).toEqual([[5000, 9000]])
+  })
+
+  it('共用的線段只畫一次，歸排在前面的路線；各自的部分接成折線', () => {
+    const runs = drawnRuns([['a', trunk], ['b', branch]])
+    expect(runs.get('a')).toEqual([trunk])
+    expect(runs.get('b')).toEqual([[[4800, 6000], [3000, 2000], [2900, 500]]])
+    // 順序對調：共用段歸 b，a 只剩自己的一段
+    const flipped = drawnRuns([['b', branch], ['a', trunk]])
+    expect(flipped.get('b')).toEqual([branch])
+    expect(flipped.get('a')).toEqual([[[4800, 6000], [5000, 3000]]])
+  })
+
+  it('端點相同但方向相反的線段視為同一段；只差一點座標就不算共用', () => {
+    expect(drawnRuns([['a', [[1, 1], [2, 2]]], ['b', [[2, 2], [1, 1]]]]).get('b')).toEqual([])
+    expect(drawnRuns([['a', [[1, 1], [2, 2]]], ['b', [[1, 1], [2, 3]]]]).get('b')).toEqual([[[1, 1], [2, 3]]])
+  })
+
+  it('被共用段隔開的兩段各自成一條折線', () => {
+    const middle: Point[] = [[0, 0], [1, 1], [2, 2], [3, 3]]
+    const runs = drawnRuns([['a', [[1, 1], [2, 2]]], ['b', middle]])
+    expect(runs.get('b')).toEqual([[[0, 0], [1, 1]], [[2, 2], [3, 3]]])
+  })
+
+  it('同一位置的編號橫向排開並置中，不同位置不動', () => {
+    const offsets = spreadBadges([
+      { id: 'a', at: [100, 100], width: 20 },
+      { id: 'b', at: [100, 100], width: 30 },
+      { id: 'c', at: [900, 100], width: 20 },
+    ])
+    // 總寬 20 + 3 + 30 = 53，左緣 -26.5：a 的中心 -16.5，b 的中心 -26.5 + 23 + 15 = 11.5
+    expect(offsets.get('a')).toBe(-16.5)
+    expect(offsets.get('b')).toBe(11.5)
+    expect(offsets.get('c')).toBe(0)
+  })
+
+  it('拖曳共用的點時，所有落在同一點的線段端點一起移動，bolt 不動', () => {
+    const marks: Marks = { a: { line: trunk, bolts: { B01: [4800, 6000] } }, b: { line: branch } }
+    const moved = moveSharedPoint(marks, [4800, 6000], [4700, 6100])
+    expect(moved.a.line![1]).toEqual([4700, 6100])
+    expect(moved.b.line![1]).toEqual([4700, 6100])
+    expect(moved.a.bolts!.B01).toEqual([4800, 6000])
+    expect(moved.b.line![2]).toEqual([3000, 2000])
   })
 })

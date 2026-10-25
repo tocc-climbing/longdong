@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react'
 import { navigate } from '../router'
+import { drawnRuns, spreadBadges } from './lines'
 import { FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type Point, type TopoPhoto } from './model'
 
 /**
@@ -59,6 +60,7 @@ export function px(photo: TopoPhoto, [x, y]: Point): [number, number] {
 /**
  * 路線線段、編號與 bolt。highlight 的路線用亮色、其他變淡；
  * bolts 決定畫哪些路線的 bolt（預設只畫 highlight 的）；有 link 時點線段換到那條路線。
+ * 起攀點與完攀點（線段最後一點）各標路線編號；兩條路線共用的線段只畫一次，同一點的編號橫向排開。
  */
 export function TopoLines({
   photo,
@@ -80,26 +82,41 @@ export function TopoLines({
   link?: (id: string) => string
   crop?: Crop
 }) {
-  const bottom = px(photo, [0, (crop ?? FULL_CROP).y + (crop ?? FULL_CROP).h])[1]
+  const c = crop ?? FULL_CROP
+  const top = px(photo, [0, c.y])[1]
+  const bottom = px(photo, [0, c.y + c.h])[1]
   // 亮色的畫在最上面
   const ids = Object.keys(marks).sort((a, b) => Number(a === highlight) - Number(b === highlight))
+  // 共用線段歸亮色的路線，其次依編號：先處理的路線留住共用段
+  const owners = ids
+    .filter((id) => marks[id].line)
+    .sort((a, b) => Number(b === highlight) - Number(a === highlight) || Number(labels.get(a)) - Number(labels.get(b)) || a.localeCompare(b))
+  const runs = drawnRuns(owners.map((id) => [id, marks[id].line!.map((p) => px(photo, p))]))
+  const startAt = (id: string) => marks[id].line?.[0] ?? lowestBoltPoint(marks[id].bolts)
+  const badges = (at: (id: string) => Point | undefined) =>
+    spreadBadges(ids.flatMap((id) => (labels.has(id) && at(id) ? [{ id, at: at(id)!, width: badgeWidth(labels.get(id)!) }] : [])))
+  const startShift = badges(startAt)
+  const endShift = badges((id) => marks[id].line?.at(-1))
   return (
     <>
       {ids.map((id) => {
         const m = marks[id]
         const line = m.line?.map((p) => px(photo, p))
         const start = line?.[0] ?? lowestBolt(photo, m.bolts)
+        const end = line?.at(-1)
         const cls = `topo-route${id === highlight ? ' on' : highlight ? ' dim' : ''}`
-        const points = line?.map((p) => p.join(',')).join(' ')
         const body = (
           <>
-            {points && (
-              <>
-                <polyline className="topo-hit" points={points} strokeWidth={18 * k} />
-                <polyline className="topo-halo" points={points} strokeWidth={(id === highlight ? 7 : 5) * k} />
-                <polyline className="topo-line" points={points} strokeWidth={(id === highlight ? 4 : 2.5) * k} />
-              </>
-            )}
+            {(runs.get(id) ?? []).map((run, i) => {
+              const points = run.map((p) => p.join(',')).join(' ')
+              return (
+                <Fragment key={i}>
+                  <polyline className="topo-hit" points={points} strokeWidth={18 * k} />
+                  <polyline className="topo-halo" points={points} strokeWidth={(id === highlight ? 7 : 5) * k} />
+                  <polyline className="topo-line" points={points} strokeWidth={(id === highlight ? 4 : 2.5) * k} />
+                </Fragment>
+              )
+            })}
             {bolts.includes(id) &&
               Object.entries(m.bolts ?? {}).map(([pos, p]) => {
                 const [x, y] = px(photo, p)
@@ -112,7 +129,8 @@ export function TopoLines({
                   </g>
                 )
               })}
-            {start && labels.get(id) && <Badge x={start[0]} y={start[1]} k={k} text={labels.get(id)!} bottom={bottom} />}
+            {start && labels.get(id) && <Badge x={start[0] + (startShift.get(id) ?? 0) * k} y={start[1]} k={k} text={labels.get(id)!} top={top} bottom={bottom} />}
+            {end && labels.get(id) && <Badge x={end[0] + (endShift.get(id) ?? 0) * k} y={end[1]} k={k} text={labels.get(id)!} top={top} bottom={bottom} above />}
           </>
         )
         // SVG 的 <a> 的 href 不是字串，站內換頁攔不到（router.ts），改用點擊與 Enter 換頁
@@ -138,24 +156,32 @@ export function TopoLines({
   )
 }
 
-/** 起攀點下方的路線編號；超出照片下緣時放在上方 */
-function Badge({ x, y, k, text, bottom }: { x: number; y: number; k: number; text: string; bottom: number }) {
-  const w = (text.length * 7 + 10) * k
+/** 編號牌的寬度（螢幕像素） */
+const badgeWidth = (text: string) => text.length * 7 + 10
+
+/** 路線編號：起攀點放在點的下方，完攀點（above）放在上方；超出照片（裁切）範圍時換到另一側 */
+function Badge({ x, y, k, text, top, bottom, above }: { x: number; y: number; k: number; text: string; top: number; bottom: number; above?: boolean }) {
+  const w = badgeWidth(text) * k
   const h = 16 * k
-  const top = y + 3 * k + h <= bottom ? y + 3 * k : y - 3 * k - h
+  const below = y + 3 * k
+  const over = y - 3 * k - h
+  const fitsBelow = below + h <= bottom
+  const fitsAbove = over >= top
+  const at = above ? (fitsAbove || !fitsBelow ? over : below) : fitsBelow || !fitsAbove ? below : over
   return (
     <g className="topo-badge">
-      <rect x={x - w / 2} y={top} width={w} height={h} rx={3 * k} />
-      <text x={x} y={top + h / 2} fontSize={11.5 * k} dominantBaseline="central" textAnchor="middle">
+      <rect x={x - w / 2} y={at} width={w} height={h} rx={3 * k} />
+      <text x={x} y={at + h / 2} fontSize={11.5 * k} dominantBaseline="central" textAnchor="middle">
         {text}
       </text>
     </g>
   )
 }
 
+const lowestBoltPoint = (bolts: Record<string, Point> | undefined): Point | undefined => Object.values(bolts ?? {}).reduce<Point | undefined>((a, b) => (!a || b[1] > a[1] ? b : a), undefined)
+
 /** 沒有線段時，編號放在最下面的 bolt */
 function lowestBolt(photo: TopoPhoto, bolts: Record<string, Point> | undefined): [number, number] | undefined {
-  const list = Object.values(bolts ?? {})
-  if (list.length === 0) return undefined
-  return px(photo, list.reduce((a, b) => (b[1] > a[1] ? b : a)))
+  const lowest = lowestBoltPoint(bolts)
+  return lowest && px(photo, lowest)
 }

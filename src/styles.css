@@ -4795,6 +4795,16 @@ g.topo-route.link:is(:hover, :focus-visible) {
   stroke: #fff;
 }
 
+.topo-fork circle {
+  fill: rgba(255, 255, 255, 0.35);
+  stroke: #fff;
+  cursor: pointer;
+}
+
+.topo-fork circle:hover {
+  fill: #ff5a36;
+}
+
 .topo-crop-dim {
   fill: rgba(0, 0, 0, 0.55);
   pointer-events: none;

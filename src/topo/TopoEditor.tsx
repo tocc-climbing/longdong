@@ -13,6 +13,7 @@ import { href, navigate } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { removeEdit, removeTopo, submitEdit } from './actions'
 import { CropBox } from './CropBox'
+import { forkLine, moveSharedPoint } from './lines'
 import { boltPositions, isFullCrop, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
@@ -106,6 +107,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const [selected, setSelected] = useState<string | undefined>(routes.find((r) => r.number)?.id)
   const [mode, setMode] = useState<Mode>('line')
   const [boltPos, setBoltPos] = useState<string>()
+  const [forking, setForking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const undo = useRef<Content[]>([])
@@ -120,6 +122,10 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const nextPos = positions.find((p) => !current.bolts?.[p])
   const placing = boltPos && positions.includes(boltPos) ? boltPos : nextPos
   const cropping = mode === 'crop' && !preview
+  /** 可以分岔的路線：這張照片上已有線段的其他路線；目前這條還沒畫線才能分岔 */
+  const forkable = Object.entries(marks).filter(([id, m]) => id !== selected && m.line)
+  const canFork = !preview && mode === 'line' && !!route && !current.line && forkable.length > 0
+  const isForking = forking && canFork
 
   const setDraft = (d: Draft | undefined) => {
     writeDraft(photo.id, d)
@@ -151,6 +157,10 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         if (!prev) return
         e.preventDefault()
         commit(prev)
+      } else if (e.key === 'Escape') {
+        setForking(false)
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !preview && e.key.toLowerCase() === 'f') {
+        setForking((on) => !on)
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !preview && MODE_KEYS[e.key.toLowerCase()]) {
         const next = MODE_KEYS[e.key.toLowerCase()]
         if (next === 'bolt' && positions.length === 0) return
@@ -168,7 +178,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   }
 
   const onPhotoClick = (e: ReactMouseEvent<SVGSVGElement>) => {
-    if (preview || mode === 'crop' || !selected || dragging.current) return
+    if (preview || mode === 'crop' || isForking || !selected || dragging.current) return
     const p = pointAt(e, e.currentTarget)
     if (mode === 'line') edit((m) => ({ ...m, line: [...(m.line ?? []), p] }))
     else if (placing) {
@@ -178,7 +188,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   }
 
   // 拖曳線段的點或 bolt：按下時記一次復原點，移動時直接改草稿
-  const dragging = useRef<{ kind: 'line'; index: number } | { kind: 'bolt'; pos: string } | null>(null)
+  const dragging = useRef<{ kind: 'line'; index: number; at: Point } | { kind: 'bolt'; pos: string } | null>(null)
   const startDrag = (e: ReactPointerEvent<SVGElement>, target: NonNullable<typeof dragging.current>) => {
     if (e.button !== 0) return
     e.stopPropagation()
@@ -192,9 +202,14 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
     if (!d || !svg || !selected) return
     const p = pointAt(e, svg)
     const { marks: all, crop: keep } = base()
+    if (d.kind === 'line') {
+      // 分岔出來的路線與原路線共用的點一起移動
+      commit({ marks: moveSharedPoint(all, d.at, p), crop: keep })
+      d.at = p
+      return
+    }
     const m = all[selected] ?? {}
-    const next = d.kind === 'line' ? { ...m, line: m.line!.map((q, i) => (i === d.index ? p : q)) } : { ...m, bolts: { ...m.bolts, [d.pos]: p } }
-    commit({ marks: { ...all, [selected]: next }, crop: keep })
+    commit({ marks: { ...all, [selected]: { ...m, bolts: { ...m.bolts, [d.pos]: p } } }, crop: keep })
   }
   const endDrag = () => {
     // click 事件在 pointerup 之後才觸發：等它過去再清除，拖曳結束時不會多加一點
@@ -242,6 +257,32 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
     }
   }
 
+  /** 分岔：點其他路線的點，把這條路線的線段設成到這個點為止的前段 */
+  const forkPoints = (k: number) =>
+    isForking && (
+      <g className="topo-fork">
+        {forkable.map(([id, m]) =>
+          m.line!.map((p, i) => {
+            const [x, y] = px(photo, p)
+            return (
+              <circle
+                key={`${id}.${i}`}
+                cx={x}
+                cy={y}
+                r={7 * k}
+                strokeWidth={2 * k}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  edit((cur) => ({ ...cur, line: forkLine(m.line!, i) }))
+                  setForking(false)
+                }}
+              />
+            )
+          }),
+        )}
+      </g>
+    )
+
   const handles = (k: number) =>
     !preview &&
     mode !== 'crop' &&
@@ -257,7 +298,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
               cy={y}
               r={6 * k}
               strokeWidth={2 * k}
-              onPointerDown={(e) => startDrag(e, { kind: 'line', index: i })}
+              onPointerDown={(e) => startDrag(e, { kind: 'line', index: i, at: p })}
               onPointerMove={onDrag}
               onPointerUp={endDrag}
               onClick={(e) => e.stopPropagation()}
@@ -309,6 +350,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
             <>
               <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} crop={cropping ? undefined : crop} />
               {handles(k)}
+              {forkPoints(k)}
               {cropping && <CropBox photo={photo} crop={crop} k={k} onChange={setCrop} />}
             </>
           )}
@@ -366,6 +408,11 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
                 {t('topo.cropReset')}
               </button>
             )}
+            {canFork && (
+              <button className="link-button" aria-pressed={isForking} aria-keyshortcuts="F" onClick={() => setForking((on) => !on)}>
+                {isForking ? t('topo.forkPick') : t('topo.fork')}
+              </button>
+            )}
             {mode === 'bolt' && route && (
               <div className="topo-positions">
                 {positions.map((p) => (
@@ -393,6 +440,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
                 <button className={`topo-route-row${r.id === selected ? ' on' : ''}`} onClick={() => {
                     setSelected(r.id)
                     setBoltPos(undefined)
+                    setForking(false)
                   }}
                 >
                   <span className="topo-route-no">{r.number ?? '·'}</span>
