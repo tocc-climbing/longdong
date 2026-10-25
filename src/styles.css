@@ -4667,7 +4667,87 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 }
 
 .topo {
+  position: relative;
   margin: 0;
+}
+
+/* 全螢幕：黑底，照片在舞台裡縮放與平移（src/topo/TopoFullscreen.tsx） */
+.topo-full-open {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+
+dialog.topo-full {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #000;
+  color: #fff;
+  flex-direction: column;
+}
+
+dialog.topo-full[open] {
+  display: flex;
+}
+
+.topo-full-close {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  right: 8px;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.topo-full-stage {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.topo-full-content {
+  position: absolute;
+}
+
+.topo-full-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: #111;
+}
+
+.topo-full-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topo figcaption {

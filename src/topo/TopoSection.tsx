@@ -8,6 +8,7 @@ import { href, navigate, useRouteLink } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { uploadTopo } from './actions'
 import { useSectorTopos, type SectorTopo } from './store'
+import { TopoFullscreen } from './TopoFullscreen'
 import { TopoFrame, TopoLines } from './TopoView'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
@@ -36,6 +37,7 @@ export function SectorTopos({ sector }: { sector: Sector }) {
           <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
             {(k) => topo.latest && <TopoLines photo={topo.photo} marks={topo.latest.marks} labels={labels} k={k} highlight={selected} link={link} crop={topo.latest.crop} />}
           </TopoFrame>
+          {topo.latest && <FullscreenButton topo={topo} sector={sector} initial={selected} />}
           <TopoCaption topo={topo} canEdit={canEdit} />
         </figure>
       ))}
@@ -59,10 +61,37 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
           <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
             {(k) => <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} crop={topo.latest!.crop} />}
           </TopoFrame>
+          <FullscreenButton topo={topo} sector={sector} initial={routeId} />
           <TopoCaption topo={topo} canEdit={canEdit} />
         </figure>
       ))}
     </section>
+  )
+}
+
+/** 照片右上角的全螢幕按鈕；全螢幕裡點路線只切換高亮，不離開 */
+function FullscreenButton({ topo, sector, initial }: { topo: SectorTopo; sector: Sector; initial?: string }) {
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" className="topo-full-open" aria-label={t('topo.fullscreen')} onClick={() => setOpen(true)}>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+        </svg>
+      </button>
+      {open && (
+        <TopoFullscreen
+          photo={topo.photo}
+          crop={topo.latest!.crop}
+          marks={topo.latest!.marks}
+          labels={routeLabels(sector)}
+          routes={sector.routes}
+          initial={initial}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   )
 }
 

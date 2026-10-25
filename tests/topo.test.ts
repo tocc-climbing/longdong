@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
+import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView } from '../src/topo/viewport'
 import { drawnRuns, forkLine, moveSharedPoint, spreadBadges } from '../src/topo/lines'
 import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
 
@@ -170,5 +171,39 @@ describe('共用線段', () => {
     expect(moved.b.line![1]).toEqual([4700, 6100])
     expect(moved.a.bolts!.B01).toEqual([4800, 6000])
     expect(moved.b.line![2]).toEqual([3000, 2000])
+  })
+})
+
+describe('全螢幕縮放與平移', () => {
+  const stage = { w: 400, h: 800 }
+  const content = fitSize(stage, 2)
+
+  it('照片縮到剛好放得下舞台', () => {
+    expect(content).toEqual({ w: 400, h: 200 })
+    expect(fitSize({ w: 400, h: 100 }, 2)).toEqual({ w: 200, h: 100 })
+  })
+
+  it('沒放大時不能平移；放大後邊緣不能離開舞台邊緣，放不滿的方向仍置中', () => {
+    expect(clampView({ scale: 1, x: 50, y: 50 }, stage, content)).toEqual({ scale: 1, x: 0, y: 0 })
+    // 放大 3 倍：寬 1200 > 400，水平可移 ±400；高 600 < 800，垂直置中
+    expect(clampView({ scale: 3, x: 999, y: 999 }, stage, content)).toEqual({ scale: 3, x: 400, y: 0 })
+    expect(clampView({ scale: 3, x: -999, y: 5 }, stage, content)).toEqual({ scale: 3, x: -400, y: 0 })
+  })
+
+  it('縮放限制在 1 到上限', () => {
+    expect(clampView({ scale: 0.2, x: 0, y: 0 }, stage, content).scale).toBe(1)
+    expect(clampView({ scale: 99, x: 0, y: 0 }, stage, content).scale).toBe(MAX_SCALE)
+  })
+
+  it('雙指放大：手指下的那一點留在手指下', () => {
+    const view = moveView(IDENTITY, { x: 100, y: 0 }, { x: 100, y: 0 }, 2, stage, content)
+    expect(view.scale).toBe(2)
+    // 內容座標 q = (p - t) / s；放大前後 100 這一點都在 x=100
+    expect((100 - view.x) / view.scale).toBe(100)
+  })
+
+  it('單指拖曳：照片跟著手指移動同樣的距離', () => {
+    const zoomed = { scale: 3, x: 0, y: 0 }
+    expect(moveView(zoomed, { x: 0, y: 0 }, { x: -120, y: 30 }, 1, stage, content)).toEqual({ scale: 3, x: -120, y: 0 })
   })
 })

@@ -70,6 +70,7 @@ export function TopoLines({
   highlight,
   bolts = highlight ? [highlight] : [],
   link,
+  onPick,
   crop,
 }: {
   photo: TopoPhoto
@@ -80,6 +81,8 @@ export function TopoLines({
   highlight?: string
   bolts?: string[]
   link?: (id: string) => string
+  /** 點線段時改為呼叫這個（不換頁）；優先於 link */
+  onPick?: (id: string) => void
   crop?: Crop
 }) {
   const c = crop ?? FULL_CROP
@@ -134,15 +137,16 @@ export function TopoLines({
           </>
         )
         // SVG 的 <a> 的 href 不是字串，站內換頁攔不到（router.ts），改用點擊與 Enter 換頁
-        return link ? (
+        const pick = onPick ?? (link && ((id: string) => navigate(link(id))))
+        return pick ? (
           <g
             key={id}
             className={`${cls} link`}
-            role="link"
+            role={onPick ? 'button' : 'link'}
             tabIndex={0}
             aria-label={labels.get(id) ?? id}
-            onClick={() => navigate(link(id))}
-            onKeyDown={(e) => e.key === 'Enter' && navigate(link(id))}
+            onClick={() => pick(id)}
+            onKeyDown={(e) => e.key === 'Enter' && pick(id)}
           >
             {body}
           </g>
