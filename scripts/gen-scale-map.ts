@@ -860,26 +860,6 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
 
 const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊，區域貼齊正射影像的岩石帶，步道以 ${trailPoints.length} 個 OpenStreetMap 步道參考點對齊）；島礁與岩石帶參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
-const scaleMap = {
-  type: 'FeatureCollection',
-  source,
-  features: [
-    feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)), SIMPLIFY_M, coastWarp)])) }),
-    feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
-    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed)) }),
-    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
-    feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads) }),
-    feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
-    feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
-    ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
-    ...emsTips.map((at, i) => point({ kind: 'ems', no: EMS_LOCATIONS[i].no }, at)),
-    ...PLACES.map(({ zh, en, ja, tone, at }) => point({ kind: 'place', zh, en, ja, tone }, at)),
-    ...HAZARDS.map((at) => point({ kind: 'hazard' }, at)),
-    ...boats.map((at) => point({ kind: 'boat' }, at)),
-    ...hoists.map((at) => point({ kind: 'hoist' }, at)),
-  ],
-}
-
 /**
  * 島礁和岸邊的色塊重疊時往外推：示意圖上島礁旁邊的岩脊常畫得太長，貼齊後岩脊蓋到島礁的位置。
  * 島礁沿著「重疊的岸邊色塊中心 → 島礁中心」的方向每次移 ISLET_PUSH_STEP_M，直到頂點都不在岸邊色塊裡，最多 ISLET_PUSH_MAX_M。
@@ -890,7 +870,10 @@ const fittedRings = Object.entries(AREA_FILLS).flatMap(([fill, key]) =>
   areaShapes
     .filter((s) => s.fill === fill)
     .flatMap((s) => s.subpaths.filter((p) => p.length >= 3))
-    .map((p) => ({ key, island: !p.some(onLand), ring: ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, fitArea(p, key)).map(([lng, lat]) => toMeters([lat, lng])) })),
+    .map((p) => {
+      const fit = fitArea(p, key)
+      return { key, page: p, fit, island: !p.some(onLand), ring: ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, fit).map(([lng, lat]) => toMeters([lat, lng])) }
+    }),
 )
 const mean = (r: Pt[]): Pt => [r.reduce((v, p) => v + p[0], 0) / r.length, r.reduce((v, p) => v + p[1], 0) / r.length]
 for (const islet of fittedRings.filter((r) => r.island)) {
@@ -906,6 +889,54 @@ for (const islet of fittedRings.filter((r) => r.island)) {
     moved += ISLET_PUSH_STEP_M
   }
   console.log(`島礁 ${islet.key} 和岸邊色塊重疊，往外推 ${moved} 公尺${overlapping() ? '（仍重疊）' : ''}`)
+}
+
+
+/**
+ * 急救器材在所屬區域的範圍內：和那塊色塊用同一個換算移動（圖上的箭頭尖端在色塊裡就用那塊，否則用最近的一塊）。
+ * 換算後仍在區域外（示意圖上本來就畫在色塊外），拉到區域邊界上最近的位置再往內 EMS_INSET_M。
+ * EMS_LOCATIONS 的名稱就是所屬的區域。
+ */
+const EMS_AREA: Record<number, string> = { 1: 'school-gate', 2: 'clocktower', 3: 'long-lane', 4: 'first-cave', 5: 'golden-valley', 6: 'back-door' }
+const EMS_INSET_M = 1
+/** 點到多邊形邊界上最近的位置 */
+function nearestOnRing(ring: Pt[], q: Pt): Pt {
+  return nearestOn([[...ring, ring[0]]], q)
+}
+const emsPoints = emsTips.map((tip, i): Pt => {
+  const { no } = EMS_LOCATIONS[i]
+  const own = fittedRings.filter((r) => r.key === EMS_AREA[no])
+  if (own.length === 0) throw new Error(`急救器材 #${no} 的區域 ${EMS_AREA[no]} 沒有色塊`)
+  const distanceTo = (r: (typeof own)[number]) => (inside(tip, r.page) ? 0 : Math.min(...r.page.map((p) => Math.hypot(p[0] - tip[0], p[1] - tip[1]))))
+  const host = own.reduce((a, b) => (distanceTo(b) < distanceTo(a) ? b : a))
+  const at = host.fit(tip)
+  if (own.some((r) => inside(at, r.ring))) return at
+  const edge = own.map((r) => ({ r, p: nearestOnRing(r.ring, at) })).reduce((a, b) => (Math.hypot(b.p[0] - at[0], b.p[1] - at[1]) < Math.hypot(a.p[0] - at[0], a.p[1] - at[1]) ? b : a))
+  const c = mean(edge.r.ring)
+  const len = Math.hypot(c[0] - edge.p[0], c[1] - edge.p[1])
+  const moved: Pt = [edge.p[0] + ((c[0] - edge.p[0]) / len) * EMS_INSET_M, edge.p[1] + ((c[1] - edge.p[1]) / len) * EMS_INSET_M]
+  console.log(`急救器材 #${no} 換算後在區域外 ${Math.hypot(moved[0] - at[0], moved[1] - at[1]).toFixed(1)} 公尺，拉到區域內`)
+  return moved
+})
+
+const scaleMap = {
+  type: 'FeatureCollection',
+  source,
+  features: [
+    feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)), SIMPLIFY_M, coastWarp)])) }),
+    feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
+    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed)) }),
+    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
+    feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads) }),
+    feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
+    feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
+    ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
+    ...emsPoints.map((at, i) => feature({ kind: 'ems', no: EMS_LOCATIONS[i].no }, { type: 'Point', coordinates: metersToLngLat(at) })),
+    ...PLACES.map(({ zh, en, ja, tone, at }) => point({ kind: 'place', zh, en, ja, tone }, at)),
+    ...HAZARDS.map((at) => point({ kind: 'hazard' }, at)),
+    ...boats.map((at) => point({ kind: 'boat' }, at)),
+    ...hoists.map((at) => point({ kind: 'hoist' }, at)),
+  ],
 }
 
 const areas = {
