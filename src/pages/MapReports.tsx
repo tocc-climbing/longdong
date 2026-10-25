@@ -16,7 +16,7 @@ type Report = UploadedReport & { no: number }
 type Sort = 'new' | 'old' | 'offset' | 'accuracy'
 
 /**
- * 管理頁的「地圖回報」：所有人的回報，一筆一行（編號、說明、回報者、GPS 誤差、在地圖上點的位置偏多少、時間），
+ * 管理頁的「地圖回報」：所有人的回報，一筆一行（編號、說明、回報者、GPS 誤差或「手動」、在地圖上點的位置偏多少、時間），
  * 可以搜尋說明與回報者、排序。地圖上的編號與清單相同；點一行，地圖移到那一筆並加大標示。
  * 電腦版清單在左、地圖在右（固定不捲動），可以切換航照底圖；手機地圖在上。
  */
@@ -63,7 +63,7 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
   const q = query.trim().toLowerCase()
   const shown = all
     .filter((r) => !q || r.note.toLowerCase().includes(q) || r.place?.toLowerCase().includes(q) || r.who.toLowerCase().includes(q) || String(r.no) === q)
-    .sort((a, b) => (sort === 'old' ? a.time - b.time : sort === 'offset' ? (b.offset ?? -1) - (a.offset ?? -1) : sort === 'accuracy' ? b.accuracy - a.accuracy : b.time - a.time))
+    .sort((a, b) => (sort === 'old' ? a.time - b.time : sort === 'offset' ? (b.offset ?? -1) - (a.offset ?? -1) : sort === 'accuracy' ? (b.accuracy ?? -1) - (a.accuracy ?? -1) : b.time - a.time))
   const focused = all.find((r) => r.no === selected)
   const time = (ms: number) => new Date(ms).toLocaleString(LOCALES[lang], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
@@ -121,7 +121,7 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
                 <span className="map-report-note">{r.note}</span>
                 <span className="map-report-meta">
                   {r.place && `${r.place} · `}
-                  {r.who} · ±{r.accuracy} m{r.offset !== undefined && <span className="report-offset"> · {t('admin.offset', { m: r.offset })}</span>} · {time(r.time)}
+                  {r.who} · {r.accuracy === undefined ? t('reports.manual') : `±${r.accuracy} m`}{r.offset !== undefined && <span className="report-offset"> · {t('admin.offset', { m: r.offset })}</span>} · {time(r.time)}
                 </span>
               </button>
             </li>

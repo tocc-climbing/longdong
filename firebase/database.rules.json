@@ -211,6 +211,28 @@
           }
         }
       },
+      "walls": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && !newData.exists() && (auth.uid === $uid || (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))))",
+          "$wall": {
+            ".write": "auth != null && ((!data.exists() && auth.uid === $uid) || (data.exists() && !newData.exists() && (auth.uid === $uid || (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))))))",
+            ".validate": "newData.hasChildren(['sector', 'line', 'createdAt'])",
+            "sector": {
+              ".validate": "newData.isString() && newData.val().matches(/^longdong\\/[a-z0-9-]{1,60}$/)"
+            },
+            "line": {
+              ".validate": "newData.isString() && newData.val().length <= 2200 && newData.val().matches(/^25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6})+$/)"
+            },
+            "createdAt": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      },
       "personal": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",

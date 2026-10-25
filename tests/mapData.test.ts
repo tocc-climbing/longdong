@@ -34,6 +34,15 @@ describe('匯出 GeoJSON', () => {
     }
     expect(out.features[0].properties.picked).toEqual([121.920123, 25.110123])
   })
+
+  it('手動回報：Point 是在地圖上點的位置，properties.manual 為 true、沒有 accuracy', () => {
+    const target = { kind: 'base' as const, areaId: 'longdong/school-gate', sectorId: 'longdong/school-gate-a1151r' }
+    const out = toGeoJSON({ marks: [{ manual: true, coords: [25.1127198, 121.9214567], time: 0, note: '校門口 · 牆底', target }] }) as {
+      features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[]
+    }
+    expect(out.features[0].geometry.coordinates).toEqual([121.921457, 25.11272])
+    expect(out.features[0].properties).toEqual({ note: '校門口 · 牆底', manual: true, time: '1970-01-01T00:00:00.000Z', target })
+  })
 })
 
 describe('地圖座標與經緯度互換', () => {

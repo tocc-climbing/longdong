@@ -240,6 +240,21 @@ export async function uploadCalibration(uid: string, geojson: string): Promise<v
   await push(ref(db, `v2/calibration/${uid}`), { geojson, createdAt: serverTimestamp() })
 }
 
+/* ---------- 岩壁標記（見 map/walls.ts） ---------- */
+
+/** 所有人畫的岩壁（只有登入者讀得到） */
+export function watchWalls(callback: (value: unknown) => void, onError: (err: Error) => void): Unsubscribe {
+  return onValue(ref(db, 'v2/walls'), (snap) => callback(snap.val()), onError)
+}
+
+export async function addWall(uid: string, sector: string, line: string): Promise<void> {
+  await push(ref(db, `v2/walls/${uid}`), { sector, line, createdAt: serverTimestamp() })
+}
+
+export function deleteWall(uid: string, id: string): Promise<void> {
+  return remove(ref(db, `v2/walls/${uid}/${id}`))
+}
+
 /* ---------- Topo（讀取走 REST，見 topo/store.ts） ---------- */
 
 /** Cloud Storage 只在上傳、刪除照片時才載入 */

@@ -132,6 +132,18 @@ export interface MapMark {
   selected?: boolean
 }
 
+/**
+ * 地圖上的折線（岩壁標記）：key 用來回報點到哪一條；label 在選中時顯示；
+ * draft 是正在畫的：虛線，標出每個點。
+ */
+export interface MapLine {
+  key: string
+  points: LatLng[]
+  label?: string
+  draft?: boolean
+  selected?: boolean
+}
+
 /** 選中的救援點（#12 有兩個點共用編號，用 key 區分）或急救器材 */
 export type MapSelection = { kind: 'rescue'; key: string } | { kind: 'ems'; no: number }
 
@@ -140,6 +152,16 @@ const FOCUS_PADDING_M = 30
 const FOCUS_MIN_M = 200
 /** 點救援點：離圓心這個距離（像素）內都算 */
 const POINT_HIT_PX = 18
+/** 點折線：離線段這個距離（像素）內都算 */
+const LINE_HIT_PX = 10
+
+/** 點到線段的距離（螢幕像素） */
+function segmentDistance(p: Vec, a: Vec, b: Vec): number {
+  const [dx, dy] = [b[0] - a[0], b[1] - a[1]]
+  const len2 = dx * dx + dy * dy
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2))
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
+}
 
 /** 聚焦的範圍（地圖座標）：區域外框與救援點的外接矩形 */
 function focusRect(focus: MapFocus, map: ScaleMapData): Rect | undefined {
@@ -179,6 +201,10 @@ interface Props {
   selected?: MapSelection
   /** 點救援點或急救器材時 */
   onSelect?: (selection: MapSelection) => void
+  /** 折線（岩壁標記） */
+  lines?: MapLine[]
+  /** 點到折線時（不在點位置的模式） */
+  onLineTap?: (key: string) => void
   /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
   ortho?: boolean
 }
@@ -190,7 +216,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, ortho }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, lines, onLineTap, ortho }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -256,7 +282,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     onTap: (p) => {
       const { frame: f, view: v } = latest.current
       if (f && v && pick) return pick.onPick(unproject(toMap(v, f, [p.x, p.y])))
-      if (!f || !v || !onSelect) return
+      if (!f || !v) return
       const distance = ([x, y]: Vec) => Math.hypot(x - p.x, y - p.y)
       const candidates = [
         ...located.map((pt) => ({ selection: { kind: 'rescue', key: pt.key } as MapSelection, at: toScreen(v, f, pt.at) })),
@@ -265,11 +291,21 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           m.kind === 'ems' ? [{ selection: { kind: 'ems', no: m.no } as MapSelection, at: emsAt.current.get(i) ?? toScreen(v, f, m.at) }] : [],
         ),
       ]
-      const hit = candidates
+      const hit = onSelect && candidates
         .map((c) => ({ ...c, d: distance(c.at) }))
         .filter((h) => h.d <= POINT_HIT_PX)
         .sort((a, b) => a.d - b.d)[0]
-      if (hit) onSelect(hit.selection)
+      if (hit) return onSelect(hit.selection)
+      // 救援點優先；其次是最近的折線
+      const line = onLineTap && (lines ?? [])
+        .filter((l) => !l.draft)
+        .map((l) => {
+          const pts = l.points.map((q) => toScreen(v, f, project(q)))
+          return { key: l.key, d: Math.min(...pts.slice(1).map((b, i) => segmentDistance([p.x, p.y], pts[i], b))) }
+        })
+        .filter((l) => l.d <= LINE_HIT_PX)
+        .sort((a, b) => a.d - b.d)[0]
+      if (line) onLineTap(line.key)
     },
   }
   useMapGestures(box, gestures)
@@ -401,6 +437,23 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               {l.text}
             </text>
           ))}
+          {lines?.map((l) => {
+            const pts = l.points.map((q) => screen(project(q)))
+            const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')
+            const mid = pts[Math.floor(pts.length / 2)]
+            return (
+              <g key={l.key} className={`sm-line${l.draft ? ' draft' : ''}${l.selected ? ' selected' : ''}`}>
+                {pts.length > 1 && <path className="sm-line-casing" d={d} />}
+                {pts.length > 1 && <path className="sm-line-stroke" d={d} />}
+                {l.draft && pts.map(([x, y], i) => <circle key={i} className="sm-line-vertex" cx={x} cy={y} r={4} />)}
+                {l.selected && l.label && mid && (
+                  <text className="sm-line-label" x={mid[0]} y={mid[1] - 10} fontSize={12} textAnchor="middle">
+                    {l.label}
+                  </text>
+                )}
+              </g>
+            )
+          })}
           {located.map((p, i) => {
             const [x, y] = screen(p.at)
             const on = isSelectedRescue(p.key) || !!focus?.points?.includes(p.key)

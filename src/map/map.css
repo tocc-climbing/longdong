@@ -578,3 +578,78 @@
   background: #1a73e8;
   color: #ffffff;
 }
+
+/* 岩壁標記：白色外框＋橘色線；正在畫的是虛線，標出每個點 */
+.sm-line path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sm-line-casing {
+  stroke: #ffffff;
+  stroke-width: 6px;
+}
+
+.sm-line-stroke {
+  stroke: #e8590c;
+  stroke-width: 3px;
+}
+
+.sm-line.selected .sm-line-casing {
+  stroke-width: 9px;
+}
+
+.sm-line.selected .sm-line-stroke {
+  stroke-width: 5px;
+}
+
+.sm-line.draft .sm-line-stroke {
+  stroke: #1a73e8;
+  stroke-dasharray: 6 4;
+}
+
+.sm-line-vertex {
+  fill: #1a73e8;
+  stroke: #ffffff;
+  stroke-width: 2px;
+}
+
+.sm-line-label {
+  fill: #e8590c;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+}
+
+/* 畫岩壁的工具列：分區選單可以縮，整列不超出地圖 */
+.wall-bar select {
+  flex: 1 1 8em;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  font: inherit;
+  font-weight: 400;
+}
+
+/* 手動回報：區域、分區、路線各一行 */
+.manual-report label {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 0.875rem;
+}
+
+.manual-report select {
+  min-height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}

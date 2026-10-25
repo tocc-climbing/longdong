@@ -48,7 +48,7 @@ export async function rename(name: string): Promise<string> {
 }
 
 /**
- * 刪除我的帳號：個人紀錄、暱稱、所有評分與留言、Topo（自己的版本；自己上傳的照片連同別人在上面的標記），最後刪除登入帳號。
+ * 刪除我的帳號：個人紀錄、暱稱、所有評分與留言、Topo（自己的版本；自己上傳的照片連同別人在上面的標記）、畫的岩壁，最後刪除登入帳號。
  * 先重新驗證（太久沒登入時跳出登入視窗），再以最新的雲端資料找出屬於自己的評分與留言，一次刪除。
  */
 export async function deleteMyAccount(): Promise<void> {
@@ -66,6 +66,7 @@ export async function deleteMyAccount(): Promise<void> {
     [`v2/personal/${uid}`]: null,
     [`v2/profiles/${uid}`]: null,
     [`v2/calibration/${uid}`]: null,
+    [`v2/walls/${uid}`]: null,
   }
   // 釋放暱稱，讓別人可以使用
   if (profile) {

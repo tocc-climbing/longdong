@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useIsAdmin } from '../admin'
+import { useWide } from '../layout'
 import { inMapBounds } from '../map/bounds'
 import { ScaleMap } from '../map/ScaleMap'
 import { useGeolocation } from '../components/MyLocation'
 import { LocationHelp } from '../components/LocationHelp'
 import { Sheet } from '../components/Sheet'
-import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration, useSimulatedMarks } from '../map/calibration'
+import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration, useSimulatedMarks, type ReportTarget } from '../map/calibration'
 import type { LoadedData } from '../data/dataset'
 import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { distanceM, nearestPoints, type LatLng } from '../geo'
@@ -13,13 +15,20 @@ import { useCloud } from '../personal/sync'
 import { reportOptions, type ReportOption } from '../map/reportOptions'
 import { href, navigate } from '../router'
 import { areaNames, project, useScaleMap } from '../map/mapData'
+import { insideRing } from '../map/reportOptions'
+import { WALL_MAX_POINTS, encodeLine, useWalls } from '../map/walls'
+import { withCloud } from '../personal/sync'
 import { setSimulation, useSimulation } from '../simulate'
+import { displayName, useSocial } from '../social/store'
+import { ManualReportForm, WallBar, WallDetails, sectorLabel } from './MapTools'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
 /** 附近沒有明確地點時，也可以選的一般描述 */
 const GENERIC: MessageKey[] = ['map.quick.trail', 'map.quick.wallBase', 'map.quick.boundary']
 const INTRO_KEY = 'longdong.map.intro'
+/** 航照底圖開著（這台裝置記住） */
+const ORTHO_KEY = 'longdong.map.ortho'
 /** 回報後的提示顯示多久（毫秒） */
 const TOAST_MS = 4000
 
@@ -28,6 +37,8 @@ const TOAST_MS = 4000
  * 地圖還在校正：第一次使用先說明可能有誤差；左上「回報」依目前位置列出附近的地點，選一下就記錄下來。
  * 回報時也可以在地圖上點出自己認為所在的位置（選填）：和 GPS 的差距可以看出地圖或 GPS 偏了多少。
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
+ * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
+ * 「航照」切換國土測繪中心的正射影像底圖。電腦版登入後可以「畫岩壁」：選分區，沿著牆底點出折線；登入者看得到所有人畫的岩壁。
  */
 export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
   const { lang, t } = useLang()
@@ -50,6 +61,19 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   /** 正在地圖上點自己的位置 */
   const [picking, setPicking] = useState(false)
   const [toast, setToast] = useState<string>()
+  const [ortho, setOrtho] = useState(() => readFlag(ORTHO_KEY))
+  /** 手動回報：在地圖上點位置中／點好的位置（表單開著） */
+  const [manualPicking, setManualPicking] = useState(false)
+  const [manualAt, setManualAt] = useState<LatLng>()
+  const [manualOpen, setManualOpen] = useState(false)
+  /** 畫岩壁：undefined 表示沒有在畫 */
+  const [wallDraft, setWallDraft] = useState<{ points: LatLng[]; sector: string; saving: boolean }>()
+  const [selectedWall, setSelectedWall] = useState<string>()
+  const wide = useWide()
+  const admin = useIsAdmin()
+  const { walls, error: wallsError } = useWalls()
+  const { profiles } = useSocial()
+  const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
 
   const names = areaNames(data, lang)
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
@@ -83,6 +107,50 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
     return () => clearTimeout(timer)
   }, [toast])
 
+  const toggleOrtho = () => {
+    writeFlag(ORTHO_KEY, !ortho)
+    setOrtho(!ortho)
+  }
+
+  /** 按「回報」：在龍洞且定位到了就是現場回報；否則手動回報，先在地圖上點位置 */
+  const startReport = () => {
+    if (fix && outside === undefined) return setReporting(true)
+    setManualAt(undefined)
+    setManualPicking(true)
+  }
+
+  const submitManual = (note: string, target: ReportTarget) => {
+    if (!manualAt) return
+    addMark({ manual: true, coords: manualAt, time: Date.now(), note, target })
+    setManualOpen(false)
+    setManualAt(undefined)
+    if (!simulated && (!navigator.onLine || (cloud.status === 'signed-in' && !cloud.connected))) setToast(t('map.queued'))
+  }
+
+  const saveWall = async () => {
+    if (!wallDraft || wallDraft.points.length < 2 || !wallDraft.sector) return
+    setWallDraft({ ...wallDraft, saving: true })
+    try {
+      const { m, uid: me } = await withCloud()
+      await m.addWall(me, wallDraft.sector, encodeLine(wallDraft.points))
+      setWallDraft(undefined)
+      setToast(t('wall.saved'))
+    } catch (err) {
+      setWallDraft((d) => d && { ...d, saving: false })
+      setToast(t('wall.saveFailed', { error: (err as Error).message }))
+    }
+  }
+
+  const deleteWall = async (owner: string, id: string) => {
+    try {
+      const { m } = await withCloud()
+      await m.deleteWall(owner, id)
+      setSelectedWall(undefined)
+    } catch (err) {
+      setToast(t('wall.deleteFailed', { error: (err as Error).message }))
+    }
+  }
+
   const report = (note: string) => {
     if (!fix) return
     addMark({ ...fix, note, ...(draft.at ? { picked: draft.at } : {}) })
@@ -102,6 +170,16 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   }
 
   const pending = hasUnuploaded(records)
+  const wall = walls.find((w) => w.id === selectedWall)
+  const pick = picking
+    ? { at: draft.at, onPick: (at: LatLng) => setDraft((d) => ({ ...d, at })) }
+    : manualPicking
+      ? { at: manualAt, onPick: setManualAt }
+      : wallDraft
+        ? { onPick: (at: LatLng) => setWallDraft((d) => d && (d.points.length < WALL_MAX_POINTS ? { ...d, points: [...d.points, at] } : d)) }
+        : undefined
+  /** 點的位置所在的大區域（手動回報預設選這個區域） */
+  const areaAt = (at: LatLng) => (map.status === 'ok' ? map.data.areas.findLast((a) => a.rings.some((r) => insideRing(project(at), r)))?.id : undefined)
 
   return (
     <div className="map-page">
@@ -110,8 +188,14 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           map={map.data}
           areaNames={names}
           here={fix}
-          marks={[...records.marks, ...simulatedMarks].map((m) => ({ at: m.coords, picked: m.picked }))}
-          pick={picking ? { at: draft.at, onPick: (at) => setDraft((d) => ({ ...d, at })) } : undefined}
+          marks={[...records.marks, ...simulatedMarks].map((m) => ({ at: m.coords, picked: 'manual' in m ? undefined : m.picked }))}
+          pick={pick}
+          ortho={ortho}
+          lines={[
+            ...walls.map((w) => ({ key: w.id, points: w.points, label: sectorLabel(data, w.sector, lang), selected: w.id === selectedWall })),
+            ...(wallDraft ? [{ key: 'draft', points: wallDraft.points, draft: true }] : []),
+          ]}
+          onLineTap={setSelectedWall}
           onAreaPress={(key) => navigate(href.area(`${data.dataset.crag.id}/${key}`))}
           onLocate={() => {
             if (outside !== undefined) setToast(t('map.outside', { dist: distance(outside) }))
@@ -127,13 +211,17 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
                 {t('map.beta')}
                 {pending && <span className="sm-chip-dot" aria-label={t('map.pending')} />}
               </button>
-              <button
-                type="button"
-                className="sm-chip report"
-                onClick={() => (outside !== undefined ? setToast(t('map.outsideReport', { dist: distance(outside) })) : setReporting(true))}
-              >
+              <button type="button" className="sm-chip report" onClick={startReport}>
                 {t('map.report')}
               </button>
+              <button type="button" className="sm-chip" aria-pressed={ortho} onClick={toggleOrtho}>
+                {t('map.ortho')}
+              </button>
+              {wide && uid && !wallDraft && (
+                <button type="button" className="sm-chip" onClick={() => setWallDraft({ points: [], sector: '', saving: false })}>
+                  {t('wall.draw')}
+                </button>
+              )}
             </>
           }
         />
@@ -171,6 +259,39 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
         </div>
       )}
 
+      {manualPicking && (
+        <div className="map-pick-bar" role="status">
+          <span>{t('map.manualPick')}</span>
+          <button
+            type="button"
+            className="action primary"
+            disabled={!manualAt}
+            onClick={() => {
+              setManualPicking(false)
+              setManualOpen(true)
+            }}
+          >
+            {t('map.pickDone')}
+          </button>
+          <button type="button" className="action" onClick={() => setManualPicking(false)}>
+            {t('map.cancel')}
+          </button>
+        </div>
+      )}
+
+      {wallDraft && (
+        <WallBar
+          data={data}
+          points={wallDraft.points}
+          sector={wallDraft.sector}
+          saving={wallDraft.saving}
+          onSector={(sector) => setWallDraft({ ...wallDraft, sector })}
+          onUndo={() => setWallDraft({ ...wallDraft, points: wallDraft.points.slice(0, -1) })}
+          onSave={() => void saveWall()}
+          onCancel={() => setWallDraft(undefined)}
+        />
+      )}
+
       <div className="map-toasts">
         {geo.status === 'error' && (
           <p className="map-toast warn" role="alert">
@@ -181,6 +302,11 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
         {toast && (
           <p className="map-toast" role="status">
             {toast}
+          </p>
+        )}
+        {wallsError && (
+          <p className="map-toast warn" role="alert">
+            {t('wall.loadFailed', { error: wallsError })}
           </p>
         )}
       </div>
@@ -196,6 +322,34 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
             {t('map.introOk')}
           </button>
         </div>
+      </Sheet>
+
+      <Sheet open={manualOpen && !!manualAt} onClose={() => setManualOpen(false)} title={t('map.manualTitle')}>
+        {manualAt && (
+          <ManualReportForm
+            data={data}
+            at={manualAt}
+            areaKey={areaAt(manualAt)}
+            onRepick={() => {
+              setManualOpen(false)
+              setManualPicking(true)
+            }}
+            onSubmit={submitManual}
+            onCancel={() => setManualOpen(false)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet open={!!wall} onClose={() => setSelectedWall(undefined)} title={t('wall.title')}>
+        {wall && (
+          <WallDetails
+            data={data}
+            wall={wall}
+            author={displayName(profiles, wall.uid)}
+            canDelete={wall.uid === uid || admin === true}
+            onDelete={() => void deleteWall(wall.uid, wall.id)}
+          />
+        )}
       </Sheet>
 
       <Sheet open={reporting} onClose={() => setReporting(false)} title={t('map.reportTitle')}>
@@ -220,10 +374,23 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
 }
 
 function seenIntro(): boolean {
+  return readFlag(INTRO_KEY)
+}
+
+function readFlag(key: string): boolean {
   try {
-    return localStorage.getItem(INTRO_KEY) === '1'
+    return localStorage.getItem(key) === '1'
   } catch {
     return false
+  }
+}
+
+function writeFlag(key: string, on: boolean) {
+  try {
+    if (on) localStorage.setItem(key, '1')
+    else localStorage.removeItem(key)
+  } catch {
+    /* 存不了就只在這次有效 */
   }
 }
 

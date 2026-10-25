@@ -9,16 +9,20 @@ export interface UploadedReport {
   place?: string
   /** 回報者（暱稱，或「未登入的手機 xxxx」） */
   who: string
-  /** GPS 位置 */
+  /** GPS 位置；手動回報是在地圖上點的位置 */
   coords: LatLng
-  accuracy: number
+  /** GPS 誤差（公尺）；手動回報沒有 */
+  accuracy?: number
   time: number
   /** 回報者在地圖上點的位置（選填）與離 GPS 幾公尺 */
   picked?: LatLng
   offset?: number
 }
 
-type Feature = { properties: { note: string; accuracy: number; time: string; picked?: [number, number]; target?: ReportTarget }; geometry: { coordinates: [number, number] } }
+type Feature = {
+  properties: { note: string; accuracy?: number; manual?: true; time: string; picked?: [number, number]; target?: ReportTarget }
+  geometry: { coordinates: [number, number] }
+}
 
 /** latest：每個人（或沒登入的每台手機）只看最新上傳的那一份（每次上傳都是完整的一份）；all：所有上傳，同一筆回報只算一次 */
 export type UploadScope = 'latest' | 'all'

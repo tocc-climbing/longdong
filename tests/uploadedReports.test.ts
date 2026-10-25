@@ -22,3 +22,13 @@ describe('地圖回報的上傳範圍', () => {
     expect(reportsOf(dup, who, place, 'all')).toHaveLength(2)
   })
 })
+
+describe('手動回報', () => {
+  it('沒有 GPS 誤差，也沒有在地圖上點的位置與偏差', () => {
+    const manual = { properties: { note: 'M', manual: true, time: '2026-10-25T00:00:00Z' }, geometry: { coordinates: [121.92, 25.11] } }
+    const [r] = reportsOf({ alice: { u1: { geojson: JSON.stringify({ features: [manual] }), createdAt: 1 } } }, who, place, 'latest')
+    expect(r.accuracy).toBeUndefined()
+    expect(r.offset).toBeUndefined()
+    expect(r.coords).toEqual([25.11, 121.92])
+  })
+})

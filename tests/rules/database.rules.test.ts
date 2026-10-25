@@ -502,3 +502,53 @@ describe('Topo（v2/topos、v2/topoEdits）', () => {
     await assertSucceeds(update(alice, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null, 'v2/topoEdits/p9/e9': null }))
   })
 })
+
+describe('岩壁標記（v2/walls）', () => {
+  const SECTOR = 'longdong/school-gate-a1151r'
+  /** App 寫入的岩壁（src/personal/firebase.ts 的 addWall，line 由 src/map/walls.ts 的 encodeLine 產生） */
+  const wall = (line = '25.112720,121.921450 25.112710,121.921600') => ({ sector: SECTOR, line, createdAt: serverTimestamp() })
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref('v2/walls').update({ alice: { w1: { sector: SECTOR, line: '25.112720,121.921450 25.112710,121.921600', createdAt: 1 } } })
+    })
+  })
+
+  it('登入者可以讀所有人的岩壁；訪客不能讀', async () => {
+    await assertSucceeds(get(mallory, 'v2/walls'))
+    await assertFails(get(guest, 'v2/walls'))
+  })
+
+  it('登入者可以在自己的資料夾新增；不能替別人新增，訪客不能新增', async () => {
+    await assertSucceeds(push(mallory, 'v2/walls/mallory', wall()))
+    await assertFails(push(mallory, 'v2/walls/alice', wall()))
+    await assertFails(push(guest, 'v2/walls/alice', wall()))
+  })
+
+  it('分區要是分區 ID，線段至少兩點、在龍洞一帶、小數 6 位，要有伺服器時間，不能有其他欄位', async () => {
+    await assertFails(push(alice, 'v2/walls/alice', { ...wall(), sector: 'x' }))
+    await assertFails(push(alice, 'v2/walls/alice', wall('25.112720,121.921450')))
+    await assertFails(push(alice, 'v2/walls/alice', wall('35.112720,121.921450 25.112710,121.921600')))
+    await assertFails(push(alice, 'v2/walls/alice', wall('25.11272,121.92145 25.11271,121.92160')))
+    await assertFails(push(alice, 'v2/walls/alice', wall(Array(106).fill('25.112720,121.921450').join(' '))))
+    await assertFails(push(alice, 'v2/walls/alice', { ...wall(), createdAt: 1 }))
+    await assertFails(push(alice, 'v2/walls/alice', { ...wall(), note: 'x' }))
+    await assertSucceeds(push(alice, 'v2/walls/alice', wall(Array(100).fill('25.112720,121.921450').join(' '))))
+  })
+
+  it('不能修改；本人與管理員可以刪除，別人不能', async () => {
+    await assertFails(set(alice, 'v2/walls/alice/w1/sector', 'longdong/clocktower-tvxllu'))
+    await assertFails(remove(mallory, 'v2/walls/alice/w1'))
+    await assertSucceeds(remove(alice, 'v2/walls/alice/w1'))
+  })
+
+  it('管理員（/role 與名單上的信箱）可以刪除別人的', async () => {
+    await assertSucceeds(remove(admin, 'v2/walls/alice/w1'))
+  })
+
+  it('刪除帳號：本人可以整個資料夾一起刪；別人不能', async () => {
+    await assertFails(remove(mallory, 'v2/walls/alice'))
+    await assertFails(remove(mallory, 'v2/walls'))
+    await assertSucceeds(remove(alice, 'v2/walls/alice'))
+  })
+})

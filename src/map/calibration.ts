@@ -5,7 +5,8 @@ import { DB_URL } from '../social/model'
 import { simulatedLocation } from '../simulate'
 
 /**
- * 比例尺地圖的現場回報：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明。
+ * 比例尺地圖的回報：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明；
+ * 不在現場時也可以手動回報：對照航照在地圖上點位置，沒有 GPS。
  * 記錄存在這支手機上，整個 App 共用一份；連上網路時在背景自動上傳，不必停在地圖頁：
  * 登入的上傳到 v2/calibration/<uid>（本人與管理員讀得到），沒登入的上傳到 v2/anonReports/<裝置代號>
  * （只有管理員讀得到；iPhone 有時無法用 Google 登入，不登入也要能回報）。
@@ -32,12 +33,24 @@ export interface ReportTarget {
   routeId?: string
 }
 
-export interface Mark extends Fix {
+/** 現場回報：GPS 位置 */
+export interface FieldMark extends Fix {
   note: string
   target?: ReportTarget
   /** 回報者在地圖上點出的、自己認為所在的位置（選填）；和 GPS 位置的差距就是地圖或 GPS 的誤差 */
   picked?: LatLng
 }
+
+/** 手動回報：不在現場，對照航照在地圖上點的位置（沒有 GPS，不能用來估計誤差） */
+export interface ManualMark {
+  manual: true
+  coords: LatLng
+  time: number
+  note: string
+  target?: ReportTarget
+}
+
+export type Mark = FieldMark | ManualMark
 
 export interface Calibration {
   marks: Mark[]
@@ -56,14 +69,24 @@ export function hasUnuploaded({ marks, uploaded }: Calibration): boolean {
 const lngLat = ([lat, lng]: LatLng) => [lng, lat]
 const iso = (time: number) => new Date(time).toISOString()
 
-/** 匯出成 GeoJSON（座標順序為 [經度, 緯度]）：每個回報一個 Point（GPS）；在地圖上點的位置放在 properties.picked */
+/**
+ * 匯出成 GeoJSON（座標順序為 [經度, 緯度]）：每個回報一個 Point。
+ * 現場回報的 Point 是 GPS，在地圖上點的位置放在 properties.picked；手動回報的 Point 是在地圖上點的位置，properties.manual 為 true、沒有 accuracy。
+ */
 export function toGeoJSON({ marks }: Calibration): object {
   return {
     type: 'FeatureCollection',
     features: marks.map((m) => ({
       type: 'Feature',
-      properties: { note: m.note, accuracy: Math.round(m.accuracy), time: iso(m.time), ...(m.picked ? { picked: lngLat(m.picked).map((n) => +n.toFixed(6)) } : {}), ...(m.target ? { target: m.target } : {}) },
-      geometry: { type: 'Point', coordinates: lngLat(m.coords) },
+      properties: {
+        note: m.note,
+        ...('manual' in m
+          ? { manual: true }
+          : { accuracy: Math.round(m.accuracy), ...(m.picked ? { picked: lngLat(m.picked).map((n) => +n.toFixed(6)) } : {}) }),
+        time: iso(m.time),
+        ...(m.target ? { target: m.target } : {}),
+      },
+      geometry: { type: 'Point', coordinates: lngLat(m.coords).map((n) => +n.toFixed(6)) },
     })),
   }
 }
