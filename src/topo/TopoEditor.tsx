@@ -12,7 +12,8 @@ import { useCloud } from '../personal/sync'
 import { href, navigate } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { removeEdit, removeTopo, submitEdit } from './actions'
-import { boltPositions, sameMarks, toPoint, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
+import { CropBox } from './CropBox'
+import { boltPositions, isFullCrop, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
 import { px, TopoFrame, TopoLines } from './TopoView'
@@ -57,12 +58,22 @@ export function TopoEditor({ data, id }: { data: LoadedData; id: string }) {
   )
 }
 
-type Mode = 'line' | 'bolt'
+type Mode = 'line' | 'bolt' | 'crop'
+
+/** 切換工具的快捷鍵 */
+const MODE_KEYS: Record<string, Mode> = { l: 'line', b: 'bolt', c: 'crop' }
+
+/** 一個版本的內容 */
+interface Content {
+  marks: Marks
+  crop?: Crop
+}
 
 /** 這台裝置上未提交的修改；base 是開始修改時的最新版本 */
 interface Draft {
   base?: string
   marks: Marks
+  crop?: Crop
 }
 
 const draftKey = (photo: string) => `longdong.topoDraft.${photo}`
@@ -97,28 +108,40 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const [boltPos, setBoltPos] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
-  const undo = useRef<Marks[]>([])
+  const undo = useRef<Content[]>([])
 
-  const marks = preview?.marks ?? draft?.marks ?? latest?.marks ?? {}
-  const changed = !!draft && !sameMarks(draft.marks, latest?.marks ?? {})
+  const shown = preview ?? draft ?? latest
+  const marks = shown?.marks ?? {}
+  const crop = shown?.crop
+  const changed = !!draft && !(sameMarks(draft.marks, latest?.marks ?? {}) && sameCrop(draft.crop, latest?.crop))
   const route = routes.find((r) => r.id === selected)
   const positions = route ? boltPositions(route) : []
   const current: RouteMarks = (selected && marks[selected]) || {}
   const nextPos = positions.find((p) => !current.bolts?.[p])
   const placing = boltPos && positions.includes(boltPos) ? boltPos : nextPos
+  const cropping = mode === 'crop' && !preview
 
   const setDraft = (d: Draft | undefined) => {
     writeDraft(photo.id, d)
     setDraftState(d)
   }
+  /** 目前可修改的內容：草稿，沒有草稿時是最新版本 */
+  const base = (): Content => ({ marks: draft?.marks ?? latest?.marks ?? {}, crop: draft ? draft.crop : latest?.crop })
+  const commit = (next: Content) => setDraft({ base: draft?.base ?? latest?.id, ...next })
   /** 修改選取的路線；第一次修改時以最新版本為基礎建立草稿 */
   const edit = (change: (m: RouteMarks) => RouteMarks) => {
     if (!selected) return
-    const base = draft?.marks ?? latest?.marks ?? {}
-    undo.current.push(base)
-    const next = { ...base, [selected]: change(base[selected] ?? {}) }
+    const { marks: before, crop: keep } = base()
+    undo.current.push({ marks: before, crop: keep })
+    const next = { ...before, [selected]: change(before[selected] ?? {}) }
     if (!next[selected].line?.length && !Object.keys(next[selected].bolts ?? {}).length) delete next[selected]
-    setDraft({ base: draft?.base ?? latest?.id, marks: next })
+    commit({ marks: next, crop: keep })
+  }
+  /** 修改裁切；拖曳開始時記一次復原點（record），之後只更新草稿 */
+  const setCrop = (next: Crop, record = false) => {
+    const before = base()
+    if (record) undo.current.push(before)
+    commit({ marks: before.marks, crop: isFullCrop(next) ? undefined : next })
   }
 
   useEffect(() => {
@@ -127,20 +150,25 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         const prev = undo.current.pop()
         if (!prev) return
         e.preventDefault()
-        setDraft({ base: draft?.base ?? latest?.id, marks: prev })
+        commit(prev)
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !preview && MODE_KEYS[e.key.toLowerCase()]) {
+        const next = MODE_KEYS[e.key.toLowerCase()]
+        if (next === 'bolt' && positions.length === 0) return
+        setMode(next)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  /** 畫面上的位置換成整張照片上的點（編輯時畫面可能只顯示裁切的一塊） */
   const pointAt = (e: { clientX: number; clientY: number }, svg: SVGSVGElement): Point => {
     const r = svg.getBoundingClientRect()
-    return toPoint((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
+    return toCropPoint(crop, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
   }
 
   const onPhotoClick = (e: ReactMouseEvent<SVGSVGElement>) => {
-    if (preview || !selected || dragging.current) return
+    if (preview || mode === 'crop' || !selected || dragging.current) return
     const p = pointAt(e, e.currentTarget)
     if (mode === 'line') edit((m) => ({ ...m, line: [...(m.line ?? []), p] }))
     else if (placing) {
@@ -163,10 +191,10 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
     const svg = e.currentTarget.ownerSVGElement
     if (!d || !svg || !selected) return
     const p = pointAt(e, svg)
-    const base = draft?.marks ?? latest?.marks ?? {}
-    const m = base[selected] ?? {}
+    const { marks: all, crop: keep } = base()
+    const m = all[selected] ?? {}
     const next = d.kind === 'line' ? { ...m, line: m.line!.map((q, i) => (i === d.index ? p : q)) } : { ...m, bolts: { ...m.bolts, [d.pos]: p } }
-    setDraft({ base: draft?.base ?? latest?.id, marks: { ...base, [selected]: next } })
+    commit({ marks: { ...all, [selected]: next }, crop: keep })
   }
   const endDrag = () => {
     // click 事件在 pointerup 之後才觸發：等它過去再清除，拖曳結束時不會多加一點
@@ -177,7 +205,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
     setBusy(true)
     setError(undefined)
     try {
-      await submitEdit(photo.id, draft!.marks)
+      await submitEdit(photo.id, draft!.marks, draft!.crop)
       setDraft(undefined)
       undo.current = []
     } catch (err) {
@@ -216,6 +244,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
 
   const handles = (k: number) =>
     !preview &&
+    mode !== 'crop' &&
     selected && (
       <g className="topo-handles">
         {current.line?.map((p, i) => {
@@ -273,12 +302,14 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         <TopoFrame
           photo={photo}
           alt=""
+          crop={cropping ? undefined : crop}
           svgProps={{ className: preview ? undefined : `editing ${mode}`, onClick: onPhotoClick, onContextMenu: (e) => e.preventDefault() }}
         >
           {(k) => (
             <>
-              <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} />
+              <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} crop={cropping ? undefined : crop} />
               {handles(k)}
+              {cropping && <CropBox photo={photo} crop={crop} k={k} onChange={setCrop} />}
             </>
           )}
         </TopoFrame>
@@ -292,8 +323,8 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
             <button
               className="action"
               onClick={() => {
-                undo.current.push(draft?.marks ?? latest?.marks ?? {})
-                setDraft({ base: latest?.id, marks: preview.marks })
+                undo.current.push(base())
+                setDraft({ base: latest?.id, marks: preview.marks, ...(preview.crop ? { crop: preview.crop } : {}) })
                 setPreview(undefined)
               }}
             >
@@ -317,17 +348,25 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         {changed && draft?.base !== latest?.id && <p className="small warn-text">{t('topo.newerVersion')}</p>}
         {error && <p className="small error">{error}</p>}
 
-        {route && !preview && (
+        {!preview && (
           <div className="topo-edit-tools">
             <div className="segmented" role="group">
-              <button aria-selected={mode === 'line'} onClick={() => setMode('line')}>
+              <button aria-selected={mode === 'line'} aria-keyshortcuts="L" onClick={() => setMode('line')}>
                 {t('topo.modeLine')}
               </button>
-              <button aria-selected={mode === 'bolt'} onClick={() => setMode('bolt')} disabled={positions.length === 0}>
+              <button aria-selected={mode === 'bolt'} aria-keyshortcuts="B" onClick={() => setMode('bolt')} disabled={positions.length === 0}>
                 Bolt
               </button>
+              <button aria-selected={mode === 'crop'} aria-keyshortcuts="C" onClick={() => setMode('crop')}>
+                {t('topo.modeCrop')}
+              </button>
             </div>
-            {mode === 'bolt' && (
+            {mode === 'crop' && (
+              <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
+                {t('topo.cropReset')}
+              </button>
+            )}
+            {mode === 'bolt' && route && (
               <div className="topo-positions">
                 {positions.map((p) => (
                   <button key={p} className={current.bolts?.[p] ? 'chip placed' : 'chip'} aria-pressed={p === placing} onClick={() => setBoltPos(p)}>
@@ -336,9 +375,11 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
                 ))}
               </div>
             )}
-            <button className="link-button" disabled={!marks[route.id]} onClick={() => edit(() => ({}))}>
-              {t('topo.clearRoute')}
-            </button>
+            {mode !== 'crop' && route && (
+              <button className="link-button" disabled={!marks[route.id]} onClick={() => edit(() => ({}))}>
+                {t('topo.clearRoute')}
+              </button>
+            )}
           </div>
         )}
 

@@ -1,19 +1,22 @@
 import { useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react'
 import { navigate } from '../router'
-import { imageUrl, SCALE, type Marks, type Point, type TopoPhoto } from './model'
+import { FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type Point, type TopoPhoto } from './model'
 
 /**
  * 照片＋疊在上面的 SVG。SVG 的座標是照片的像素，children 收到「一個螢幕像素等於幾個照片像素」（k），
  * 標籤、圓點依此換算，不論照片顯示多大，看起來都一樣大。
+ * crop 只顯示照片的一塊；座標仍是整張照片的，裁切範圍外的標記留著、只是看不到。
  */
 export function TopoFrame({
   photo,
   alt,
+  crop,
   children,
   svgProps,
 }: {
   photo: TopoPhoto
   alt: string
+  crop?: Crop
   children: (k: number) => ReactNode
   svgProps?: SVGProps<SVGSVGElement>
 }) {
@@ -28,11 +31,20 @@ export function TopoFrame({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const k = shown > 0 ? photo.width / shown : 1
+  const c = crop ?? FULL_CROP
+  const [cx, cy] = px(photo, [c.x, c.y])
+  const [cw, ch] = px(photo, [c.w, c.h])
+  const k = shown > 0 ? cw / shown : 1
   return (
-    <div className="topo-frame" ref={box} style={{ aspectRatio: `${photo.width} / ${photo.height}` }}>
-      <img src={imageUrl(photo.image)} alt={alt} loading="lazy" draggable={false} />
-      <svg viewBox={`0 0 ${photo.width} ${photo.height}`} {...svgProps}>
+    <div className="topo-frame" ref={box} style={{ aspectRatio: `${cw} / ${ch}` }}>
+      <img
+        src={imageUrl(photo.image)}
+        alt={alt}
+        loading="lazy"
+        draggable={false}
+        style={{ width: `${(SCALE / c.w) * 100}%`, height: `${(SCALE / c.h) * 100}%`, left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%` }}
+      />
+      <svg viewBox={`${cx} ${cy} ${cw} ${ch}`} {...svgProps}>
         {children(k)}
       </svg>
     </div>
@@ -56,6 +68,7 @@ export function TopoLines({
   highlight,
   bolts = highlight ? [highlight] : [],
   link,
+  crop,
 }: {
   photo: TopoPhoto
   marks: Marks
@@ -65,7 +78,9 @@ export function TopoLines({
   highlight?: string
   bolts?: string[]
   link?: (id: string) => string
+  crop?: Crop
 }) {
+  const bottom = px(photo, [0, (crop ?? FULL_CROP).y + (crop ?? FULL_CROP).h])[1]
   // 亮色的畫在最上面
   const ids = Object.keys(marks).sort((a, b) => Number(a === highlight) - Number(b === highlight))
   return (
@@ -97,7 +112,7 @@ export function TopoLines({
                   </g>
                 )
               })}
-            {start && labels.get(id) && <Badge x={start[0]} y={start[1]} k={k} text={labels.get(id)!} bottom={photo.height} />}
+            {start && labels.get(id) && <Badge x={start[0]} y={start[1]} k={k} text={labels.get(id)!} bottom={bottom} />}
           </>
         )
         // SVG 的 <a> 的 href 不是字串，站內換頁攔不到（router.ts），改用點擊與 Enter 換頁

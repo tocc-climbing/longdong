@@ -187,6 +187,24 @@
                 }
               }
             },
+            "crop": {
+              ".validate": "newData.hasChildren(['x', 'y', 'w', 'h']) && newData.child('x').val() + newData.child('w').val() <= 10000 && newData.child('y').val() + newData.child('h').val() <= 10000",
+              "x": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000 && newData.val() % 1 === 0"
+              },
+              "y": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000 && newData.val() % 1 === 0"
+              },
+              "w": {
+                ".validate": "newData.isNumber() && newData.val() >= 500 && newData.val() <= 10000 && newData.val() % 1 === 0"
+              },
+              "h": {
+                ".validate": "newData.isNumber() && newData.val() >= 500 && newData.val() <= 10000 && newData.val() % 1 === 0"
+              },
+              "$other": {
+                ".validate": false
+              }
+            },
             "$other": {
               ".validate": false
             }

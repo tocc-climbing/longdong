@@ -463,6 +463,22 @@ describe('Topo（v2/topos、v2/topoEdits）', () => {
     await assertFails(push(alice, 'v2/topoEdits/p1', { ...edit('alice'), note: 'x' }))
   })
 
+  it('版本：裁切是整數的 x、y、w、h，在照片範圍內，寬高不小於 500', async () => {
+    const crop = (c: Record<string, unknown>) => ({ ...edit('alice'), crop: c })
+    await assertSucceeds(push(alice, 'v2/topoEdits/p1', crop({ x: 2000, y: 1000, w: 4000, h: 6000 })))
+    await assertSucceeds(push(alice, 'v2/topoEdits/p1', crop({ x: 0, y: 0, w: 10000, h: 10000 })))
+    await assertSucceeds(push(alice, 'v2/topoEdits/p1', crop({ x: 9500, y: 9500, w: 500, h: 500 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: 2000, y: 1000, w: 4000 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: 2000, y: 1000, w: 4000, h: 6000, z: 1 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: 6001, y: 0, w: 4000, h: 5000 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: 0, y: 5001, w: 4000, h: 5000 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: -1, y: 0, w: 4000, h: 5000 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: 0, y: 0, w: 499, h: 5000 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: 0, y: 0, w: 5000, h: 499 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: 0.5, y: 0, w: 5000, h: 5000 })))
+    await assertFails(push(alice, 'v2/topoEdits/p1', crop({ x: '0', y: 0, w: 5000, h: 5000 })))
+  })
+
   it('版本：不能修改；本人與管理員可以刪除，別人不能（照片的主人也不能只刪別人的一個版本）', async () => {
     await assertFails(set(mallory, 'v2/topoEdits/p1/e2/routes', { [ROUTE]: { line: '1,1 9,9' } }))
     await assertFails(remove(mallory, 'v2/topoEdits/p1/e1'))

@@ -24,7 +24,7 @@ import {
 } from 'firebase/auth'
 import { connectDatabaseEmulator, get, getDatabase, onValue, push, ref, remove, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
 import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
-import { STORAGE_BUCKET, type StoredRoutes, type TopoPhoto } from '../topo/model'
+import { STORAGE_BUCKET, type Crop, type StoredRoutes, type TopoPhoto } from '../topo/model'
 
 const app = initializeApp({
   // 前端用的公開設定（不是密鑰）；存取權限由 Realtime Database 規則控管
@@ -266,9 +266,9 @@ export async function createTopo(uid: string, sector: string, image: Blob, width
   return id
 }
 
-/** 提交一個版本（完整的標記） */
-export async function addTopoEdit(uid: string, photo: string, routes: StoredRoutes): Promise<void> {
-  await push(ref(db, `v2/topoEdits/${photo}`), { uid, createdAt: serverTimestamp(), routes })
+/** 提交一個版本（完整的標記與裁切；沒有裁切時不存） */
+export async function addTopoEdit(uid: string, photo: string, routes: StoredRoutes, crop?: Crop): Promise<void> {
+  await push(ref(db, `v2/topoEdits/${photo}`), { uid, createdAt: serverTimestamp(), routes, ...(crop ? { crop } : {}) })
 }
 
 export function deleteTopoEdit(photo: string, edit: string): Promise<void> {

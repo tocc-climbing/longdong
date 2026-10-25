@@ -4689,8 +4689,10 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   height: 100%;
 }
 
+/* 寬高與位置由 TopoFrame 依裁切範圍設定 */
 .topo-frame img {
-  object-fit: cover;
+  max-width: none;
+  object-fit: fill;
   user-select: none;
 }
 
@@ -4791,6 +4793,22 @@ g.topo-route.link:is(:hover, :focus-visible) {
 .topo-handles circle.start {
   fill: #ff5a36;
   stroke: #fff;
+}
+
+.topo-crop-dim {
+  fill: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.topo-crop-box {
+  fill: transparent;
+  stroke: #fff;
+  cursor: move;
+}
+
+.topo-crop-handle {
+  fill: #fff;
+  stroke: #ff5a36;
 }
 
 .topo-edit-side {

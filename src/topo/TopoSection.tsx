@@ -33,8 +33,8 @@ export function SectorTopos({ sector }: { sector: Sector }) {
     <section className="topos" aria-label={t('topo.title')}>
       {topos.map((topo) => (
         <figure key={topo.photo.id} className="topo">
-          <TopoFrame photo={topo.photo} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
-            {(k) => topo.latest && <TopoLines photo={topo.photo} marks={topo.latest.marks} labels={labels} k={k} highlight={selected} link={link} />}
+          <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
+            {(k) => topo.latest && <TopoLines photo={topo.photo} marks={topo.latest.marks} labels={labels} k={k} highlight={selected} link={link} crop={topo.latest.crop} />}
           </TopoFrame>
           <TopoCaption topo={topo} canEdit={canEdit} />
         </figure>
@@ -56,8 +56,8 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
       <h2>{t('topo.title')}</h2>
       {topos.map((topo) => (
         <figure key={topo.photo.id} className="topo">
-          <TopoFrame photo={topo.photo} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
-            {(k) => <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} />}
+          <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
+            {(k) => <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} crop={topo.latest!.crop} />}
           </TopoFrame>
           <TopoCaption topo={topo} canEdit={canEdit} />
         </figure>
