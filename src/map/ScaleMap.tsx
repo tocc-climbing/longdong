@@ -153,6 +153,8 @@ export interface MapEdit {
   closed: boolean
   selected?: number
   onChange: (rings: LatLng[][]) => void
+  /** 一次修改開始（按下頂點、加頂點、刪頂點）：復原以這為一步，拖曳中的每次移動不算 */
+  onChangeStart?: () => void
   onSelect: (index: number) => void
 }
 
@@ -563,6 +565,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
                 return unproject(toMap(v!, f!, [clientX - r.left, clientY - r.top]))
               }}
               onChange={(ring) => edit.onChange(edit.rings.map((r, i) => (i === edit.selected ? ring : r)))}
+              onChangeStart={edit.onChangeStart}
             />
           )}
           {pick?.at && (
@@ -650,12 +653,14 @@ function EditHandles({
   screen,
   toLatLng,
   onChange,
+  onChangeStart,
 }: {
   ring: LatLng[]
   closed: boolean
   screen: (q: LatLng) => Vec
   toLatLng: (clientX: number, clientY: number) => LatLng
   onChange: (ring: LatLng[]) => void
+  onChangeStart?: () => void
 }) {
   const [dragging, setDragging] = useState<number>()
   const latestRing = useRef(ring)
@@ -663,6 +668,7 @@ function EditHandles({
   const startDrag = (e: React.PointerEvent, index: number, next: LatLng[]) => {
     e.stopPropagation()
     ;(e.target as Element).setPointerCapture(e.pointerId)
+    onChangeStart?.()
     if (next !== ring) onChange(next)
     setDragging(index)
   }
@@ -706,7 +712,9 @@ function EditHandles({
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (ring.length > (closed ? 3 : 2)) onChange(ring.filter((_, j) => j !== i))
+            if (ring.length <= (closed ? 3 : 2)) return
+            onChangeStart?.()
+            onChange(ring.filter((_, j) => j !== i))
           }}
         />
       ))}

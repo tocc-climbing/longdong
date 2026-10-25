@@ -9,6 +9,8 @@ import { ShareButton } from '../components/ShareButton'
 import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route } from '../data/schema'
+import { CommunityText } from '../edit/CommunityText'
+import { textTarget } from '../edit/textEdits'
 import { formatDate, typeText } from '../format'
 import { localName, useLang } from '../i18n'
 import { useCloud } from '../personal/sync'
@@ -113,12 +115,7 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
         </section>
       )}
 
-      {route.description && (
-        <section className="route-block">
-          <h2>{t('route.info')}</h2>
-          <p className="pre">{route.description}</p>
-        </section>
-      )}
+      <CommunityText target={textTarget.route(route.id)} original={route.description} title={t('route.info')} />
 
       {more.length > 0 && (
         <details className="route-block route-more">

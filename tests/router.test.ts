@@ -17,6 +17,16 @@ describe('parseLocation', () => {
     expect(parseLocation('/')).toEqual({ name: 'home' })
   })
 
+  it('修改模式：/edit 是目錄，/edit/<種類>/<項目> 開那個項目（項目 id 可以含 "/" 與 ":"）；不認得的種類回到目錄', () => {
+    expect(parseLocation('/edit')).toEqual({ name: 'edit' })
+    expect(parseLocation('/edit/map/area:school-gate')).toEqual({ name: 'edit', kind: 'map', id: 'area:school-gate' })
+    expect(parseLocation('/edit/text/route:longdong:jar2yu')).toEqual({ name: 'edit', kind: 'text', id: 'route:longdong:jar2yu' })
+    expect(parseLocation('/edit/topo/-KJ1-0bGqRU4XvGvp3_L')).toEqual({ name: 'edit', kind: 'topo', id: '-KJ1-0bGqRU4XvGvp3_L' })
+    expect(parseLocation('/edit/other/x')).toEqual({ name: 'edit' })
+    expect(href.edit('map', 'trails')).toBe('/edit/map/trails')
+    expect(href.topo('p1')).toBe('/edit/topo/p1')
+  })
+
   it('路徑的 % 編碼不合法（/area/%）：找不到頁面，不丟出例外讓整個 App 空白', () => {
     expect(parseLocation('/area/%')).toEqual({ name: 'notFound' })
     expect(parseLocation('/route/longdong/%E9%BB')).toEqual({ name: 'notFound' })

@@ -12,6 +12,10 @@
     "trailingSlash": false,
     "rewrites": [
       {
+        "source": "/edit/**",
+        "destination": "/edit.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
@@ -27,7 +31,7 @@
         ]
       },
       {
-        "regex": "^/((area|sector|route|search|me|about|rescue|map|reports|admin|bolts|checklist|topo)(/.*)?)?$",
+        "regex": "^/((area|sector|route|search|me|about|rescue|map|reports|admin|bolts|checklist|topo|edit)(/.*)?)?$",
         "headers": [
           {
             "key": "Cache-Control",

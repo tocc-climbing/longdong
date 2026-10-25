@@ -259,6 +259,29 @@
           }
         }
       },
+      "textEdits": {
+        ".read": true,
+        "$target": {
+          ".write": "auth != null && !newData.exists() && (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))))",
+          ".validate": "$target.matches(/^(area:(school-gate|clocktower|long-lane|music-hall|grand-auditorium|first-cave|second-cave|golden-valley|back-door)|route:longdong:[2-9a-hjkmnp-z]{6})$/)",
+          "$version": {
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))))))",
+            ".validate": "newData.hasChildren(['uid', 'createdAt', 'text'])",
+            "uid": {
+              ".validate": "newData.isString()"
+            },
+            "createdAt": {
+              ".validate": "newData.val() === now"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length <= 3000"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      },
       "personal": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",

@@ -355,6 +355,11 @@ export function mapPageSvg(map: OgMap, areaColors: Record<string, string>, stats
   return crag(map, areaColors, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '救援點 · 急救器材 · 離線可用')
 }
 
+/** 修改模式（/edit）的分享圖片：號召岩友一起修改；版面與地圖頁相同 */
+export function editPageSvg(map: OgMap, areaColors: Record<string, string>): string {
+  return crag(map, areaColors, '一起修改龍洞', '地圖 · Topo · 區域與路線說明', '登入就能修改 · 保留所有版本')
+}
+
 /** 網站本身（首頁，以及沒有自己分享圖片的頁面）的分享圖片：版面與地圖頁相同 */
 export function homePageSvg(map: OgMap, areaColors: Record<string, string>, stats: { areas: number; routes: number }): string {
   return crag(map, areaColors, '龍洞攀岩資料庫', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '路線 · Bolt · 救援資訊 · 離線可用')
