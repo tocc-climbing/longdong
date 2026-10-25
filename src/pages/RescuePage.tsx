@@ -11,7 +11,7 @@ const RescueMap = lazy(() => import('../map/RescueMap'))
 
 /**
  * 救援資訊：緊急電話與通報、地圖（從區域頁進來時聚焦在該區與就近救援點、急救器材）、我的位置、
- * 該區的就近救援點與急救器材、全部救援點、急救器材。清單點一下就在地圖上顯示，地圖下方顯示座標（可複製）或器材位置。
+ * 該區的就近救援點與急救器材、全部救援點、急救器材。清單點一下就在地圖上顯示，座標（可複製）或器材位置直接顯示在地圖上那一點旁邊。
  * 全部放在離線快取裡，沒有訊號也能看。
  */
 export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: string }) {
@@ -19,7 +19,7 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
   const area = areaKey && AREA_RESCUE[areaKey] ? data.areaById.get(`${data.dataset.crag.id}/${areaKey}`) : undefined
   const local = areaKey ? AREA_RESCUE[areaKey] : undefined
   const [geo, startLocating] = useGeolocation()
-  /** 選中的救援點或急救器材：地圖上加大標示，地圖下方顯示詳細資訊 */
+  /** 選中的救援點或急救器材：地圖上加大標示，旁邊顯示詳細資訊 */
   const [selected, setSelected] = useState<MapSelection>()
   /** 從清單點選：地圖移過去（n 讓同一個再點一次也會移過去） */
   const [flyTo, setFlyTo] = useState<MapSelection & { n: number }>()
@@ -80,19 +80,11 @@ export function RescuePage({ data, areaKey }: { data: LoadedData; areaKey?: stri
             here={geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy } : undefined}
             onLocate={startLocating}
             onSelect={setSelected}
+            onDeselect={() => setSelected(undefined)}
+            popup={selectedPoint ? <PointDetail point={selectedPoint} /> : selectedEms !== undefined ? <EmsItem no={selectedEms} /> : undefined}
           />
         </Suspense>
-        {selectedPoint ? (
-          <div className="card rescue-selected">
-            <PointDetail point={selectedPoint} />
-          </div>
-        ) : selectedEms !== undefined ? (
-          <div className="card rescue-selected">
-            <EmsItem no={selectedEms} />
-          </div>
-        ) : (
-          <p className="muted small">{t('rescue.mapHint')}</p>
-        )}
+        <p className="muted small">{t('rescue.mapHint')}</p>
       </section>
 
       <MyLocation geo={geo} start={startLocating} />

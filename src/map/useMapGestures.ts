@@ -66,9 +66,10 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
       press = undefined
     }
 
+    /** 地圖上的按鈕、連結、資訊框照常操作，不拖動地圖 */
+    const onControl = (e: Event) => !!(e.target as Element).closest('button, a, .sm-popup')
     const down = (e: PointerEvent) => {
-      // 地圖上的按鈕照常點擊
-      if ((e.target as Element).closest('button, a')) return
+      if (onControl(e)) return
       el.setPointerCapture(e.pointerId)
       pointers.set(e.pointerId, local(e))
       twist = 0
@@ -143,7 +144,7 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
     }
     // 手機長按會跳出系統選單、電腦按右鍵：不顯示選單；電腦的右鍵直接當作長按
     const contextmenu = (e: MouseEvent) => {
-      if ((e.target as Element).closest('button, a')) return
+      if (onControl(e)) return
       e.preventDefault()
       // 觸控的長按已由計時處理，這裡只處理滑鼠右鍵（Safari 的 contextmenu 沒有 pointerType）
       const type = (e as PointerEvent).pointerType
@@ -155,7 +156,7 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
       apply((v, f) => zoomAt(v, f, at, clampScale(v.s * Math.exp(e.deltaY * 0.002), BOUNDS, f)))
     }
     const dblclick = (e: MouseEvent) => {
-      if ((e.target as Element).closest('button, a')) return
+      if (onControl(e)) return
       const at = local(e)
       apply((v, f) => zoomAt(v, f, at, clampScale(v.s / STEP, BOUNDS, f)))
     }

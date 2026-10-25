@@ -2937,14 +2937,6 @@ a.action {
   vertical-align: 1px;
 }
 
-.rescue-selected {
-  padding: 0;
-}
-
-.rescue-selected .ems-item {
-  padding: 0 14px;
-}
-
 .ems-item {
   display: flex;
   align-items: flex-start;
@@ -2979,8 +2971,7 @@ a.action {
   scroll-margin-top: calc(60px + env(safe-area-inset-top));
 }
 
-.rescue-map-section > p,
-.rescue-selected {
+.rescue-map-section > p {
   margin-top: 10px;
 }
 

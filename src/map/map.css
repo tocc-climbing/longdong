@@ -655,3 +655,44 @@
   color: var(--text);
   font: inherit;
 }
+
+/* 選中的救援點、急救器材的資訊：顯示在那一點上方（太靠近上緣時在下方），箭頭指著那一點 */
+.sm-popup {
+  position: absolute;
+  z-index: 2;
+  width: max-content;
+  max-width: min(300px, calc(100% - 24px));
+  transform: translate(-50%, calc(-100% - 18px));
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  cursor: auto;
+}
+
+.sm-popup.below {
+  transform: translate(-50%, 18px);
+}
+
+.sm-popup::after {
+  content: '';
+  position: absolute;
+  left: calc(50% + var(--arrow-x, 0px) - 7px);
+  top: 100%;
+  border: 7px solid transparent;
+  border-top-color: var(--surface);
+}
+
+.sm-popup.below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--surface);
+}
+
+.sm-popup .point-item,
+.sm-popup .ems-item {
+  margin: 0;
+  padding: 0;
+}

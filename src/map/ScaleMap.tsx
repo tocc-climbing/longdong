@@ -152,6 +152,9 @@ const FOCUS_PADDING_M = 30
 const FOCUS_MIN_M = 200
 /** 點救援點：離圓心這個距離（像素）內都算 */
 const POINT_HIT_PX = 18
+/** 地圖上的資訊框：半寬（像素，左右不超出地圖）、離上緣不到這個距離就改顯示在下方 */
+const POPUP_HALF_PX = 150
+const POPUP_FLIP_PX = 140
 /** 點折線：離線段這個距離（像素）內都算 */
 const LINE_HIT_PX = 10
 
@@ -201,6 +204,10 @@ interface Props {
   selected?: MapSelection
   /** 點救援點或急救器材時 */
   onSelect?: (selection: MapSelection) => void
+  /** 選中的救援點或急救器材的資訊，顯示在地圖上那一點的旁邊 */
+  popup?: ReactNode
+  /** 點地圖的其他地方（關掉資訊） */
+  onDeselect?: () => void
   /** 折線（岩壁標記） */
   lines?: MapLine[]
   /** 點到折線時（不在點位置的模式） */
@@ -216,7 +223,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, lines, onLineTap, ortho }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, ortho }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -305,7 +312,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
         })
         .filter((l) => l.d <= LINE_HIT_PX)
         .sort((a, b) => a.d - b.d)[0]
-      if (line) onLineTap(line.key)
+      if (line) return onLineTap(line.key)
+      onDeselect?.()
     },
   }
   useMapGestures(box, gestures)
@@ -505,6 +513,26 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           )}
         </g>
       </svg>
+
+      {popup && selected && (() => {
+        // 救援點的位置；急救器材畫在挪開的位置（被擋住時）
+        const at =
+          selected.kind === 'rescue'
+            ? located.find((p) => p.key === selected.key)?.at && screen(located.find((p) => p.key === selected.key)!.at)
+            : (() => {
+                const i = map.markers.findIndex((m) => m.kind === 'ems' && m.no === selected.no)
+                return i < 0 ? undefined : (nudged.get(i) ?? screen(map.markers[i].at))
+              })()
+        if (!at || at[0] < 0 || at[1] < 0 || at[0] > frame.w || at[1] > frame.h) return null
+        // 太靠近上緣時顯示在下方；左右不超出地圖
+        const below = at[1] < POPUP_FLIP_PX
+        const x = Math.min(Math.max(at[0], POPUP_HALF_PX), frame.w - POPUP_HALF_PX)
+        return (
+          <div className={`sm-popup${below ? ' below' : ''}`} style={{ left: x, top: at[1], ['--arrow-x' as string]: `${at[0] - x}px` }}>
+            {popup}
+          </div>
+        )
+      })()}
 
       {topLeft && <div className="sm-top-left">{topLeft}</div>}
 
