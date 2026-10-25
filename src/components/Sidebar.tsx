@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { HoldMark } from './HoldMark'
 import { DevBadge } from './DevBadge'
 import type { LoadedData } from '../data/dataset'
@@ -9,14 +9,33 @@ import type { Level } from '../keyboard'
 import { TABS, activeTab } from './BottomNav'
 
 /**
- * 電腦版的左側欄：品牌、搜尋框、主選單，以及龍洞的區域／分區（目前所在的區域展開分區）。
+ * 電腦版的左側欄：品牌、搜尋框、主選單，以及龍洞的區域／分區（目前所在的區域展開分區；區域清單可以收合，記在這台裝置）。
  * 用方向鍵切換到大區域或區域層級時（kbdLevel），標示目前所在的那一項。
  */
+const AREAS_OPEN_KEY = 'longdong.sidebar.areas'
+
+function readAreasOpen(): boolean {
+  try {
+    return localStorage.getItem(AREAS_OPEN_KEY) !== 'closed'
+  } catch {
+    return true
+  }
+}
+
 export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedData; kbdLevel: Level | null }) {
   const { lang, t } = useLang()
   const active = activeTab(page)
   const here = data ? currentPlace(page, data) : {}
   const tree = useRef<HTMLElement>(null)
+  const [areasOpen, setAreasOpen] = useState(readAreasOpen)
+  const toggleAreas = () => {
+    setAreasOpen(!areasOpen)
+    try {
+      localStorage.setItem(AREAS_OPEN_KEY, areasOpen ? 'closed' : 'open')
+    } catch {
+      /* 私密瀏覽等情況：只在這個畫面生效 */
+    }
+  }
   useEffect(() => {
     tree.current?.querySelector('.kbd')?.scrollIntoView({ block: 'nearest' })
   }, [kbdLevel, here.area, here.sector])
@@ -63,7 +82,13 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
 
       {data && (
         <nav className="area-tree" aria-label={t('nav.areas')} ref={tree}>
-          <ul>
+          <button type="button" className="area-tree-toggle" aria-expanded={areasOpen} aria-controls="area-tree-list" onClick={toggleAreas}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {t('nav.areas')}
+          </button>
+          <ul id="area-tree-list" hidden={!areasOpen}>
             {data.dataset.areas.map((area) => (
               <li key={area.id}>
                 <a
