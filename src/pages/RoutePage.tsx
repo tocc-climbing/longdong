@@ -81,8 +81,10 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
         />
       ) : (
         <div className="route-actions">
-          <PlaceReport data={data} item={ref} />
-          <ShareButton item={ref} />
+          <div className="route-actions-more">
+            <PlaceReport data={data} item={ref} />
+            <ShareButton item={ref} />
+          </div>
         </div>
       )}
 

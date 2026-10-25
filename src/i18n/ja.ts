@@ -297,8 +297,8 @@ export const ja: Messages = {
 
   'mark.sent': '完登済み',
   'mark.fav': 'お気に入り',
-  'fav.on': '★ お気に入り済み',
-  'fav.off': '☆ お気に入り',
+  'fav.on': '登録済み',
+  'fav.off': 'お気に入り',
   'tick.add': '＋ 登攀を記録',
   'tick.delete': '削除',
   'tick.deleteAria': 'この記録を削除',

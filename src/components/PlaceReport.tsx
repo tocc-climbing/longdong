@@ -74,12 +74,12 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
 
   return (
     <>
-      {/* 按鈕列放不下文字：圖示按鈕（定位圖釘），送出後短暫換成打勾 */}
+      {/* 定位圖釘加文字；送出後圖示短暫換成打勾，提示文字改成已記錄 */}
       <button
         type="button"
         className={`action icon-action place-report-button${sent ? ' on' : ''}`}
-        aria-label={sent ? t(simulated ? 'sim.notSent' : 'place.sent') : t('place.button')}
-        title={sent ? t(simulated ? 'sim.notSent' : 'place.sent') : t('place.button')}
+        aria-label={sent ? t(simulated ? 'sim.notSent' : 'place.sent') : undefined}
+        title={sent ? t(simulated ? 'sim.notSent' : 'place.sent') : undefined}
         onClick={openSheet}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
@@ -92,6 +92,7 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
             </>
           )}
         </svg>
+        {t('place.button')}
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title={t('place.title')}>
         <form

@@ -3797,32 +3797,55 @@ main.map > div {
   font-weight: 900;
 }
 
-/* 記錄、收藏、分享 */
+/* 記錄攀登（整行）；下一列等寬的收藏、回報位置、分享，都是圖示加文字 */
 .route-actions {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 8px;
   margin-bottom: 6px;
 }
 
-.route-actions .action.primary {
-  flex: 1;
+.route-actions-more {
+  display: flex;
+  gap: 8px;
+}
+
+.route-actions-more > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.route-actions .share {
+  display: flex;
 }
 
 .route-actions .icon-action,
 .route-actions .place-report-button,
 [data-layout] .route-actions .share-button {
-  min-width: 46px;
-  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 8px;
   border-radius: 999px;
   background: var(--brand-soft);
   color: var(--brand-dark);
   box-shadow: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.route-actions .icon-action svg,
+.route-actions .share-button svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
 }
 
 .route-actions .icon-action[aria-pressed='true'] {
-  color: #d40442;
+  color: var(--style-rp);
 }
 
 /* 各段：細線分隔 */

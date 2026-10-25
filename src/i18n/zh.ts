@@ -291,8 +291,8 @@ export const zh = {
 
   'mark.sent': '已完攀',
   'mark.fav': '已收藏',
-  'fav.on': '★ 已收藏',
-  'fav.off': '☆ 收藏',
+  'fav.on': '已收藏',
+  'fav.off': '收藏',
   'tick.add': '＋ 記錄攀登',
   'tick.delete': '刪除',
   'tick.deleteAria': '刪除這筆紀錄',

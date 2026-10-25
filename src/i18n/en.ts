@@ -293,8 +293,8 @@ export const en: Messages = {
 
   'mark.sent': 'Sent',
   'mark.fav': 'Saved',
-  'fav.on': '★ Saved',
-  'fav.off': '☆ Save',
+  'fav.on': 'Saved',
+  'fav.off': 'Save',
   'tick.add': '＋ Log a climb',
   'tick.delete': 'Delete',
   'tick.deleteAria': 'Delete this entry',
