@@ -109,6 +109,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const [mode, setMode] = useState<Mode>('line')
   const [boltPos, setBoltPos] = useState<string>()
   const [forking, setForking] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const undo = useRef<Content[]>([])
@@ -128,7 +129,11 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const canFork = !preview && mode === 'line' && !!route && !current.line && forkable.length > 0
   const isForking = forking && canFork
 
+  /** 版本一定要有至少一條路線的標記（資料庫規則），所以只裁切、還沒標記時不能提交 */
+  const needRoute = changed && Object.keys(draft!.marks).length === 0
+
   const setDraft = (d: Draft | undefined) => {
+    if (d) setSaved(false)
     writeDraft(photo.id, d)
     setDraftState(d)
   }
@@ -160,6 +165,8 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         commit(prev)
       } else if (e.key === 'Escape') {
         setForking(false)
+      } else if (e.key === 'Enter' && mode === 'crop' && !preview && !(e.target as HTMLElement).closest('button, a, input, textarea, select')) {
+        setMode('line')
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !preview && e.key.toLowerCase() === 'f') {
         setForking((on) => !on)
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !preview && MODE_KEYS[e.key.toLowerCase()]) {
@@ -224,6 +231,9 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
       await submitEdit(photo.id, draft!.marks, draft!.crop)
       setDraft(undefined)
       undo.current = []
+      setSaved(true)
+      // 裁切模式顯示的是整張照片，提交後回到線段模式才看得到裁切的結果
+      setMode((m) => (m === 'crop' ? 'line' : m))
     } catch (err) {
       setError(t('topo.submitError', { error: (err as Error).message }))
     } finally {
@@ -387,8 +397,10 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
           </div>
         ) : (
           <div className="topo-edit-bar">
-            <span className="muted small">{changed ? t('topo.draft') : t('topo.noChanges')}</span>
-            <button className="action primary" disabled={!changed || busy} onClick={() => void submit()}>
+            <span className={needRoute ? 'small warn-text' : 'muted small'} role="status">
+              {needRoute ? t('topo.needRoute') : changed ? t('topo.draft') : saved ? t('topo.saved') : t('topo.noChanges')}
+            </span>
+            <button className="action primary" disabled={!changed || needRoute || busy} onClick={() => void submit()}>
               {busy ? t('topo.submitting') : t('topo.submit')}
             </button>
             <button className="action" disabled={!draft || busy} onClick={discard}>
@@ -413,9 +425,14 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
               </button>
             </div>
             {mode === 'crop' && (
-              <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
-                {t('topo.cropReset')}
-              </button>
+              <div className="topo-crop-actions">
+                <button className="action primary" onClick={() => setMode('line')}>
+                  {t('topo.cropDone')}
+                </button>
+                <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
+                  {t('topo.cropReset')}
+                </button>
+              </div>
             )}
             {canFork && (
               <button className="link-button" aria-pressed={isForking} aria-keyshortcuts="F" onClick={() => setForking((on) => !on)}>

@@ -5038,6 +5038,13 @@ g.topo-route.link:is(:hover, :focus-visible) {
   stroke: #fff;
 }
 
+.topo-crop-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .topo-fork circle {
   fill: rgba(255, 255, 255, 0.35);
   stroke: #fff;
