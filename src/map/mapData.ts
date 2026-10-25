@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { LatLng } from '../geo'
 import type { LoadedData } from '../data/dataset'
 import { AREA_RESCUE } from '../data/rescue'
 import { localName, type Lang } from '../i18n'
+import { useMapShapes, type MapShapes } from './shapes'
 
 /**
  * 照比例尺的龍洞簡圖（scripts/gen-scale-map.ts 由救援資訊圖產生，放在 public/rescue/，在離線快取裡）。
@@ -39,7 +40,35 @@ export interface ScaleMapData {
   layers: Record<string, string>
   markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
-  areas: { id: string; path: string; label: [number, number]; size: number; rings: [number, number][][] }[]
+  areas: AreaShape[]
+  /** 分區的範圍（管理員畫的，見 shapes.ts）：分區 ID 可能重複（一個分區多塊） */
+  sectors: (AreaShape & { sector: string })[]
+}
+
+export interface AreaShape {
+  id: string
+  path: string
+  label: [number, number]
+  size: number
+  rings: [number, number][][]
+}
+
+/** 一個區域（地圖座標的多塊多邊形）：SVG path、標籤在最大一塊的重心、總面積 */
+function areaShape(id: string, rings: [number, number][][]): AreaShape {
+  const pieces = rings.map((r) => centroid(r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1] ? r : [...r, r[0]]))
+  const largest = pieces.reduce((a, b) => (b.size > a.size ? b : a))
+  const path = rings.map((r) => 'M' + r.map((p) => p.map((v) => v.toFixed(1)).join(' ')).join('L') + 'Z').join('')
+  return { id, path, label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0), rings }
+}
+
+/** 套上管理員調整的多邊形：有調整的大區域取代自動產生的形狀；加上分區的範圍 */
+export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData {
+  const toRings = (rings: LatLng[][]) => rings.map((r) => r.map(project))
+  return {
+    ...base,
+    areas: base.areas.map((a) => (shapes.areas[a.id] ? areaShape(a.id, toRings(shapes.areas[a.id])) : a)),
+    sectors: shapes.sectors.map((s) => ({ ...areaShape(s.id, toRings([s.ring])), sector: s.sector })),
+  }
 }
 
 const ORIGIN: LatLng = [25.107, 121.92]
@@ -127,6 +156,7 @@ async function readScaleMap(): Promise<ScaleMapData> {
         rings,
       }
     }),
+    sectors: [],
   }
 }
 
@@ -143,7 +173,14 @@ export function loadScaleMap(): Promise<ScaleMapData> {
 
 export type ScaleMapState = { status: 'loading' } | { status: 'ok'; data: ScaleMapData } | { status: 'error'; message: string }
 
+/** 地圖資料，套上管理員調整的多邊形（讀到後即時更新） */
 export function useScaleMap(): ScaleMapState {
+  const base = useBaseScaleMap()
+  const shapes = useMapShapes()
+  return useMemo(() => (base.status === 'ok' ? { status: 'ok', data: withShapes(base.data, shapes) } : base), [base, shapes])
+}
+
+function useBaseScaleMap(): ScaleMapState {
   const [state, setState] = useState<ScaleMapState>({ status: 'loading' })
   useEffect(() => {
     let alive = true

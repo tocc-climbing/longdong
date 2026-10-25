@@ -144,6 +144,17 @@ export interface MapLine {
   selected?: boolean
 }
 
+/**
+ * 編輯多邊形（管理員）：rings 是正在編輯的多塊多邊形；選中的那塊顯示頂點，
+ * 拖曳頂點移動、按邊上的小點加一個頂點、右鍵刪除頂點（至少留三點）；點其他塊選它。
+ */
+export interface MapEdit {
+  rings: LatLng[][]
+  selected?: number
+  onChange: (rings: LatLng[][]) => void
+  onSelect: (index: number) => void
+}
+
 /** 選中的救援點（#12 有兩個點共用編號，用 key 區分）或急救器材 */
 export type MapSelection = { kind: 'rescue'; key: string } | { kind: 'ems'; no: number }
 
@@ -155,6 +166,8 @@ const POINT_HIT_PX = 18
 /** 地圖上的資訊框：半寬（像素，左右不超出地圖）、離上緣不到這個距離就改顯示在下方 */
 const POPUP_HALF_PX = 150
 const POPUP_FLIP_PX = 140
+/** 放大到每像素不到這麼多公尺時才顯示分區名稱 */
+const SECTOR_LABEL_SCALE = 0.4
 /** 點折線：離線段這個距離（像素）內都算 */
 const LINE_HIT_PX = 10
 
@@ -212,6 +225,10 @@ interface Props {
   lines?: MapLine[]
   /** 點到折線時（不在點位置的模式） */
   onLineTap?: (key: string) => void
+  /** 分區 ID → 名稱：有傳才顯示分區範圍的標籤 */
+  sectorNames?: Record<string, string>
+  /** 編輯多邊形（管理員） */
+  edit?: MapEdit
   /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
   ortho?: boolean
 }
@@ -223,7 +240,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, ortho }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorNames, edit, ortho }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -290,6 +307,13 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       const { frame: f, view: v } = latest.current
       if (f && v && pick) return pick.onPick(unproject(toMap(v, f, [p.x, p.y])))
       if (!f || !v) return
+      // 編輯多邊形時：點到哪一塊就選它
+      if (edit) {
+        const at = toMap(v, f, [p.x, p.y])
+        const i = edit.rings.findIndex((r) => insideRing(at, r.map(project)))
+        if (i >= 0) edit.onSelect(i)
+        return
+      }
       const distance = ([x, y]: Vec) => Math.hypot(x - p.x, y - p.y)
       const candidates = [
         ...located.map((pt) => ({ selection: { kind: 'rescue', key: pt.key } as MapSelection, at: toScreen(v, f, pt.at) })),
@@ -374,6 +398,9 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           {map.areas.map((a) => (
             <path key={a.id} className={`sm-area sm-area-${a.id}${focus?.area && a.id !== focus.area ? ' sm-dim' : ''}`} d={a.path} strokeWidth={px} />
           ))}
+          {map.sectors.map((s) => (
+            <path key={s.id} className="sm-sector" d={s.path} />
+          ))}
           <path className="sm-highway" d={map.layers.highway} strokeWidth={5 * px} />
           <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
           <path className="sm-road" d={map.layers.road} strokeWidth={2.5 * px} />
@@ -445,6 +472,16 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               {l.text}
             </text>
           ))}
+          {sectorNames &&
+            view.s < SECTOR_LABEL_SCALE &&
+            map.sectors.map((s) => {
+              const [x, y] = screen(s.label)
+              return (
+                <text key={s.id} className="sm-sector-label" x={x} y={y} fontSize={11} textAnchor="middle" dominantBaseline="central">
+                  {sectorNames[s.sector] ?? s.sector}
+                </text>
+              )
+            })}
           {lines?.map((l) => {
             const pts = l.points.map((q) => screen(project(q)))
             const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')
@@ -502,6 +539,23 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               </g>
             )
           })}
+          {edit?.rings.map((ring, i) => {
+            const pts = ring.map((q) => screen(project(q)))
+            const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L') + 'Z'
+            return <path key={i} className={`sm-edit-ring${i === edit.selected ? ' selected' : ''}`} d={d} />
+          })}
+          {edit?.selected !== undefined && edit.rings[edit.selected] && (
+            <EditHandles
+              ring={edit.rings[edit.selected]}
+              screen={(q) => screen(project(q))}
+              toLatLng={(clientX, clientY) => {
+                const r = box.current!.getBoundingClientRect()
+                const { view: v, frame: f } = latest.current
+                return unproject(toMap(v!, f!, [clientX - r.left, clientY - r.top]))
+              }}
+              onChange={(ring) => edit.onChange(edit.rings.map((r, i) => (i === edit.selected ? ring : r)))}
+            />
+          )}
           {pick?.at && (
             <g className="sm-pick">
               <path d={`M${screen(project(pick.at))[0]} ${screen(project(pick.at))[1]}l-9 -22a10 10 0 1 1 18 0z`} />
@@ -577,5 +631,74 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
         {t('myloc.m', { n: bar })}
       </div>
     </div>
+  )
+}
+
+/** 編輯中那塊多邊形的頂點（拖曳移動、右鍵刪除）與邊的中點（按下就多一個頂點，接著拖曳） */
+function EditHandles({
+  ring,
+  screen,
+  toLatLng,
+  onChange,
+}: {
+  ring: LatLng[]
+  screen: (q: LatLng) => Vec
+  toLatLng: (clientX: number, clientY: number) => LatLng
+  onChange: (ring: LatLng[]) => void
+}) {
+  const [dragging, setDragging] = useState<number>()
+  const latestRing = useRef(ring)
+  latestRing.current = ring
+  const startDrag = (e: React.PointerEvent, index: number, next: LatLng[]) => {
+    e.stopPropagation()
+    ;(e.target as Element).setPointerCapture(e.pointerId)
+    if (next !== ring) onChange(next)
+    setDragging(index)
+  }
+  const move = (e: React.PointerEvent) => {
+    if (dragging === undefined) return
+    const at = toLatLng(e.clientX, e.clientY)
+    onChange(latestRing.current.map((q, i) => (i === dragging ? at : q)))
+  }
+  const end = () => setDragging(undefined)
+  const pts = ring.map(screen)
+  return (
+    <g className="sm-edit-handles">
+      {pts.map((a, i) => {
+        const b = pts[(i + 1) % pts.length]
+        const mid: LatLng = [(ring[i][0] + ring[(i + 1) % ring.length][0]) / 2, (ring[i][1] + ring[(i + 1) % ring.length][1]) / 2]
+        return (
+          <circle
+            key={`m${i}`}
+            className="sm-handle sm-handle-mid"
+            cx={(a[0] + b[0]) / 2}
+            cy={(a[1] + b[1]) / 2}
+            r={4}
+            onPointerDown={(e) => startDrag(e, i + 1, [...ring.slice(0, i + 1), mid, ...ring.slice(i + 1)])}
+            onPointerMove={move}
+            onPointerUp={end}
+            onPointerCancel={end}
+          />
+        )
+      })}
+      {pts.map(([x, y], i) => (
+        <circle
+          key={`v${i}`}
+          className={`sm-handle${dragging === i ? ' dragging' : ''}`}
+          cx={x}
+          cy={y}
+          r={6}
+          onPointerDown={(e) => e.button === 0 && startDrag(e, i, ring)}
+          onPointerMove={move}
+          onPointerUp={end}
+          onPointerCancel={end}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (ring.length > 3) onChange(ring.filter((_, j) => j !== i))
+          }}
+        />
+      ))}
+    </g>
   )
 }

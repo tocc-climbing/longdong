@@ -52,10 +52,10 @@ export default defineConfig({
         navigateFallback: 'index.html',
         // Firebase 的保留路徑（/__/auth/handler 等，登入用）交給網路
         navigateFallbackDenylist: [/^\/__\//],
-        // 評分、留言、暱稱、Topo：有網路時讀最新，離線時用最後一次讀到的
+        // 評分、留言、暱稱、Topo、管理員調整的地圖多邊形：有網路時讀最新，離線時用最後一次讀到的
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/longdong\.firebaseio\.com\/v2\/(ratings|comments|profiles|topos|topoEdits)/,
+            urlPattern: /^https:\/\/longdong\.firebaseio\.com\/v2\/(ratings|comments|profiles|topos|topoEdits|mapShapes)/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'social',

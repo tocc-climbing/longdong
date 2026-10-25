@@ -696,3 +696,73 @@
   margin: 0;
   padding: 0;
 }
+
+/* 分區的範圍（管理員畫的）：細虛線，放大後顯示名稱 */
+.sm-sector {
+  fill: none;
+  stroke: #3c4043;
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.sm-sector-label {
+  fill: #3c4043;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+/* 編輯多邊形：選中的那塊藍色，頂點可拖曳，邊上的中點可加頂點 */
+.sm-edit-ring {
+  fill: rgba(26, 115, 232, 0.08);
+  stroke: #1a73e8;
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 3;
+}
+
+.sm-edit-ring.selected {
+  fill: rgba(26, 115, 232, 0.2);
+  stroke-width: 2.5px;
+  stroke-dasharray: none;
+}
+
+.sm-handle {
+  fill: #ffffff;
+  stroke: #1a73e8;
+  stroke-width: 2.5px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sm-handle.dragging {
+  fill: #1a73e8;
+  cursor: grabbing;
+}
+
+.sm-handle-mid {
+  fill: rgba(255, 255, 255, 0.8);
+  stroke-width: 1.5px;
+  cursor: copy;
+}
+
+/* 編輯區域的工具列：選單可以縮，提示文字另起一行 */
+.shape-bar select {
+  flex: 1 1 10em;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.shape-bar .shape-hint {
+  flex-basis: 100%;
+  font-size: 0.8125rem;
+  font-weight: 400;
+}

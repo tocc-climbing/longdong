@@ -66,8 +66,8 @@ export function useMapGestures(box: RefObject<HTMLDivElement | null>, gestures: 
       press = undefined
     }
 
-    /** 地圖上的按鈕、連結、資訊框照常操作，不拖動地圖 */
-    const onControl = (e: Event) => !!(e.target as Element).closest('button, a, .sm-popup')
+    /** 地圖上的按鈕、連結、資訊框、編輯多邊形的頂點照常操作，不拖動地圖 */
+    const onControl = (e: Event) => !!(e.target as Element).closest('button, a, .sm-popup, .sm-handle')
     const down = (e: PointerEvent) => {
       if (onControl(e)) return
       el.setPointerCapture(e.pointerId)

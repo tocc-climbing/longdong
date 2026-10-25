@@ -233,6 +233,48 @@
           }
         }
       },
+      "mapShapes": {
+        ".read": true,
+        "areas": {
+          "$area": {
+            ".write": "(auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))))",
+            ".validate": "$area.matches(/^(school-gate|clocktower|long-lane|music-hall|grand-auditorium|first-cave|second-cave|golden-valley|back-door)$/) && newData.hasChildren(['rings', 'uid', 'updatedAt'])",
+            "rings": {
+              ".validate": "newData.isString() && newData.val().length <= 30000 && newData.val().matches(/^25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6}){2,}(\\|25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6}){2,})*$/)"
+            },
+            "uid": {
+              ".validate": "newData.val() === auth.uid"
+            },
+            "updatedAt": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "sectors": {
+          "$shape": {
+            ".write": "(auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))))",
+            ".validate": "newData.hasChildren(['sector', 'ring', 'uid', 'updatedAt'])",
+            "sector": {
+              ".validate": "newData.isString() && newData.val().matches(/^longdong\\/[a-z0-9-]{1,60}$/)"
+            },
+            "ring": {
+              ".validate": "newData.isString() && newData.val().length <= 6000 && newData.val().matches(/^25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6}){2,}$/)"
+            },
+            "uid": {
+              ".validate": "newData.val() === auth.uid"
+            },
+            "updatedAt": {
+              ".validate": "newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      },
       "personal": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",

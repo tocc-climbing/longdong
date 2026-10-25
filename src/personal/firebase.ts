@@ -255,6 +255,25 @@ export function deleteWall(uid: string, id: string): Promise<void> {
   return remove(ref(db, `v2/walls/${uid}/${id}`))
 }
 
+/* ---------- 地圖多邊形（管理員，見 map/shapes.ts；讀取走 REST） ---------- */
+
+/** 調整一個大區域的形狀（rings 為多塊以「|」分隔） */
+export async function saveAreaShape(uid: string, area: string, rings: string): Promise<void> {
+  await set(ref(db, `v2/mapShapes/areas/${area}`), { rings, uid, updatedAt: serverTimestamp() })
+}
+
+/** 回到自動產生的形狀 */
+export function deleteAreaShape(area: string): Promise<void> {
+  return remove(ref(db, `v2/mapShapes/areas/${area}`))
+}
+
+/** 一個分區的範圍整批換掉：刪掉原本的幾塊、寫入新的幾塊（一次寫入） */
+export async function saveSectorShapes(uid: string, sector: string, oldIds: string[], rings: string[]): Promise<void> {
+  const paths: Record<string, unknown> = Object.fromEntries(oldIds.map((id) => [`v2/mapShapes/sectors/${id}`, null]))
+  for (const ring of rings) paths[`v2/mapShapes/sectors/${push(ref(db, 'v2/mapShapes/sectors')).key}`] = { sector, ring, uid, updatedAt: serverTimestamp() }
+  await update(ref(db), paths)
+}
+
 /* ---------- Topo（讀取走 REST，見 topo/store.ts） ---------- */
 
 /** Cloud Storage 只在上傳、刪除照片時才載入 */
