@@ -1,6 +1,7 @@
 /**
  * 由國土測繪中心的正射影像（航照）找出岩場岩石帶的兩條邊，給 scripts/gen-scale-map.ts 對齊區域色塊用：
- *   scripts/data/nlsc-crag-edges.json   sea：岩石與海的交界；vegetation：岩石與植物的交界（[緯度, 經度]，約每 1.5 公尺一點）
+ *   scripts/data/nlsc-crag-edges.json   sea：岩石與海的交界；vegetation：岩石與植物的交界；
+ *                                       islet：島礁（不碰到陸地上植物的岩石）與海的交界（[緯度, 經度]，約每 1.5 公尺一點）
  *
  *   npm run crag-edges
  *
@@ -102,12 +103,36 @@ const rock = flood(
   (i) => kind[i] === ROCK,
 )
 
+// 陸地上的植物：從左邊界（陸地）開始連通的植物；島礁上零星的草不算
+const landPlant = flood(
+  Array.from({ length: H }, (_, y) => y * W),
+  (i) => !sea[i] && !rock[i],
+)
+// 島礁：岩石帶裡互相連通的一塊，不碰到陸地上的植物
+const islet = new Uint8Array(W * H)
+const visited = new Uint8Array(W * H)
+for (let i = 0; i < W * H; i++) {
+  if (!rock[i] || visited[i]) continue
+  const piece = [i]
+  visited[i] = 1
+  let touchesPlant = false
+  for (let k = 0; k < piece.length; k++) {
+    for (const j of neighbors(piece[k])) {
+      if (rock[j] && !visited[j]) {
+        visited[j] = 1
+        piece.push(j)
+      } else if (landPlant[j]) touchesPlant = true
+    }
+  }
+  if (!touchesPlant) for (const j of piece) islet[j] = 1
+}
+
 const toLatLng = (x: number, y: number): [number, number] => {
   const lng = ((x0 + x / 256) / n) * 360 - 180
   const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y0 + y / 256)) / n))) * 180) / Math.PI
   return [+lat.toFixed(6), +lng.toFixed(6)]
 }
-const edges = { sea: [] as [number, number][], vegetation: [] as [number, number][] }
+const edges = { sea: [] as [number, number][], vegetation: [] as [number, number][], islet: [] as [number, number][] }
 const taken = new Set<string>()
 for (let i = 0; i < W * H; i++) {
   if (!rock[i]) continue
@@ -118,6 +143,7 @@ for (let i = 0; i < W * H; i++) {
   if (around.some((j) => sea[j]) && !taken.has('s' + cell)) {
     taken.add('s' + cell)
     edges.sea.push(toLatLng(x + 0.5, y + 0.5))
+    if (islet[i]) edges.islet.push(toLatLng(x + 0.5, y + 0.5))
   }
   if (around.some((j) => !sea[j] && !rock[j]) && !taken.has('v' + cell)) {
     taken.add('v' + cell)
@@ -127,4 +153,4 @@ for (let i = 0; i < W * H; i++) {
 
 const source = `臺灣通用正射影像（WMTS PHOTO2，z${Z}），© 內政部國土測繪中心，政府資料開放授權條款第 1 版；${new Date().toISOString().slice(0, 10)} 以 scripts/gen-crag-edges.ts 依顏色分類產生`
 writeFileSync(new URL('./data/nlsc-crag-edges.json', import.meta.url), JSON.stringify({ source, ...edges }) + '\n')
-console.log(`岩石與海的交界 ${edges.sea.length} 點、岩石與植物的交界 ${edges.vegetation.length} 點`)
+console.log(`岩石與海的交界 ${edges.sea.length} 點（島礁 ${edges.islet.length} 點）、岩石與植物的交界 ${edges.vegetation.length} 點`)

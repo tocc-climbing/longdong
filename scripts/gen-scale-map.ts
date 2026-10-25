@@ -565,8 +565,8 @@ function centerOfRing(ring: Pt[]): Pt {
  * 各自處理而不是全部色塊共用一個變形：相鄰色塊的剛體對齊不同，共用的邊會把夾在中間的色塊擠扁（例如大禮堂）；代價是相鄰色塊之間可能有數公尺的縫或重疊。
  * 只接受 EDGE_MAX_M 內的交界點：陰影很深的地方（例如大禮堂的凹灣）顏色分類不可靠，維持整塊對齊的位置。
  */
-const cragEdges = JSON.parse(readFileSync(new URL('./data/nlsc-crag-edges.json', import.meta.url), 'utf8')) as { sea: Pt[]; vegetation: Pt[] }
-const EDGE_LINES = { sea: cragEdges.sea.map(toMeters), vegetation: cragEdges.vegetation.map(toMeters) }
+const cragEdges = JSON.parse(readFileSync(new URL('./data/nlsc-crag-edges.json', import.meta.url), 'utf8')) as { sea: Pt[]; vegetation: Pt[]; islet: Pt[] }
+const EDGE_LINES = { sea: cragEdges.sea.map(toMeters), vegetation: cragEdges.vegetation.map(toMeters), islet: cragEdges.islet.map(toMeters) }
 const EDGE_STEP_PT = 10
 const EDGE_MAX_M = 25
 const EDGE_SLACK = 300
@@ -590,8 +590,13 @@ const nearestPoint = (points: Pt[], q: Pt): Pt => points.reduce((best, p) => ((p
 function fitArea(ring: Pt[], key: string): (p: Pt) => Pt {
   const start = areaWarp(ring)
   const label = `${key} ${centerOfRing(ring).map((v) => v.toFixed(0)).join(',')}`
-  const samples = sampleAlong([ring], PAGE, EDGE_STEP_PT).map((at) => ({ at, side: sideOf(at), here: start(at) }))
-  const nearestEdge = (side: 'sea' | 'vegetation', m: Pt) => {
+  // 島礁（整塊不碰到陸地）只貼齊航照上的島礁，不會被吸到旁邊陸地岩石帶的邊上而和同區的色塊重疊
+  const islandRing = !ring.some(onLand)
+  const samples = sampleAlong([ring], PAGE, EDGE_STEP_PT).map((at) => {
+    const side = sideOf(at)
+    return { at, side: islandRing && side === 'sea' ? ('islet' as const) : side, here: start(at) }
+  })
+  const nearestEdge = (side: keyof typeof EDGE_LINES, m: Pt) => {
     const to = nearestPoint(EDGE_LINES[side], m)
     return Math.hypot(to[0] - m[0], to[1] - m[1]) <= EDGE_MAX_M ? to : undefined
   }
@@ -875,18 +880,45 @@ const scaleMap = {
   ],
 }
 
+/**
+ * 島礁和岸邊的色塊重疊時往外推：示意圖上島礁旁邊的岩脊常畫得太長，貼齊後岩脊蓋到島礁的位置。
+ * 島礁沿著「重疊的岸邊色塊中心 → 島礁中心」的方向每次移 ISLET_PUSH_STEP_M，直到頂點都不在岸邊色塊裡，最多 ISLET_PUSH_MAX_M。
+ */
+const ISLET_PUSH_STEP_M = 1
+const ISLET_PUSH_MAX_M = 40
+const fittedRings = Object.entries(AREA_FILLS).flatMap(([fill, key]) =>
+  areaShapes
+    .filter((s) => s.fill === fill)
+    .flatMap((s) => s.subpaths.filter((p) => p.length >= 3))
+    .map((p) => ({ key, island: !p.some(onLand), ring: ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, fitArea(p, key)).map(([lng, lat]) => toMeters([lat, lng])) })),
+)
+const mean = (r: Pt[]): Pt => [r.reduce((v, p) => v + p[0], 0) / r.length, r.reduce((v, p) => v + p[1], 0) / r.length]
+for (const islet of fittedRings.filter((r) => r.island)) {
+  const shores = fittedRings.filter((r) => !r.island)
+  const overlapping = () => shores.find((shore) => islet.ring.some((p) => inside(p, shore.ring)))
+  const first = overlapping()
+  if (!first) continue
+  let moved = 0
+  for (let shore: (typeof shores)[number] | undefined = first; shore && moved < ISLET_PUSH_MAX_M; shore = overlapping()) {
+    const [from, to] = [mean(shore.ring), mean(islet.ring)]
+    const len = Math.hypot(to[0] - from[0], to[1] - from[1])
+    islet.ring = islet.ring.map(([x, y]) => [x + ((to[0] - from[0]) / len) * ISLET_PUSH_STEP_M, y + ((to[1] - from[1]) / len) * ISLET_PUSH_STEP_M])
+    moved += ISLET_PUSH_STEP_M
+  }
+  console.log(`島礁 ${islet.key} 和岸邊色塊重疊，往外推 ${moved} 公尺${overlapping() ? '（仍重疊）' : ''}`)
+}
+
 const areas = {
   type: 'FeatureCollection',
   source,
   // 色塊各自貼齊，相鄰的可能重疊：面積大的排前面，小的畫在上面，不會被整塊蓋住
-  features: Object.entries(AREA_FILLS)
-    .map(([fill, key]) => ({
-      key,
-      polygons: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, fitArea(p, key))])),
-    }))
-    .map((a) => ({ ...a, size: a.polygons.reduce((sum, [r]) => sum + areaOf(r.map(([lng, lat]) => toMeters([lat, lng]))), 0) }))
+  features: Object.values(AREA_FILLS)
+    .map((key) => {
+      const rings = fittedRings.filter((r) => r.key === key).map((r) => r.ring)
+      return { key, rings, size: rings.reduce((sum, r) => sum + areaOf(r), 0) }
+    })
     .sort((a, b) => b.size - a.size)
-    .map(({ key, polygons }) => feature({ id: key }, { type: 'MultiPolygon', coordinates: polygons })),
+    .map(({ key, rings }) => feature({ id: key }, { type: 'MultiPolygon', coordinates: rings.map((r) => [r.map(metersToLngLat)]) })),
 }
 
 mkdirSync('public/rescue', { recursive: true })

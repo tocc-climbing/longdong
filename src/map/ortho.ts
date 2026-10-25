@@ -12,6 +12,8 @@ const MIN_Z = 14
 const MAX_Z = 19
 /** 一層最多幾張圖磚，超過就降一層 */
 const MAX_TILES = 64
+/** 最底下固定墊一層：縮放時這層的圖磚不換，新的圖磚載入前不會整片空白（閃一下） */
+const BASE_Z = 16
 const EARTH_M = 2 * Math.PI * 6_378_137
 
 export interface OrthoTile {
@@ -31,7 +33,7 @@ const tileY = (lat: number, n: number) => {
 }
 const tileLatLng = (x: number, y: number, n: number): LatLng => [(Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI, (x / n) * 360 - 180]
 
-/** 畫面上看得到的圖磚：一層清楚的（圖磚像素不大於螢幕像素），底下墊一層粗的，換層級時不會整片空白 */
+/** 畫面上看得到的圖磚：一層清楚的（圖磚像素不大於螢幕像素），底下墊一層粗兩級的，最底下再墊固定的 BASE_Z，換層級時不會整片空白 */
 export function orthoTiles(view: MapView, frame: Size, dpr = 1): OrthoTile[] {
   const corners = ([[0, 0], [frame.w, 0], [0, frame.h], [frame.w, frame.h]] as [number, number][]).map((p) => unproject(toMap(view, frame, p)))
   const lats = corners.map((c) => c[0])
@@ -58,6 +60,7 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1): OrthoTile[] {
   while (z > MIN_Z && metersPerTilePx(z - 1) <= view.s / dpr) z--
   let fine = layer(z)
   while (!fine && z > MIN_Z) fine = layer(--z)
-  const coarse = z - 2 >= MIN_Z ? layer(z - 2) : undefined
-  return [...(coarse ?? []), ...(fine ?? [])]
+  const coarse = z - 2 > BASE_Z ? layer(z - 2) : undefined
+  const base = z > BASE_Z ? layer(BASE_Z) : undefined
+  return [...(base ?? []), ...(coarse ?? []), ...(fine ?? [])]
 }
