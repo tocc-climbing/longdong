@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { inMapBounds } from '../map/bounds'
 import { ScaleMap } from '../map/ScaleMap'
 import { useGeolocation } from '../components/MyLocation'
+import { LocationHelp } from '../components/LocationHelp'
 import { Sheet } from '../components/Sheet'
 import { addMark, hasUnuploaded, onCalibrationEvent, useCalibration, useSimulatedMarks } from '../map/calibration'
 import type { LoadedData } from '../data/dataset'
@@ -174,6 +175,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
         {geo.status === 'error' && (
           <p className="map-toast warn" role="alert">
             {t(geo.code === 'denied' ? 'map.denied' : 'map.unavailable')}
+            {geo.code === 'denied' && <LocationHelp />}
           </p>
         )}
         {toast && (

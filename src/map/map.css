@@ -550,3 +550,19 @@
   overflow: hidden;
   --map-bottom: 8px;
 }
+
+/* 定位被拒絕時的「怎麼開啟」 */
+.loc-help-steps {
+  padding-left: 1.4em;
+  line-height: 1.7;
+}
+
+.loc-help-button {
+  min-height: 44px;
+}
+
+.map-toast .loc-help-button {
+  display: block;
+  margin: 8px auto 0;
+  pointer-events: auto;
+}

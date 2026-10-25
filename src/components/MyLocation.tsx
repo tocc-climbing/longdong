@@ -3,6 +3,7 @@ import { RESCUE_POINTS, formatCoords } from '../data/rescue'
 import { NEAR_CRAG_M, nearestPoints, type LatLng } from '../geo'
 import { LOCALES, localName, useLang, type Translate } from '../i18n'
 import { CopyButton } from './CopyButton'
+import { LocationHelp } from './LocationHelp'
 import { SIMULATED_ACCURACY_M, useSimulation } from '../simulate'
 
 /** 誤差超過這個距離（公尺）時提醒到開闊處 */
@@ -98,6 +99,7 @@ export function MyLocation({ geo, start }: { geo: GeoState; start: () => void })
             {t(`myloc.${geo.code}`)}
           </p>
           <div className="actions">
+            {geo.code === 'denied' && <LocationHelp />}
             {geo.code !== 'unsupported' && (
               <button type="button" className="action" onClick={start}>
                 {t('myloc.retry')}

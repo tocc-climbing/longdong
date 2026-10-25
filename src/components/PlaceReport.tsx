@@ -7,6 +7,7 @@ import { inMapBounds } from '../map/bounds'
 import { addMark, type ReportTarget } from '../map/calibration'
 import { areaNames, useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
+import { LocationHelp } from './LocationHelp'
 import { useGeolocation } from './MyLocation'
 import { Sheet } from './Sheet'
 import { useSimulation } from '../simulate'
@@ -127,7 +128,10 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
           </div>
           <p className="small">
             {geo.status === 'error' ? (
-              <span className="warn">{t(geo.code === 'denied' ? 'map.denied' : 'map.unavailable')}</span>
+              <>
+                <span className="warn">{t(geo.code === 'denied' ? 'map.denied' : 'map.unavailable')}</span>
+                {geo.code === 'denied' && <LocationHelp />}
+              </>
             ) : !fix ? (
               <span className="muted">{t('map.locating')}</span>
             ) : outside !== undefined ? (
