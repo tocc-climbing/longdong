@@ -17,10 +17,21 @@ import { useMapItem } from './useMapItem'
 import './edit.css'
 
 const TOAST_MS = 3500
+/** 收起目錄、資訊面板（這台裝置記住） */
+const LAYOUT_KEY = 'longdong.edit.layout'
+
+function readLayout(): { catalog: boolean; panel: boolean } {
+  try {
+    return { catalog: true, panel: true, ...(JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') as object) }
+  } catch {
+    return { catalog: true, panel: true }
+  }
+}
 
 /**
  * 修改模式（/edit/<種類>/<項目>）：地圖（步道、大區域、分區範圍）、Topo、區域與路線說明，所有登入者都能修改，每次提交是一個新版本。
  * 電腦版三欄：左側目錄、中間編輯、右側資訊（說明、修改紀錄、快捷鍵）；上方工具列。
+ * 目錄與資訊面板可以收起，讓中間的編輯區最大（[、]、⌘\ 兩側一起）。
  * 手機版只能看目錄與修改說明；地圖與 Topo 提示用電腦開啟。每個項目有自己的網址，可以分享給岩友一起修改。
  */
 export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind; id?: string }) {
@@ -30,6 +41,33 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   const item = kind && id ? items.find((i) => i.kind === kind && i.id === id) : undefined
   const [dirty, setDirty] = useState(false)
   const [toast, setToast] = useState<string>()
+  const [layout, setLayout] = useState(readLayout)
+  const toggle = (part: 'catalog' | 'panel' | 'both') =>
+    setLayout((l) => {
+      const next = part === 'both' ? { catalog: !(l.catalog || l.panel), panel: !(l.catalog || l.panel) } : { ...l, [part]: !l[part] }
+      try {
+        localStorage.setItem(LAYOUT_KEY, JSON.stringify(next))
+      } catch {
+        /* 存不了就只在這次有效 */
+      }
+      return next
+    })
+  // 收起、展開兩側：[ 目錄、] 資訊面板、⌘\ 兩側一起（同 Figma 隱藏介面）
+  useEffect(() => {
+    if (!wide) return
+    const onKey = (e: KeyboardEvent) => {
+      if (typing(e)) return
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault()
+        toggle('both')
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '[' || e.key === ']')) {
+        e.preventDefault()
+        toggle(e.key === '[' ? 'catalog' : 'panel')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [wide])
 
   useEffect(() => {
     if (!toast) return
@@ -80,7 +118,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
     )
 
   return (
-    <div className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}`}>
+    <div className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}${wide && !layout.catalog ? ' no-catalog' : ''}${wide && !layout.panel ? ' no-panel' : ''}`}>
       <header className="edit-top">
         <a className="edit-back" href={href.home()} onClick={(e) => !leaveOk() && e.preventDefault()}>
           ← {t('app.title')}
@@ -92,11 +130,23 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
           </span>
         )}
         <span className="edit-spacer" />
+        {wide && (
+          <>
+            <button type="button" className="edit-tool" aria-pressed={layout.catalog} onClick={() => toggle('catalog')} title={t('edit.toggleCatalog')}>
+              {t('edit.catalog')}
+              <kbd>[</kbd>
+            </button>
+            <button type="button" className="edit-tool" aria-pressed={layout.panel} onClick={() => toggle('panel')} title={t('edit.togglePanel')}>
+              {t('edit.panel')}
+              <kbd>]</kbd>
+            </button>
+          </>
+        )}
         <button type="button" className="edit-btn" onClick={() => void share()}>
           {t('edit.share')}
         </button>
       </header>
-      {(wide || !item) && <Catalog data={data} current={item} onOpen={open} />}
+      {wide ? layout.catalog && <Catalog data={data} current={item} onOpen={open} /> : !item && <Catalog data={data} current={item} onOpen={open} />}
       {!wide && item && (
         <button type="button" className="edit-btn edit-back-to-list" onClick={() => leaveOk() && navigate(href.edit())}>
           ← {t('edit.catalog')}
@@ -302,6 +352,8 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
               ['⌘Z / ⌘⇧Z', `${t('edit.undo')} / ${t('edit.redo')}`],
               ['⌘Enter', t('shape.save')],
               ['A', t('map.ortho')],
+              ['[ / ]', `${t('edit.catalog')} / ${t('edit.panel')}`],
+              ['⌘\\', t('edit.maximize')],
               [t('edit.rightClick'), t('edit.deletePoint')],
             ] as const
           ).map(([k, v]) => (

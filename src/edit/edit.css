@@ -4,7 +4,7 @@
   inset: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 272px minmax(0, 1fr) 300px;
+  grid-template-columns: 248px minmax(0, 1fr) 280px;
   grid-template-rows: 48px minmax(0, 1fr);
   grid-template-areas:
     'top top top'
@@ -393,6 +393,27 @@
   background: #202124;
   color: #fff;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* 收起目錄、資訊面板：中間的編輯區變大 */
+.edit-app.no-catalog {
+  grid-template-columns: 0 minmax(0, 1fr) 280px;
+}
+
+.edit-app.no-panel {
+  grid-template-columns: 248px minmax(0, 1fr) 0;
+}
+
+.edit-app.no-catalog.no-panel {
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+
+.edit-app.no-panel .edit-panel {
+  display: none;
+}
+
+.edit-top .edit-tool[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 
 /* 手機版：一欄，目錄或項目擇一顯示 */
