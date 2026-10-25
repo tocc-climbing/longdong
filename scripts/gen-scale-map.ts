@@ -397,8 +397,12 @@ const buildWarp = (points: { at: Pt; gps: Pt; slack: number }[]) =>
  * 對應後重新校正、再對一次（兩輪），讓對應收斂。岩場附近的岩岸太複雜、容易對錯，不在範圍內。
  * 參考資料：scripts/data/osm-reference.json（© OpenStreetMap contributors，ODbL）。
  */
-const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json', import.meta.url), 'utf8')) as { coastline: Pt[][]; highway: Pt[][] }
-const OSM_LINES = { coastline: osmReference.coastline.map((l) => l.map(toMeters)), highway: osmReference.highway.map((l) => l.map(toMeters)) }
+const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json', import.meta.url), 'utf8')) as { coastline: Pt[][]; highway: Pt[][]; path: Pt[][] }
+const OSM_LINES = {
+  coastline: osmReference.coastline.map((l) => l.map(toMeters)),
+  highway: osmReference.highway.map((l) => l.map(toMeters)),
+  path: osmReference.path.map((l) => l.map(toMeters)),
+}
 
 type Box = [number, number, number, number]
 const inBox = (p: Pt, [x0, y0, x1, y1]: Box) => p[0] > x0 && p[0] < x1 && p[1] > y0 && p[1] < y1
@@ -631,6 +635,29 @@ function fitArea(ring: Pt[], key: string): (p: Pt) => Pt {
 }
 /** 多邊形面積（鞋帶公式） */
 const areaOf = (ring: Pt[]) => Math.abs(ring.reduce((sum, p, i) => sum + p[0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * p[1], 0)) / 2
+/**
+ * 步道：沿救援資訊圖的步道每 TRAIL_STEP_PT 取一點，對到 OSM 步道（highway=path、footway、track、steps）上 TRAIL_MAX_M 內最近的位置，對應後重新校正再對一次（兩輪）。
+ * 只有步道照這些點變形（trailWarp）；OSM 沒有的步道段落跟著附近對到的點平滑內插。
+ */
+const TRAIL_STEP_PT = 25
+const TRAIL_MAX_M = 30
+const TRAIL_SLACK = 3000
+const trailSamples = sampleAlong(
+  trails.flatMap((s) => s.subpaths.flatMap(clipToPage)),
+  PAGE,
+  TRAIL_STEP_PT,
+)
+let trailPoints: { at: Pt; gps: Pt; slack: number }[] = []
+for (let round = 0; round < 2; round++) {
+  const current = buildWarp([...CONTROL_POINTS, ...curvePoints, ...trailPoints])
+  trailPoints = trailSamples.flatMap((at) => {
+    const here = current(at)
+    const to = nearestOn(OSM_LINES.path, here)
+    return Math.hypot(to[0] - here[0], to[1] - here[1]) <= TRAIL_MAX_M ? [{ at, gps: fromMeters(to), slack: TRAIL_SLACK }] : []
+  })
+}
+console.log(`步道參考點：取樣 ${trailSamples.length} 個，對到 ${trailPoints.length} 個`)
+const trailWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...trailPoints])
 /** 換算後的公尺座標 → GeoJSON 的 [經度, 緯度]（小數 6 位，約 0.1 公尺） */
 const metersToLngLat = ([e, n]: Pt): Pt => [+(lng0 + e / metersPerDegLng).toFixed(6), +(lat0 + n / metersPerDegLat).toFixed(6)]
 /** 圖上位置 → GeoJSON 的 [經度, 緯度] */
@@ -760,7 +787,7 @@ function clipToPage(points: Pt[]): Pt[][] {
   if (current.length >= 2) pieces.push(current)
   return pieces
 }
-const lines = (list: Shape[]) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).flatMap(clipToPage).map((p) => line(p)))
+const lines = (list: Shape[], transform = warp) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).flatMap(clipToPage).map((p) => line(p, SIMPLIFY_M, transform)))
 /**
  * 停車場：小的停車場（不超過 PARKING_RIGID_MAX_PT）逐點換算會把長方形扭成怪形狀，改成整塊只平移、旋轉、縮放（相似變換），保持原本的形狀；
  * 變換取 P 字中心附近的換算：中心點的位置，加上往右一點的方向決定旋轉與比例。
@@ -826,7 +853,7 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
   if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊，區域貼齊正射影像的岩石帶）；島礁與岩石帶參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊，區域貼齊正射影像的岩石帶，步道以 ${trailPoints.length} 個 OpenStreetMap 步道參考點對齊）；島礁與岩石帶參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 const scaleMap = {
   type: 'FeatureCollection',
@@ -837,7 +864,7 @@ const scaleMap = {
     feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed)) }),
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads) }),
-    feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails) }),
+    feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
     ...emsTips.map((at, i) => point({ kind: 'ems', no: EMS_LOCATIONS[i].no }, at)),
