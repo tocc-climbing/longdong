@@ -4977,6 +4977,55 @@ g.topo-route.link:is(:hover, :focus-visible) {
   cursor: crosshair;
 }
 
+/* 編輯用的縮放區（src/topo/ZoomPane.tsx） */
+.topo-zoom {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.topo-zoom-inner {
+  transform-origin: center;
+}
+
+.topo-zoom.panning,
+.topo-zoom.panning svg {
+  cursor: grab;
+}
+
+.topo-zoom-controls {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.topo-zoom-controls button {
+  min-width: 36px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.topo-zoom-controls button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.topo-zoom-fit {
+  min-width: 56px;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .topo-handles circle,
 .topo-handles rect {
   fill: rgba(255, 255, 255, 0.9);

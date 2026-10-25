@@ -18,6 +18,7 @@ import { boltPositions, isFullCrop, sameCrop, sameMarks, toCropPoint, type Crop,
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
 import { px, TopoFrame, TopoLines } from './TopoView'
+import { ZoomPane } from './ZoomPane'
 
 /**
  * Topo 編輯（電腦版）：左邊是照片，右邊選路線，在照片上標記線段（由起攀點往上）與 bolt。
@@ -340,21 +341,29 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   return (
     <div className="topo-edit-layout">
       <div className="topo-edit-photo">
-        <TopoFrame
-          photo={photo}
-          alt=""
-          crop={cropping ? undefined : crop}
-          svgProps={{ className: preview ? undefined : `editing ${mode}`, onClick: onPhotoClick, onContextMenu: (e) => e.preventDefault() }}
-        >
-          {(k) => (
-            <>
-              <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} crop={cropping ? undefined : crop} />
-              {handles(k)}
-              {forkPoints(k)}
-              {cropping && <CropBox photo={photo} crop={crop} k={k} onChange={setCrop} />}
-            </>
+        <ZoomPane>
+          {(zoom) => (
+            <TopoFrame
+              photo={photo}
+              alt=""
+              crop={cropping ? undefined : crop}
+              svgProps={{ className: preview ? undefined : `editing ${mode}`, onClick: onPhotoClick, onContextMenu: (e) => e.preventDefault() }}
+            >
+              {(frameK) => {
+                // 放大後線、點、把手維持相同的螢幕大小
+                const k = frameK / zoom
+                return (
+                  <>
+                    <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} crop={cropping ? undefined : crop} />
+                    {handles(k)}
+                    {forkPoints(k)}
+                    {cropping && <CropBox photo={photo} crop={crop} k={k} onChange={setCrop} />}
+                  </>
+                )
+              }}
+            </TopoFrame>
           )}
-        </TopoFrame>
+        </ZoomPane>
         <p className="muted small">{t('topo.howTo')}</p>
       </div>
 
