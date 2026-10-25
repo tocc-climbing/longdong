@@ -266,6 +266,16 @@ export function deleteMapEdit(target: string, version: string): Promise<void> {
   return remove(ref(db, `v2/mapEdits/${target}/${version}`))
 }
 
+/* ---------- 說明修改（版本，見 edit/textEdits.ts；讀取走 REST） ---------- */
+
+export async function addTextEdit(uid: string, target: string, text: string): Promise<void> {
+  await push(ref(db, `v2/textEdits/${target}`), { uid, createdAt: serverTimestamp(), text })
+}
+
+export function deleteTextEdit(target: string, version: string): Promise<void> {
+  return remove(ref(db, `v2/textEdits/${target}/${version}`))
+}
+
 /* ---------- Topo（讀取走 REST，見 topo/store.ts） ---------- */
 
 /** Cloud Storage 只在上傳、刪除照片時才載入 */

@@ -2,7 +2,7 @@
  * 建置後替每條路線產生分享頁（dist/route/<路線ID>.html，網址 /route/<路線ID>），見 scripts/lib/sharePages.ts：
  * 內容是 dist/index.html，換上這條路線的預覽資訊。不放進 Service Worker 的預先快取（vite.config.ts 的 globIgnores）。
  * 也替每條路線畫分享圖片（dist/og/<路線ID>.png，見 scripts/lib/ogImage.ts）。
- * 地圖、路線清單也各有分享頁與圖片（dist/map.html、dist/og/map.png 等）；
+ * 地圖、路線清單、修改模式也各有分享頁與圖片（dist/map.html、dist/og/map.png、dist/edit.html 等）；
  * 網站本身（dist/index.html，首頁與其他頁面共用）的分享圖片是 dist/og/home.png。
  * 圖片要用的字型（Noto Sans、Noto Sans TC，見 scripts/install-og-fonts.sh；Windows 用 Segoe UI、微軟正黑體）找不到時：
  * CI 直接失敗；本機只印警告，分享頁改用網站圖示。
@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path'
 import { indexDataset } from '../src/data/dataset'
 import type { Dataset } from '../src/data/schema'
 import { sharePagePath } from '../src/share'
-import { checklistPageSvg, findOgFonts, homePageSvg, loadOgMap, mapPageSvg, ogImagePng, ogImageSvg } from './lib/ogImage'
+import { checklistPageSvg, editPageSvg, findOgFonts, homePageSvg, loadOgMap, mapPageSvg, ogImagePng, ogImageSvg } from './lib/ogImage'
 import { ogImagePath, pageShareHtml, sharePageHtml, siteShareHtml } from './lib/sharePages'
 import { SITE_URL } from './sheet.config'
 
@@ -57,6 +57,13 @@ if (map) {
       description: `${dataset.areas.length} 個區域、${routeCount} 條路線的位置，救援點與急救器材，離線可用`,
       svg: mapPageSvg(map, areaColors, { areas: dataset.areas.length, routes: routeCount }),
     },
+    // 修改模式：/edit 與 /edit/**（firebase.json 的 rewrites）都用這一頁，號召岩友一起修改
+    {
+      path: 'edit',
+      title: '一起修改龍洞攀岩資料庫',
+      description: '對照航照修正地圖與步道、在岩壁照片上畫路線、補充區域與路線說明；登入就能修改，保留所有版本',
+      svg: editPageSvg(map, areaColors),
+    },
     {
       path: 'checklist',
       title: '路線清單',
@@ -72,4 +79,4 @@ if (map) {
   write(join('dist', 'og', 'home.png'), await ogImagePng(homePageSvg(map, areaColors, { areas: dataset.areas.length, routes: routeCount })))
   write(join('dist', 'index.html'), siteShareHtml(site, shell))
 }
-console.log(`分享頁：${routes.length} 條路線${withImage ? '（含分享圖片）、地圖、路線清單' : ''}`)
+console.log(`分享頁：${routes.length} 條路線${withImage ? '（含分享圖片）、地圖、路線清單、修改模式' : ''}`)

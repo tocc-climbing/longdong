@@ -5,6 +5,8 @@ import { AreaShape } from '../components/AreaShape'
 import { GradeDistribution } from '../components/Charts'
 import { RescueButton } from '../components/RescueButton'
 import { RouteList } from '../components/RouteList'
+import { CommunityText } from '../edit/CommunityText'
+import { textTarget } from '../edit/textEdits'
 import { SectorTopos } from '../topo/TopoSection'
 import { gradeDistribution, sectorColor, typeSummary } from '../format'
 import { localName, useLang } from '../i18n'
@@ -58,6 +60,8 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
         )}
         <AreaShape area={area} className="area-hero-shape" />
       </div>
+
+      <CommunityText target={textTarget.area(area.id.slice(area.id.indexOf('/') + 1))} title={t('text.areaTitle')} />
 
       {area.sectors.length === 1 ? (
         <SectorRoutes data={data} sector={area.sectors[0]} />

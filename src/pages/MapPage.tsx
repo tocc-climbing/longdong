@@ -22,7 +22,6 @@ import { withCloud } from '../personal/sync'
 import { setSimulation, useSimulation } from '../simulate'
 import { displayName, useSocial } from '../social/store'
 import { ManualReportForm, WallBar, WallDetails, sectorLabel } from './MapTools'
-import { useShapeEditor } from './ShapeEditor'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
@@ -41,7 +40,7 @@ const TOAST_MS = 4000
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
  * 「航照」切換國土測繪中心的正射影像底圖；看過的地方離線時照樣顯示，還沒存齊時可以「下載離線航照」一次存下整個範圍。電腦版登入後可以「畫岩壁」：選分區，沿著牆底點出折線；登入者看得到所有人畫的岩壁。
- * 電腦版登入後也可以「編輯地圖」：調整大區域的形狀、畫分區的範圍、改步道與加支線，每次提交是一個新版本（src/pages/ShapeEditor.tsx）。
+ * 電腦版的「編輯地圖」開修改模式（/edit，src/edit/EditPage.tsx）。
  */
 export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
   const { lang, t } = useLang()
@@ -79,7 +78,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const { walls, error: wallsError } = useWalls()
   const { profiles } = useSocial()
   const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
-  const shapeEditor = useShapeEditor({ data, map: map.status === 'ok' ? map.data : undefined, uid, admin: admin === true, onToast: setToast })
   const sectorNames = Object.fromEntries([...data.sectorById].map(([id, { sector }]) => [id, localName(sector.name, lang).main]))
 
   const names = areaNames(data, lang)
@@ -203,9 +201,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
 
   const pending = hasUnuploaded(records)
   const wall = walls.find((w) => w.id === selectedWall)
-  const pick = shapeEditor.active
-    ? shapeEditor.pick
-    : picking
+  const pick = picking
     ? { at: draft.at, onPick: (at: LatLng) => setDraft((d) => ({ ...d, at })) }
     : manualPicking
       ? { at: manualAt, onPick: setManualAt }
@@ -228,11 +224,9 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           lines={[
             ...walls.map((w) => ({ key: w.id, points: w.points, label: sectorLabel(data, w.sector, lang), selected: w.id === selectedWall })),
             ...(wallDraft ? [{ key: 'draft', points: wallDraft.points, draft: true }] : []),
-            ...(shapeEditor.draftLine ? [shapeEditor.draftLine] : []),
           ]}
           onLineTap={setSelectedWall}
           sectorNames={sectorNames}
-          edit={shapeEditor.edit}
           onAreaPress={(key) => navigate(href.area(`${data.dataset.crag.id}/${key}`))}
           onLocate={() => {
             if (outside !== undefined) setToast(t('map.outside', { dist: distance(outside) }))
@@ -259,15 +253,15 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
                   {offline.downloading ? t('map.orthoDownloading', { done: offline.done, total: offline.total }) : t('map.orthoDownload', { mb: ORTHO_DOWNLOAD_MB })}
                 </button>
               )}
-              {wide && uid && !wallDraft && !shapeEditor.active && (
+              {wide && uid && !wallDraft && (
                 <button type="button" className="sm-chip" onClick={() => setWallDraft({ points: [], sector: '', saving: false })}>
                   {t('wall.draw')}
                 </button>
               )}
-              {wide && uid && !wallDraft && !shapeEditor.active && (
-                <button type="button" className="sm-chip" onClick={shapeEditor.start}>
+              {wide && !wallDraft && (
+                <a className="sm-chip" href={href.edit('map', 'trails')}>
                   {t('shape.edit')}
-                </button>
+                </a>
               )}
             </>
           }
@@ -325,8 +319,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           </button>
         </div>
       )}
-
-      {shapeEditor.bar}
 
       {wallDraft && (
         <WallBar

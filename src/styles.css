@@ -5228,3 +5228,23 @@ g.topo-route.link:is(:hover, :focus-visible) {
 .topo-history-delete {
   margin-left: 8px;
 }
+
+/* 區域、路線說明（src/edit/CommunityText.tsx）：標題旁的「修改說明」連結；岩友修改的版本標明來源，TOCC 原文可展開 */
+.community-text h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.community-edit {
+  font-weight: 400;
+}
+
+.community-empty {
+  margin: 10px 0;
+}
+
+.community-original {
+  margin-top: 6px;
+  color: var(--muted);
+}

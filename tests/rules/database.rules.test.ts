@@ -607,3 +607,40 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
     await assertSucceeds(update(alice, { 'v2/mapEdits/area:school-gate/v1': null }))
   })
 })
+
+describe('說明修改（v2/textEdits，版本同 Topo）', () => {
+  const text = (uid: string, value = '從校門口小徑下切，沿岩壁往左') => ({ uid, text: value, createdAt: serverTimestamp() })
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref('v2/textEdits').update({ [`route:${ROUTE}`]: { t1: { uid: 'alice', text: 'x', createdAt: 1 } } })
+    })
+  })
+
+  it('所有人（含訪客）都讀得到', async () => {
+    await assertSucceeds(get(guest, 'v2/textEdits'))
+  })
+
+  it('任何登入者都可以替大區域、路線提交新版本；訪客不能，不能冒用別人的 uid', async () => {
+    await assertSucceeds(push(mallory, 'v2/textEdits/area:school-gate', text('mallory')))
+    await assertSucceeds(push(mallory, `v2/textEdits/route:${ROUTE}`, text('mallory')))
+    await assertSucceeds(push(mallory, `v2/textEdits/route:${ROUTE}`, text('mallory', '')))
+    await assertFails(push(guest, 'v2/textEdits/area:school-gate', text('alice')))
+    await assertFails(push(mallory, 'v2/textEdits/area:school-gate', text('alice')))
+  })
+
+  it('對象只能是 9 個大區域與路線 ID；最多 3000 字；要有伺服器時間，不能有其他欄位', async () => {
+    await assertFails(push(alice, 'v2/textEdits/area:somewhere', text('alice')))
+    await assertFails(push(alice, 'v2/textEdits/route:longdong:x', text('alice')))
+    await assertFails(push(alice, 'v2/textEdits/area:school-gate', text('alice', 'x'.repeat(3001))))
+    await assertFails(push(alice, 'v2/textEdits/area:school-gate', { ...text('alice'), createdAt: 1 }))
+    await assertFails(push(alice, 'v2/textEdits/area:school-gate', { ...text('alice'), grade: '5.10a' }))
+  })
+
+  it('版本不能修改；本人與管理員可以刪除，別人不能；整個對象只有管理員能刪', async () => {
+    await assertFails(set(alice, `v2/textEdits/route:${ROUTE}/t1/text`, 'y'))
+    await assertFails(remove(mallory, `v2/textEdits/route:${ROUTE}/t1`))
+    await assertFails(remove(alice, `v2/textEdits/route:${ROUTE}`))
+    await assertSucceeds(remove(alice, `v2/textEdits/route:${ROUTE}/t1`))
+  })
+})

@@ -24,7 +24,7 @@ import { ZoomPane } from './ZoomPane'
  * Topo 編輯（電腦版）：左邊是照片，右邊選路線，在照片上標記線段（由起攀點往上）與 bolt。
  * 修改先存在這台裝置的草稿，按「提交」才上傳成新的版本；所有版本都保留，可以預覽、從舊版本繼續修改。
  */
-export function TopoEditor({ data, id }: { data: LoadedData; id: string }) {
+export function TopoEditor({ data, id, embedded }: { data: LoadedData; id: string; embedded?: boolean }) {
   const { lang, t } = useLang()
   const wide = useWide()
   const cloud = useCloud()
@@ -43,12 +43,16 @@ export function TopoEditor({ data, id }: { data: LoadedData; id: string }) {
 
   return (
     <div className="topo-editor">
-      <nav className="crumbs">
-        <a href={href.area(area.id)}>{localName(area.name, lang).main}</a>
-        {' › '}
-        <a href={href.sector(sector.id)}>{localName(sector.name, lang).main}</a>
-      </nav>
-      <h1>{t('topo.editTitle')}</h1>
+      {!embedded && (
+        <>
+          <nav className="crumbs">
+            <a href={href.area(area.id)}>{localName(area.name, lang).main}</a>
+            {' › '}
+            <a href={href.sector(sector.id)}>{localName(sector.name, lang).main}</a>
+          </nav>
+          <h1>{t('topo.editTitle')}</h1>
+        </>
+      )}
       {!wide ? (
         <p className="muted">{t('topo.desktopOnly')}</p>
       ) : cloud.status !== 'signed-in' ? (

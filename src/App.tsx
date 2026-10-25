@@ -34,7 +34,7 @@ const ChecklistPage = lazy(() => import('./pages/ChecklistPage').then((m) => ({ 
 /** 管理員的回報紀錄，只有少數人用 */
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 /** Topo 編輯（電腦版） */
-const TopoEditor = lazy(() => import('./topo/TopoEditor').then((m) => ({ default: m.TopoEditor })))
+const EditPage = lazy(() => import('./edit/EditPage').then((m) => ({ default: m.EditPage })))
 
 export function App() {
   const page = usePage()
@@ -235,10 +235,12 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
           <AdminPage data={data} initialTab="map" />
         </Suspense>
       )
+    // 修改模式：電腦版蓋滿整個視窗（edit.css），手機版在一般版面裡
     case 'topo':
+    case 'edit':
       return (
         <Suspense>
-          <TopoEditor key={page.id} data={data} id={page.id} />
+          <EditPage data={data} kind={page.name === 'topo' ? 'topo' : page.kind} id={page.id} />
         </Suspense>
       )
     case 'notFound':
