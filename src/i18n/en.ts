@@ -547,6 +547,7 @@ export const en: Messages = {
   'topo.zoomIn': 'Zoom in',
   'topo.zoomOut': 'Zoom out',
   'topo.zoomFit': 'Fit photo',
+  'topo.zoomPan': 'Move (or hold Space and drag)',
   'topo.fork': 'Branch from another route',
   'topo.forkPick': 'Click the branch point',
   'topo.clearRoute': 'Clear this route’s marks',

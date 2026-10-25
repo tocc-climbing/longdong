@@ -544,6 +544,7 @@ export const zh = {
   'topo.zoomIn': '放大',
   'topo.zoomOut': '縮小',
   'topo.zoomFit': '整張照片',
+  'topo.zoomPan': '移動（或按住空白鍵拖曳）',
   'topo.fork': '從其他路線分岔',
   'topo.forkPick': '點分岔的點',
   'topo.clearRoute': '清除這條路線的標記',

@@ -5061,6 +5061,10 @@ g.topo-route.link:is(:hover, :focus-visible) {
   background: rgba(255, 255, 255, 0.18);
 }
 
+.topo-zoom-hand[aria-pressed='true'] {
+  background: var(--brand);
+}
+
 .topo-zoom-fit {
   min-width: 56px;
   font-size: 0.8rem;

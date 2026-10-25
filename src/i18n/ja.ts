@@ -550,6 +550,7 @@ export const ja: Messages = {
   'topo.zoomIn': '拡大',
   'topo.zoomOut': '縮小',
   'topo.zoomFit': '全体表示',
+  'topo.zoomPan': '移動（またはSpaceを押しながらドラッグ）',
   'topo.fork': '他のルートから分岐',
   'topo.forkPick': '分岐する点をクリック',
   'topo.clearRoute': 'このルートの記入を消去',

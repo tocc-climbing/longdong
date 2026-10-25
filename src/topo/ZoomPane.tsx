@@ -7,7 +7,8 @@ const STEP = 1.5
 
 /**
  * 編輯用的縮放區（電腦版）：滾輪或 +／- 縮放（以游標位置為中心）、0 回到整張；
- * 放大後按住空白鍵拖曳（或按滑鼠中鍵拖曳）平移。左鍵留給標記，所以平移要另外的操作。
+ * 放大後按住空白鍵拖曳（或按滑鼠中鍵拖曳）平移；沒有中鍵的觸控板用右下角的「移動」按鈕，開啟後左鍵拖曳就是平移。
+ * 左鍵平常留給標記，所以平移要另外的操作。
  * children 收到目前倍率，點、線、把手依此反向調整，放大後仍維持相同的螢幕大小；
  * 位置換算用 getBoundingClientRect，已經包含縮放與平移。
  */
@@ -17,6 +18,7 @@ export function ZoomPane({ children }: { children: (zoom: number) => ReactNode }
   const [stage, setStage] = useState<Size>({ w: 0, h: 0 })
   const [view, setView] = useState<View>(IDENTITY)
   const [space, setSpace] = useState(false)
+  const [hand, setHand] = useState(false)
   const pan = useRef<Pt | null>(null)
   const hover = useRef(false)
 
@@ -75,7 +77,9 @@ export function ZoomPane({ children }: { children: (zoom: number) => ReactNode }
 
   // 平移：在捕獲階段攔下，照片上的點、把手收不到這次按下；指標鎖在這個區域，放開後也不會觸發點擊加點
   const startPan = (e: ReactPointerEvent) => {
-    if (e.button !== 1 && !(e.button === 0 && space)) return
+    if (e.button !== 1 && !(e.button === 0 && (space || hand))) return
+    // 控制按鈕自己要能按（包括關掉「移動」）
+    if ((e.target as Element).closest('.topo-zoom-controls')) return
     e.preventDefault()
     e.stopPropagation()
     box.current!.setPointerCapture(e.pointerId)
@@ -95,7 +99,7 @@ export function ZoomPane({ children }: { children: (zoom: number) => ReactNode }
   return (
     <div
       ref={box}
-      className={`topo-zoom${space ? ' panning' : ''}`}
+      className={`topo-zoom${space || hand ? ' panning' : ''}`}
       onPointerDownCapture={startPan}
       onPointerEnter={() => (hover.current = true)}
       onPointerLeave={() => (hover.current = false)}
@@ -107,6 +111,11 @@ export function ZoomPane({ children }: { children: (zoom: number) => ReactNode }
         {children(view.scale)}
       </div>
       <div className="topo-zoom-controls">
+        <button type="button" className="topo-zoom-hand" aria-pressed={hand} aria-label={t('topo.zoomPan')} title={t('topo.zoomPan')} onClick={() => setHand(!hand)}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />
+          </svg>
+        </button>
         <button type="button" aria-label={t('topo.zoomOut')} title={t('topo.zoomOut')} onClick={() => zoomBy(1 / STEP)}>
           −
         </button>
