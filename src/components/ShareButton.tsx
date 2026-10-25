@@ -74,7 +74,7 @@ export function ShareButton({ item }: { item: RouteRef }) {
 
   return (
     <span className="share" ref={box}>
-      <button type="button" className="fact share-button" aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
+      <button type="button" className="fact share-button" aria-label={t('share.button')} title={t('share.button')} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden>
           <path
             d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"
@@ -85,7 +85,6 @@ export function ShareButton({ item }: { item: RouteRef }) {
             strokeLinejoin="round"
           />
         </svg>
-        {t('share.button')}
       </button>
       {status && (
         <span className="share-status" role="status">

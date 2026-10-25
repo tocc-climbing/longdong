@@ -3814,6 +3814,11 @@ main.map > div {
   min-width: 0;
 }
 
+/* 分享只有圖示：窄一點，把寬度讓給有文字的兩顆 */
+.route-actions-more > .share {
+  flex: 0 0 64px;
+}
+
 .route-actions .share {
   display: flex;
 }
