@@ -2154,6 +2154,41 @@ a.action {
   font-weight: 500;
 }
 
+/* 區域清單的收合開關：整列可按，箭頭收合時轉向右 */
+.area-tree-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.area-tree-toggle:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.area-tree-toggle svg {
+  transition: transform 0.15s;
+}
+
+.area-tree-toggle[aria-expanded='false'] svg {
+  transform: rotate(-90deg);
+}
+
+.area-tree ul[hidden] {
+  display: none;
+}
+
 .area-tree ul ul {
   margin: 2px 0 6px 14px;
   padding-left: 8px;
@@ -4971,6 +5006,12 @@ g.topo-route.link:is(:hover, :focus-visible) {
 .topo-edit-photo {
   position: sticky;
   top: 0;
+}
+
+/* 照片寬度以不超過視窗高度為準（直式照片也不用捲動）；--fit-aspect 是畫面上照片的寬高比，保留標題與操作說明的空間 */
+.topo-edit-photo .topo-zoom {
+  width: min(100%, max(280px, calc((100dvh - 170px) * var(--fit-aspect))));
+  margin: 0 auto;
 }
 
 .topo-edit-photo svg.editing {
