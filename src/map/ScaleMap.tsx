@@ -145,11 +145,12 @@ export interface MapLine {
 }
 
 /**
- * 編輯多邊形（管理員）：rings 是正在編輯的多塊多邊形；選中的那塊顯示頂點，
- * 拖曳頂點移動、按邊上的小點加一個頂點、右鍵刪除頂點（至少留三點）；點其他塊選它。
+ * 編輯地圖（登入者）：rings 是正在編輯的多塊多邊形（closed）或多條線段（步道）；選中的那塊顯示頂點，
+ * 拖曳頂點移動、按邊上的小點加一個頂點、右鍵刪除頂點（多邊形至少留三點、線段兩點）；點其他塊選它。
  */
 export interface MapEdit {
   rings: LatLng[][]
+  closed: boolean
   selected?: number
   onChange: (rings: LatLng[][]) => void
   onSelect: (index: number) => void
@@ -204,7 +205,7 @@ interface Props {
   here?: { coords: LatLng; accuracy: number }
   marks: MapMark[]
   /** 在地圖上點位置的模式：點一下就回傳那裡的經緯度（不選救援點）；at 是目前點的位置 */
-  pick?: { at?: LatLng; onPick: (at: LatLng) => void }
+  pick?: { at?: LatLng; onPick: (at: LatLng, metersPerPixel: number) => void }
   /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去；在範圍外時地圖不動，由外層說明。沒有時不顯示這個按鈕 */
   onLocate?: () => void
   /** 長按（電腦為按右鍵）區域時：大區域 key */
@@ -305,12 +306,18 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     onAreaPress,
     onTap: (p) => {
       const { frame: f, view: v } = latest.current
-      if (f && v && pick) return pick.onPick(unproject(toMap(v, f, [p.x, p.y])))
+      if (f && v && pick) return pick.onPick(unproject(toMap(v, f, [p.x, p.y])), v.s)
       if (!f || !v) return
       // 編輯多邊形時：點到哪一塊就選它
       if (edit) {
         const at = toMap(v, f, [p.x, p.y])
-        const i = edit.rings.findIndex((r) => insideRing(at, r.map(project)))
+        const near = (r: LatLng[]) => {
+          const pts = r.map((q) => toScreen(v, f, project(q)))
+          return Math.min(...pts.slice(1).map((b, i) => segmentDistance([p.x, p.y], pts[i], b)))
+        }
+        const i = edit.closed
+          ? edit.rings.findIndex((r) => insideRing(at, r.map(project)))
+          : edit.rings.map((r, i) => ({ i, d: near(r) })).filter((x) => x.d <= LINE_HIT_PX).sort((a, b) => a.d - b.d)[0]?.i ?? -1
         if (i >= 0) edit.onSelect(i)
         return
       }
@@ -542,12 +549,13 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           })}
           {edit?.rings.map((ring, i) => {
             const pts = ring.map((q) => screen(project(q)))
-            const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L') + 'Z'
-            return <path key={i} className={`sm-edit-ring${i === edit.selected ? ' selected' : ''}`} d={d} />
+            const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L') + (edit.closed ? 'Z' : '')
+            return <path key={i} className={`sm-edit-ring${edit.closed ? '' : ' open'}${i === edit.selected ? ' selected' : ''}`} d={d} />
           })}
           {edit?.selected !== undefined && edit.rings[edit.selected] && (
             <EditHandles
               ring={edit.rings[edit.selected]}
+              closed={edit.closed}
               screen={(q) => screen(project(q))}
               toLatLng={(clientX, clientY) => {
                 const r = box.current!.getBoundingClientRect()
@@ -635,14 +643,16 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   )
 }
 
-/** 編輯中那塊多邊形的頂點（拖曳移動、右鍵刪除）與邊的中點（按下就多一個頂點，接著拖曳） */
+/** 編輯中那塊多邊形（或線段）的頂點（拖曳移動、右鍵刪除）與邊的中點（按下就多一個頂點，接著拖曳） */
 function EditHandles({
   ring,
+  closed,
   screen,
   toLatLng,
   onChange,
 }: {
   ring: LatLng[]
+  closed: boolean
   screen: (q: LatLng) => Vec
   toLatLng: (clientX: number, clientY: number) => LatLng
   onChange: (ring: LatLng[]) => void
@@ -665,7 +675,7 @@ function EditHandles({
   const pts = ring.map(screen)
   return (
     <g className="sm-edit-handles">
-      {pts.map((a, i) => {
+      {pts.slice(0, closed ? pts.length : pts.length - 1).map((a, i) => {
         const b = pts[(i + 1) % pts.length]
         const mid: LatLng = [(ring[i][0] + ring[(i + 1) % ring.length][0]) / 2, (ring[i][1] + ring[(i + 1) % ring.length][1]) / 2]
         return (
@@ -696,7 +706,7 @@ function EditHandles({
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (ring.length > 3) onChange(ring.filter((_, j) => j !== i))
+            if (ring.length > (closed ? 3 : 2)) onChange(ring.filter((_, j) => j !== i))
           }}
         />
       ))}

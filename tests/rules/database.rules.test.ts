@@ -553,45 +553,57 @@ describe('岩壁標記（v2/walls）', () => {
   })
 })
 
-describe('地圖多邊形（v2/mapShapes）', () => {
+describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
   const RING = '25.112720,121.921450 25.112710,121.921600 25.112600,121.921500'
-  const area = (uid: string, rings = RING) => ({ rings, uid, updatedAt: serverTimestamp() })
-  const sector = (uid: string, ring = RING) => ({ sector: 'longdong/school-gate-a1151r', ring, uid, updatedAt: serverTimestamp() })
+  const LINE = '25.112720,121.921450 25.112710,121.921600'
+  const SECTOR = 'sector:longdong:school-gate-a1151r'
+  const rings = (uid: string, value = RING) => ({ uid, rings: value, createdAt: serverTimestamp() })
+  const lines = (uid: string, value = LINE) => ({ uid, lines: value, createdAt: serverTimestamp() })
 
-  it('所有人（含訪客）都讀得到', async () => {
-    await assertSucceeds(get(guest, 'v2/mapShapes'))
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref('v2/mapEdits').update({ 'area:school-gate': { v1: { uid: 'alice', rings: RING, createdAt: 1 }, v2: { uid: 'mallory', rings: RING, createdAt: 2 } } })
+    })
   })
 
-  it('大區域：只有管理員（/role 與名單上的信箱）可以寫，一般登入者與訪客不行', async () => {
-    await assertSucceeds(set(admin, 'v2/mapShapes/areas/school-gate', area('admin')))
-    await assertSucceeds(set(emailAdmin, 'v2/mapShapes/areas/clocktower', area('kant')))
-    await assertFails(set(unverified, 'v2/mapShapes/areas/clocktower', area('fake')))
-    await assertFails(set(alice, 'v2/mapShapes/areas/school-gate', area('alice')))
-    await assertFails(set(guest, 'v2/mapShapes/areas/school-gate', area('alice')))
+  it('所有人（含訪客）都讀得到所有版本', async () => {
+    await assertSucceeds(get(guest, 'v2/mapEdits'))
   })
 
-  it('大區域：只能是 9 個大區域，可以有多塊（以 | 分隔），每塊至少三點，要有伺服器時間與自己的 uid', async () => {
-    await assertSucceeds(set(admin, 'v2/mapShapes/areas/back-door', area('admin', `${RING}|${RING}`)))
-    await assertFails(set(admin, 'v2/mapShapes/areas/somewhere', area('admin')))
-    await assertFails(set(admin, 'v2/mapShapes/areas/back-door', area('admin', '25.112720,121.921450 25.112710,121.921600')))
-    await assertFails(set(admin, 'v2/mapShapes/areas/back-door', area('admin', `${RING}|`)))
-    await assertFails(set(admin, 'v2/mapShapes/areas/back-door', area('alice')))
-    await assertFails(set(admin, 'v2/mapShapes/areas/back-door', { ...area('admin'), updatedAt: 1 }))
-    await assertFails(set(admin, 'v2/mapShapes/areas/back-door', { ...area('admin'), note: 'x' }))
+  it('任何登入者都可以提交新版本；訪客不能，不能冒用別人的 uid', async () => {
+    await assertSucceeds(push(mallory, 'v2/mapEdits/area:clocktower', rings('mallory')))
+    await assertSucceeds(push(mallory, `v2/mapEdits/${SECTOR}`, rings('mallory', `${RING}|${RING}`)))
+    await assertSucceeds(push(mallory, 'v2/mapEdits/trails', lines('mallory', `${LINE}|${LINE}`)))
+    await assertFails(push(guest, 'v2/mapEdits/area:clocktower', rings('alice')))
+    await assertFails(push(mallory, 'v2/mapEdits/area:clocktower', rings('alice')))
   })
 
-  it('大區域：管理員可以刪除（回到自動產生的形狀）', async () => {
-    await assertSucceeds(set(admin, 'v2/mapShapes/areas/school-gate', area('admin')))
-    await assertFails(remove(alice, 'v2/mapShapes/areas/school-gate'))
-    await assertSucceeds(remove(admin, 'v2/mapShapes/areas/school-gate'))
+  it('對象只能是 9 個大區域、分區 ID、步道；多邊形至少三點、線段至少兩點；步道用 lines、其他用 rings', async () => {
+    await assertFails(push(alice, 'v2/mapEdits/area:somewhere', rings('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/sector:x', rings('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/area:clocktower', rings('alice', LINE)))
+    await assertFails(push(alice, 'v2/mapEdits/area:clocktower', rings('alice', '')))
+    await assertSucceeds(push(alice, `v2/mapEdits/${SECTOR}`, rings('alice', '')))
+    await assertFails(push(alice, 'v2/mapEdits/trails', lines('alice', '25.112720,121.921450')))
+    await assertFails(push(alice, 'v2/mapEdits/trails', rings('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/area:clocktower', lines('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/area:clocktower', { ...rings('alice'), createdAt: 1 }))
+    await assertFails(push(alice, 'v2/mapEdits/area:clocktower', { ...rings('alice'), note: 'x' }))
   })
 
-  it('分區：只有管理員可以新增、刪除；分區要是分區 ID，一塊至少三點', async () => {
-    await assertSucceeds(push(admin, 'v2/mapShapes/sectors', sector('admin')))
-    await assertFails(push(alice, 'v2/mapShapes/sectors', sector('alice')))
-    await assertFails(push(admin, 'v2/mapShapes/sectors', { ...sector('admin'), sector: 'x' }))
-    await assertFails(push(admin, 'v2/mapShapes/sectors', sector('admin', `${RING}|${RING}`)))
-    await assertFails(push(admin, 'v2/mapShapes/sectors', sector('admin', '25.112720,121.921450 25.112710,121.921600')))
-    await assertFails(push(admin, 'v2/mapShapes/sectors', { ...sector('admin'), note: 'x' }))
+  it('版本不能修改；本人與管理員可以刪除，別人不能', async () => {
+    await assertFails(set(alice, 'v2/mapEdits/area:school-gate/v1/rings', RING))
+    await assertFails(remove(mallory, 'v2/mapEdits/area:school-gate/v1'))
+    await assertSucceeds(remove(alice, 'v2/mapEdits/area:school-gate/v1'))
+    await assertSucceeds(remove(admin, 'v2/mapEdits/area:school-gate/v2'))
+  })
+
+  it('整個對象的所有版本只有管理員可以一次刪除', async () => {
+    await assertFails(remove(alice, 'v2/mapEdits/area:school-gate'))
+    await assertSucceeds(remove(emailAdmin, 'v2/mapEdits/area:school-gate'))
+  })
+
+  it('刪除帳號：一次刪除自己在各對象的版本', async () => {
+    await assertSucceeds(update(alice, { 'v2/mapEdits/area:school-gate/v1': null }))
   })
 })

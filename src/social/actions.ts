@@ -48,19 +48,20 @@ export async function rename(name: string): Promise<string> {
 }
 
 /**
- * 刪除我的帳號：個人紀錄、暱稱、所有評分與留言、Topo（自己的版本；自己上傳的照片連同別人在上面的標記）、畫的岩壁，最後刪除登入帳號。
+ * 刪除我的帳號：個人紀錄、暱稱、所有評分與留言、Topo（自己的版本；自己上傳的照片連同別人在上面的標記）、畫的岩壁、地圖編輯的版本，最後刪除登入帳號。
  * 先重新驗證（太久沒登入時跳出登入視窗），再以最新的雲端資料找出屬於自己的評分與留言，一次刪除。
  */
 export async function deleteMyAccount(): Promise<void> {
   const { m, uid } = await withCloud()
   // 必須在任何網路讀寫之前：Safari 只在按下按鈕的當下允許開登入視窗
   await m.reauthenticateIfStale()
-  const [ratings, comments, profile, topos, topoEdits] = await Promise.all([
+  const [ratings, comments, profile, topos, topoEdits, mapEdits] = await Promise.all([
     get<Record<string, Record<string, Rating>>>('v2/ratings'),
     get<Record<string, Record<string, Omit<Comment, 'id'>>>>('v2/comments'),
     get<{ name: string }>(`v2/profiles/${uid}`),
     get<Record<string, Omit<TopoPhoto, 'id'>>>('v2/topos'),
     get<Record<string, Record<string, StoredEdit>>>('v2/topoEdits'),
+    get<Record<string, Record<string, { uid: string }>>>('v2/mapEdits'),
   ])
   const paths: Record<string, null> = {
     [`v2/personal/${uid}`]: null,
@@ -87,6 +88,9 @@ export async function deleteMyAccount(): Promise<void> {
   for (const [photo, list] of Object.entries(topoEdits ?? {})) {
     if (paths[`v2/topoEdits/${photo}`] === null) continue
     for (const [id, e] of Object.entries(list)) if (e.uid === uid) paths[`v2/topoEdits/${photo}/${id}`] = null
+  }
+  for (const [target, list] of Object.entries(mapEdits ?? {})) {
+    for (const [id, v] of Object.entries(list)) if (v.uid === uid) paths[`v2/mapEdits/${target}/${id}`] = null
   }
   // 照片檔在資料庫之前刪：資料庫刪了之後就找不到檔案的路徑
   await m.deleteTopoFiles(myPhotos.map(([, p]) => p.image))

@@ -766,3 +766,29 @@
   font-size: 0.8125rem;
   font-weight: 400;
 }
+
+.sm-edit-ring.open {
+  fill: none;
+}
+
+/* 編輯地圖的修改紀錄：新到舊，本人與管理員可以刪除 */
+.shape-history {
+  flex-basis: 100%;
+  max-height: 160px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #3c4043;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.shape-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}

@@ -41,8 +41,10 @@ export interface ScaleMapData {
   markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
   areas: AreaShape[]
-  /** 分區的範圍（管理員畫的，見 shapes.ts）：分區 ID 可能重複（一個分區多塊） */
+  /** 分區的範圍（使用者畫的，見 shapes.ts）：分區 ID 可能重複（一個分區多塊） */
   sectors: (AreaShape & { sector: string })[]
+  /** 步道的線段（地圖座標）：編輯步道時的起點；畫面用 layers.trail */
+  trailLines: [number, number][][]
 }
 
 export interface AreaShape {
@@ -61,13 +63,16 @@ function areaShape(id: string, rings: [number, number][][]): AreaShape {
   return { id, path, label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0), rings }
 }
 
-/** 套上管理員調整的多邊形：有調整的大區域取代自動產生的形狀；加上分區的範圍 */
+/** 套上使用者編輯的最新版本：大區域、步道取代自動產生的；加上分區的範圍 */
 export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData {
   const toRings = (rings: LatLng[][]) => rings.map((r) => r.map(project))
+  const trailLines = shapes.trails ? toRings(shapes.trails) : base.trailLines
   return {
     ...base,
+    layers: shapes.trails ? { ...base.layers, trail: trailLines.map((l) => 'M' + l.map((p) => p.map((v) => v.toFixed(1)).join(' ')).join('L')).join('') } : base.layers,
     areas: base.areas.map((a) => (shapes.areas[a.id] ? areaShape(a.id, toRings(shapes.areas[a.id])) : a)),
     sectors: shapes.sectors.map((s) => ({ ...areaShape(s.id, toRings([s.ring])), sector: s.sector })),
+    trailLines,
   }
 }
 
@@ -157,6 +162,9 @@ async function readScaleMap(): Promise<ScaleMapData> {
       }
     }),
     sectors: [],
+    trailLines: base.features.flatMap((f) =>
+      f.properties.kind === 'trail' && f.geometry.type === 'MultiLineString' ? f.geometry.coordinates.map((l) => l.map(([lng, lat]) => project([lat, lng]))) : [],
+    ),
   }
 }
 
@@ -173,7 +181,7 @@ export function loadScaleMap(): Promise<ScaleMapData> {
 
 export type ScaleMapState = { status: 'loading' } | { status: 'ok'; data: ScaleMapData } | { status: 'error'; message: string }
 
-/** 地圖資料，套上管理員調整的多邊形（讀到後即時更新） */
+/** 地圖資料，套上使用者編輯的最新版本（讀到後即時更新） */
 export function useScaleMap(): ScaleMapState {
   const base = useBaseScaleMap()
   const shapes = useMapShapes()

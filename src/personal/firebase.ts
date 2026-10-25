@@ -255,23 +255,15 @@ export function deleteWall(uid: string, id: string): Promise<void> {
   return remove(ref(db, `v2/walls/${uid}/${id}`))
 }
 
-/* ---------- 地圖多邊形（管理員，見 map/shapes.ts；讀取走 REST） ---------- */
+/* ---------- 地圖編輯（版本，見 map/shapes.ts；讀取走 REST） ---------- */
 
-/** 調整一個大區域的形狀（rings 為多塊以「|」分隔） */
-export async function saveAreaShape(uid: string, area: string, rings: string): Promise<void> {
-  await set(ref(db, `v2/mapShapes/areas/${area}`), { rings, uid, updatedAt: serverTimestamp() })
+/** 提交一個新版本：大區域、分區用 rings，步道用 lines（多塊以「|」分隔） */
+export async function addMapEdit(uid: string, target: string, value: { rings: string } | { lines: string }): Promise<void> {
+  await push(ref(db, `v2/mapEdits/${target}`), { uid, createdAt: serverTimestamp(), ...value })
 }
 
-/** 回到自動產生的形狀 */
-export function deleteAreaShape(area: string): Promise<void> {
-  return remove(ref(db, `v2/mapShapes/areas/${area}`))
-}
-
-/** 一個分區的範圍整批換掉：刪掉原本的幾塊、寫入新的幾塊（一次寫入） */
-export async function saveSectorShapes(uid: string, sector: string, oldIds: string[], rings: string[]): Promise<void> {
-  const paths: Record<string, unknown> = Object.fromEntries(oldIds.map((id) => [`v2/mapShapes/sectors/${id}`, null]))
-  for (const ring of rings) paths[`v2/mapShapes/sectors/${push(ref(db, 'v2/mapShapes/sectors')).key}`] = { sector, ring, uid, updatedAt: serverTimestamp() }
-  await update(ref(db), paths)
+export function deleteMapEdit(target: string, version: string): Promise<void> {
+  return remove(ref(db, `v2/mapEdits/${target}/${version}`))
 }
 
 /* ---------- Topo（讀取走 REST，見 topo/store.ts） ---------- */

@@ -41,7 +41,7 @@ const TOAST_MS = 4000
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
  * 「航照」切換國土測繪中心的正射影像底圖；看過的地方離線時照樣顯示，還沒存齊時可以「下載離線航照」一次存下整個範圍。電腦版登入後可以「畫岩壁」：選分區，沿著牆底點出折線；登入者看得到所有人畫的岩壁。
- * 電腦版的管理員可以「編輯區域」：調整大區域的形狀、畫分區的範圍（src/pages/ShapeEditor.tsx）。
+ * 電腦版登入後也可以「編輯地圖」：調整大區域的形狀、畫分區的範圍、改步道與加支線，每次提交是一個新版本（src/pages/ShapeEditor.tsx）。
  */
 export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
   const { lang, t } = useLang()
@@ -79,7 +79,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const { walls, error: wallsError } = useWalls()
   const { profiles } = useSocial()
   const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
-  const shapeEditor = useShapeEditor({ data, map: map.status === 'ok' ? map.data : undefined, onToast: setToast })
+  const shapeEditor = useShapeEditor({ data, map: map.status === 'ok' ? map.data : undefined, uid, admin: admin === true, onToast: setToast })
   const sectorNames = Object.fromEntries([...data.sectorById].map(([id, { sector }]) => [id, localName(sector.name, lang).main]))
 
   const names = areaNames(data, lang)
@@ -264,7 +264,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
                   {t('wall.draw')}
                 </button>
               )}
-              {wide && admin && !wallDraft && !shapeEditor.active && (
+              {wide && uid && !wallDraft && !shapeEditor.active && (
                 <button type="button" className="sm-chip" onClick={shapeEditor.start}>
                   {t('shape.edit')}
                 </button>
