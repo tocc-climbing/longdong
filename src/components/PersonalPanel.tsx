@@ -2,8 +2,8 @@ import { useState, type ReactNode } from 'react'
 import type { Route } from '../data/schema'
 import { formatDate } from '../format'
 import { useLang } from '../i18n'
-import { NOTE_MAX, TICK_STYLES, today, type TickStyle } from '../personal/model'
-import { addTick, deleteTick, setFavorite, usePersonal } from '../personal/store'
+import { deleteTick, setFavorite, usePersonal } from '../personal/store'
+import { TickSheet } from './TickSheet'
 
 /** 路線頁上的按鈕列（記錄攀登、收藏的愛心）與個人攀登紀錄；extra 放在按鈕列最後（分享） */
 export function PersonalPanel({ route, extra }: { route: Route; extra?: ReactNode }) {
@@ -42,7 +42,7 @@ export function PersonalPanel({ route, extra }: { route: Route; extra?: ReactNod
         {extra}
       </div>
 
-      {open && <TickForm routeId={route.id} onDone={() => setOpen(false)} />}
+      <TickSheet route={route} open={open} onClose={() => setOpen(false)} />
 
       {ticks.length > 0 && (
         <ul className="my-ticks">
@@ -63,62 +63,5 @@ export function PersonalPanel({ route, extra }: { route: Route; extra?: ReactNod
         </ul>
       )}
     </section>
-  )
-}
-
-function TickForm({ routeId, onDone }: { routeId: string; onDone: () => void }) {
-  const { t } = useLang()
-  const [date, setDate] = useState(today)
-  const [style, setStyle] = useState<TickStyle>('redpoint')
-  const [note, setNote] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const save = async () => {
-    setSaving(true)
-    await addTick({ routeId, date, style, note: note.trim() || undefined })
-    onDone()
-  }
-
-  return (
-    <form
-      className="tick-form"
-      onSubmit={(e) => {
-        e.preventDefault()
-        void save()
-      }}
-    >
-      <label>
-        {t('tick.date')}
-        <input type="date" value={date} max={today()} required onChange={(e) => setDate(e.target.value)} />
-      </label>
-      <fieldset>
-        <legend>{t('tick.style')}</legend>
-        <div className="chips">
-          {TICK_STYLES.map((s) => (
-            <button
-              key={s.value}
-              type="button"
-              className="chip"
-              aria-pressed={style === s.value}
-              onClick={() => setStyle(s.value)}
-            >
-              {t(`style.${s.value}`)}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <label>
-        {t('tick.note')}
-        <textarea rows={2} maxLength={NOTE_MAX} value={note} onChange={(e) => setNote(e.target.value)} />
-      </label>
-      <div className="actions">
-        <button type="submit" className="action primary" disabled={saving || !date}>
-          {t('action.save')}
-        </button>
-        <button type="button" className="action" onClick={onDone}>
-          {t('action.cancel')}
-        </button>
-      </div>
-    </form>
   )
 }

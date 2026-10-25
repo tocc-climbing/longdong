@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { bestStyle, mergeRecords, NOTE_MAX, sentRouteIds, today, type Tick } from '../src/personal/model'
+import { bestStyle, daysAgo, mergeRecords, NOTE_MAX, sentRouteIds, today, type Tick } from '../src/personal/model'
 import { addTick, applyRecords, clearAll, deleteTick, exportAll, setBest, setFavorite } from '../src/personal/store'
 
 const tick = (id: string, updatedAt: string, over: Partial<Tick> = {}): Tick => ({
@@ -92,5 +92,21 @@ describe('最佳攀登方式', () => {
   it('完攀過的路線：攀登紀錄（嘗試不算）加上路線清單勾選的', () => {
     const ticks = [tick('t1', 'x', { routeId: 'a' }), tick('t2', 'x', { routeId: 'b', style: 'attempt' })]
     expect([...sentRouteIds(ticks, new Map([['c', 'flash']]))].sort()).toEqual(['a', 'c'])
+  })
+})
+
+describe('daysAgo', () => {
+  it('用日曆往前推：跨月、跨年、閏日', () => {
+    expect(daysAgo(0, new Date(2026, 9, 25))).toBe('2026-10-25')
+    expect(daysAgo(1, new Date(2026, 9, 25))).toBe('2026-10-24')
+    expect(daysAgo(1, new Date(2026, 10, 1))).toBe('2026-10-31')
+    expect(daysAgo(1, new Date(2027, 0, 1))).toBe('2026-12-31')
+    expect(daysAgo(1, new Date(2028, 2, 1))).toBe('2028-02-29')
+  })
+
+  it('不改動傳入的時間', () => {
+    const now = new Date(2026, 9, 25, 13, 30)
+    daysAgo(3, now)
+    expect(now.getDate()).toBe(25)
   })
 })

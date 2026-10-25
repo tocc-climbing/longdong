@@ -1116,34 +1116,120 @@ a.action {
   margin: 0 0 16px;
 }
 
-.tick-form {
+/* 記錄攀登面板（src/components/TickSheet.tsx） */
+.tick-sheet {
   display: grid;
-  gap: 14px;
-  margin-top: 12px;
-  padding: 16px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--card-border);
+  gap: 18px;
 }
 
-.tick-form label,
-.tick-form legend {
+.tick-sheet legend,
+.tick-sheet label:not(.chip) {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);
 }
 
-.tick-form fieldset {
+.tick-sheet fieldset {
   border: 0;
   margin: 0;
   padding: 0;
 }
 
-.tick-form input,
-.tick-form textarea,
+.tick-sheet legend {
+  padding: 0 0 8px;
+}
+
+.tick-route {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.tick-route-no {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tick-route-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tick-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tick-sheet .chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: 0.95rem;
+}
+
+.tick-date-other {
+  position: relative;
+}
+
+/* 整顆按鈕都是日期輸入：點下去直接開系統的日期選擇器 */
+.tick-date-other input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tick-styles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tick-style-button {
+  min-height: 52px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 700;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tick-style-button[aria-pressed='true'] {
+  background: var(--style, var(--text));
+  color: var(--on-style, var(--bg));
+}
+
+.tick-add-note {
+  justify-self: start;
+  min-height: 44px;
+}
+
+.tick-save {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+}
+
+.tick-save .action {
+  min-height: 48px;
+}
+
+.tick-sheet input,
+.tick-sheet textarea,
 .comment-form textarea,
 .name-form input {
   font: inherit;
@@ -1154,8 +1240,8 @@ a.action {
   padding: 10px 12px;
 }
 
-.tick-form input:focus,
-.tick-form textarea:focus,
+.tick-sheet input:focus,
+.tick-sheet textarea:focus,
 .comment-form textarea:focus,
 .name-form input:focus {
   outline: 2px solid var(--brand);

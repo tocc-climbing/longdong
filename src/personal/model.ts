@@ -110,6 +110,13 @@ export function newId(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
 
+/** n 天前的當地日期 YYYY-MM-DD（用日曆往前推，不受夏令時間影響） */
+export function daysAgo(n: number, now = new Date()): string {
+  const d = new Date(now)
+  d.setDate(d.getDate() - n)
+  return today(d)
+}
+
 /** 裝置當地日期 YYYY-MM-DD */
 export function today(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0')
