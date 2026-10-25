@@ -468,8 +468,8 @@ const warp = buildWarp([...CONTROL_POINTS, ...curvePoints])
  * 靠海：往八個方向 CRAG_SEA_PT 點內有一處既不是陸地、也不是任何色塊。岩岸曲折，只接受 CRAG_MAX_M 內的對應，避免對到隔壁的岬角。
  *
  * 只有陸地照這些點變形（coastWarp）。救援資訊圖把岩盤與島礁畫得比實際寬，區域色塊若也跟著變形會被擠成細長條，
- * 所以色塊不變形，每塊各自旋轉＋平移（areaWarp，剛體對齊）：取色塊附近海岸被拉動的方式（海岸點 warp → coastWarp，大範圍加權）最接近的剛體運動，
- * 旋轉跟著附近海岸方向的變化，形狀與大小不變。島礁有 ISLET_POINTS 時以島礁點剛體對齊。
+ * 所以色塊先各自旋轉＋平移（areaWarp，剛體對齊）：取色塊附近海岸被拉動的方式（海岸點 warp → coastWarp，大範圍加權）最接近的剛體運動，
+ * 旋轉跟著附近海岸方向的變化；島礁有 ISLET_POINTS 時以島礁點剛體對齊。之後再貼齊航照上的岩石帶（fitArea，見下）。
  * 其他圖形（步道、道路、圖示）不受影響。
  */
 const CRAG_SEA_PT = 6
@@ -510,8 +510,7 @@ const ISLET_POINTS: { note: string; at: Pt; gps: Pt }[] = [
   { note: '校門口外海的大礁石：東南端', at: [1465, 943], gps: [25.11201, 121.92365] },
 ]
 /** 色塊的換算：剛體對齊（旋轉＋平移）；島礁（整塊不碰到陸地）有兩個以上島礁點時以島礁點對齊，其他取附近海岸被拉動的方式 */
-function areaWarp(ring: Pt[], name: string): (p: Pt) => Pt {
-  const label = `${name} ${centerOfRing(ring).map((v) => v.toFixed(0)).join(',')}`
+function areaWarp(ring: Pt[]): (p: Pt) => Pt {
   const own = ring.some(onLand) ? [] : ISLET_POINTS.filter(({ at }) => inside(at, ring))
   const fit =
     own.length >= 2
@@ -520,7 +519,6 @@ function areaWarp(ring: Pt[], name: string): (p: Pt) => Pt {
           own.map(({ gps }) => toMeters(gps)),
         )
       : coastMotion(centerOfRing(ring))
-  console.log(`${own.length >= 2 ? `島礁（${own.length} 個島礁點）` : '色塊'} ${label}：旋轉 ${((fit.angle * 180) / Math.PI).toFixed(1)}°`)
   return (p) => fit.apply(warp(p))
 }
 
@@ -555,6 +553,84 @@ function centerOfRing(ring: Pt[]): Pt {
   const ys = ring.map((p) => p[1])
   return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
 }
+
+/**
+ * 貼齊航照上的岩石帶（scripts/data/nlsc-crag-edges.json，由 scripts/gen-crag-edges.ts 產生，© 內政部國土測繪中心）：
+ * 形狀只求近似，色塊靠海的邊貼到岩石與海的交界、靠陸地（淺灰色）的邊貼到岩石與植物的交界；色塊之間共用的邊不限制。
+ * 每塊色塊各自處理（fitArea）：從上面的剛體對齊開始，先整塊剛體對齊岩石帶，再每輪找最近的交界點（EDGE_MAX_M 內）建這塊自己的薄板樣條，反覆 EDGE_ROUNDS 輪。
+ * 各自處理而不是全部色塊共用一個變形：相鄰色塊的剛體對齊不同，共用的邊會把夾在中間的色塊擠扁（例如大禮堂）；代價是相鄰色塊之間可能有數公尺的縫或重疊。
+ * 只接受 EDGE_MAX_M 內的交界點：陰影很深的地方（例如大禮堂的凹灣）顏色分類不可靠，維持整塊對齊的位置。
+ */
+const cragEdges = JSON.parse(readFileSync(new URL('./data/nlsc-crag-edges.json', import.meta.url), 'utf8')) as { sea: Pt[]; vegetation: Pt[] }
+const EDGE_LINES = { sea: cragEdges.sea.map(toMeters), vegetation: cragEdges.vegetation.map(toMeters) }
+const EDGE_STEP_PT = 10
+const EDGE_MAX_M = 25
+const EDGE_SLACK = 300
+const EDGE_ROUNDS = 6
+/** 每個取樣點也輕輕拉回剛體對齊的位置（slack 大，約束弱），色塊不會被拉扁（例如兩側都貼到同一段交界） */
+const KEEP_SLACK = 3000
+/** 整塊剛體對齊岩石帶的 ICP 輪數；至少要有 CRAG_FIT_MIN 個點對到才移動 */
+const EDGE_RIGID_ROUNDS = 10
+/** 細部貼齊後的面積不能小於整塊對齊的這個比例 */
+const EDGE_MIN_AREA_RATIO = 0.5
+const CRAG_FIT_MIN = 3
+/** 色塊旁邊是什麼：往八個方向 CRAG_SEA_PT 點內有海就是靠海；沒有海、有陸地（不是任何色塊）就是靠陸地 */
+const sideOf = (p: Pt): 'sea' | 'vegetation' | undefined => {
+  const around = Array.from({ length: 8 }, (_, k): Pt => [p[0] + CRAG_SEA_PT * Math.cos((k * Math.PI) / 4), p[1] + CRAG_SEA_PT * Math.sin((k * Math.PI) / 4)])
+  if (around.some(isSea)) return 'sea'
+  if (around.some((q) => onLand(q) && !areaShapes.some((s) => s.subpaths.some((r) => inside(q, r))))) return 'vegetation'
+  return undefined
+}
+const nearestPoint = (points: Pt[], q: Pt): Pt => points.reduce((best, p) => ((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 < (best[0] - q[0]) ** 2 + (best[1] - q[1]) ** 2 ? p : best))
+/** 一塊色塊的換算：剛體對齊（areaWarp）→ 整塊剛體對齊岩石帶的兩條邊（ICP）→ 細部貼齊（這塊自己的薄板樣條） */
+function fitArea(ring: Pt[], key: string): (p: Pt) => Pt {
+  const start = areaWarp(ring)
+  const label = `${key} ${centerOfRing(ring).map((v) => v.toFixed(0)).join(',')}`
+  const samples = sampleAlong([ring], PAGE, EDGE_STEP_PT).map((at) => ({ at, side: sideOf(at), here: start(at) }))
+  const nearestEdge = (side: 'sea' | 'vegetation', m: Pt) => {
+    const to = nearestPoint(EDGE_LINES[side], m)
+    return Math.hypot(to[0] - m[0], to[1] - m[1]) <= EDGE_MAX_M ? to : undefined
+  }
+  // 整塊剛體對齊：把放錯地方的色塊整塊移過去
+  let rigid = { angle: 0, apply: (p: Pt) => p }
+  for (let round = 0; round < EDGE_RIGID_ROUNDS; round++) {
+    const matched = samples.flatMap(({ side, here }) => {
+      const to = side && nearestEdge(side, rigid.apply(here))
+      return to ? [{ here, to }] : []
+    })
+    if (matched.length < CRAG_FIT_MIN) break
+    rigid = rigidFit(
+      matched.map((p) => p.here),
+      matched.map((p) => p.to),
+    )
+  }
+  const placed = (p: Pt) => rigid.apply(start(p))
+  // 細部貼齊：靠海、靠陸地的點貼到交界，每個點也輕輕拉回整塊對齊後的位置
+  const keep = samples.map(({ at }) => ({ at, gps: fromMeters(placed(at)), slack: KEEP_SLACK }))
+  const islets = ISLET_POINTS.filter(({ at }) => inside(at, ring)).map(({ at, gps }) => ({ at, gps, slack: EDGE_SLACK }))
+  let fit = placed
+  let matchedCount = 0
+  for (let round = 0; round < EDGE_ROUNDS; round++) {
+    const matched = samples.flatMap(({ at, side }) => {
+      const to = side && nearestEdge(side, fit(at))
+      return to ? [{ at, gps: fromMeters(to), slack: EDGE_SLACK }] : []
+    })
+    matchedCount = matched.length
+    if (keep.length + matched.length < 3) break
+    fit = buildWarp([...islets, ...matched, ...keep])
+  }
+  const summary = `色塊 ${label}：對齊岩石帶再旋轉 ${((rigid.angle * 180) / Math.PI).toFixed(1)}°，${samples.length} 個取樣點中 ${matchedCount} 個貼到交界`
+  // 貼齊後面積縮小太多：兩側貼到同一段交界（陰影處分類不可靠），改用整塊對齊的結果
+  const ratio = areaOf(densify(ring, DENSIFY_PT).map(fit)) / areaOf(densify(ring, DENSIFY_PT).map(placed))
+  if (ratio < EDGE_MIN_AREA_RATIO) {
+    console.log(`${summary}；貼齊後面積只剩 ${(ratio * 100).toFixed(0)}%，改用整塊對齊`)
+    return placed
+  }
+  console.log(summary)
+  return fit
+}
+/** 多邊形面積（鞋帶公式） */
+const areaOf = (ring: Pt[]) => Math.abs(ring.reduce((sum, p, i) => sum + p[0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * p[1], 0)) / 2
 /** 換算後的公尺座標 → GeoJSON 的 [經度, 緯度]（小數 6 位，約 0.1 公尺） */
 const metersToLngLat = ([e, n]: Pt): Pt => [+(lng0 + e / metersPerDegLng).toFixed(6), +(lat0 + n / metersPerDegLat).toFixed(6)]
 /** 圖上位置 → GeoJSON 的 [經度, 緯度] */
@@ -750,7 +826,7 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
   if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊）；島礁位置參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊，區域貼齊正射影像的岩石帶）；島礁與岩石帶參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 const scaleMap = {
   type: 'FeatureCollection',
@@ -775,9 +851,15 @@ const scaleMap = {
 const areas = {
   type: 'FeatureCollection',
   source,
-  features: Object.entries(AREA_FILLS).map(([fill, key]) =>
-    feature({ id: key }, { type: 'MultiPolygon', coordinates: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, areaWarp(p, key))])) }),
-  ),
+  // 色塊各自貼齊，相鄰的可能重疊：面積大的排前面，小的畫在上面，不會被整塊蓋住
+  features: Object.entries(AREA_FILLS)
+    .map(([fill, key]) => ({
+      key,
+      polygons: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, fitArea(p, key))])),
+    }))
+    .map((a) => ({ ...a, size: a.polygons.reduce((sum, [r]) => sum + areaOf(r.map(([lng, lat]) => toMeters([lat, lng]))), 0) }))
+    .sort((a, b) => b.size - a.size)
+    .map(({ key, polygons }) => feature({ id: key }, { type: 'MultiPolygon', coordinates: polygons })),
 }
 
 mkdirSync('public/rescue', { recursive: true })

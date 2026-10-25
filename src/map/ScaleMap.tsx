@@ -249,7 +249,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       const { frame: f, view: v } = latest.current
       if (!f || !v) return undefined
       const at = toMap(v, f, [p.x, p.y])
-      return () => map.areas.find((a) => a.rings.some((r) => insideRing(at, r)))?.id
+      // 區域重疊時取畫在最上面的（後面的）
+      return () => map.areas.findLast((a) => a.rings.some((r) => insideRing(at, r)))?.id
     },
     onAreaPress,
     onTap: (p) => {
