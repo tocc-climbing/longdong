@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useIsAdmin } from '../admin'
 import { GradePill } from '../components/GradePill'
 import { SignInPrompt } from '../components/SignInPrompt'
@@ -14,7 +14,7 @@ import { displayName, useSocial } from '../social/store'
 import { removeEdit, removeTopo, submitEdit } from './actions'
 import { CropBox } from './CropBox'
 import { forkLine, moveSharedPoint } from './lines'
-import { boltPositions, isFullCrop, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
+import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
 import { px, TopoFrame, TopoLines } from './TopoView'
@@ -124,6 +124,9 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const nextPos = positions.find((p) => !current.bolts?.[p])
   const placing = boltPos && positions.includes(boltPos) ? boltPos : nextPos
   const cropping = mode === 'crop' && !preview
+  /** 畫面上照片的寬高比（裁切後只顯示一塊）：照片高度不超過視窗，不用捲動就能編輯 */
+  const shownCrop = cropping ? undefined : crop
+  const fitAspect = (photo.width * (shownCrop?.w ?? SCALE)) / (photo.height * (shownCrop?.h ?? SCALE))
   /** 可以分岔的路線：這張照片上已有線段的其他路線；目前這條還沒畫線才能分岔 */
   const forkable = Object.entries(marks).filter(([id, m]) => id !== selected && m.line)
   const canFork = !preview && mode === 'line' && !!route && !current.line && forkable.length > 0
@@ -350,13 +353,13 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
 
   return (
     <div className="topo-edit-layout">
-      <div className="topo-edit-photo">
+      <div className="topo-edit-photo" style={{ '--fit-aspect': fitAspect } as CSSProperties}>
         <ZoomPane>
           {(zoom) => (
             <TopoFrame
               photo={photo}
               alt=""
-              crop={cropping ? undefined : crop}
+              crop={shownCrop}
               svgProps={{ className: preview ? undefined : `editing ${mode}`, onClick: onPhotoClick, onContextMenu: (e) => e.preventDefault() }}
             >
               {(frameK) => {
@@ -364,7 +367,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
                 const k = frameK / zoom
                 return (
                   <>
-                    <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} crop={cropping ? undefined : crop} />
+                    <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} crop={shownCrop} />
                     {handles(k)}
                     {forkPoints(k)}
                     {cropping && <CropBox photo={photo} crop={crop} k={k} onChange={setCrop} />}
