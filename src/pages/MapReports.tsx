@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { findSector, type LoadedData } from '../data/dataset'
 import { LOCALES, localName, useLang } from '../i18n'
+import { useWide } from '../layout'
 import type { ReportTarget } from '../map/calibration'
 import { areaNames, useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
@@ -17,7 +18,7 @@ type Sort = 'new' | 'old' | 'offset' | 'accuracy'
 /**
  * 管理頁的「地圖回報」：所有人的回報，一筆一行（編號、說明、回報者、GPS 誤差、在地圖上點的位置偏多少、時間），
  * 可以搜尋說明與回報者、排序。地圖上的編號與清單相同；點一行，地圖移到那一筆並加大標示。
- * 電腦版清單在左、地圖在右（固定不捲動）；手機地圖在上。
+ * 電腦版清單在左、地圖在右（固定不捲動），可以切換航照底圖；手機地圖在上。
  */
 export function MapReports({ data, profiles }: { data: LoadedData; profiles: Record<string, { name: string; updatedAt: string }> }) {
   const { lang, t } = useLang()
@@ -28,6 +29,9 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
   const [sort, setSort] = useState<Sort>('new')
   const [selected, setSelected] = useState<number>()
   const [scope, setScope] = useState<UploadScope>('latest')
+  // 航照底圖只在電腦版：用來對照回報點、區域邊界與真實岩壁
+  const wide = useWide()
+  const [ortho, setOrtho] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -81,6 +85,14 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
             areaNames={areaNames(data, lang)}
             marks={shown.map((r) => ({ at: r.coords, picked: r.picked, label: String(r.no), selected: r.no === selected }))}
             focus={focused && { key: `report-${focused.no}`, coords: focused.picked ? [focused.coords, focused.picked] : [focused.coords] }}
+            ortho={wide && ortho}
+            topLeft={
+              wide && (
+                <button type="button" className="sm-chip" aria-pressed={ortho} onClick={() => setOrtho(!ortho)}>
+                  {t('admin.ortho')}
+                </button>
+              )
+            }
           />
         )}
       </div>

@@ -566,3 +566,15 @@
   margin: 8px auto 0;
   pointer-events: auto;
 }
+
+/* 航照底圖：區域只畫邊框，線寬固定為螢幕像素 */
+.sm-ortho .sm-area {
+  fill: none;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+
+.sm-chip[aria-pressed='true'] {
+  background: #1a73e8;
+  color: #ffffff;
+}

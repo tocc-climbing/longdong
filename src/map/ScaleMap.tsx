@@ -4,6 +4,7 @@ import { useLang } from '../i18n'
 import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
 import { project, unproject, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
 import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
+import { orthoTiles } from './ortho'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
 import './map.css'
@@ -178,6 +179,8 @@ interface Props {
   selected?: MapSelection
   /** 點救援點或急救器材時 */
   onSelect?: (selection: MapSelection) => void
+  /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
+  ortho?: boolean
 }
 
 /**
@@ -187,7 +190,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, ortho }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -313,12 +316,16 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   const cover = Math.hypot(frame.w, frame.h) * px
 
   return (
-    <div className="scale-map-frame" ref={box}>
+    <div className={`scale-map-frame${ortho ? ' sm-ortho' : ''}`} ref={box}>
       <svg width={frame.w} height={frame.h} role="img" aria-label={t('map.mapAria')}>
         <g transform={mapTransform(view, frame)}>
           <rect className="sm-sea" x={view.cx - cover} y={view.cy - cover} width={cover * 2} height={cover * 2} />
           <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
           <path className="sm-building" d={map.layers.building} />
+          {ortho &&
+            orthoTiles(view, frame, window.devicePixelRatio).map((tile) => (
+              <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" />
+            ))}
           {map.areas.map((a) => (
             <path key={a.id} className={`sm-area sm-area-${a.id}${focus?.area && a.id !== focus.area ? ' sm-dim' : ''}`} d={a.path} strokeWidth={px} />
           ))}
@@ -477,6 +484,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
 
       {/* 圖形來自 TOCC 救援資訊圖；道路與海岸以 OpenStreetMap 校正（ODbL 要求在地圖上標示） */}
       <p className="sm-attribution">
+        {ortho && <>{t('map.orthoCredit')} · </>}
         © TOCC ·{' '}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           © OpenStreetMap
