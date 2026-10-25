@@ -468,15 +468,15 @@ const warp = buildWarp([...CONTROL_POINTS, ...curvePoints])
  * 靠海：往八個方向 CRAG_SEA_PT 點內有一處既不是陸地、也不是任何色塊。岩岸曲折，只接受 CRAG_MAX_M 內的對應，避免對到隔壁的岬角。
  *
  * 只有陸地照這些點變形（coastWarp）。救援資訊圖把岩盤與島礁畫得比實際寬，區域色塊若也跟著變形會被擠成細長條，
- * 所以色塊不變形、平移（areaWarp）：每一點移動附近海岸被拉動的量（大範圍平均，各處平移量變化平緩），靠海的邊貼齊海岸、寬度與形狀大致不變；
- * 島礁整塊以同一個量平移（見 ISLET_POINTS），形狀完全不變。
+ * 所以色塊不變形，每塊各自旋轉＋平移（areaWarp，剛體對齊）：取色塊附近海岸被拉動的方式（海岸點 warp → coastWarp，大範圍加權）最接近的剛體運動，
+ * 旋轉跟著附近海岸方向的變化，形狀與大小不變。島礁有 ISLET_POINTS 時以島礁點剛體對齊。
  * 其他圖形（步道、道路、圖示）不受影響。
  */
 const CRAG_SEA_PT = 6
 const CRAG_STEP_PT = 20
 const CRAG_MAX_M = 40
 const CRAG_BOX: Box = [1000, 650, 1700, 2150]
-/** 平移量取附近海岸點的高斯加權平均，距離的標準差（點） */
+/** 附近海岸點的高斯加權，距離的標準差（點） */
 const CRAG_SHIFT_SIGMA_PT = 80
 const onLand = (p: Pt) => land[0].subpaths.some((r) => inside(p, r))
 const isSea = (p: Pt) => !onLand(p) && !areaShapes.some((s) => s.subpaths.some((r) => inside(p, r)))
@@ -503,42 +503,52 @@ console.log(`岩岸參考點：取樣 ${cragSamples.length} 個，對到 ${cragP
 const coastWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...cragPoints])
 /**
  * 島礁：OSM 的海岸線沒有島礁，以國土測繪中心 2024 年正射影像對應（政府資料開放授權，© 內政部國土測繪中心）。
- * 圖上位置 ↔ 航照上的 GPS；點所在的島礁色塊整塊平移（取這些點的平均），對齊大小與形狀不同的示意圖時只修正位置。
+ * 圖上位置 ↔ 航照上的 GPS；點所在的島礁色塊以這些點剛體對齊（旋轉＋平移，形狀與大小不變），一塊島礁至少兩點。
  */
 const ISLET_POINTS: { note: string; at: Pt; gps: Pt }[] = [
   { note: '校門口外海的大礁石：西北端', at: [1390, 850], gps: [25.11272, 121.9231] },
-  { note: '校門口外海的大礁石：東南端', at: [1471, 949], gps: [25.11196, 121.92369] },
+  { note: '校門口外海的大礁石：東南端', at: [1465, 943], gps: [25.11201, 121.92365] },
 ]
-const cragShifts = cragPoints.map(({ at }) => {
-  const [a, b] = [coastWarp(at), warp(at)]
-  return { at, shift: [a[0] - b[0], a[1] - b[1]] as Pt }
-})
-const isletShifts = ISLET_POINTS.map(({ at, gps }) => {
-  const [a, b] = [toMeters(gps), warp(at)]
-  return { at, shift: [a[0] - b[0], a[1] - b[1]] as Pt }
-})
-function shiftAt(p: Pt): Pt {
-  let [sx, sy, sum] = [0, 0, 0]
-  for (const { at, shift } of cragShifts) {
-    const w = Math.exp(-((p[0] - at[0]) ** 2 + (p[1] - at[1]) ** 2) / (2 * CRAG_SHIFT_SIGMA_PT ** 2))
-    sx += w * shift[0]
-    sy += w * shift[1]
-    sum += w
-  }
-  return sum > 0 ? [sx / sum, sy / sum] : [0, 0]
+/** 色塊的換算：剛體對齊（旋轉＋平移）；島礁（整塊不碰到陸地）有兩個以上島礁點時以島礁點對齊，其他取附近海岸被拉動的方式 */
+function areaWarp(ring: Pt[], name: string): (p: Pt) => Pt {
+  const label = `${name} ${centerOfRing(ring).map((v) => v.toFixed(0)).join(',')}`
+  const own = ring.some(onLand) ? [] : ISLET_POINTS.filter(({ at }) => inside(at, ring))
+  const fit =
+    own.length >= 2
+      ? rigidFit(
+          own.map(({ at }) => warp(at)),
+          own.map(({ gps }) => toMeters(gps)),
+        )
+      : coastMotion(centerOfRing(ring))
+  console.log(`${own.length >= 2 ? `島礁（${own.length} 個島礁點）` : '色塊'} ${label}：旋轉 ${((fit.angle * 180) / Math.PI).toFixed(1)}°`)
+  return (p) => fit.apply(warp(p))
 }
-const shifted = (p: Pt, shift: Pt): Pt => {
-  const m = warp(p)
-  return [m[0] + shift[0], m[1] + shift[1]]
+
+/** 剛體對齊（旋轉＋平移，不縮放）：讓 from 的各點最接近對應的 to（加權最小平方） */
+function rigidFit(from: Pt[], to: Pt[], weights: number[] = from.map(() => 1)): { angle: number; apply: (p: Pt) => Pt } {
+  const total = weights.reduce((a, b) => a + b, 0)
+  const mean = (ps: Pt[]): Pt => [ps.reduce((v, p, i) => v + weights[i] * p[0], 0) / total, ps.reduce((v, p, i) => v + weights[i] * p[1], 0) / total]
+  const [cf, ct] = [mean(from), mean(to)]
+  let [cross, dot] = [0, 0]
+  from.forEach((p, i) => {
+    const [ax, ay] = [p[0] - cf[0], p[1] - cf[1]]
+    const [bx, by] = [to[i][0] - ct[0], to[i][1] - ct[1]]
+    cross += weights[i] * (ax * by - ay * bx)
+    dot += weights[i] * (ax * bx + ay * by)
+  })
+  const angle = Math.atan2(cross, dot)
+  const [c, s] = [Math.cos(angle), Math.sin(angle)]
+  return { angle, apply: ([x, y]) => [ct[0] + c * (x - cf[0]) - s * (y - cf[1]), ct[1] + s * (x - cf[0]) + c * (y - cf[1])] }
 }
-/** 色塊的換算：島礁（整塊不碰到陸地）整塊平移（有島礁點時取島礁點的平均，否則取中心附近海岸的平移量），其他每一點各自平移 */
-function areaWarp(ring: Pt[]): (p: Pt) => Pt {
-  if (ring.some(onLand)) return (p) => shifted(p, shiftAt(p))
-  const own = isletShifts.filter(({ at }) => inside(at, ring))
-  const shift: Pt = own.length
-    ? [own.reduce((v, s) => v + s.shift[0], 0) / own.length, own.reduce((v, s) => v + s.shift[1], 0) / own.length]
-    : shiftAt(centerOfRing(ring))
-  return (p) => shifted(p, shift)
+
+/** 色塊附近海岸被拉動的方式取最接近的剛體運動：海岸點 warp → coastWarp，以離色塊中心的距離高斯加權 */
+function coastMotion(center: Pt): { angle: number; apply: (p: Pt) => Pt } {
+  const weights = cragPoints.map(({ at }) => Math.exp(-((at[0] - center[0]) ** 2 + (at[1] - center[1]) ** 2) / (2 * CRAG_SHIFT_SIGMA_PT ** 2)))
+  return rigidFit(
+    cragPoints.map(({ at }) => warp(at)),
+    cragPoints.map(({ at }) => coastWarp(at)),
+    weights,
+  )
 }
 function centerOfRing(ring: Pt[]): Pt {
   const xs = ring.map((p) => p[0])
@@ -766,7 +776,7 @@ const areas = {
   type: 'FeatureCollection',
   source,
   features: Object.entries(AREA_FILLS).map(([fill, key]) =>
-    feature({ id: key }, { type: 'MultiPolygon', coordinates: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, areaWarp(p))])) }),
+    feature({ id: key }, { type: 'MultiPolygon', coordinates: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, areaWarp(p, key))])) }),
   ),
 }
 
