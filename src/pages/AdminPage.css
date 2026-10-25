@@ -207,3 +207,16 @@
   min-width: 0;
   flex: 1;
 }
+
+/* 手機寬度：四個分頁排成兩列 */
+@media (max-width: 520px) {
+  .admin-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: 22px;
+  }
+
+  .admin-tabs button {
+    justify-content: center;
+  }
+}

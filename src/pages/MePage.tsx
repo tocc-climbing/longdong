@@ -83,6 +83,7 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
   const { lang, t } = useLang()
   const [tab, setTab] = useState<Tab>('ticks')
   const [settings, setSettings] = useState(false)
+  const admin = useIsAdmin()
   const [pyramidTypes, setPyramidTypesState] = useState(loadPyramidTypes)
   const setPyramidTypes = (types: RouteType[]) => {
     setPyramidTypesState(types)
@@ -125,6 +126,13 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
                   : t('me.connected')}
           </p>
         </div>
+        {admin && (
+          <a className="icon-button" href={href.admin()} aria-label={t('me.admin')}>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+              <path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5zm-1.2 14.2-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4z" />
+            </svg>
+          </a>
+        )}
         <button
           className={`icon-button${settings ? ' on' : ''}`}
           aria-label={t('me.settings')}
@@ -270,7 +278,6 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
 
 function Settings({ uid, email }: { uid: string; email: string }) {
   const { t } = useLang()
-  const admin = useIsAdmin()
   return (
     <section className="card settings">
       <NameEditor uid={uid} />
@@ -280,7 +287,6 @@ function Settings({ uid, email }: { uid: string; email: string }) {
       <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
-        {admin && <a href={href.admin()}>{t('me.admin')}</a>}
         <button className="link-button" onClick={() => confirm(t('me.confirmSignOut')) && void signOut()}>
           {t('me.signOut')}
         </button>
