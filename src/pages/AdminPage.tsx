@@ -8,9 +8,10 @@ import { href } from '../router'
 import type { Comment } from '../social/model'
 import { displayName } from '../social/store'
 import { MapReports } from './MapReports'
+import { TopoAdmin } from './TopoAdmin'
 import './AdminPage.css'
 
-export type AdminTab = 'reports' | 'comments' | 'map'
+export type AdminTab = 'reports' | 'comments' | 'map' | 'topos'
 
 /** 一則留言與它所在的路線（v2/comments/<routeKey>/<id>） */
 interface AdminComment extends Comment {
@@ -150,15 +151,19 @@ export function AdminPage({ data, initialTab = 'reports' }: { data: LoadedData; 
             <button type="button" role="tab" aria-selected={tab === 'map'} onClick={() => setTab('map')}>
               {t('admin.mapReports')}
             </button>
+            <button type="button" role="tab" aria-selected={tab === 'topos'} onClick={() => setTab('topos')}>
+              {t('admin.topos')}
+            </button>
           </div>
           {tab === 'map' && <MapReports data={data} profiles={profiles} />}
+          {tab === 'topos' && <TopoAdmin data={data} profiles={profiles} time={time} />}
 
           {error && (
             <p className="error" role="alert">
               {t('reports.loadFailed', { error })}
             </p>
           )}
-          {!error && tab !== 'map' && (!comments || !reports) && <p className="muted">{t('app.loading')}</p>}
+          {!error && (tab === 'reports' || tab === 'comments') && (!comments || !reports) && <p className="muted">{t('app.loading')}</p>}
 
           {tab === 'reports' && reports && (
             <ul className="admin-list">

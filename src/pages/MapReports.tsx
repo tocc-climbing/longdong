@@ -1,54 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { findSector, type LoadedData } from '../data/dataset'
-import { distanceM, type LatLng } from '../geo'
 import { LOCALES, localName, useLang } from '../i18n'
 import type { ReportTarget } from '../map/calibration'
 import { areaNames, useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
+import { reportsOf, type UploadScope, type UploadedReport } from '../map/uploadedReports'
 import type { CalibrationUploads } from '../personal/firebase'
 import { withCloud } from '../personal/sync'
 import { displayName } from '../social/store'
 
-/** 一筆地圖回報 */
-interface Report {
-  /** 清單與地圖上的編號（1 起算，依回報時間由舊到新，不隨排序改變） */
-  no: number
-  note: string
-  /** 從路線頁回報時，回報的區域與分區（分區已不存在時寫明舊 ID） */
-  place?: string
-  /** 回報者（暱稱，或「未登入的手機 xxxx」） */
-  who: string
-  /** GPS 位置 */
-  coords: LatLng
-  accuracy: number
-  time: number
-  /** 回報者在地圖上點的位置（選填）與離 GPS 幾公尺 */
-  picked?: LatLng
-  offset?: number
-}
-
-type Feature = { properties: { note: string; accuracy: number; time: string; picked?: [number, number]; target?: ReportTarget }; geometry: { coordinates: [number, number] } }
-
-/** 每個人（或沒登入的每台手機）只看最新上傳的那一份（每次上傳都是完整的一份） */
-function reportsOf(all: CalibrationUploads, who: (id: string) => string, place: (target: ReportTarget) => string): Omit<Report, 'no'>[] {
-  return Object.entries(all).flatMap(([id, uploads]) => {
-    const latest = Object.values(uploads).reduce((a, b) => (b.createdAt > a.createdAt ? b : a))
-    return (JSON.parse(latest.geojson) as { features: Feature[] }).features.map((f) => {
-      const coords: LatLng = [f.geometry.coordinates[1], f.geometry.coordinates[0]]
-      const picked: LatLng | undefined = f.properties.picked && [f.properties.picked[1], f.properties.picked[0]]
-      return {
-        note: f.properties.note,
-        place: f.properties.target && place(f.properties.target),
-        who: who(id),
-        coords,
-        accuracy: f.properties.accuracy,
-        time: Date.parse(f.properties.time),
-        picked,
-        offset: picked && Math.round(distanceM(coords, picked)),
-      }
-    })
-  })
-}
+/** 一筆地圖回報，加上清單與地圖上的編號（1 起算，依回報時間由舊到新，不隨排序改變） */
+type Report = UploadedReport & { no: number }
 
 type Sort = 'new' | 'old' | 'offset' | 'accuracy'
 
@@ -65,6 +27,7 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<Sort>('new')
   const [selected, setSelected] = useState<number>()
+  const [scope, setScope] = useState<UploadScope>('latest')
 
   useEffect(() => {
     let alive = true
@@ -86,12 +49,12 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
       return found ? `${localName(found.area.name, lang).main} · ${localName(found.sector.name, lang).main}` : t('reports.unknownSector', { id: sectorId })
     }
     return [
-      ...reportsOf(raw.signedIn, (uid) => displayName(profiles, uid), place),
-      ...reportsOf(raw.anon, (id) => t('reports.anon', { id: id.slice(0, 4) }), place),
+      ...reportsOf(raw.signedIn, (uid) => displayName(profiles, uid), place, scope),
+      ...reportsOf(raw.anon, (id) => t('reports.anon', { id: id.slice(0, 4) }), place, scope),
     ]
       .sort((a, b) => a.time - b.time)
       .map((r, i) => ({ ...r, no: i + 1 }))
-  }, [raw, profiles, t, data, lang])
+  }, [raw, profiles, t, data, lang, scope])
 
   const q = query.trim().toLowerCase()
   const shown = all
@@ -130,6 +93,10 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
             <option value="old">{t('admin.sort.old')}</option>
             <option value="offset">{t('admin.sort.offset')}</option>
             <option value="accuracy">{t('admin.sort.accuracy')}</option>
+          </select>
+          <select value={scope} onChange={(e) => setScope(e.target.value as UploadScope)} aria-label={t('admin.scope')}>
+            <option value="latest">{t('admin.scope.latest')}</option>
+            <option value="all">{t('admin.scope.all')}</option>
           </select>
         </div>
         <p className="muted small">{t('admin.reportCount', { n: shown.length, total: all.length })}</p>

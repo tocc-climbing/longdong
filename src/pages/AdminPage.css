@@ -79,12 +79,13 @@
 
 .map-reports-tools {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 12px 0 4px;
 }
 
 .map-reports-tools input {
-  flex: 1;
+  flex: 1 1 140px;
   min-width: 0;
 }
 
@@ -185,4 +186,24 @@
 
 [data-layout='wide'] .map-report-meta {
   grid-column: auto;
+}
+
+.admin-topo {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.admin-topo img {
+  width: 96px;
+  height: 72px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.admin-topo-body {
+  min-width: 0;
+  flex: 1;
 }
