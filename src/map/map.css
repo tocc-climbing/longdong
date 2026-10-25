@@ -450,8 +450,9 @@
 }
 
 .sm-rescue.selected circle {
-  stroke: #141414;
+  stroke: #fff;
   stroke-width: 3px;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
 }
 
 /* 圖上文字依種類上色（與救援資訊圖相同）：道路深藍、步道綠、海面淡灰斜體、警示紅 */
@@ -495,9 +496,10 @@
 
 /* 選中的急救器材：外圍一圈 */
 .sm-ems.selected rect {
-  stroke: #141414;
+  stroke: #fff;
   stroke-width: 3px;
   paint-order: stroke;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
 }
 
 /* 回報時在地圖上點自己的位置：上方一條說明＋完成、取消 */
