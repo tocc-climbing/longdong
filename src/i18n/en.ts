@@ -122,7 +122,7 @@ export const en: Messages = {
   'map.rescue': 'Rescue point #{no} {name}',
   'map.parking': 'Parking',
   'map.hazard': 'Hazardous terrain',
-  'map.orthoCredit': 'Aerial © NLSC, Taiwan',
+  'map.nlscCredit': '© NLSC, Taiwan',
   'map.boat': 'Boat rescue point',
   'map.hoist': 'Helicopter hoist point',
   'map.ems': 'EMS equipment #{n}',

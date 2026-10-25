@@ -460,6 +460,91 @@ for (let round = 0; round < 2; round++) {
 for (const m of CURVE_MATCHES) console.log(`沿線參考點：${m.note} 取樣 ${m.samples.length} 個`)
 console.log(`沿線參考點共 ${curvePoints.length} 個`)
 const warp = buildWarp([...CONTROL_POINTS, ...curvePoints])
+
+/**
+ * 岩場的海岸：救援資訊圖在岩場把岩岸畫成各大區域的色塊（陸地的淺灰色在色塊底下），取色塊靠海的邊對到 OSM 的海岸線；
+ * 色塊之間與校門口北邊的岬角是陸地的邊，CRAG_BOX 範圍內陸地靠海的邊也取（南北兩段海岸另有沿線對應）。
+ * 外海的島礁也是色塊，但 OSM 的海岸線沒有島礁，不取（整塊都不碰到陸地的就是島礁）。
+ * 靠海：往八個方向 CRAG_SEA_PT 點內有一處既不是陸地、也不是任何色塊。岩岸曲折，只接受 CRAG_MAX_M 內的對應，避免對到隔壁的岬角。
+ *
+ * 只有陸地照這些點變形（coastWarp）。救援資訊圖把岩盤與島礁畫得比實際寬，區域色塊若也跟著變形會被擠成細長條，
+ * 所以色塊不變形、平移（areaWarp）：每一點移動附近海岸被拉動的量（大範圍平均，各處平移量變化平緩），靠海的邊貼齊海岸、寬度與形狀大致不變；
+ * 島礁整塊以同一個量平移（見 ISLET_POINTS），形狀完全不變。
+ * 其他圖形（步道、道路、圖示）不受影響。
+ */
+const CRAG_SEA_PT = 6
+const CRAG_STEP_PT = 20
+const CRAG_MAX_M = 40
+const CRAG_BOX: Box = [1000, 650, 1700, 2150]
+/** 平移量取附近海岸點的高斯加權平均，距離的標準差（點） */
+const CRAG_SHIFT_SIGMA_PT = 80
+const onLand = (p: Pt) => land[0].subpaths.some((r) => inside(p, r))
+const isSea = (p: Pt) => !onLand(p) && !areaShapes.some((s) => s.subpaths.some((r) => inside(p, r)))
+const seaward = (p: Pt) =>
+  Array.from({ length: 8 }, (_, k): Pt => [p[0] + CRAG_SEA_PT * Math.cos((k * Math.PI) / 4), p[1] + CRAG_SEA_PT * Math.sin((k * Math.PI) / 4)]).some(isSea)
+const cragSamples = [
+  ...sampleAlong(
+    areaShapes.flatMap((s) => s.subpaths).filter((r) => r.length >= 3 && r.some(onLand)),
+    PAGE,
+    CRAG_STEP_PT,
+  ),
+  ...sampleAlong(land[0].subpaths, CRAG_BOX, CRAG_STEP_PT),
+].filter(seaward)
+let cragPoints: { at: Pt; gps: Pt; slack: number }[] = []
+for (let round = 0; round < 2; round++) {
+  const current = buildWarp([...CONTROL_POINTS, ...curvePoints, ...cragPoints])
+  cragPoints = cragSamples.flatMap((at) => {
+    const here = current(at)
+    const to = nearestOn(OSM_LINES.coastline, here)
+    return Math.hypot(to[0] - here[0], to[1] - here[1]) <= CRAG_MAX_M ? [{ at, gps: fromMeters(to), slack: 5000 }] : []
+  })
+}
+console.log(`岩岸參考點：取樣 ${cragSamples.length} 個，對到 ${cragPoints.length} 個`)
+const coastWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...cragPoints])
+/**
+ * 島礁：OSM 的海岸線沒有島礁，以國土測繪中心 2024 年正射影像對應（政府資料開放授權，© 內政部國土測繪中心）。
+ * 圖上位置 ↔ 航照上的 GPS；點所在的島礁色塊整塊平移（取這些點的平均），對齊大小與形狀不同的示意圖時只修正位置。
+ */
+const ISLET_POINTS: { note: string; at: Pt; gps: Pt }[] = [
+  { note: '校門口外海的大礁石：西北端', at: [1390, 850], gps: [25.11272, 121.9231] },
+  { note: '校門口外海的大礁石：東南端', at: [1471, 949], gps: [25.11196, 121.92369] },
+]
+const cragShifts = cragPoints.map(({ at }) => {
+  const [a, b] = [coastWarp(at), warp(at)]
+  return { at, shift: [a[0] - b[0], a[1] - b[1]] as Pt }
+})
+const isletShifts = ISLET_POINTS.map(({ at, gps }) => {
+  const [a, b] = [toMeters(gps), warp(at)]
+  return { at, shift: [a[0] - b[0], a[1] - b[1]] as Pt }
+})
+function shiftAt(p: Pt): Pt {
+  let [sx, sy, sum] = [0, 0, 0]
+  for (const { at, shift } of cragShifts) {
+    const w = Math.exp(-((p[0] - at[0]) ** 2 + (p[1] - at[1]) ** 2) / (2 * CRAG_SHIFT_SIGMA_PT ** 2))
+    sx += w * shift[0]
+    sy += w * shift[1]
+    sum += w
+  }
+  return sum > 0 ? [sx / sum, sy / sum] : [0, 0]
+}
+const shifted = (p: Pt, shift: Pt): Pt => {
+  const m = warp(p)
+  return [m[0] + shift[0], m[1] + shift[1]]
+}
+/** 色塊的換算：島礁（整塊不碰到陸地）整塊平移（有島礁點時取島礁點的平均，否則取中心附近海岸的平移量），其他每一點各自平移 */
+function areaWarp(ring: Pt[]): (p: Pt) => Pt {
+  if (ring.some(onLand)) return (p) => shifted(p, shiftAt(p))
+  const own = isletShifts.filter(({ at }) => inside(at, ring))
+  const shift: Pt = own.length
+    ? [own.reduce((v, s) => v + s.shift[0], 0) / own.length, own.reduce((v, s) => v + s.shift[1], 0) / own.length]
+    : shiftAt(centerOfRing(ring))
+  return (p) => shifted(p, shift)
+}
+function centerOfRing(ring: Pt[]): Pt {
+  const xs = ring.map((p) => p[0])
+  const ys = ring.map((p) => p[1])
+  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
+}
 /** 換算後的公尺座標 → GeoJSON 的 [經度, 緯度]（小數 6 位，約 0.1 公尺） */
 const metersToLngLat = ([e, n]: Pt): Pt => [+(lng0 + e / metersPerDegLng).toFixed(6), +(lat0 + n / metersPerDegLat).toFixed(6)]
 /** 圖上位置 → GeoJSON 的 [經度, 緯度] */
@@ -533,9 +618,9 @@ function simplify(points: Pt[], tolerance: number): Pt[] {
   return [...simplify(points.slice(0, index + 1), tolerance).slice(0, -1), ...simplify(points.slice(index), tolerance)]
 }
 
-const line = (s: Pt[], tolerance = SIMPLIFY_M) => simplify(densify(s, DENSIFY_PT).map(warp), tolerance).map(metersToLngLat)
-const ring = (s: Pt[], tolerance = SIMPLIFY_M) => {
-  const r = line(s, tolerance)
+const line = (s: Pt[], tolerance = SIMPLIFY_M, transform = warp) => simplify(densify(s, DENSIFY_PT).map(transform), tolerance).map(metersToLngLat)
+const ring = (s: Pt[], tolerance = SIMPLIFY_M, transform = warp) => {
+  const r = line(s, tolerance, transform)
   if (r[0][0] !== r[r.length - 1][0] || r[0][1] !== r[r.length - 1][1]) r.push(r[0])
   return r
 }
@@ -655,13 +740,13 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
   if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊）；島礁位置參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 const scaleMap = {
   type: 'FeatureCollection',
   source,
   features: [
-    feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)))])) }),
+    feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)), SIMPLIFY_M, coastWarp)])) }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
     feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed)) }),
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
@@ -681,7 +766,7 @@ const areas = {
   type: 'FeatureCollection',
   source,
   features: Object.entries(AREA_FILLS).map(([fill, key]) =>
-    feature({ id: key }, { type: 'MultiPolygon', coordinates: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M)])) }),
+    feature({ id: key }, { type: 'MultiPolygon', coordinates: areaShapes.filter((s) => s.fill === fill).flatMap((s) => s.subpaths.filter((p) => p.length >= 3).map((p) => [ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, areaWarp(p))])) }),
   ),
 }
 

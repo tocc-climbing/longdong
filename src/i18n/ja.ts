@@ -126,7 +126,7 @@ export const ja: Messages = {
   'map.rescue': '救助地点 #{no} {name}',
   'map.parking': '駐車場',
   'map.hazard': '危険地形',
-  'map.orthoCredit': '航空写真 © 台湾内政部国土測絵センター',
+  'map.nlscCredit': '© 台湾内政部国土測絵センター',
   'map.boat': '船舶搬送地点',
   'map.hoist': 'ヘリコプター吊り上げ地点',
   'map.ems': '救急用品 #{n}',

@@ -120,7 +120,7 @@ export const zh = {
   'map.rescue': '救援點 #{no} {name}',
   'map.parking': '停車場',
   'map.hazard': '危險地形',
-  'map.orthoCredit': '航照 © 內政部國土測繪中心',
+  'map.nlscCredit': '© 內政部國土測繪中心',
   'map.boat': '船艇接駁點',
   'map.hoist': '直升機吊掛點',
   'map.ems': '急救器材 #{n}',

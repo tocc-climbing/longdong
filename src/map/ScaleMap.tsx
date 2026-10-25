@@ -482,10 +482,9 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       </div>
 
 
-      {/* 圖形來自 TOCC 救援資訊圖；道路與海岸以 OpenStreetMap 校正（ODbL 要求在地圖上標示） */}
+      {/* 圖形來自 TOCC 救援資訊圖；道路與海岸以 OpenStreetMap 校正（ODbL 要求在地圖上標示）；島礁位置與航照底圖來自國土測繪中心（政府資料開放授權要求標示） */}
       <p className="sm-attribution">
-        {ortho && <>{t('map.orthoCredit')} · </>}
-        © TOCC ·{' '}
+        © TOCC · {t('map.nlscCredit')} ·{' '}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           © OpenStreetMap
         </a>
