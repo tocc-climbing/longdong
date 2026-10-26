@@ -92,7 +92,7 @@
         }
       },
       "calibration": {
-        ".read": "auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))",
+        ".read": "auth != null",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid && !newData.exists()",

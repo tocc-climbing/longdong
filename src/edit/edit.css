@@ -617,3 +617,45 @@
     padding-top: 10px;
   }
 }
+
+/* 這個區域的回報（修改地圖時當參考） */
+.edit-pins {
+  list-style: none;
+  margin: 0 0 var(--space-4, 16px);
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.edit-pins button {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.edit-pins li.on button {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+.edit-pins b {
+  flex: none;
+  min-width: 1.5em;
+  text-align: center;
+}
+.edit-pins button > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.edit-pin-where {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}

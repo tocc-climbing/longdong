@@ -282,12 +282,18 @@ describe('比例尺地圖的現場校正記錄', () => {
     await assertSucceeds(remove(alice, 'v2/calibration/alice/u1'))
   })
 
-  it('只有本人與管理員讀得到', async () => {
+  it('所有登入者都讀得到（修改地圖時當參考，畫面上不顯示是誰、什麼時候）；訪客不行', async () => {
     await assertSucceeds(get(alice, 'v2/calibration/alice'))
     await assertSucceeds(get(admin, 'v2/calibration'))
-    await assertFails(get(mallory, 'v2/calibration/alice'))
-    await assertFails(get(mallory, 'v2/calibration'))
+    await assertSucceeds(get(mallory, 'v2/calibration/alice'))
+    await assertSucceeds(get(mallory, 'v2/calibration'))
     await assertFails(get(guest, 'v2/calibration/alice'))
+    await assertFails(get(guest, 'v2/calibration'))
+  })
+
+  it('沒登入的裝置的回報（anonReports）仍然只有管理員讀得到', async () => {
+    await assertFails(get(mallory, 'v2/anonReports'))
+    await assertSucceeds(get(admin, 'v2/anonReports'))
   })
 
   it('不能整個刪掉別人的校正記錄', async () => {
