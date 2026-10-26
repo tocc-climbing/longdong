@@ -16,6 +16,7 @@ import { TopoEditor } from '../topo/TopoEditor'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
 import { LatestEdits } from './LatestEdits'
+import { groupVersions } from './versions'
 import { currentText, loadTextEdits, textTarget, useTextEdits, type TextTarget, type TextVersion } from './textEdits'
 import { useMapItem } from './useMapItem'
 import './edit.css'
@@ -201,29 +202,37 @@ function Welcome({ items }: { items: EditItem[] }) {
 }
 
 /** 修改紀錄：新到舊；最新的是目前顯示的；本人與管理員可以刪除 */
-function VersionList({ versions, empty, onDelete }: { versions: (MapEditVersion | TextVersion)[]; empty: string; onDelete: (id: string) => void }) {
+function VersionList({ versions, empty, onDelete }: { versions: (MapEditVersion | TextVersion)[]; empty: string; onDelete: (ids: string[]) => void }) {
   const { lang, t } = useLang()
   const cloud = useCloud()
   const admin = useIsAdmin() === true
   const { profiles } = useSocial()
   const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
   const time = (ms: number) => new Date(ms).toLocaleString(LOCALES[lang], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const groups = groupVersions(versions)
   return (
     <>
-      <h2>{t('shape.history', { n: versions.length })}</h2>
+      <h2>{t('shape.history', { n: groups.length })}</h2>
       {versions.length === 0 ? (
         <p className="muted small">{empty}</p>
       ) : (
         <ol className="edit-versions">
-          {[...versions].reverse().map((v, i) => (
+          {groups.map(({ latest: v, members }, i) => (
             <li key={v.id}>
               <span className="edit-version-who">
                 <b>{displayName(profiles, v.uid)}</b>
                 {i === 0 && <span className="edit-badge">{t('shape.current')}</span>}
               </span>
-              <span className="edit-version-time muted">{time(v.createdAt)}</span>
+              <span className="edit-version-time muted">
+                {time(v.createdAt)}
+                {members.length > 1 && ` · ${t('shape.mergedCount', { n: members.length })}`}
+              </span>
               {(v.uid === uid || admin) && (
-                <button type="button" className="link-button danger edit-version-delete" onClick={() => confirm(t('shape.confirmDeleteVersion')) && onDelete(v.id)}>
+                <button
+                  type="button"
+                  className="link-button danger edit-version-delete"
+                  onClick={() => confirm(members.length > 1 ? t('shape.confirmDeleteGroup', { n: members.length }) : t('shape.confirmDeleteVersion')) && onDelete(members.map((m) => m.id).reverse())}
+                >
                   {t('shape.deleteVersion')}
                 </button>
               )}
@@ -337,10 +346,10 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
           : focusArea && { key: target, area: focusArea }
       : undefined
 
-  const deleteVersion = async (version: string) => {
+  const deleteVersions = async (versions: string[]) => {
     try {
       const { m: fb } = await withCloud()
-      await fb.deleteMapEdit(target, version)
+      for (const version of versions) await fb.deleteMapEdit(target, version)
       await loadMapShapes(true)
       onToast(t('shape.versionDeleted'))
     } catch (err) {
@@ -408,7 +417,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
         <h2>{item.label}</h2>
         <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : 'edit.trailTip')}</p>
         <NeedSignIn />
-        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v).then(m.actions.reload)} />
+        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(ids) => void deleteVersions(ids).then(m.actions.reload)} />
         <h2>{t('edit.shortcuts')}</h2>
         <dl className="edit-keys">
           {(
@@ -468,10 +477,10 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
       setSaving(false)
     }
   }
-  const deleteVersion = async (version: string) => {
+  const deleteVersions = async (versions: string[]) => {
     try {
       const { m } = await withCloud()
-      await m.deleteTextEdit(target, version)
+      for (const version of versions) await m.deleteTextEdit(target, version)
       await loadTextEdits(true)
       onToast(t('shape.versionDeleted'))
     } catch (err) {
@@ -523,7 +532,7 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
           </p>
         )}
         <NeedSignIn />
-        <VersionList versions={versions[target] ?? []} empty={t('text.noVersions')} onDelete={(v) => void deleteVersion(v)} />
+        <VersionList versions={versions[target] ?? []} empty={t('text.noVersions')} onDelete={(ids) => void deleteVersions(ids)} />
       </aside>
     </>
   )

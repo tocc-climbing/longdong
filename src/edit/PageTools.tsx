@@ -10,6 +10,7 @@ import { useCloud } from '../personal/sync'
 import { loadEdits, loadPhotos, useTopoState } from '../topo/store'
 import { useTopoUpload } from '../topo/TopoUpload'
 import { currentText, useTextEdits, type TextTarget } from './textEdits'
+import { groupVersions, type Versioned } from './versions'
 
 /** 頁面能修改與有修改記錄的對象；map、text 的 label 是顯示用的名稱（區域範圍、路線說明…） */
 export interface ToolScope {
@@ -117,40 +118,19 @@ function HistoryList({ scope }: { scope: ToolScope }) {
   }, [photoIds])
 
   const entries: Entry[] = []
-  if (scope.map)
-    for (const v of maps.versions[scope.map.target] ?? [])
-      entries.push({
-        kind: 'map',
-        label: scope.map.label,
-        uid: v.uid,
-        createdAt: v.createdAt,
-      })
-  if (scope.text)
-    for (const v of texts[scope.text.target] ?? [])
-      entries.push({
-        kind: 'text',
-        label: scope.text.label,
-        uid: v.uid,
-        createdAt: v.createdAt,
-      })
+  // 同一天同一人連續的版本合併成一筆（見 versions.ts）
+  const addVersions = (kind: EditKind, label: string, versions: Versioned[] | undefined) => {
+    for (const { latest, members } of groupVersions(versions ?? []))
+      entries.push({ kind, label, note: members.length > 1 ? t('shape.mergedCount', { n: members.length }) : undefined, uid: latest.uid, createdAt: latest.createdAt })
+  }
+  if (scope.map) addVersions('map', scope.map.label, maps.versions[scope.map.target])
+  if (scope.text) addVersions('text', scope.text.label, texts[scope.text.target])
   for (const sector of scope.sectors) {
     const own = photos.filter((p) => p.sector === sector.id).sort((a, b) => a.createdAt - b.createdAt)
     own.forEach((p, i) => {
       const label = [scope.sectors.length > 1 && localName(sector.name, lang).main, own.length > 1 && `${i + 1}`].filter(Boolean).join(' ')
-      entries.push({
-        kind: 'topo',
-        label,
-        note: t('tools.uploaded'),
-        uid: p.uid,
-        createdAt: p.createdAt,
-      })
-      for (const e of topo.edits[p.id] ?? [])
-        entries.push({
-          kind: 'topo',
-          label,
-          uid: e.uid,
-          createdAt: e.createdAt,
-        })
+      entries.push({ kind: 'topo', label, note: t('tools.uploaded'), uid: p.uid, createdAt: p.createdAt })
+      addVersions('topo', label, topo.edits[p.id])
     })
   }
   entries.sort((a, b) => b.createdAt - a.createdAt)

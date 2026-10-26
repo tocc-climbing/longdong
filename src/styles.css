@@ -354,6 +354,20 @@ main {
   font-size: 0.9rem;
 }
 
+/* 修改模式（電腦版）蓋滿整個視窗：「有新版本」浮在最上面 */
+.banner-over {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  box-shadow: 0 2px 12px rgba(16, 24, 28, 0.2);
+}
+
+.banner-over .banner {
+  background: var(--brand-soft);
+}
+
 /* 電腦版的中間欄自己捲動：「有新版本」固定在上方，捲下去也看得到 */
 .shell-main > .banner {
   position: sticky;

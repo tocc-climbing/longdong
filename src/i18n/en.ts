@@ -210,6 +210,8 @@ export const en: Messages = {
   'shape.versionDeleted': 'Deleted; the map is back to the previous version',
   'shape.confirmDeleteVersion': 'Delete this version? The map goes back to the previous one.',
   'shape.deleteVersion': 'Delete',
+  'shape.mergedCount': '{n} edits',
+  'shape.confirmDeleteGroup': 'Delete these {n} versions? It goes back to the previous editor’s version.',
   'shape.current': 'shown now',
   'shape.noVersions': 'No edits yet; showing the generated shape.',
   'shape.history': 'History ({n})',
