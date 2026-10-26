@@ -80,6 +80,13 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
   useEffect(() => {
     if (state && !state.dirty && target.startsWith('wall:') && !latest) load()
   }, [walls])
+  // 最新版本變了（刪除版本、別人提交、晚一點才讀到）而且沒有未提交的修改時，重新載入：
+  // 在這個 render 的 effect 裡呼叫，load 用的是最新的地圖與版本（不能在刪除版本的 callback 裡呼叫，那時的 load 還是舊的，會載回舊的形狀）。
+  // 提交中（dirty 還沒清掉）不會觸發：提交完成時形狀已經是剛提交的。
+  const latestId = shapes.versions[target]?.at(-1)?.id
+  useEffect(() => {
+    if (map && state && !state.dirty && !state.saving) load()
+  }, [latestId])
 
   const s = state ?? { rings: [], past: [], future: [], dirty: false, saving: false }
   const set = (patch: Partial<State>) => setState((x) => x && { ...x, ...patch })
@@ -112,7 +119,6 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
       setState((x) => (x && x.past.length ? { ...x, rings: x.past.at(-1)!, past: x.past.slice(0, -1), future: [x.rings, ...x.future], selected: undefined, dirty: true } : x)),
     redo: () =>
       setState((x) => (x && x.future.length ? { ...x, rings: x.future[0], future: x.future.slice(1), past: [...x.past, x.rings], selected: undefined, dirty: true } : x)),
-    reload: load,
     submit: async () => {
       if (!state) return
       set({ saving: true })

@@ -408,7 +408,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
         <h2>{item.label}</h2>
         <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : 'edit.trailTip')}</p>
         <NeedSignIn />
-        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v).then(m.actions.reload)} />
+        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
         <h2>{t('edit.shortcuts')}</h2>
         <dl className="edit-keys">
           {(
