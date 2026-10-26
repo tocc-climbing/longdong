@@ -3,6 +3,7 @@ import { GradePill } from '../components/GradePill'
 import type { Route } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { href, navigate } from '../router'
+import { BoltToggle, useShowBolts } from './BoltToggle'
 import { FULL_CROP, type Crop, type Marks, type TopoPhoto } from './model'
 import { fitSize, IDENTITY, moveView, type Pt, type Size, type View } from './viewport'
 import { px, TopoFrame, TopoLines } from './TopoView'
@@ -37,6 +38,8 @@ export function TopoFullscreen({
   const [stage, setStage] = useState<Size>({ w: 0, h: 0 })
   const [view, setView] = useState<View>(IDENTITY)
   const [selected, setSelected] = useState(initial)
+  const [showBolts] = useShowBolts()
+  const hasBolts = Object.values(marks).some((m) => Object.keys(m.bolts ?? {}).length > 0)
   const pointers = useRef(new Map<number, Pt>())
   const moved = useRef(0)
 
@@ -102,6 +105,7 @@ export function TopoFullscreen({
       <button type="button" className="topo-full-close" aria-label={t('layout.close')} onClick={onClose}>
         ×
       </button>
+      {hasBolts && <BoltToggle className="topo-bolt-toggle full" />}
       <div ref={stageRef} className="topo-full-stage" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         {stage.w > 0 && (
           <div
@@ -115,7 +119,7 @@ export function TopoFullscreen({
             }}
           >
             <TopoFrame photo={photo} crop={crop} alt="">
-              {(k) => <TopoLines photo={photo} marks={marks} labels={labels} k={k / view.scale} highlight={selected} onPick={setSelected} crop={crop} />}
+              {(k) => <TopoLines photo={photo} marks={marks} labels={labels} k={k / view.scale} highlight={selected} bolts={showBolts ? (selected ? [selected] : Object.keys(marks)) : []} onPick={setSelected} crop={crop} />}
             </TopoFrame>
           </div>
         )}

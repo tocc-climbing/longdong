@@ -4943,6 +4943,32 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   cursor: pointer;
 }
 
+.topo-bolt-toggle {
+  position: absolute;
+  top: 8px;
+  right: 60px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+
+.topo-bolt-toggle[aria-pressed='true'] {
+  background: #ff5a36;
+}
+
+/* 全螢幕：關閉按鈕在右上角，bolt 按鈕放在它左邊 */
+.topo-bolt-toggle.full {
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 1;
+}
+
 dialog.topo-full {
   width: 100%;
   max-width: none;
@@ -5116,8 +5142,127 @@ g.topo-route.link:is(:hover, :focus-visible) {
 
 /* 照片寬度以不超過視窗高度為準（直式照片也不用捲動）；--fit-aspect 是畫面上照片的寬高比，保留標題與操作說明的空間 */
 .topo-edit-photo .topo-zoom {
-  width: min(100%, max(280px, calc((100dvh - 170px) * var(--fit-aspect))));
+  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
   margin: 0 auto;
+}
+
+/* 照片上方的工具列：最常用的（復原、重做、移除最後一點）在最前面，再來是工具；每顆按鈕都標示快捷鍵 */
+.topo-edit-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 0 auto 8px;
+  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
+}
+
+.topo-tool-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.topo-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.topo-tool:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.topo-tool[aria-pressed='true'] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  font-weight: 600;
+}
+
+.topo-tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.topo-tool kbd,
+.topo-edit-subbar kbd,
+.topo-keys kbd {
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.topo-edit-subbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 auto 8px;
+  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
+}
+
+.topo-edit-subbar .topo-positions {
+  margin: 0;
+}
+
+.topo-edit-hint {
+  margin: 8px auto 0;
+  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+  font-size: 0.875rem;
+}
+
+.topo-help,
+.topo-keys {
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--border);
+  padding: 8px 12px;
+  font-size: 0.875rem;
+}
+
+.topo-help summary,
+.topo-keys summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.topo-help ol {
+  margin: 8px 0 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 4px;
+}
+
+.topo-keys dl {
+  margin: 8px 0 0;
+  display: grid;
+  gap: 4px;
+}
+
+.topo-keys dl > div {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.topo-keys dd {
+  margin: 0;
 }
 
 .topo-edit-photo svg.editing {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useIsAdmin } from '../admin'
 import { GradePill } from '../components/GradePill'
 import { SignInPrompt } from '../components/SignInPrompt'
@@ -64,6 +64,15 @@ export function TopoEditor({ data, id, embedded }: { data: LoadedData; id: strin
   )
 }
 
+/** 工具列的小圖示（24 格的線條圖） */
+function Icon({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  )
+}
+
 type Mode = 'line' | 'bolt' | 'crop'
 
 /** 切換工具的快捷鍵 */
@@ -116,7 +125,11 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  // 復原／重做：每個修改前的內容；改了畫面（按鈕可不可以按）要重新繪製，所以另外記一個計數
   const undo = useRef<Content[]>([])
+  const redo = useRef<Content[]>([])
+  const [, setHistoryTick] = useState(0)
+  const tick = () => setHistoryTick((n) => n + 1)
 
   const shown = preview ?? draft ?? latest
   const marks = shown?.marks ?? {}
@@ -147,37 +160,95 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   /** 目前可修改的內容：草稿，沒有草稿時是最新版本 */
   const base = (): Content => ({ marks: draft?.marks ?? latest?.marks ?? {}, crop: draft ? draft.crop : latest?.crop })
   const commit = (next: Content) => setDraft({ base: draft?.base ?? latest?.id, ...next })
+  /** 修改前記一個復原點，清掉重做 */
+  const record = (before: Content) => {
+    undo.current.push(before)
+    redo.current = []
+    tick()
+  }
+  const clearHistory = () => {
+    undo.current = []
+    redo.current = []
+    tick()
+  }
+  const undoOnce = () => {
+    const prev = undo.current.pop()
+    if (!prev || preview) return
+    redo.current.push(base())
+    commit(prev)
+    tick()
+  }
+  const redoOnce = () => {
+    const next = redo.current.pop()
+    if (!next || preview) return
+    undo.current.push(base())
+    commit(next)
+    tick()
+  }
+  /** 選一條路線（換路線時取消正在進行的分岔、bolt 位置的選擇） */
+  const pick = (id: string) => {
+    setSelected(id)
+    setBoltPos(undefined)
+    setForking(false)
+  }
   /** 修改選取的路線；第一次修改時以最新版本為基礎建立草稿 */
   const edit = (change: (m: RouteMarks) => RouteMarks) => {
     if (!selected) return
     const { marks: before, crop: keep } = base()
-    undo.current.push({ marks: before, crop: keep })
+    record({ marks: before, crop: keep })
     const next = { ...before, [selected]: change(before[selected] ?? {}) }
     if (!next[selected].line?.length && !Object.keys(next[selected].bolts ?? {}).length) delete next[selected]
     commit({ marks: next, crop: keep })
   }
   /** 修改裁切；拖曳開始時記一次復原點（record），之後只更新草稿 */
-  const setCrop = (next: Crop, record = false) => {
+  const setCrop = (next: Crop, recordUndo = false) => {
     const before = base()
-    if (record) undo.current.push(before)
+    if (recordUndo) record(before)
     commit({ marks: before.marks, crop: isFullCrop(next) ? undefined : next })
+  }
+
+  /** 移除最後一點（線段模式）：畫錯了常用，比復原更直接 */
+  const removeLast = () => {
+    if (preview || mode !== 'line' || !current.line?.length) return
+    edit((m) => ({ ...m, line: m.line!.slice(0, -1) }))
+  }
+  /** 上一條、下一條路線（依清單的順序） */
+  const stepRoute = (delta: number) => {
+    const i = routes.findIndex((r) => r.id === selected)
+    const next = routes[Math.min(routes.length - 1, Math.max(0, (i < 0 ? (delta > 0 ? -1 : routes.length) : i) + delta))]
+    if (next) pick(next.id)
   }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !preview) {
-        const prev = undo.current.pop()
-        if (!prev) return
+      const el = e.target as HTMLElement
+      // 在輸入框裡打字、焦點在按鈕（Enter、空白鍵留給它）時，不當作快捷鍵
+      if (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
+      const key = e.key.toLowerCase()
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && key === 'z') {
         e.preventDefault()
-        commit(prev)
-      } else if (e.key === 'Escape') {
+        if (e.shiftKey) redoOnce()
+        else undoOnce()
+      } else if (mod && key === 'y') {
+        e.preventDefault()
+        redoOnce()
+      } else if (mod || e.altKey || preview) {
+        return
+      } else if (key === 'escape') {
         setForking(false)
-      } else if (e.key === 'Enter' && mode === 'crop' && !preview && !(e.target as HTMLElement).closest('button, a, input, textarea, select')) {
+      } else if (key === 'enter' && mode === 'crop' && !el.closest('button, a')) {
         setMode('line')
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !preview && e.key.toLowerCase() === 'f') {
+      } else if (key === 'backspace' || key === 'delete') {
+        e.preventDefault()
+        removeLast()
+      } else if (key === 'arrowup' || key === 'arrowdown') {
+        e.preventDefault()
+        stepRoute(key === 'arrowup' ? -1 : 1)
+      } else if (key === 'f') {
         setForking((on) => !on)
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !preview && MODE_KEYS[e.key.toLowerCase()]) {
-        const next = MODE_KEYS[e.key.toLowerCase()]
+      } else if (MODE_KEYS[key]) {
+        const next = MODE_KEYS[key]
         if (next === 'bolt' && positions.length === 0) return
         setMode(next)
       }
@@ -237,7 +308,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
     try {
       await submitEdit(photo.id, draft!.marks, draft!.crop)
       setDraft(undefined)
-      undo.current = []
+      clearHistory()
       setSaved(true)
       // 裁切模式顯示的是整張照片，提交後回到線段模式才看得到裁切的結果
       setMode((m) => (m === 'crop' ? 'line' : m))
@@ -251,7 +322,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
   const discard = () => {
     if (!confirm(t('topo.confirmDiscard'))) return
     setDraft(undefined)
-    undo.current = []
+    clearHistory()
   }
 
   const deleteEdit = async (e: TopoEdit) => {
@@ -355,9 +426,87 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
       </g>
     )
 
+  /** 目前這一步該做什麼（照片下面的一行提示，隨工具與進度換） */
+  const hint = preview
+    ? undefined
+    : mode === 'crop'
+      ? t('topo.hint.crop')
+      : isForking
+        ? t('topo.hint.fork')
+        : !route
+          ? t('topo.hint.pickRoute')
+          : mode === 'bolt'
+            ? placing
+              ? t('topo.hint.bolt', { pos: placing })
+              : t('topo.hint.boltDone')
+            : current.line?.length
+              ? t('topo.hint.lineMore')
+              : t('topo.hint.lineFirst')
+
+  /** 工具列的一顆按鈕：文字與快捷鍵（滑過去也顯示） */
+  const tool = (label: string, keys: string | undefined, onClick: () => void, opts: { pressed?: boolean; disabled?: boolean; icon?: ReactNode } = {}) => (
+    <button
+      type="button"
+      className="topo-tool"
+      aria-pressed={opts.pressed}
+      disabled={opts.disabled}
+      title={keys ? `${label}（${keys}）` : label}
+      aria-keyshortcuts={keys}
+      onClick={onClick}
+    >
+      {opts.icon}
+      <span>{label}</span>
+      {keys && <kbd>{keys}</kbd>}
+    </button>
+  )
+
   return (
     <div className="topo-edit-layout">
       <div className="topo-edit-photo" style={{ '--fit-aspect': fitAspect } as CSSProperties}>
+        {!preview && (
+          <div className="topo-edit-toolbar" role="toolbar" aria-label={t('topo.toolbar')}>
+            {/* 最常用的放最前面：復原、重做、移除最後一點 */}
+            <div className="topo-tool-group">
+              {tool(t('topo.undo'), 'Ctrl+Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
+              {tool(t('topo.redo'), 'Ctrl+Shift+Z', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
+              {mode === 'line' && tool(t('topo.removeLast'), 'Backspace', removeLast, { disabled: !current.line?.length, icon: <Icon d="M21 5H9l-6 7 6 7h12zM17 9l-5 6M12 9l5 6" /> })}
+            </div>
+            <div className="topo-tool-group" role="group" aria-label={t('topo.tools')}>
+              {tool(t('topo.modeLine'), 'L', () => setMode('line'), { pressed: mode === 'line' })}
+              {tool('Bolt', 'B', () => setMode('bolt'), { pressed: mode === 'bolt', disabled: positions.length === 0 })}
+              {tool(t('topo.modeCrop'), 'C', () => setMode('crop'), { pressed: mode === 'crop' })}
+            </div>
+            {mode === 'line' && (
+              <div className="topo-tool-group">
+                {canFork && tool(isForking ? t('topo.forkPick') : t('topo.fork'), 'F', () => setForking((on) => !on), { pressed: isForking })}
+                {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !route || !marks[route.id] })}
+              </div>
+            )}
+          </div>
+        )}
+        {!preview && mode === 'bolt' && route && (
+          <div className="topo-edit-subbar">
+            <span className="muted small">{t('topo.boltPosition')}</span>
+            <div className="topo-positions">
+              {positions.map((p) => (
+                <button key={p} className={current.bolts?.[p] ? 'chip placed' : 'chip'} aria-pressed={p === placing} onClick={() => setBoltPos(p)}>
+                  {p}
+                </button>
+              ))}
+            </div>
+            {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !marks[route.id] })}
+          </div>
+        )}
+        {!preview && mode === 'crop' && (
+          <div className="topo-edit-subbar">
+            <button className="action primary" onClick={() => setMode('line')}>
+              {t('topo.cropDone')} <kbd>Enter</kbd>
+            </button>
+            <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
+              {t('topo.cropReset')}
+            </button>
+          </div>
+        )}
         <ZoomPane>
           {(zoom) => (
             <TopoFrame
@@ -381,7 +530,11 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
             </TopoFrame>
           )}
         </ZoomPane>
-        <p className="muted small">{t('topo.howTo')}</p>
+        {hint && (
+          <p className="topo-edit-hint" role="status">
+            {hint}
+          </p>
+        )}
       </div>
 
       <aside className="topo-edit-side">
@@ -391,7 +544,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
             <button
               className="action"
               onClick={() => {
-                undo.current.push(base())
+                record(base())
                 setDraft({ base: latest?.id, marks: preview.marks, ...(preview.crop ? { crop: preview.crop } : {}) })
                 setPreview(undefined)
               }}
@@ -418,49 +571,16 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         {changed && draft?.base !== latest?.id && <p className="small warn-text">{t('topo.newerVersion')}</p>}
         {error && <p className="small error">{error}</p>}
 
+        {/* 第一次使用：三個步驟（還沒有人標記過這張照片時展開，之後收起來） */}
         {!preview && (
-          <div className="topo-edit-tools">
-            <div className="segmented" role="group">
-              <button aria-selected={mode === 'line'} aria-keyshortcuts="L" onClick={() => setMode('line')}>
-                {t('topo.modeLine')}
-              </button>
-              <button aria-selected={mode === 'bolt'} aria-keyshortcuts="B" onClick={() => setMode('bolt')} disabled={positions.length === 0}>
-                Bolt
-              </button>
-              <button aria-selected={mode === 'crop'} aria-keyshortcuts="C" onClick={() => setMode('crop')}>
-                {t('topo.modeCrop')}
-              </button>
-            </div>
-            {mode === 'crop' && (
-              <div className="topo-crop-actions">
-                <button className="action primary" onClick={() => setMode('line')}>
-                  {t('topo.cropDone')}
-                </button>
-                <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
-                  {t('topo.cropReset')}
-                </button>
-              </div>
-            )}
-            {canFork && (
-              <button className="link-button" aria-pressed={isForking} aria-keyshortcuts="F" onClick={() => setForking((on) => !on)}>
-                {isForking ? t('topo.forkPick') : t('topo.fork')}
-              </button>
-            )}
-            {mode === 'bolt' && route && (
-              <div className="topo-positions">
-                {positions.map((p) => (
-                  <button key={p} className={current.bolts?.[p] ? 'chip placed' : 'chip'} aria-pressed={p === placing} onClick={() => setBoltPos(p)}>
-                    {p}
-                  </button>
-                ))}
-              </div>
-            )}
-            {mode !== 'crop' && route && (
-              <button className="link-button" disabled={!marks[route.id]} onClick={() => edit(() => ({}))}>
-                {t('topo.clearRoute')}
-              </button>
-            )}
-          </div>
+          <details className="topo-help" open={!latest && !draft}>
+            <summary>{t('topo.help.title')}</summary>
+            <ol>
+              <li>{t('topo.help.1')}</li>
+              <li>{t('topo.help.2')}</li>
+              <li>{t('topo.help.3')}</li>
+            </ol>
+          </details>
         )}
 
         <ul className="topo-route-list">
@@ -470,12 +590,7 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
             const total = boltPositions(r).length
             return (
               <li key={r.id}>
-                <button className={`topo-route-row${r.id === selected ? ' on' : ''}`} onClick={() => {
-                    setSelected(r.id)
-                    setBoltPos(undefined)
-                    setForking(false)
-                  }}
-                >
+                <button className={`topo-route-row${r.id === selected ? ' on' : ''}`} onClick={() => pick(r.id)}>
                   <span className="topo-route-no">{r.number ?? '·'}</span>
                   <span className="topo-route-name">{localName(r.name, lang).main}</span>
                   <GradePill grade={r.grade} value={r.gradeValue} size="sm" />
@@ -487,6 +602,38 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
             )
           })}
         </ul>
+
+        {/* 快捷鍵：常用的操作都有按鈕（照片上方），有經驗的人可以直接按鍵 */}
+        {!preview && (
+          <details className="topo-keys">
+            <summary>{t('topo.keys.title')}</summary>
+            <dl>
+              {(
+                [
+                  ['Ctrl+Z', t('topo.undo')],
+                  ['Ctrl+Shift+Z', t('topo.redo')],
+                  ['Backspace', t('topo.removeLast')],
+                  ['L / B / C', `${t('topo.modeLine')} / Bolt / ${t('topo.modeCrop')}`],
+                  ['F', t('topo.fork')],
+                  ['↑ / ↓', t('topo.keys.route')],
+                  ['Esc', t('topo.keys.cancel')],
+                  ['Enter', t('topo.cropDone')],
+                  [t('topo.keys.wheel'), t('topo.keys.zoom')],
+                  ['+ / − / 0', t('topo.keys.zoomKeys')],
+                  ['Space', t('topo.keys.pan')],
+                  [t('topo.keys.rightClick'), t('topo.keys.deletePoint')],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k}>
+                  <dt>
+                    <kbd>{k}</kbd>
+                  </dt>
+                  <dd>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        )}
 
         <section className="topo-history">
           <h2>{t('topo.history')}</h2>
