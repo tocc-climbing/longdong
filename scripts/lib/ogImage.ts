@@ -208,13 +208,13 @@ export function loadOgMap(dir: string): OgMap {
  * SVG 轉成 PNG，再畫上左下角的臺灣島。用 Skia（@napi-rs/canvas）：字型只載入一次，一張約 0.06 秒；
  * resvg 每張都要重新載入中文字型（約 0.3 秒，600 多張要好幾分鐘）。
  */
-export async function ogImagePng(svg: string): Promise<Buffer> {
+export async function ogImagePng(svg: string, markAt: { x: number; y: number } = MARK): Promise<Buffer> {
   toccImage ??= loadToccImage()
   const canvas = createCanvas(OG_SIZE.w, OG_SIZE.h)
   const ctx = canvas.getContext('2d')
   ctx.drawImage(await loadImage(Buffer.from(svg)), 0, 0)
   ctx.scale(ZOOM, ZOOM)
-  drawToccMark(ctx, await toccImage)
+  drawToccMark(ctx, await toccImage, markAt)
   return canvas.toBuffer('image/png')
 }
 
@@ -251,10 +251,10 @@ const TOCC_OUTLINE = [
 /** 左下角的臺灣島（TOCC 標誌中央的臺灣島與攀岩者）：左上角與高度 */
 const MARK = { x: 56, y: D.h - 32 - 60, h: 60 }
 /** 臺灣島＋攀岩者畫在 canvas 上（Skia 的 SVG 不畫內嵌的圖片，所以不放在 SVG 裡） */
-function drawToccMark(ctx: SKRSContext2D, image: Image) {
+function drawToccMark(ctx: SKRSContext2D, image: Image, at: { x: number; y: number }) {
   const k = MARK.h / TOCC_ISLAND.height
   ctx.save()
-  ctx.translate(MARK.x - TOCC_ISLAND.x * k, MARK.y - TOCC_ISLAND.y * k)
+  ctx.translate(at.x - TOCC_ISLAND.x * k, at.y - TOCC_ISLAND.y * k)
   ctx.scale(k, k)
   ctx.beginPath()
   TOCC_OUTLINE.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
@@ -377,13 +377,43 @@ export function mapPageSvg(map: OgMap, areaColors: Record<string, string>, stats
   return crag(map, areaColors, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '救援點 · 急救器材 · 離線可用')
 }
 
-/** 修改模式（/edit）的分享圖片：號召岩友一起修改；下半部是放大的黃金谷，範圍上有編輯用的頂點 */
+/** 修改模式（/edit）的分享圖片：整張是放大的黃金谷，範圍上有編輯用的頂點；文字壓在上方的淡色漸層上，標誌在右下角 */
 export function editPageSvg(map: OgMap, areaColors: Record<string, string>): string {
-  const body: string[] = []
-  const y = pageTitle(body, '一起修改龍洞', '你熟的岩場，你來補完')
-  body.push(`<text x="${MARK.x}" y="${mid(y + 24, 28)}" font-size="28" font-weight="700" fill="${C.text}">${rich('地圖 · Topo · 路線說明 · 保留每個版本')}</text>`)
-  return frame((box) => areaMap(map, 'golden-valley', areaColors, box, 0.5, 1.7, true), body, y + 48)
+  const { w, h } = D
+  const left = MARK.x
+  // 地圖框比畫面高：區域落在畫面中偏下，上方留給文字
+  const box: Box = { x: 0, y: 0, w, h: 1240, r: 0 }
+  const logo = EDIT_LOGO
+  const textRight = logo.right
+  const chips = ['地圖', 'Topo', '路線說明']
+  let x = left
+  const chipSvg = chips
+    .map((label) => {
+      const p = pill(x, 256, label, { size: 26, bg: '#ffffff', fg: C.text, bold: true, stroke: C.line })
+      x += p.w + 12
+      return p.svg
+    })
+    .join('')
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${OG_SIZE.w}" height="${OG_SIZE.h}" viewBox="0 0 ${w} ${h}" font-family="${ogFonts().latin}">` +
+    `<rect width="${w}" height="${h}" fill="${C.paper}"/>` +
+    areaMap(map, 'golden-valley', areaColors, box, 0.55, 2.3, true) +
+    `<defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.paper}" stop-opacity="0.97"/><stop offset="0.7" stop-color="${C.paper}" stop-opacity="0.9"/><stop offset="1" stop-color="${C.paper}" stop-opacity="0"/></linearGradient></defs>` +
+    `<rect width="${w}" height="400" fill="url(#fade)"/>` +
+    `<text x="${left}" y="124" font-size="84" font-weight="700" fill="${C.text}">${rich('龍洞動起來')}</text>` +
+    `<text x="${left}" y="188" font-size="34" font-weight="500" fill="${C.muted}">${rich('你的岩場，你來補完')}</text>` +
+    chipSvg +
+    `<text x="${left}" y="${mid(340, 26)}" font-size="26" font-weight="500" fill="${C.muted}">${rich('登入就能修改 · 保留每個版本')}</text>` +
+    `<rect x="${logo.x - 14}" y="${logo.y - 12}" width="${textRight - logo.x + 28}" height="${logo.h + 24}" rx="18" fill="${C.paper}" fill-opacity="0.92"/>` +
+    `<text x="${logo.x + 46}" y="${logo.y + logo.h - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>` +
+    holdMark(logo.x + 46 + textWidth('LongDong', 28) * 1.25 + 16, logo.y + logo.h - 30, 0.22, C.brand, C.paper) +
+    '</svg>'
+  )
 }
+
+/** 修改模式分享圖片的標誌（右下角）：x 是臺灣島的左緣，right 是右緣（含「LongDong」與岩點） */
+const EDIT_LOGO = { x: 0, y: D.h - 32 - 60, h: 60, right: D.w - 40 }
+EDIT_LOGO.x = EDIT_LOGO.right - (46 + textWidth('LongDong', 28) * 1.25 + 16 + 14)
 
 /** 網站本身（首頁，以及沒有自己分享圖片的頁面）的分享圖片：版面與地圖頁相同 */
 export function homePageSvg(map: OgMap, areaColors: Record<string, string>, stats: { areas: number; routes: number }): string {
@@ -467,3 +497,6 @@ function checklistPanel(area: Area, sector: Sector, box: Box): string {
     rows.join('')
   )
 }
+
+/** 修改模式分享圖片裡 TOCC 臺灣島的位置（右下角標誌的左上角） */
+export const editMarkAt = { x: EDIT_LOGO.x, y: EDIT_LOGO.y }

@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path'
 import { indexDataset } from '../src/data/dataset'
 import type { Dataset } from '../src/data/schema'
 import { sharePagePath } from '../src/share'
-import { checklistPageSvg, editPageSvg, findOgFonts, homePageSvg, loadOgMap, mapPageSvg, ogImagePng, ogImageSvg } from './lib/ogImage'
+import { checklistPageSvg, editMarkAt, editPageSvg, findOgFonts, homePageSvg, loadOgMap, mapPageSvg, ogImagePng, ogImageSvg } from './lib/ogImage'
 import { ogImagePath, pageShareHtml, sharePageHtml, siteShareHtml } from './lib/sharePages'
 import { SITE_URL } from './sheet.config'
 
@@ -60,9 +60,10 @@ if (map) {
     // 修改模式：/edit 與 /edit/**（firebase.json 的 rewrites）都用這一頁，號召岩友一起修改
     {
       path: 'edit',
-      title: '一起修改龍洞攀岩資料庫',
+      title: '龍洞動起來：一起修改龍洞攀岩資料庫',
       description: '對照航照修正地圖與步道、在岩壁照片上畫路線、補充路線說明；登入就能修改，每個版本都保留',
       svg: editPageSvg(map, areaColors),
+      markAt: editMarkAt,
     },
     {
       path: 'checklist',
@@ -71,8 +72,8 @@ if (map) {
       svg: checklistPageSvg(area, area.sectors[0]),
     },
   ]
-  for (const { svg, ...page } of pages) {
-    write(join('dist', 'og', `${page.path}.png`), await ogImagePng(svg))
+  for (const { svg, markAt, ...page } of pages) {
+    write(join('dist', 'og', `${page.path}.png`), await ogImagePng(svg, markAt))
     write(join('dist', `${page.path}.html`), pageShareHtml(page, site, shell))
   }
   // 最後才改 index.html：上面的分享頁都是拿原本的 index.html 來換
