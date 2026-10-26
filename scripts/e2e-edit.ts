@@ -104,7 +104,12 @@ async function clickCanvas(page: Page, points: [number, number][]) {
   for (const [fx, fy] of points) await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy)
 }
 const rings = (page: Page) => page.locator('.sm-edit-ring').count()
-const submitMap = (page: Page) => page.click('.edit-toolbar .edit-btn.primary')
+/** 提交並等畫面說完成（「已儲存」提示）：資料庫收到了、畫面也更新完才繼續，不然接著畫的會被儲存完成時的更新蓋掉 */
+async function submitMap(page: Page) {
+  await page.waitForSelector('.edit-toast', { state: 'detached', timeout: 10000 }).catch(() => {})
+  await page.click('.edit-toolbar .edit-btn.primary')
+  await page.waitForSelector('.edit-toast', { timeout: 15000 })
+}
 
 try {
   // ── 1. 回報 → 去識別副本（沒登入的裝置） ─────────────────────────────
