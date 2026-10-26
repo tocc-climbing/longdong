@@ -617,6 +617,18 @@
   stroke-dasharray: 6 4;
 }
 
+/* 畫多邊形時暫時封閉的區域：半透明填色，最後一點到起點是淡的虛線 */
+.sm-line path.sm-line-fill {
+  fill: color-mix(in srgb, var(--brand) 22%, transparent);
+  stroke: none;
+}
+.sm-line path.sm-line-close {
+  stroke: var(--brand);
+  stroke-width: 2px;
+  stroke-dasharray: 3 5;
+  opacity: 0.6;
+}
+
 .sm-line-vertex {
   fill: var(--brand);
   stroke: #ffffff;

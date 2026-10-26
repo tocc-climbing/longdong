@@ -149,7 +149,8 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
         onSelect: (selected) => set({ selected }),
       }
   const pick = s.drawing ? { onPick: (at: LatLng, metersPerPixel: number) => set({ drawing: [...s.drawing!, snap(at, metersPerPixel)] }) } : undefined
-  const draftLine: MapLine | undefined = s.drawing && { key: 'edit-draft', points: closed && s.drawing.length >= 3 ? [...s.drawing, s.drawing[0]] : s.drawing, draft: true }
+  // 多邊形還沒閉環：點本身不補起點，暫時封閉的區域由地圖用半透明顯示（MapLine.closed）
+  const draftLine: MapLine | undefined = s.drawing && { key: 'edit-draft', points: s.drawing, draft: true, closed }
 
   return {
     ready: !!state,

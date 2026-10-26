@@ -162,6 +162,8 @@ export interface MapLine {
   points: LatLng[]
   label?: string
   draft?: boolean
+  /** 正在畫多邊形：還沒閉環時，用半透明顯示暫時封閉的區域（3 點以上），最後一點到起點畫一條淡的虛線 */
+  closed?: boolean
   selected?: boolean
 }
 
@@ -586,8 +588,11 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             const pts = l.points.map((q) => screen(project(q)))
             const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')
             const mid = pts[Math.floor(pts.length / 2)]
+            const preview = l.draft && l.closed && pts.length >= 3
             return (
               <g key={l.key} className={`sm-line${l.draft ? ' draft' : ''}${l.selected ? ' selected' : ''}`}>
+                {preview && <path className="sm-line-fill" d={`${d}Z`} />}
+                {preview && <path className="sm-line-close" d={`M${pts[pts.length - 1][0].toFixed(1)} ${pts[pts.length - 1][1].toFixed(1)}L${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`} />}
                 {pts.length > 1 && <path className="sm-line-casing" d={d} />}
                 {pts.length > 1 && <path className="sm-line-stroke" d={d} />}
                 {l.draft && pts.map(([x, y], i) => <circle key={i} className="sm-line-vertex" cx={x} cy={y} r={4} />)}
