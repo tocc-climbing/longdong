@@ -384,12 +384,11 @@ export function editPageSvg(map: OgMap, areaColors: Record<string, string>): str
   // 地圖框比畫面高：區域落在畫面中偏下，上方留給文字
   const box: Box = { x: 0, y: 0, w, h: 1240, r: 0 }
   const logo = EDIT_LOGO
-  const textRight = logo.right
   const chips = ['地圖', 'Topo', '路線說明']
   let x = left
   const chipSvg = chips
     .map((label) => {
-      const p = pill(x, 256, label, { size: 26, bg: '#ffffff', fg: C.text, bold: true, stroke: C.line })
+      const p = pill(x, 262, label, { size: 26, bg: '#ffffff', fg: C.text, bold: true, stroke: C.line })
       x += p.w + 12
       return p.svg
     })
@@ -400,11 +399,10 @@ export function editPageSvg(map: OgMap, areaColors: Record<string, string>): str
     areaMap(map, 'golden-valley', areaColors, box, 0.55, 2.3, true) +
     `<defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.paper}" stop-opacity="0.97"/><stop offset="0.7" stop-color="${C.paper}" stop-opacity="0.9"/><stop offset="1" stop-color="${C.paper}" stop-opacity="0"/></linearGradient></defs>` +
     `<rect width="${w}" height="400" fill="url(#fade)"/>` +
-    `<text x="${left}" y="124" font-size="84" font-weight="700" fill="${C.text}">${rich('龍洞動起來')}</text>` +
-    `<text x="${left}" y="188" font-size="34" font-weight="500" fill="${C.muted}">${rich('你的岩場，你來補完')}</text>` +
+    `<text x="${left}" y="122" font-size="84" font-weight="700" fill="${C.text}">${rich('你的龍洞，')}</text>` +
+    `<text x="${left}" y="214" font-size="84" font-weight="700" fill="${C.text}">${rich('你來補完')}</text>` +
     chipSvg +
-    `<text x="${left}" y="${mid(340, 26)}" font-size="26" font-weight="500" fill="${C.muted}">${rich('登入就能修改 · 保留每個版本')}</text>` +
-    `<rect x="${logo.x - 14}" y="${logo.y - 12}" width="${textRight - logo.x + 28}" height="${logo.h + 24}" rx="18" fill="${C.paper}" fill-opacity="0.92"/>` +
+    `<text x="${left}" y="${mid(350, 26)}" font-size="26" font-weight="500" fill="${C.muted}">${rich('登入就能修改 · 保留每個版本')}</text>` +
     `<text x="${logo.x + 46}" y="${logo.y + logo.h - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>` +
     holdMark(logo.x + 46 + textWidth('LongDong', 28) * 1.25 + 16, logo.y + logo.h - 30, 0.22, C.brand, C.paper) +
     '</svg>'
@@ -413,7 +411,7 @@ export function editPageSvg(map: OgMap, areaColors: Record<string, string>): str
 
 /** 修改模式分享圖片的標誌（右下角）：x 是臺灣島的左緣，right 是右緣（含「LongDong」與岩點） */
 const EDIT_LOGO = { x: 0, y: D.h - 32 - 60, h: 60, right: D.w - 40 }
-EDIT_LOGO.x = EDIT_LOGO.right - (46 + textWidth('LongDong', 28) * 1.25 + 16 + 14)
+EDIT_LOGO.x = EDIT_LOGO.right - (46 + textWidth('LongDong', 28) * 1.25 + 16)
 
 /** 網站本身（首頁，以及沒有自己分享圖片的頁面）的分享圖片：版面與地圖頁相同 */
 export function homePageSvg(map: OgMap, areaColors: Record<string, string>, stats: { areas: number; routes: number }): string {
