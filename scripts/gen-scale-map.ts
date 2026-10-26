@@ -827,6 +827,8 @@ function clipToPage(points: Pt[]): Pt[][] {
   return pieces
 }
 const lines = (list: Shape[], transform = warp) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).flatMap(clipToPage).map((p) => line(p, SIMPLIFY_M, transform)))
+/** [經度, 緯度] 在不在地圖資料範圍裡（src/map/extent.ts） */
+const inExtentBox = ([x, y]: Pt) => x >= EXTENT_LATLNG.west && x <= EXTENT_LATLNG.east && y >= EXTENT_LATLNG.south && y <= EXTENT_LATLNG.north
 /** 頁框外補上的 OpenStreetMap 資料（見下方 outerLand 等；停車場的範圍也用它） */
 const osmExtent = JSON.parse(readFileSync(new URL('./data/osm-extent.json', import.meta.url), 'utf8')) as Record<'coastline' | 'building' | 'highway' | 'road' | 'trail' | 'parking', Pt[][]>
 /**
@@ -878,7 +880,7 @@ const parkingLots = parking.map((center, i) => {
  * 其他 OSM 停車場（頁框外）只畫範圍，不畫 P 字。
  */
 const PARKING_MATCH_M = 15
-const osmParking = osmExtent.parking.map((r) => r.map(toMeters))
+const osmParking = osmExtent.parking.filter((r) => r.some(([lat, lng]) => inExtentBox([lng, lat]))).map((r) => r.map(toMeters))
 const centroidOf = (r: Pt[]): Pt => [r.reduce((sum, p) => sum + p[0], 0) / r.length, r.reduce((sum, p) => sum + p[1], 0) / r.length]
 const matchedParking = new Set<number>()
 const parkingShapes = parkingLots.map((lot) => {
@@ -1015,7 +1017,6 @@ function inPolygon([x, y]: Pt, poly: Pt[]): boolean {
   return hit
 }
 const inPage = (p: Pt) => inPolygon(p, pageOutline)
-const inExtentBox = ([x, y]: Pt) => x >= EXTENT_LATLNG.west && x <= EXTENT_LATLNG.east && y >= EXTENT_LATLNG.south && y <= EXTENT_LATLNG.north
 /** 沒有對到救援資訊圖停車場、在頁框外的 OSM 停車場（只畫範圍） */
 const otherParking = osmParking.filter((r, k) => !matchedParking.has(k) && !inPage(metersToLngLat(centroidOf(r))))
 /** [經度, 緯度] → 公尺 */

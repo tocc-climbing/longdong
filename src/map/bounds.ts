@@ -9,10 +9,8 @@ const PADDING_M = { west: 80, east: 220, north: 200, south: 40 }
 
 /** 有座標的救援點（地圖座標） */
 export const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ key: p.key, no: p.no, at: project(p.coords!) }))
-/** 範圍另外包含：台二線往北的鼻頭隧道與鼻頭路口（地圖上的台二線延伸到這裡，見 scripts/gen-scale-map.ts） */
-const EXTRA: [number, number][] = [project([25.12237, 121.91614])]
-const xs = [...located.map((p) => p.at[0]), ...EXTRA.map((p) => p[0])]
-const ys = [...located.map((p) => p.at[1]), ...EXTRA.map((p) => p[1])]
+const xs = located.map((p) => p.at[0])
+const ys = located.map((p) => p.at[1])
 
 /** 地圖資料的範圍（地圖座標，見 extent.ts）：航照與 OpenStreetMap 補上的陸地、道路畫到這裡 */
 export const EXTENT: Rect = (() => {
@@ -27,15 +25,6 @@ export const BOUNDS: Rect = {
   w: Math.max(...xs) - Math.min(...xs) + PADDING_M.west + PADDING_M.east,
   h: Math.max(...ys) - Math.min(...ys) + PADDING_M.north + PADDING_M.south,
   maxW: EXTENT.w,
-}
-
-/** 救援點（不含往北到鼻頭隧道的延伸）周圍：岩場與龍洞街一帶，離線航照最清楚的層級只下載這裡 */
-const crag = { ys: located.map((p) => p.at[1]) }
-export const CRAG_AREA: Rect = {
-  x: BOUNDS.x,
-  y: Math.min(...crag.ys) - PADDING_M.north,
-  w: BOUNDS.w,
-  h: Math.max(...crag.ys) - Math.min(...crag.ys) + PADDING_M.north + PADDING_M.south,
 }
 
 /** 縮到最小時左右的中心：岩場（校門口到後門的救援點） */

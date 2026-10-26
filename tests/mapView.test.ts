@@ -117,12 +117,12 @@ describe('地圖範圍', () => {
     expect(inMapBounds([25.0478, 121.517])).toBe(false)
   })
 
-  it('資料範圍：移動範圍東西各多 1.4 公里以上、南邊多 0.9 公里以上、北邊多 0.4 公里以上；畫面最寬就是資料範圍的寬', async () => {
+  it('資料範圍：移動範圍四周各多 500 公尺以上；畫面最寬就是資料範圍的寬', async () => {
     const { BOUNDS, EXTENT } = await import('../src/map/bounds')
-    expect(BOUNDS.x - EXTENT.x).toBeGreaterThan(1400)
-    expect(EXTENT.x + EXTENT.w - (BOUNDS.x + BOUNDS.w)).toBeGreaterThan(1400)
-    expect(BOUNDS.y - EXTENT.y).toBeGreaterThan(400)
-    expect(EXTENT.y + EXTENT.h - (BOUNDS.y + BOUNDS.h)).toBeGreaterThan(900)
+    expect(BOUNDS.x - EXTENT.x).toBeGreaterThan(500)
+    expect(EXTENT.x + EXTENT.w - (BOUNDS.x + BOUNDS.w)).toBeGreaterThan(500)
+    expect(BOUNDS.y - EXTENT.y).toBeGreaterThan(500)
+    expect(EXTENT.y + EXTENT.h - (BOUNDS.y + BOUNDS.h)).toBeGreaterThan(500)
     expect(BOUNDS.maxW).toBe(EXTENT.w)
   })
 
