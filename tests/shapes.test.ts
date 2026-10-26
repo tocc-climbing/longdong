@@ -84,3 +84,29 @@ describe('套上編輯的最新版本', () => {
     expect(out.lineLayers).toBe(base.lineLayers)
   })
 })
+
+describe('提交前整理（合併多餘的點）', () => {
+  it('幾乎在一條直線上、靠得很近的點刪掉；轉角留下', async () => {
+    const { tidyShapes } = await import('../src/edit/useMapItem')
+    // 一條往東 30 公尺再往北的線：中間夾著幾乎共線（偏 0.1 公尺）與重複的點
+    const line: [number, number][] = [
+      [25.11, 121.92],
+      [25.110001, 121.9201],
+      [25.110001, 121.920101],
+      [25.11, 121.9203],
+      [25.1103, 121.9203],
+    ]
+    const [out] = tidyShapes([line], false)
+    expect(out).toEqual([line[0], line[3], line[4]])
+  })
+
+  it('整理後點數不夠（例如很小的三角形）就保留原樣', async () => {
+    const { tidyShapes } = await import('../src/edit/useMapItem')
+    const tiny: [number, number][] = [
+      [25.11, 121.92],
+      [25.110001, 121.920001],
+      [25.110002, 121.92],
+    ]
+    expect(tidyShapes([tiny], true)[0]).toEqual(tiny)
+  })
+})

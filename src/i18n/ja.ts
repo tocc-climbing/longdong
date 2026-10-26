@@ -160,6 +160,7 @@ export const ja: Messages = {
   'shape.removeRing': '選択中を削除',
   'shape.save': '投稿',
   'shape.saved': '新しい版を投稿しました。全員の地図に反映されます',
+  'shape.savedMerged': '新しい版を投稿しました（余分な点 {n} 個を自動で統合）。全員の地図に反映されます',
   'shape.saveFailed': '保存できませんでした：{error}',
   'shape.confirmDiscard': '保存していない変更を破棄しますか？',
   'edit.title': '編集モード',

@@ -29,7 +29,7 @@ export interface Size {
 type Vec = [number, number]
 
 /** 放到最大時每像素幾公尺 */
-export const MIN_SCALE = 0.1
+export const MIN_SCALE = 0.05
 
 const rotate = ([x, y]: Vec, a: number): Vec => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]
 

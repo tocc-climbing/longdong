@@ -156,6 +156,7 @@ export const en: Messages = {
   'shape.removeRing': 'Delete selected',
   'shape.save': 'Submit',
   'shape.saved': "New version submitted. Everyone's map will update.",
+  'shape.savedMerged': "New version submitted ({n} redundant points merged). Everyone's map will update.",
   'shape.saveFailed': "Couldn't save: {error}",
   'shape.confirmDiscard': 'Discard unsaved changes?',
   'edit.title': 'Edit mode',

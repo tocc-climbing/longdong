@@ -154,6 +154,7 @@ export const zh = {
   'shape.removeRing': '刪除選中的',
   'shape.save': '提交',
   'shape.saved': '已提交新版本，所有人的地圖都會更新',
+  'shape.savedMerged': '已提交新版本（自動合併了 {n} 個多餘的點），所有人的地圖都會更新',
   'shape.saveFailed': '儲存失敗：{error}',
   'shape.confirmDiscard': '放棄還沒儲存的修改？',
   'edit.title': '修改模式',

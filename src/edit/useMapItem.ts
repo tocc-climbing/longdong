@@ -12,6 +12,17 @@ const SIMPLIFY_M = 1.5
 const SNAP_PX = 12
 /** 復原最多記幾步 */
 const UNDO_LIMIT = 100
+/** 提交前合併的誤差（公尺）：幾乎在一條直線上、或靠得很近的點刪掉（約航照兩個像素，看不出差別） */
+const SUBMIT_SIMPLIFY_M = 0.5
+
+/** 提交前整理：每塊（每條）以 Douglas–Peucker 刪掉多餘的點；多邊形至少留三點、線段兩點，整理後不夠就保留原樣 */
+export function tidyShapes(shapes: LatLng[][], closed: boolean): LatLng[][] {
+  return shapes.map((r) => {
+    const pts = r.map(project)
+    const out = (closed ? simplifyRing(pts, SUBMIT_SIMPLIFY_M) : simplifyLine(pts, SUBMIT_SIMPLIFY_M)).map(unproject)
+    return out.length >= (closed ? 3 : 2) ? out : r
+  })
+}
 
 /** 點到線段上最近的位置（地圖座標） */
 function nearestOnSegment(p: [number, number], a: [number, number], b: [number, number]): [number, number] {
@@ -96,11 +107,13 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
       set({ saving: true })
       try {
         const { m, uid } = await withCloud()
-        const text = encodeShapes(state.rings)
+        const tidy = tidyShapes(state.rings, closed)
+        const merged = state.rings.flat().length - tidy.flat().length
+        const text = encodeShapes(tidy)
         await m.addMapEdit(uid, target, isLineTarget(target) ? { lines: text } : { rings: text })
         await loadMapShapes(true)
-        set({ saving: false, dirty: false })
-        onToast(t('shape.saved'))
+        set({ saving: false, dirty: false, rings: tidy, selected: undefined })
+        onToast(merged > 0 ? t('shape.savedMerged', { n: merged }) : t('shape.saved'))
       } catch (err) {
         set({ saving: false })
         onToast(t('shape.saveFailed', { error: (err as Error).message }))
