@@ -1,12 +1,12 @@
 import type { LatLng } from '../geo'
-import { BOUNDS } from './bounds'
+import { BOUNDS, EXTENT } from './bounds'
 import { project, unproject } from './mapData'
 import { toMap, type MapView, type Size } from './mapView'
 
 /**
  * 內政部國土測繪中心的臺灣通用正射影像（航照，WMTS 圖磚，政府資料開放授權，需標示出處）。
  * 圖磚以 CORS 載入（伺服器允許），Service Worker 存進 ORTHO_CACHE（vite.config.ts），看過的地方離線時照樣顯示；
- * 也可以一次下載整個地圖範圍（downloadOrtho）。
+ * 也可以一次下載整個地圖資料範圍（downloadOrtho）。
  */
 const TILE_URL = 'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}'
 /** 圖磚的縮放層級：z19 每像素約 0.27 公尺，再放大只是放大同一張照片 */
@@ -19,8 +19,8 @@ const BASE_Z = 16
 const EARTH_M = 2 * Math.PI * 6_378_137
 /** Service Worker 快取航照圖磚的 cache 名稱（同 vite.config.ts） */
 export const ORTHO_CACHE = 'ortho'
-/** 整個地圖範圍 z14–19 的圖磚實測大小（2026-10-26，544 張） */
-export const ORTHO_DOWNLOAD_MB = 6.4
+/** 離線下載的大小（2026-10-26 抽樣估計：z18–19 826 張平均 13.2 KB、z14–17 394 張平均 10.8 KB） */
+export const ORTHO_DOWNLOAD_MB = 15
 /** 下載整個範圍時同時抓幾張 */
 const DOWNLOAD_PARALLEL = 6
 
@@ -85,17 +85,24 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLev
   return [...(base ?? []), ...(coarse ?? []), ...(fine ?? [])]
 }
 
-/** 整個地圖範圍（BOUNDS）MIN_Z–MAX_Z 的所有圖磚 */
+/** 離線下載時，移動範圍（BOUNDS）以外、資料範圍（EXTENT）以內最細到這一層（每像素約 0.6 公尺，外圈放大看的機會少） */
+const OUTER_MAX_Z = 17
+
+/** 離線下載的圖磚：移動範圍 MIN_Z–MAX_Z，資料範圍 MIN_Z–OUTER_MAX_Z */
 export function orthoDownloadUrls(): string[] {
-  const [nw, se] = [unproject([BOUNDS.x, BOUNDS.y]), unproject([BOUNDS.x + BOUNDS.w, BOUNDS.y + BOUNDS.h])]
-  const urls: string[] = []
-  for (let z = MIN_Z; z <= MAX_Z; z++) {
-    const n = 2 ** z
-    for (let x = Math.floor(tileX(nw[1], n)); x <= Math.floor(tileX(se[1], n)); x++) {
-      for (let y = Math.floor(tileY(nw[0], n)); y <= Math.floor(tileY(se[0], n)); y++) urls.push(tileUrl(z, x, y))
+  const urls = new Set<string>()
+  const add = (r: typeof BOUNDS, maxZ: number) => {
+    const [nw, se] = [unproject([r.x, r.y]), unproject([r.x + r.w, r.y + r.h])]
+    for (let z = MIN_Z; z <= maxZ; z++) {
+      const n = 2 ** z
+      for (let x = Math.floor(tileX(nw[1], n)); x <= Math.floor(tileX(se[1], n)); x++) {
+        for (let y = Math.floor(tileY(nw[0], n)); y <= Math.floor(tileY(se[0], n)); y++) urls.add(tileUrl(z, x, y))
+      }
     }
   }
-  return urls
+  add(EXTENT, OUTER_MAX_Z)
+  add(BOUNDS, MAX_Z)
+  return [...urls]
 }
 
 /** 離線快取裡已經有幾張（整個範圍的圖磚中） */

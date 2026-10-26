@@ -1,13 +1,14 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import type { LatLng } from '../geo'
 import { get } from '../social/store'
-import { decodeLine, encodeLine } from './walls'
+import { decodeLine, encodeLine, useWalls } from './walls'
 
 /**
  * 地圖編輯（所有登入者，版本同 Topo）：每次提交都是一個新版本（完整的形狀，不是差異），保留所有版本；
  * 每個對象顯示最新的版本，刪掉它就回到前一版；沒有任何版本時用自動產生的（scripts/gen-scale-map.ts）。
  *   /v2/mapEdits/area:<大區域>/<版本>        { uid, createdAt, rings }   大區域的形狀
  *   /v2/mapEdits/sector:<分區 key>/<版本>    { uid, createdAt, rings }   分區的範圍（可以多塊；空字串表示沒有範圍）
+ *   /v2/mapEdits/wall:<分區 key>/<版本>      { uid, createdAt, lines }   分區的岩壁（沿著牆底的折線，可以多條；空字串表示沒有）
  *   /v2/mapEdits/<trails|highway|tunnel|road>/<版本>   { uid, createdAt, lines }   步道與攀岩者路徑、台二線、隧道、其他道路（各自整個路網）
  * 座標格式同岩壁標記（「緯度,經度」以空格分隔，小數 6 位）；多塊（多條）以「|」分隔。
  * 任何人都能讀（REST，Service Worker 快取最後一次讀到的，離線時照樣顯示）；本人與管理員可以刪除版本。
@@ -18,7 +19,9 @@ export const LINE_TARGETS = { trails: 'trail', highway: 'highway', tunnel: 'tunn
 export type LineTarget = keyof typeof LINE_TARGETS
 export const isLineTarget = (target: string): target is LineTarget => target in LINE_TARGETS
 
-export type EditTarget = `area:${string}` | `sector:${string}` | LineTarget
+export type EditTarget = `area:${string}` | `sector:${string}` | `wall:${string}` | LineTarget
+/** 線段（不封閉）的對象：步道、道路、岩壁 */
+export const isOpenTarget = (target: string) => isLineTarget(target) || target.startsWith('wall:')
 
 export interface MapEditVersion {
   id: string
@@ -33,6 +36,8 @@ export interface MapShapes {
   areas: Record<string, LatLng[][]>
   /** 分區的範圍（最新版本，每塊一筆） */
   sectors: { id: string; sector: string; ring: LatLng[] }[]
+  /** 有版本的分區 → 岩壁（最新版本）；沒有版本的分區用舊的岩壁標記（map/walls.ts） */
+  walls: Record<string, LatLng[][]>
   /** 步道、道路（最新版本）；沒有版本的不在裡面，用自動產生的 */
   lines: Partial<Record<LineTarget, LatLng[][]>>
   /** 每個對象的所有版本（舊到新） */
@@ -41,7 +46,9 @@ export interface MapShapes {
 
 /** 分區 ID（longdong/xxx）↔ 資料庫的 key（longdong:xxx，key 不能有 /） */
 export const sectorTarget = (sectorId: string): EditTarget => `sector:${sectorId.replace('/', ':')}`
-const sectorOf = (target: string) => target.slice('sector:'.length).replace(':', '/')
+export const wallTarget = (sectorId: string): EditTarget => `wall:${sectorId.replace('/', ':')}`
+/** sector:／wall: 對象 → 分區 ID */
+export const sectorOf = (target: string) => target.slice(target.indexOf(':') + 1).replace(':', '/')
 
 export const encodeShapes = (shapes: LatLng[][]) => shapes.map(encodeLine).join('|')
 const decodeShapesText = (text: string) => (text ? text.split('|').map(decodeLine) : [])
@@ -65,11 +72,12 @@ export function decodeMapEdits(raw: Stored | null): MapShapes {
       .filter((t) => t.startsWith('sector:'))
       .flatMap((t) => (latest(t) ?? []).map((ring, i) => ({ id: `${t}#${i}`, sector: sectorOf(t), ring }))),
     lines: Object.fromEntries(targets.filter(isLineTarget).map((t) => [t, latest(t)!])),
+    walls: Object.fromEntries(targets.filter((t) => t.startsWith('wall:') && latest(t)).map((t) => [sectorOf(t), latest(t)!])),
     versions,
   }
 }
 
-const EMPTY: MapShapes = { areas: {}, sectors: [], lines: {}, versions: {} }
+const EMPTY: MapShapes = { areas: {}, sectors: [], walls: {}, lines: {}, versions: {} }
 let state: MapShapes = EMPTY
 let loading: Promise<void> | undefined
 const listeners = new Set<() => void>()
@@ -126,4 +134,26 @@ export function simplifyRing(ring: [number, number][], tolerance: number): [numb
   const first = simplifyLine(open.slice(0, far + 1), tolerance)
   const second = simplifyLine([...open.slice(far), open[0]], tolerance)
   return [...first.slice(0, -1), ...second.slice(0, -1)]
+}
+
+/** 地圖上的一段岩壁（分區目前的版本） */
+export interface SectorWall {
+  key: string
+  sector: string
+  points: LatLng[]
+  /** 最後修改的人與時間 */
+  uid: string
+  createdAt: number
+}
+
+/** 各分區目前的岩壁：有版本的用最新版本，還沒有版本的用舊的岩壁標記（map/walls.ts，只有登入者讀得到） */
+export function useSectorWalls(): { walls: SectorWall[]; error?: string } {
+  const shapes = useMapShapes()
+  const { walls: legacy, error } = useWalls()
+  const edited = Object.entries(shapes.walls).flatMap(([sector, lines]) => {
+    const v = shapes.versions[wallTarget(sector)]!.at(-1)!
+    return lines.map((points, i) => ({ key: `${sector}#${i}`, sector, points, uid: v.uid, createdAt: v.createdAt }))
+  })
+  const old = legacy.filter((w) => !shapes.walls[w.sector]).map((w) => ({ key: w.id, sector: w.sector, points: w.points, uid: w.uid, createdAt: w.createdAt }))
+  return { walls: [...edited, ...old], error }
 }

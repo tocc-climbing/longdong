@@ -557,6 +557,7 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
   const RING = '25.112720,121.921450 25.112710,121.921600 25.112600,121.921500'
   const LINE = '25.112720,121.921450 25.112710,121.921600'
   const SECTOR = 'sector:longdong:school-gate-a1151r'
+  const WALL = 'wall:longdong:school-gate-a1151r'
   const rings = (uid: string, value = RING) => ({ uid, rings: value, createdAt: serverTimestamp() })
   const lines = (uid: string, value = LINE) => ({ uid, lines: value, createdAt: serverTimestamp() })
 
@@ -577,11 +578,16 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
     await assertSucceeds(push(mallory, 'v2/mapEdits/highway', lines('mallory')))
     await assertSucceeds(push(mallory, 'v2/mapEdits/tunnel', lines('mallory')))
     await assertSucceeds(push(mallory, 'v2/mapEdits/road', lines('mallory')))
+    await assertSucceeds(push(mallory, `v2/mapEdits/${WALL}`, lines('mallory', `${LINE}|${LINE}`)))
     await assertFails(push(guest, 'v2/mapEdits/area:clocktower', rings('alice')))
     await assertFails(push(mallory, 'v2/mapEdits/area:clocktower', rings('alice')))
   })
 
-  it('對象只能是 9 個大區域、分區 ID、步道與道路；多邊形至少三點、線段至少兩點；步道與道路用 lines、其他用 rings', async () => {
+  it('對象只能是 9 個大區域、分區 ID（範圍、岩壁）、步道與道路；多邊形至少三點、線段至少兩點；步道、道路與岩壁用 lines、其他用 rings', async () => {
+    await assertSucceeds(push(alice, `v2/mapEdits/${WALL}`, lines('alice', '')))
+    await assertFails(push(alice, 'v2/mapEdits/trails', lines('alice', '')))
+    await assertFails(push(alice, `v2/mapEdits/${WALL}`, rings('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/wall:x', lines('alice')))
     await assertFails(push(alice, 'v2/mapEdits/area:somewhere', rings('alice')))
     await assertFails(push(alice, 'v2/mapEdits/sector:x', rings('alice')))
     await assertFails(push(alice, 'v2/mapEdits/area:clocktower', rings('alice', LINE)))

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useIsAdmin } from '../admin'
 import { useWide } from '../layout'
 import { inMapBounds } from '../map/bounds'
 import { ScaleMap } from '../map/ScaleMap'
@@ -17,8 +16,7 @@ import { href, navigate } from '../router'
 import { areaNames, project, useScaleMap } from '../map/mapData'
 import { ORTHO_DOWNLOAD_MB, cachedOrthoCount, downloadOrtho, orthoDownloadUrls } from '../map/ortho'
 import { insideRing } from '../map/reportOptions'
-import { useWalls } from '../map/walls'
-import { withCloud } from '../personal/sync'
+import { useSectorWalls } from '../map/shapes'
 import { setSimulation, useSimulation } from '../simulate'
 import { displayName, useSocial } from '../social/store'
 import { ManualReportForm, WallDetails, sectorLabel } from './MapTools'
@@ -75,8 +73,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const [manualOpen, setManualOpen] = useState(false)
   const [selectedWall, setSelectedWall] = useState<string>()
   const wide = useWide()
-  const admin = useIsAdmin()
-  const { walls, error: wallsError } = useWalls()
+  const { walls, error: wallsError } = useSectorWalls()
   const { profiles } = useSocial()
   const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
   const sectorNames = Object.fromEntries([...data.sectorById].map(([id, { sector }]) => [id, localName(sector.name, lang).main]))
@@ -158,16 +155,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
     if (!simulated && (!navigator.onLine || (cloud.status === 'signed-in' && !cloud.connected))) setToast(t('map.queued'))
   }
 
-  const deleteWall = async (owner: string, id: string) => {
-    try {
-      const { m } = await withCloud()
-      await m.deleteWall(owner, id)
-      setSelectedWall(undefined)
-    } catch (err) {
-      setToast(t('wall.deleteFailed', { error: (err as Error).message }))
-    }
-  }
-
   const report = (note: string) => {
     if (!fix) return
     addMark({ ...fix, note, ...(draft.at ? { picked: draft.at } : {}) })
@@ -187,7 +174,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   }
 
   const pending = hasUnuploaded(records)
-  const wall = walls.find((w) => w.id === selectedWall)
+  const wall = walls.find((w) => w.key === selectedWall)
   const pick = picking
     ? { at: draft.at, onPick: (at: LatLng) => setDraft((d) => ({ ...d, at })) }
     : manualPicking
@@ -207,7 +194,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           pick={pick}
           ortho={ortho}
           lines={[
-            ...walls.map((w) => ({ key: w.id, points: w.points, label: sectorLabel(data, w.sector, lang), selected: w.id === selectedWall })),
+            ...walls.map((w) => ({ key: w.key, points: w.points, label: sectorLabel(data, w.sector, lang), selected: w.key === selectedWall })),
           ]}
           onLineTap={setSelectedWall}
           sectorNames={sectorNames}
@@ -364,13 +351,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
 
       <Sheet open={!!wall} onClose={() => setSelectedWall(undefined)} title={t('wall.title')}>
         {wall && (
-          <WallDetails
-            data={data}
-            wall={wall}
-            author={displayName(profiles, wall.uid)}
-            canDelete={wall.uid === uid || admin === true}
-            onDelete={() => void deleteWall(wall.uid, wall.id)}
-          />
+          <WallDetails data={data} wall={wall} author={displayName(profiles, wall.uid)} canEdit={wide && !!uid} />
         )}
       </Sheet>
 

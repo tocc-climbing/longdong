@@ -1,5 +1,6 @@
 import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
+import { EXTENT_LATLNG } from './extent'
 import { project } from './mapData'
 import type { Rect } from './mapView'
 
@@ -13,11 +14,19 @@ const EXTRA: [number, number][] = [project([25.12237, 121.91614])]
 const xs = [...located.map((p) => p.at[0]), ...EXTRA.map((p) => p[0])]
 const ys = [...located.map((p) => p.at[1]), ...EXTRA.map((p) => p[1])]
 
+/** 地圖資料的範圍（地圖座標，見 extent.ts）：航照與 OpenStreetMap 補上的陸地、道路畫到這裡 */
+export const EXTENT: Rect = (() => {
+  const [x0, y0] = project([EXTENT_LATLNG.north, EXTENT_LATLNG.west])
+  const [x1, y1] = project([EXTENT_LATLNG.south, EXTENT_LATLNG.east])
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+})()
+
 export const BOUNDS: Rect = {
   x: Math.min(...xs) - PADDING_M.west,
   y: Math.min(...ys) - PADDING_M.north,
   w: Math.max(...xs) - Math.min(...xs) + PADDING_M.west + PADDING_M.east,
   h: Math.max(...ys) - Math.min(...ys) + PADDING_M.north + PADDING_M.south,
+  maxW: EXTENT.w,
 }
 
 /** 縮到最小時左右的中心：岩場（校門口到後門的救援點） */

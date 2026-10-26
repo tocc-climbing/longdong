@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { withShapes, type ScaleMapData } from '../src/map/mapData'
-import { decodeMapEdits, encodeShapes, sectorTarget, simplifyRing } from '../src/map/shapes'
+import { decodeMapEdits, encodeShapes, isOpenTarget, sectorOf, sectorTarget, simplifyRing, wallTarget } from '../src/map/shapes'
 
 const RING: [number, number][] = [
   [25.11272, 121.92145],
@@ -32,6 +32,19 @@ describe('地圖編輯的版本', () => {
     expect(two.sectors.map((s) => s.sector)).toEqual(['longdong/school-gate-a1151r', 'longdong/school-gate-a1151r'])
     const cleared = decodeMapEdits({ [target]: { a: { uid: 'a', createdAt: 1, rings: encodeShapes([RING]) }, b: { uid: 'b', createdAt: 2, rings: '' } } })
     expect(cleared.sectors).toEqual([])
+  })
+
+  it('岩壁：分區的最新版本（線段，可以清空）；和分區範圍是不同的對象', () => {
+    const target = wallTarget('longdong/school-gate-a1151r')
+    expect(target).toBe('wall:longdong:school-gate-a1151r')
+    expect(sectorOf(target)).toBe('longdong/school-gate-a1151r')
+    expect(isOpenTarget(target)).toBe(true)
+    expect(isOpenTarget(sectorTarget('longdong/school-gate-a1151r'))).toBe(false)
+    const shapes = decodeMapEdits({ [target]: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([RING.slice(0, 2), OTHER.slice(0, 2)]) } } })
+    expect(shapes.walls['longdong/school-gate-a1151r']).toEqual([RING.slice(0, 2), OTHER.slice(0, 2)])
+    expect(shapes.sectors).toEqual([])
+    const cleared = decodeMapEdits({ [target]: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([RING.slice(0, 2)]) }, b: { uid: 'b', createdAt: 2, lines: '' } } })
+    expect(cleared.walls['longdong/school-gate-a1151r']).toEqual([])
   })
 
   it('步道與道路：有版本時用最新的線段，沒有的不在裡面（用自動產生的）', () => {

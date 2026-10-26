@@ -148,7 +148,8 @@
 .scale-map-legend {
   position: absolute;
   left: 12px;
-  bottom: var(--map-bottom, 16px);
+  /* 比例尺在上、版權在下 */
+  bottom: calc(var(--map-bottom, 16px) + 18px);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -163,9 +164,11 @@
 
 .sm-attribution {
   position: absolute;
-  /* 左下、比例尺上方：上方的按鈕（例如下載離線航照）換行時不會蓋到 */
-  bottom: calc(var(--map-bottom, 16px) + 26px);
+  /* 左下、比例尺下方 */
+  bottom: var(--map-bottom, 16px);
   left: 12px;
+  right: 72px;
+  width: fit-content;
   margin: 0;
   padding: 0 4px;
   border-radius: 4px;
@@ -218,6 +221,12 @@
 }
 .sm-land {
   fill: #efefef;
+}
+/* 航照模式的海：航照海面的平均顏色，資料範圍外（縮到最小再旋轉）也接得起來 */
+.sm-ortho,
+.sm-ortho .sm-sea {
+  background: #2c415a;
+  fill: #2c415a;
 }
 .sm-building {
   fill: #dcdddd;

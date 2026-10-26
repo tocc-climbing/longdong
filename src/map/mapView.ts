@@ -9,6 +9,8 @@ export interface Rect {
   y: number
   w: number
   h: number
+  /** 移動範圍用：畫面最寬幾公尺（地圖資料範圍的寬，見 bounds.ts）；寬螢幕縮到最小時左右不露出資料範圍外 */
+  maxW?: number
 }
 
 export interface MapView {
@@ -64,9 +66,10 @@ export function focusView(target: Rect, bounds: Rect, frame: Size): MapView {
 /**
  * 最多縮小到範圍的上下剛好填滿框：上下不會露出範圍外的空白（範圍外沒有地圖資料）；
  * 框比較窄（手機直拿）時左右放不下，左右拖曳即可（北方朝上時畫面左右緣同樣不超出範圍；框比範圍寬時左右置中）。
+ * 有 maxW 時畫面也不比它寬（很寬的螢幕上下就放不下，上下拖曳）。
  */
 export function maxScale(bounds: Rect, frame: Size): number {
-  return bounds.h / frame.h
+  return Math.min(bounds.h / frame.h, bounds.maxW ? bounds.maxW / frame.w : Infinity)
 }
 
 /** 縮放範圍：放到最大（MIN_SCALE）到整個範圍放進框裡 */

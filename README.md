@@ -152,7 +152,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 - 12 個對應點：隧道兩端、3 個停車場、台二線的轉彎
 - 沿台二線與海岸線（南邊海灣、北邊漁港）自動對應的取樣點
 
-OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetMap contributors，ODbL），地圖右上會標示出處。成果用內政部國土測繪中心的正射影像目視核對過；影像只用來核對，沒有從影像取資料。
+OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetMap contributors，ODbL），地圖左下會標示出處。救援資訊圖沒有畫到的地方（到 `src/map/extent.ts` 的資料範圍）直接用 OpenStreetMap 的陸地、建物、道路與步道補上（`scripts/data/osm-extent.json`，`npx tsx scripts/fetch-osm-extent.ts` 下載）。成果用內政部國土測繪中心的正射影像目視核對過；影像只用來核對，沒有從影像取資料。
 
 控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），打開就開始定位；
 第一次使用會說明地圖還在校正、可能有誤差。左上「回報」依目前位置列出附近的區域、救援點與標示（`src/map/reportOptions.ts`）；網頁在背景或螢幕關閉時無法定位，所以不記錄軌跡。
@@ -168,5 +168,5 @@ OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetM
 - 程式碼：[MIT](LICENSE)
 - TOCC 標誌與由其產生的 App 圖示（`assets/`、`public/icons/`）：屬臺灣戶外攀岩協會所有，不適用 MIT
 - 龍洞岩場救援資訊圖、由其產生的地圖資料（`public/rescue/`）、救援資訊（`src/data/rescue.ts`）：來自 TOCC 龍洞岩場救援計畫，屬臺灣戶外攀岩協會所有，不適用 MIT
-- 比例尺地圖的道路與海岸校正參考（`scripts/data/osm-reference.json`）：© OpenStreetMap contributors，[ODbL](https://opendatacommons.org/licenses/odbl/)
+- 比例尺地圖的道路與海岸校正參考（`scripts/data/osm-reference.json`）、救援資訊圖範圍外的陸地、建物、道路與步道（`scripts/data/osm-extent.json`）：© OpenStreetMap contributors，[ODbL](https://opendatacommons.org/licenses/odbl/)
 - 路線資料（`public/data/`）：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)，© 臺灣戶外攀岩協會（TOCC）固定點更新計畫

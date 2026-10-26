@@ -247,10 +247,6 @@ export function watchWalls(callback: (value: unknown) => void, onError: (err: Er
   return onValue(ref(db, 'v2/walls'), (snap) => callback(snap.val()), onError)
 }
 
-export function deleteWall(uid: string, id: string): Promise<void> {
-  return remove(ref(db, `v2/walls/${uid}/${id}`))
-}
-
 /* ---------- 地圖編輯（版本，見 map/shapes.ts；讀取走 REST） ---------- */
 
 /** 提交一個新版本：大區域、分區用 rings，步道用 lines（多塊以「|」分隔） */

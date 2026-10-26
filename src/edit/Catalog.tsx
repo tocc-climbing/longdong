@@ -108,7 +108,9 @@ export function useCatalog(data: LoadedData): { groups: Group[]; items: EditItem
   useEffect(() => {
     void loadPhotos()
   }, [])
-  const edited = (kind: EditKind, id: string) => (kind === 'map' ? !!shapes.versions[id]?.length : kind === 'text' ? !!texts[id]?.length : false)
+  // 分區的項目包含範圍與岩壁，任一個有版本就算修改過
+  const mapEdited = (id: string) => !!shapes.versions[id]?.length || (id.startsWith('sector:') && !!shapes.versions[`wall:${id.slice('sector:'.length)}`]?.length)
+  const edited = (kind: EditKind, id: string) => (kind === 'map' ? mapEdited(id) : kind === 'text' ? !!texts[id]?.length : false)
   const groups = buildCatalog(data, lang, t, edited, Object.values(topo.photos ?? {}).sort((a, b) => a.createdAt - b.createdAt))
   return { groups, items: groups.flatMap(allItems) }
 }

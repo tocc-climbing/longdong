@@ -6,7 +6,8 @@ import { LOCALES, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
-import { isLineTarget, loadMapShapes, type EditTarget, type MapEditVersion } from '../map/shapes'
+import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
+import { useWalls } from '../map/walls'
 import { useCloud, withCloud } from '../personal/sync'
 import { href, navigate, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
@@ -38,7 +39,10 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   const { t } = useLang()
   const wide = useWide()
   const { items } = useCatalog(data)
-  const item = kind && id ? items.find((i) => i.kind === kind && i.id === id) : undefined
+  // 分區的岩壁（/edit/map/wall:…）是分區項目的一部分：打開分區、切到岩壁
+  const wallPart = kind === 'map' && !!id?.startsWith('wall:')
+  const itemId = wallPart ? `sector:${id!.slice('wall:'.length)}` : id
+  const item = kind && itemId ? items.find((i) => i.kind === kind && i.id === itemId) : undefined
   const [dirty, setDirty] = useState(false)
   const [toast, setToast] = useState<string>()
   const [layout, setLayout] = useState(readLayout)
@@ -112,7 +116,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
         <p>{t('edit.desktopOnly')}</p>
       </section>
     ) : item.kind === 'map' ? (
-      <MapItemView key={item.id} item={item} {...props} />
+      <MapItemView key={item.id} item={item} {...props} initialPart={wallPart ? 'walls' : 'range'} />
     ) : (
       <TopoItemView key={item.id} item={item} data={data} />
     )
@@ -235,16 +239,54 @@ const typing = (e: KeyboardEvent) => {
   return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
 }
 
-/** 地圖項目：工具列（選取、新增、刪除、復原、重做、航照、提交）、地圖、右側面板（說明、修改紀錄、快捷鍵） */
-function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
+/**
+ * 地圖項目。分區有兩部分：範圍（多邊形）與岩壁（沿著牆底的折線），工具列左邊切換，各自有修改紀錄；
+ * 改範圍時岩壁畫在地圖上當參考，改岩壁時範圍照常顯示。
+ */
+function MapItemView({ initialPart, ...props }: ItemProps & { initialPart: 'range' | 'walls' }) {
+  const { t } = useLang()
+  const target = props.item.id as EditTarget
+  const [part, setPart] = useState(initialPart)
+  const [dirty, setDirty] = useState(false)
+  if (!target.startsWith('sector:')) return <MapEditor {...props} target={target} />
+  const switchTo = (next: 'range' | 'walls') => {
+    if (next === part || (dirty && !confirm(t('shape.confirmDiscard')))) return
+    setDirty(false)
+    props.onDirty(false)
+    setPart(next)
+  }
+  const parts = (
+    <div className="edit-segment">
+      {(['range', 'walls'] as const).map((p) => (
+        <button key={p} type="button" className={`edit-tool${part === p ? ' on' : ''}`} aria-pressed={part === p} onClick={() => switchTo(p)}>
+          {t(p === 'range' ? 'edit.partRange' : 'edit.partWalls')}
+        </button>
+      ))}
+    </div>
+  )
+  const onDirty = (d: boolean) => {
+    setDirty(d)
+    props.onDirty(d)
+  }
+  return <MapEditor key={part} {...props} onDirty={onDirty} target={part === 'range' ? target : wallTarget(sectorOf(target))} parts={parts} />
+}
+
+/** 地圖的編輯畫面：工具列（選取、新增、刪除、復原、重做、航照、提交）、地圖、右側面板（說明、修改紀錄、快捷鍵） */
+function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & { target: EditTarget; parts?: ReactNode }) {
   const { t } = useLang()
   const cloud = useCloud()
   const map = useScaleMap()
-  const target = item.id as EditTarget
+  const shapes = useMapShapes()
+  const { walls: legacyWalls } = useWalls()
   const m = useMapItem({ target, map: map.status === 'ok' ? map.data : undefined, onToast })
   const [ortho, setOrtho] = useState(true)
   const signedIn = cloud.status === 'signed-in'
   useEffect(() => onDirty(m.dirty), [m.dirty])
+  const isWall = target.startsWith('wall:')
+  const sector = target.startsWith('sector:') || isWall ? sectorOf(target) : undefined
+  /** 改分區範圍時，這個分區的岩壁畫在地圖上當參考 */
+  const referenceWalls =
+    sector && !isWall ? (shapes.walls[sector] ?? legacyWalls.filter((w) => w.sector === sector).map((w) => w.points)).map((points, i) => ({ key: `wall-${i}`, points })) : []
 
   // 快捷鍵（參考 iD、Figma）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、⌘Z／⌘⇧Z 復原／重做、⌘Enter 提交、A 航照
   useEffect(() => {
@@ -271,13 +313,16 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // 打開時放大到這個項目；分區還沒有範圍時放大到所在的大區域；步道看整個地圖
-  const focusArea = target.startsWith('sector:') ? data.sectorById.get(target.slice('sector:'.length).replace(':', '/'))?.area.id.split('/').pop() : undefined
+  // 打開時放大到這個項目；分區還沒有範圍（岩壁）時放大到分區範圍或所在的大區域；步道看整個地圖
+  const focusArea = sector ? data.sectorById.get(sector)?.area.id.split('/').pop() : undefined
+  const sectorRings = sector ? shapes.sectors.filter((s) => s.sector === sector).flatMap((s) => s.ring) : []
   const focus =
     m.ready && !isLineTarget(target)
       ? m.rings.length
         ? { key: target, coords: m.rings.flat() }
-        : focusArea && { key: target, area: focusArea }
+        : sectorRings.length
+          ? { key: target, coords: sectorRings }
+          : focusArea && { key: target, area: focusArea }
       : undefined
 
   const deleteVersion = async (version: string) => {
@@ -297,21 +342,23 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
       <kbd>{key}</kbd>
     </button>
   )
-  const addLabel = t(m.closed ? 'shape.add' : 'shape.addLine')
+  const addLabel = t(m.closed ? 'shape.add' : isWall ? 'shape.addWall' : 'shape.addLine')
+  const finishLabel = t(m.closed ? 'shape.finish' : isWall ? 'shape.finishWall' : 'shape.finishLine')
 
   return (
     <>
       <section className="edit-center">
         <div className="edit-toolbar">
+          {parts}
           <div className="edit-segment">
             {tool(!m.drawing, t('edit.select'), 'V', m.actions.cancel)}
             {tool(!!m.drawing, addLabel, 'N', m.actions.draw)}
           </div>
           {m.drawing ? (
             <>
-              <span className="edit-status">{t(m.closed ? 'shape.drawHint' : 'shape.drawLineHint', { n: m.drawing.length })}</span>
+              <span className="edit-status">{t(m.closed ? 'shape.drawHint' : isWall ? 'shape.drawWallHint' : 'shape.drawLineHint', { n: m.drawing.length })}</span>
               {tool(false, t('wall.undo'), '⌫', m.actions.undoPoint, m.drawing.length === 0)}
-              {tool(false, t(m.closed ? 'shape.finish' : 'shape.finishLine'), 'Enter', m.actions.finishDrawing, !m.canFinish)}
+              {tool(false, finishLabel, 'Enter', m.actions.finishDrawing, !m.canFinish)}
             </>
           ) : (
             <>
@@ -329,7 +376,17 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
         </div>
         <div className="edit-canvas">
           {map.status === 'ok' ? (
-            <ScaleMap map={map.data} areaNames={{}} marks={[]} ortho={ortho} hideAreas={isLineTarget(target)} edit={m.edit} pick={m.pick} lines={m.draftLine ? [m.draftLine] : []} focus={focus || undefined} />
+            <ScaleMap
+              map={map.data}
+              areaNames={{}}
+              marks={[]}
+              ortho={ortho}
+              hideAreas={isLineTarget(target)}
+              edit={m.edit}
+              pick={m.pick}
+              lines={[...referenceWalls, ...(m.draftLine ? [m.draftLine] : [])]}
+              focus={focus || undefined}
+            />
           ) : (
             <p className="muted edit-message">{map.status === 'error' ? map.message : t('app.loading')}</p>
           )}
@@ -337,16 +394,16 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
       </section>
       <aside className="edit-panel">
         <h2>{item.label}</h2>
-        <p className="muted small">{t(m.closed ? 'edit.mapTip' : target === 'trails' ? 'edit.trailTip' : 'edit.roadTip')}</p>
+        <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : target === 'trails' ? 'edit.trailTip' : 'edit.roadTip')}</p>
         <NeedSignIn />
-        <VersionList versions={m.versions} empty={t('shape.noVersions')} onDelete={(v) => void deleteVersion(v).then(m.actions.reload)} />
+        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v).then(m.actions.reload)} />
         <h2>{t('edit.shortcuts')}</h2>
         <dl className="edit-keys">
           {(
             [
               ['V', t('edit.select')],
               ['N', addLabel],
-              ['Enter', t(m.closed ? 'shape.finish' : 'shape.finishLine')],
+              ['Enter', finishLabel],
               ['Esc', t('edit.cancel')],
               ['Del', t('shape.removeRing')],
               ['⌘Z / ⌘⇧Z', `${t('edit.undo')} / ${t('edit.redo')}`],

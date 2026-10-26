@@ -3,7 +3,8 @@ import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { project, unproject, type ScaleMapData } from '../map/mapData'
 import type { MapEdit, MapLine } from '../map/ScaleMap'
-import { LINE_TARGETS, encodeShapes, isLineTarget, loadMapShapes, simplifyLine, simplifyRing, useMapShapes, type EditTarget } from '../map/shapes'
+import { LINE_TARGETS, encodeShapes, isLineTarget, isOpenTarget, loadMapShapes, sectorOf, simplifyLine, simplifyRing, useMapShapes, type EditTarget } from '../map/shapes'
+import { useWalls } from '../map/walls'
 import { withCloud } from '../personal/sync'
 
 /** 自動產生的形狀頂點很密，載入編輯時先簡化到這個誤差（公尺），比較容易拖曳 */
@@ -32,10 +33,14 @@ function nearestOnSegment(p: [number, number], a: [number, number], b: [number, 
   return [a[0] + t * dx, a[1] + t * dy]
 }
 
-/** 目前地圖上的形狀（最新版本或自動產生的，先簡化） */
-export function currentShapes(target: EditTarget, map: ScaleMapData | undefined, latest: LatLng[][] | undefined): LatLng[][] {
+/**
+ * 目前地圖上的形狀（最新版本或自動產生的，先簡化）；
+ * 岩壁還沒有版本時用舊的岩壁標記（legacyWalls：這個分區在地圖頁畫過的牆底線）。
+ */
+export function currentShapes(target: EditTarget, map: ScaleMapData | undefined, latest: LatLng[][] | undefined, legacyWalls: LatLng[][] = []): LatLng[][] {
   if (isLineTarget(target)) return (map?.lineLayers[LINE_TARGETS[target]] ?? []).map((l) => simplifyLine(l, SIMPLIFY_M / 2).map(unproject))
   if (target.startsWith('area:')) return (map?.areas.find((a) => a.id === target.slice(5))?.rings ?? []).map((r) => simplifyRing(r, SIMPLIFY_M).map(unproject))
+  if (target.startsWith('wall:')) return latest ?? legacyWalls
   return latest ?? []
 }
 
@@ -59,16 +64,22 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
   const shapes = useMapShapes()
   const [state, setState] = useState<State>()
   const latest = shapes.versions[target]?.at(-1)?.shapes
-  const closed = !isLineTarget(target)
+  const closed = !isOpenTarget(target)
+  const { walls } = useWalls()
+  const legacyWalls = target.startsWith('wall:') ? walls.filter((w) => w.sector === sectorOf(target)).map((w) => w.points) : []
 
   // 地圖資料載入後載入目前的形狀（換項目時元件重新建立，見 EditPage）
   const load = () => {
-    const rings = currentShapes(target, map, latest)
+    const rings = currentShapes(target, map, latest, legacyWalls)
     setState({ rings, selected: rings.length ? 0 : undefined, past: [], future: [], dirty: false, saving: false })
   }
   useEffect(() => {
     if (map && !state) load()
   }, [!!map])
+  // 舊的岩壁標記是之後才讀到的（即時資料）：還沒修改時跟著換
+  useEffect(() => {
+    if (state && !state.dirty && target.startsWith('wall:') && !latest) load()
+  }, [walls])
 
   const s = state ?? { rings: [], past: [], future: [], dirty: false, saving: false }
   const set = (patch: Partial<State>) => setState((x) => x && { ...x, ...patch })
@@ -76,9 +87,9 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
   const checkpoint = () => setState((x) => x && { ...x, past: [...x.past, x.rings].slice(-UNDO_LIMIT), future: [] })
   const change = (rings: LatLng[][], selected = s.selected) => setState((x) => x && { ...x, past: [...x.past, x.rings].slice(-UNDO_LIMIT), future: [], rings, selected, dirty: true })
 
-  /** 畫步道時接到既有路徑：離最近的線段 SNAP_PX 內（換算成公尺）就用線段上的那一點 */
+  /** 畫步道、道路時接到既有路徑：離最近的線段 SNAP_PX 內（換算成公尺）就用線段上的那一點；岩壁各段分開，不接 */
   const snap = (at: LatLng, metersPerPixel: number): LatLng => {
-    if (closed) return at
+    if (!isLineTarget(target)) return at
     const p = project(at)
     const best = s.rings
       .flatMap((r) => r.slice(1).map((b, i) => nearestOnSegment(p, project(r[i]), project(b))))
@@ -110,7 +121,7 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
         const tidy = tidyShapes(state.rings, closed)
         const merged = state.rings.flat().length - tidy.flat().length
         const text = encodeShapes(tidy)
-        await m.addMapEdit(uid, target, isLineTarget(target) ? { lines: text } : { rings: text })
+        await m.addMapEdit(uid, target, closed ? { rings: text } : { lines: text })
         await loadMapShapes(true)
         set({ saving: false, dirty: false, rings: tidy, selected: undefined })
         onToast(merged > 0 ? t('shape.savedMerged', { n: merged }) : t('shape.saved'))
@@ -148,7 +159,8 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
     canUndo: s.past.length > 0,
     canRedo: s.future.length > 0,
     canFinish: !!s.drawing && s.drawing.length >= minPoints,
-    canSubmit: s.dirty && !s.saving && (target.startsWith('sector:') || s.rings.length > 0),
+    // 分區範圍、岩壁可以全部刪掉（空字串）；大區域、步道、道路至少要有一塊
+    canSubmit: s.dirty && !s.saving && (target.startsWith('sector:') || target.startsWith('wall:') || s.rings.length > 0),
     versions: shapes.versions[target] ?? [],
     actions,
   }

@@ -13,6 +13,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { getDocument, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { EMS_LOCATIONS, RESCUE_POINTS } from '../src/data/rescue'
+import { EXTENT_LATLNG } from '../src/map/extent'
+import { coastLand } from './lib/coastLand'
 
 /** 2026 年 7 月版的頁面大小（點）；版面不同時停下來，避免用舊的控制點與圖形分類 */
 const PAGE_SIZE = [1836.85, 2607.87]
@@ -976,33 +978,74 @@ const bitouRoads = [
   osmReference.bitou.beyond.map(lngLat),
 ]
 const bitouTunnel = osmReference.bitou.tunnel.map(lngLat)
-/** 龍洞灣西岸到鼻頭的陸地：OSM 海岸線龍洞岬以西、最西點之後的一段（陸地在海岸線的左側），往西北圍起來 */
-const northCoast = (() => {
-  const coast = osmReference.coastline[0]
-  const north = coast.map((p, i) => ({ p, i })).filter(({ p }) => p[0] > 25.1115)
-  const west = north.reduce((a, b) => (b.p[1] < a.p[1] ? b : a))
-  return coast.slice(west.i)
-})()
-/** 圍起來的範圍：往北到 north、往西到 west；南邊往下蓋到 south，和救援資訊圖的陸地重疊（中間不留縫） */
-const NORTH_LAND_LIMIT = { north: 25.13, west: 121.9, south: 25.105 }
-const northLand: Pt[] = [
-  ...northCoast.map(lngLat),
-  [northCoast[northCoast.length - 1][1], NORTH_LAND_LIMIT.north],
-  [NORTH_LAND_LIMIT.west, NORTH_LAND_LIMIT.north],
-  [NORTH_LAND_LIMIT.west, NORTH_LAND_LIMIT.south],
-  [northCoast[0][1], NORTH_LAND_LIMIT.south],
-  lngLat(northCoast[0]),
-]
+/**
+ * 救援資訊圖沒有畫到的地方（到地圖資料範圍 src/map/extent.ts）用 OpenStreetMap 補上：陸地、建物、台二線、其他道路、步道
+ * （scripts/data/osm-extent.json，scripts/fetch-osm-extent.ts 下載）。
+ * 頁面的外框換算到實際位置（page）：救援資訊圖的陸地只畫在框裡（框外推出去的部分不是海岸），OSM 的陸地墊在底下
+ * （框裡救援資訊圖沒畫陸地的地方也補上）；建物與線只留框外的部分，在這裡就切開。
+ */
+const osmExtent = JSON.parse(readFileSync(new URL('./data/osm-extent.json', import.meta.url), 'utf8')) as Record<'coastline' | 'building' | 'highway' | 'road' | 'trail', Pt[][]>
+const pageOutline = ring([[0, 0], [PAGE_SIZE[0], 0], [PAGE_SIZE[0], PAGE_SIZE[1]], [0, PAGE_SIZE[1]], [0, 0]], SIMPLIFY_M, coastWarp)
+/** 點在不在多邊形裡（射線法，[經度, 緯度]） */
+function inPolygon([x, y]: Pt, poly: Pt[]): boolean {
+  let hit = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [a, b] = [poly[i], poly[j]]
+    if (a[1] > y !== b[1] > y && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) hit = !hit
+  }
+  return hit
+}
+const inPage = (p: Pt) => inPolygon(p, pageOutline)
+/** [經度, 緯度] → 公尺 */
+const lngLatToMeters = ([lng, lat]: Pt) => toMeters([lat, lng])
+/** OSM 線、陸地簡化的誤差（公尺）：OSM 本身的精度約 1–2 公尺 */
+const OUTER_SIMPLIFY_M = 0.5
+/** 切開線時每幾公尺一點 */
+const OUTER_STEP_M = 2
+/** 被頁框切斷、比這個短（公尺）的小段不要：頁框附近救援資訊圖已經畫了同一條路，只剩一小截看起來像斷掉的線頭 */
+const OUTER_MIN_CUT_M = 60
+/** 線（[經度, 緯度]）切成頁面外（keepInside 時頁面內）的各段：先每 OUTER_STEP_M 一點，跨過頁框的地方斷開 */
+function splitByPage(line: Pt[], keepInside: boolean): Pt[][] {
+  const pts = densify(line.map(lngLatToMeters), OUTER_STEP_M)
+  const out: Pt[][] = []
+  let run: Pt[] = []
+  const flush = () => {
+    const cut = run.length < pts.length
+    if (run.length > 1 && (!cut || (run.length - 1) * OUTER_STEP_M >= OUTER_MIN_CUT_M)) out.push(run)
+    run = []
+  }
+  for (const p of pts) {
+    if (inPage(metersToLngLat(p)) === keepInside) run.push(p)
+    else flush()
+  }
+  flush()
+  return out.map((l) => simplify(l, OUTER_SIMPLIFY_M).map(metersToLngLat))
+}
+const outerLines = (list: Pt[][]) => list.flatMap((l) => splitByPage(l.map(lngLat), false))
+const extentBox = { west: EXTENT_LATLNG.west, south: EXTENT_LATLNG.south, east: EXTENT_LATLNG.east, north: EXTENT_LATLNG.north }
+const outerLand = coastLand(osmExtent.coastline.map((l) => l.map(lngLat)), extentBox).map((r) => simplify(r.map(lngLatToMeters), OUTER_SIMPLIFY_M).map(metersToLngLat))
+/** 頁面外、範圍內的建物（以中心判斷） */
+const outerBuildings = osmExtent.building
+  .map((r) => r.map(lngLat))
+  .filter((r) => {
+    const c: Pt = [r.reduce((sum, p) => sum + p[0], 0) / r.length, r.reduce((sum, p) => sum + p[1], 0) / r.length]
+    return !inPage(c) && c[0] >= extentBox.west && c[0] <= extentBox.east && c[1] >= extentBox.south && c[1] <= extentBox.north
+  })
 
 const scaleMap = {
   type: 'FeatureCollection',
   source,
   features: [
     feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)), SIMPLIFY_M, coastWarp)])) }),
-    // 和救援資訊圖的陸地有重疊，分開一個圖層（同一個 evenodd 路徑裡重疊的地方會挖空）
-    feature({ kind: 'landNorth' }, { type: 'Polygon', coordinates: [northLand] }),
+    feature({ kind: 'page' }, { type: 'Polygon', coordinates: [pageOutline] }),
+    feature({ kind: 'outerLand' }, { type: 'MultiPolygon', coordinates: outerLand.map((r) => [r]) }),
+    feature({ kind: 'outerBuilding' }, { type: 'MultiPolygon', coordinates: outerBuildings.map((r) => [r]) }),
+    feature({ kind: 'outerHighway' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.highway) }),
+    feature({ kind: 'outerRoad' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.road) }),
+    feature({ kind: 'outerTrail' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.trail) }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
-    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoads] }),
+    // 往鼻頭的延伸只留頁面內的部分，頁面外是 outerHighway（同樣是 OSM 的台二線）
+    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoads.flatMap((l) => splitByPage(l, true))] }),
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: [...lines(highways.filter((s) => s.dashed), roadWarp), bitouTunnel] }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads, roadWarp) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),

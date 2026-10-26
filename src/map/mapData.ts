@@ -36,7 +36,7 @@ interface FeatureCollection {
 }
 
 export interface ScaleMapData {
-  /** kind → SVG path（land、landNorth、building、highway、tunnel、road、trail） */
+  /** kind → SVG path（land、building、highway、tunnel、road、trail；page 是救援資訊圖的頁框，outer… 是頁框外的 OpenStreetMap 資料） */
   layers: Record<string, string>
   markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */

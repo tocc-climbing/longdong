@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
-import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
+import { BOUNDS, CRAG_X, EXTENT, inBounds, located } from './bounds'
 import { project, unproject, type LineName, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
 import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
 import { placeLineNames } from './lineLabels'
@@ -366,8 +366,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     },
   }
   useMapGestures(box, gestures)
-  /** 道路、步道名稱的 textPath id（一頁可能有好幾個地圖） */
-  const nameId = useId()
+  /** 道路、步道名稱的 textPath、頁框與範圍的 clipPath 的 id（一頁可能有好幾個地圖；useId 可能含冒號，url(#…) 引用前去掉） */
+  const nameId = useId().replace(/[^a-zA-Z0-9_-]/g, '')
 
   // 航照的圖磚層級：縮放停下 ORTHO_SETTLE_MS 後才換（第一次直接用）
   const wantLevel = ortho && view ? orthoLevel(view, window.devicePixelRatio) : undefined
@@ -429,12 +429,23 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     <div className={`scale-map-frame${ortho ? ' sm-ortho' : ''}`} ref={box}>
       <svg width={frame.w} height={frame.h} role="img" aria-label={t('map.mapAria')}>
         <g transform={mapTransform(view, frame)}>
+          {/* OpenStreetMap 的陸地墊在底下（到資料範圍 EXTENT）；救援資訊圖的陸地只畫在它的頁框（page）裡；航照只畫在資料範圍裡 */}
+          <defs>
+            {map.layers.page && (
+              <clipPath id={`${nameId}-page`}>
+                <path d={map.layers.page} />
+              </clipPath>
+            )}
+            <clipPath id={`${nameId}-extent`}>
+              <rect x={EXTENT.x} y={EXTENT.y} width={EXTENT.w} height={EXTENT.h} />
+            </clipPath>
+          </defs>
           <rect className="sm-sea" x={view.cx - cover} y={view.cy - cover} width={cover * 2} height={cover * 2} />
-          <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
-          {map.layers.landNorth && <path className="sm-land" d={map.layers.landNorth} />}
-          <path className="sm-building" d={map.layers.building} />
+          {map.layers.outerLand && <path className="sm-land" d={map.layers.outerLand} />}
+          <path className="sm-land" d={map.layers.land} fillRule="evenodd" clipPath={map.layers.page && `url(#${nameId}-page)`} />
+          <path className="sm-building" d={(map.layers.building ?? '') + (map.layers.outerBuilding ?? '')} />
           {ortho && (
-            <g opacity={ORTHO_OPACITY}>
+            <g opacity={ORTHO_OPACITY} clipPath={`url(#${nameId}-extent)`}>
             {orthoTiles(view, frame, window.devicePixelRatio, orthoZ ?? wantLevel).map((tile) => (
               // CORS 載入：Service Worker 才能存成一般的回應（離線快取，見 ortho.ts）
               <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" crossOrigin="anonymous" />
@@ -447,12 +458,13 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           {!hideAreas && map.sectors.map((s) => (
             <path key={s.id} className="sm-sector" d={s.path} />
           ))}
-          <path className="sm-highway" d={map.layers.highway} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} />
+          {/* 頁框外的 OSM 道路、步道接在同一條路徑裡（航照下半透明時接縫不會變深） */}
+          <path className="sm-highway" d={map.layers.highway + (map.layers.outerHighway ?? '')} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} />
           <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
-          <path className="sm-road" d={map.layers.road} strokeWidth={Math.max(2.5 * px, ROAD_WIDTH_M.road)} />
+          <path className="sm-road" d={map.layers.road + (map.layers.outerRoad ?? '')} strokeWidth={Math.max(2.5 * px, ROAD_WIDTH_M.road)} />
           {/* 停車場的範圍（深藍色），P 字畫在上面的圖示層 */}
           <path className="sm-parking-area" d={map.layers.parking} />
-          <path className="sm-trail" d={map.layers.trail} strokeWidth={Math.max(2 * px, ROAD_WIDTH_M.trail)} strokeDasharray={`${trailDash} ${trailDash}`} />
+          <path className="sm-trail" d={map.layers.trail + (map.layers.outerTrail ?? '')} strokeWidth={Math.max(2 * px, ROAD_WIDTH_M.trail)} strokeDasharray={`${trailDash} ${trailDash}`} />
           {me && here && <circle className="sm-me-accuracy" cx={me[0]} cy={me[1]} r={here.accuracy} />}
         </g>
 

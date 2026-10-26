@@ -3,7 +3,8 @@ import { findSector, type LoadedData } from '../data/dataset'
 import type { LatLng } from '../geo'
 import { LOCALES, localName, useLang } from '../i18n'
 import type { ReportTarget } from '../map/calibration'
-import type { Wall } from '../map/walls'
+import { wallTarget, type SectorWall } from '../map/shapes'
+import { href } from '../router'
 
 /** 分區的顯示名稱：「區域 · 分區」；分區已不存在時寫明 ID */
 export function sectorLabel(data: LoadedData, sectorId: string, lang: Parameters<typeof localName>[1]): string {
@@ -11,19 +12,19 @@ export function sectorLabel(data: LoadedData, sectorId: string, lang: Parameters
   return found ? `${localName(found.area.name, lang).main} · ${localName(found.sector.name, lang).main}` : sectorId
 }
 
-/** 點到一段岩壁：分區、誰畫的、什麼時候；本人與管理員可以刪除 */
-export function WallDetails({ data, wall, author, canDelete, onDelete }: { data: LoadedData; wall: Wall; author: string; canDelete: boolean; onDelete: () => void }) {
+/** 點到一段岩壁：分區、最後誰改的、什麼時候；電腦版登入後可以到修改模式修改（岩壁的修改都在修改模式，有完整紀錄） */
+export function WallDetails({ data, wall, author, canEdit }: { data: LoadedData; wall: SectorWall; author: string; canEdit: boolean }) {
   const { lang, t } = useLang()
   const date = new Date(wall.createdAt).toLocaleDateString(LOCALES[lang])
   return (
     <>
       <p>{sectorLabel(data, wall.sector, lang)}</p>
       <p className="muted small">{t('wall.by', { name: author, date })}</p>
-      {canDelete && (
+      {canEdit && (
         <div className="actions">
-          <button type="button" className="action danger" onClick={() => confirm(t('wall.confirmDelete')) && onDelete()}>
-            {t('wall.delete')}
-          </button>
+          <a className="action" href={href.edit('map', wallTarget(wall.sector))}>
+            {t('wall.edit')}
+          </a>
         </div>
       )}
     </>
