@@ -574,11 +574,14 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
     await assertSucceeds(push(mallory, 'v2/mapEdits/area:clocktower', rings('mallory')))
     await assertSucceeds(push(mallory, `v2/mapEdits/${SECTOR}`, rings('mallory', `${RING}|${RING}`)))
     await assertSucceeds(push(mallory, 'v2/mapEdits/trails', lines('mallory', `${LINE}|${LINE}`)))
+    await assertSucceeds(push(mallory, 'v2/mapEdits/highway', lines('mallory')))
+    await assertSucceeds(push(mallory, 'v2/mapEdits/tunnel', lines('mallory')))
+    await assertSucceeds(push(mallory, 'v2/mapEdits/road', lines('mallory')))
     await assertFails(push(guest, 'v2/mapEdits/area:clocktower', rings('alice')))
     await assertFails(push(mallory, 'v2/mapEdits/area:clocktower', rings('alice')))
   })
 
-  it('對象只能是 9 個大區域、分區 ID、步道；多邊形至少三點、線段至少兩點；步道用 lines、其他用 rings', async () => {
+  it('對象只能是 9 個大區域、分區 ID、步道與道路；多邊形至少三點、線段至少兩點；步道與道路用 lines、其他用 rings', async () => {
     await assertFails(push(alice, 'v2/mapEdits/area:somewhere', rings('alice')))
     await assertFails(push(alice, 'v2/mapEdits/sector:x', rings('alice')))
     await assertFails(push(alice, 'v2/mapEdits/area:clocktower', rings('alice', LINE)))
@@ -586,6 +589,8 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
     await assertSucceeds(push(alice, `v2/mapEdits/${SECTOR}`, rings('alice', '')))
     await assertFails(push(alice, 'v2/mapEdits/trails', lines('alice', '25.112720,121.921450')))
     await assertFails(push(alice, 'v2/mapEdits/trails', rings('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/road', rings('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/railway', lines('alice')))
     await assertFails(push(alice, 'v2/mapEdits/area:clocktower', lines('alice')))
     await assertFails(push(alice, 'v2/mapEdits/area:clocktower', { ...rings('alice'), createdAt: 1 }))
     await assertFails(push(alice, 'v2/mapEdits/area:clocktower', { ...rings('alice'), note: 'x' }))

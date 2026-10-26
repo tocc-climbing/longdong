@@ -240,6 +240,8 @@ interface Props {
   sectorNames?: Record<string, string>
   /** 編輯多邊形（管理員） */
   edit?: MapEdit
+  /** 不畫大區域與分區範圍（編輯步道、道路時看得比較清楚） */
+  hideAreas?: boolean
   /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
   ortho?: boolean
 }
@@ -251,7 +253,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorNames, edit, ortho }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorNames, edit, hideAreas, ortho }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -421,10 +423,10 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             ))}
             </g>
           )}
-          {map.areas.map((a) => (
+          {!hideAreas && map.areas.map((a) => (
             <path key={a.id} className={`sm-area sm-area-${a.id}${focus?.area && a.id !== focus.area ? ' sm-dim' : ''}`} d={a.path} strokeWidth={px} />
           ))}
-          {map.sectors.map((s) => (
+          {!hideAreas && map.sectors.map((s) => (
             <path key={s.id} className="sm-sector" d={s.path} />
           ))}
           <path className="sm-highway" d={map.layers.highway} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} />
@@ -495,7 +497,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               </g>
             )
           })}
-          {labels.map((l) => (
+          {!hideAreas && labels.map((l) => (
             <text key={l.id} className={`sm-label sm-label-${l.id}`} x={l.at[0]} y={l.at[1]} textAnchor="middle" dominantBaseline="central">
               {l.text}
             </text>

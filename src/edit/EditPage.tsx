@@ -6,7 +6,7 @@ import { LOCALES, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
-import { loadMapShapes, type EditTarget, type MapEditVersion } from '../map/shapes'
+import { isLineTarget, loadMapShapes, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useCloud, withCloud } from '../personal/sync'
 import { href, navigate, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
@@ -274,7 +274,7 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
   // 打開時放大到這個項目；分區還沒有範圍時放大到所在的大區域；步道看整個地圖
   const focusArea = target.startsWith('sector:') ? data.sectorById.get(target.slice('sector:'.length).replace(':', '/'))?.area.id.split('/').pop() : undefined
   const focus =
-    m.ready && target !== 'trails'
+    m.ready && !isLineTarget(target)
       ? m.rings.length
         ? { key: target, coords: m.rings.flat() }
         : focusArea && { key: target, area: focusArea }
@@ -329,7 +329,7 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
         </div>
         <div className="edit-canvas">
           {map.status === 'ok' ? (
-            <ScaleMap map={map.data} areaNames={{}} marks={[]} ortho={ortho} edit={m.edit} pick={m.pick} lines={m.draftLine ? [m.draftLine] : []} focus={focus || undefined} />
+            <ScaleMap map={map.data} areaNames={{}} marks={[]} ortho={ortho} hideAreas={isLineTarget(target)} edit={m.edit} pick={m.pick} lines={m.draftLine ? [m.draftLine] : []} focus={focus || undefined} />
           ) : (
             <p className="muted edit-message">{map.status === 'error' ? map.message : t('app.loading')}</p>
           )}
@@ -337,7 +337,7 @@ function MapItemView({ item, data, onToast, onDirty }: ItemProps) {
       </section>
       <aside className="edit-panel">
         <h2>{item.label}</h2>
-        <p className="muted small">{t(m.closed ? 'edit.mapTip' : 'edit.trailTip')}</p>
+        <p className="muted small">{t(m.closed ? 'edit.mapTip' : target === 'trails' ? 'edit.trailTip' : 'edit.roadTip')}</p>
         <NeedSignIn />
         <VersionList versions={m.versions} empty={t('shape.noVersions')} onDelete={(v) => void deleteVersion(v).then(m.actions.reload)} />
         <h2>{t('edit.shortcuts')}</h2>

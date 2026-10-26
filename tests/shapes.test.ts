@@ -34,9 +34,15 @@ describe('地圖編輯的版本', () => {
     expect(cleared.sectors).toEqual([])
   })
 
-  it('步道：有版本時用最新的線段，沒有時 undefined（用自動產生的）', () => {
-    expect(decodeMapEdits({ trails: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([RING.slice(0, 2)]) } } }).trails).toEqual([RING.slice(0, 2)])
-    expect(decodeMapEdits(null).trails).toBeUndefined()
+  it('步道與道路：有版本時用最新的線段，沒有的不在裡面（用自動產生的）', () => {
+    const shapes = decodeMapEdits({
+      trails: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([RING.slice(0, 2)]) } },
+      road: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([OTHER.slice(0, 2)]) } },
+    })
+    expect(shapes.lines.trails).toEqual([RING.slice(0, 2)])
+    expect(shapes.lines.road).toEqual([OTHER.slice(0, 2)])
+    expect(shapes.lines.highway).toBeUndefined()
+    expect(decodeMapEdits(null).lines).toEqual({})
   })
 })
 
@@ -50,14 +56,14 @@ describe('簡化自動產生的形狀', () => {
 
 describe('套上編輯的最新版本', () => {
   const base: ScaleMapData = {
-    layers: { trail: 'M0 0L1 1' },
+    layers: { trail: 'M0 0L1 1', road: 'M0 0L2 2' },
     markers: [],
     areas: [{ id: 'school-gate', path: 'M0 0Z', label: [0, 0], size: 1, rings: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, { id: 'clocktower', path: 'M0 0Z', label: [0, 0], size: 1, rings: [] }],
     sectors: [],
-    trailLines: [[[0, 0], [1, 1]]],
+    lineLayers: { trail: [[[0, 0], [1, 1]]], highway: [], tunnel: [], road: [[[0, 0], [2, 2]]] },
   }
 
-  it('有版本的大區域、步道換成新的，沒有的不變；加上分區範圍', () => {
+  it('有版本的大區域、步道換成新的，沒有的（其他道路）不變；加上分區範圍', () => {
     const out = withShapes(base, decodeMapEdits({
       'area:school-gate': { a: { uid: 'a', createdAt: 1, rings: encodeShapes([RING]) } },
       [sectorTarget('longdong/x')]: { a: { uid: 'a', createdAt: 1, rings: encodeShapes([RING]) } },
@@ -66,13 +72,15 @@ describe('套上編輯的最新版本', () => {
     expect(out.areas[0].rings[0]).toHaveLength(3)
     expect(out.areas[1]).toBe(base.areas[1])
     expect(out.sectors.map((s) => s.sector)).toEqual(['longdong/x'])
-    expect(out.trailLines[0]).toHaveLength(3)
+    expect(out.lineLayers.trail[0]).toHaveLength(3)
     expect(out.layers.trail).not.toBe(base.layers.trail)
+    expect(out.layers.road).toBe(base.layers.road)
+    expect(out.lineLayers.road).toBe(base.lineLayers.road)
   })
 
   it('沒有任何版本時與自動產生的相同', () => {
     const out = withShapes(base, decodeMapEdits(null))
     expect(out.layers).toBe(base.layers)
-    expect(out.trailLines).toBe(base.trailLines)
+    expect(out.lineLayers).toBe(base.lineLayers)
   })
 })

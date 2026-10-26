@@ -8,12 +8,17 @@ import { decodeLine, encodeLine } from './walls'
  * 每個對象顯示最新的版本，刪掉它就回到前一版；沒有任何版本時用自動產生的（scripts/gen-scale-map.ts）。
  *   /v2/mapEdits/area:<大區域>/<版本>        { uid, createdAt, rings }   大區域的形狀
  *   /v2/mapEdits/sector:<分區 key>/<版本>    { uid, createdAt, rings }   分區的範圍（可以多塊；空字串表示沒有範圍）
- *   /v2/mapEdits/trails/<版本>               { uid, createdAt, lines }   步道與攀岩者路徑（整個路網）
+ *   /v2/mapEdits/<trails|highway|tunnel|road>/<版本>   { uid, createdAt, lines }   步道與攀岩者路徑、台二線、隧道、其他道路（各自整個路網）
  * 座標格式同岩壁標記（「緯度,經度」以空格分隔，小數 6 位）；多塊（多條）以「|」分隔。
  * 任何人都能讀（REST，Service Worker 快取最後一次讀到的，離線時照樣顯示）；本人與管理員可以刪除版本。
  */
 
-export type EditTarget = `area:${string}` | `sector:${string}` | 'trails'
+/** 線段的對象（不封閉）→ 地圖上的圖層 */
+export const LINE_TARGETS = { trails: 'trail', highway: 'highway', tunnel: 'tunnel', road: 'road' } as const
+export type LineTarget = keyof typeof LINE_TARGETS
+export const isLineTarget = (target: string): target is LineTarget => target in LINE_TARGETS
+
+export type EditTarget = `area:${string}` | `sector:${string}` | LineTarget
 
 export interface MapEditVersion {
   id: string
@@ -28,8 +33,8 @@ export interface MapShapes {
   areas: Record<string, LatLng[][]>
   /** 分區的範圍（最新版本，每塊一筆） */
   sectors: { id: string; sector: string; ring: LatLng[] }[]
-  /** 步道（最新版本）；沒有版本時 undefined，用自動產生的 */
-  trails?: LatLng[][]
+  /** 步道、道路（最新版本）；沒有版本的不在裡面，用自動產生的 */
+  lines: Partial<Record<LineTarget, LatLng[][]>>
   /** 每個對象的所有版本（舊到新） */
   versions: Record<string, MapEditVersion[]>
 }
@@ -59,12 +64,12 @@ export function decodeMapEdits(raw: Stored | null): MapShapes {
     sectors: targets
       .filter((t) => t.startsWith('sector:'))
       .flatMap((t) => (latest(t) ?? []).map((ring, i) => ({ id: `${t}#${i}`, sector: sectorOf(t), ring }))),
-    trails: latest('trails'),
+    lines: Object.fromEntries(targets.filter(isLineTarget).map((t) => [t, latest(t)!])),
     versions,
   }
 }
 
-const EMPTY: MapShapes = { areas: {}, sectors: [], versions: {} }
+const EMPTY: MapShapes = { areas: {}, sectors: [], lines: {}, versions: {} }
 let state: MapShapes = EMPTY
 let loading: Promise<void> | undefined
 const listeners = new Set<() => void>()

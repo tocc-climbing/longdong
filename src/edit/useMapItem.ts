@@ -3,7 +3,7 @@ import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { project, unproject, type ScaleMapData } from '../map/mapData'
 import type { MapEdit, MapLine } from '../map/ScaleMap'
-import { encodeShapes, loadMapShapes, simplifyLine, simplifyRing, useMapShapes, type EditTarget } from '../map/shapes'
+import { LINE_TARGETS, encodeShapes, isLineTarget, loadMapShapes, simplifyLine, simplifyRing, useMapShapes, type EditTarget } from '../map/shapes'
 import { withCloud } from '../personal/sync'
 
 /** 自動產生的形狀頂點很密，載入編輯時先簡化到這個誤差（公尺），比較容易拖曳 */
@@ -23,7 +23,7 @@ function nearestOnSegment(p: [number, number], a: [number, number], b: [number, 
 
 /** 目前地圖上的形狀（最新版本或自動產生的，先簡化） */
 export function currentShapes(target: EditTarget, map: ScaleMapData | undefined, latest: LatLng[][] | undefined): LatLng[][] {
-  if (target === 'trails') return (map?.trailLines ?? []).map((l) => simplifyLine(l, SIMPLIFY_M / 2).map(unproject))
+  if (isLineTarget(target)) return (map?.lineLayers[LINE_TARGETS[target]] ?? []).map((l) => simplifyLine(l, SIMPLIFY_M / 2).map(unproject))
   if (target.startsWith('area:')) return (map?.areas.find((a) => a.id === target.slice(5))?.rings ?? []).map((r) => simplifyRing(r, SIMPLIFY_M).map(unproject))
   return latest ?? []
 }
@@ -40,15 +40,15 @@ interface State {
 }
 
 /**
- * 修改模式的地圖項目（大區域、分區範圍、步道）：載入目前的形狀，拖曳頂點、加刪頂點、新增或刪除一塊（一條），
- * 可以復原、重做；提交成新版本（src/map/shapes.ts）。步道的新路徑起點、終點會接到既有路徑。
+ * 修改模式的地圖項目（大區域、分區範圍、步道與道路）：載入目前的形狀，拖曳頂點、加刪頂點、新增或刪除一塊（一條），
+ * 可以復原、重做；提交成新版本（src/map/shapes.ts）。步道與道路的新路段起點、終點會接到既有的線。
  */
 export function useMapItem({ target, map, onToast }: { target: EditTarget; map?: ScaleMapData; onToast: (text: string) => void }) {
   const { t } = useLang()
   const shapes = useMapShapes()
   const [state, setState] = useState<State>()
   const latest = shapes.versions[target]?.at(-1)?.shapes
-  const closed = target !== 'trails'
+  const closed = !isLineTarget(target)
 
   // 地圖資料載入後載入目前的形狀（換項目時元件重新建立，見 EditPage）
   const load = () => {
@@ -97,7 +97,7 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
       try {
         const { m, uid } = await withCloud()
         const text = encodeShapes(state.rings)
-        await m.addMapEdit(uid, target, target === 'trails' ? { lines: text } : { rings: text })
+        await m.addMapEdit(uid, target, isLineTarget(target) ? { lines: text } : { rings: text })
         await loadMapShapes(true)
         set({ saving: false, dirty: false })
         onToast(t('shape.saved'))

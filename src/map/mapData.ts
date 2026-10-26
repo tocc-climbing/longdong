@@ -3,7 +3,7 @@ import type { LatLng } from '../geo'
 import type { LoadedData } from '../data/dataset'
 import { AREA_RESCUE } from '../data/rescue'
 import { localName, type Lang } from '../i18n'
-import { useMapShapes, type MapShapes } from './shapes'
+import { LINE_TARGETS, useMapShapes, type LineTarget, type MapShapes } from './shapes'
 
 /**
  * 照比例尺的龍洞簡圖（scripts/gen-scale-map.ts 由救援資訊圖產生，放在 public/rescue/，在離線快取裡）。
@@ -43,9 +43,12 @@ export interface ScaleMapData {
   areas: AreaShape[]
   /** 分區的範圍（使用者畫的，見 shapes.ts）：分區 ID 可能重複（一個分區多塊） */
   sectors: (AreaShape & { sector: string })[]
-  /** 步道的線段（地圖座標）：編輯步道時的起點；畫面用 layers.trail */
-  trailLines: [number, number][][]
+  /** 步道、道路的線段（地圖座標，圖層 → 線段）：編輯時的起點；畫面用 layers */
+  lineLayers: Record<LineLayer, [number, number][][]>
 }
+
+/** 可以編輯的線段圖層 */
+export type LineLayer = (typeof LINE_TARGETS)[LineTarget]
 
 export interface AreaShape {
   id: string
@@ -66,13 +69,15 @@ function areaShape(id: string, rings: [number, number][][]): AreaShape {
 /** 套上使用者編輯的最新版本：大區域、步道取代自動產生的；加上分區的範圍 */
 export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData {
   const toRings = (rings: LatLng[][]) => rings.map((r) => r.map(project))
-  const trailLines = shapes.trails ? toRings(shapes.trails) : base.trailLines
+  const edited = (Object.entries(LINE_TARGETS) as [LineTarget, LineLayer][]).filter(([target]) => shapes.lines[target])
+  const lineLayers = { ...base.lineLayers, ...Object.fromEntries(edited.map(([target, layer]) => [layer, toRings(shapes.lines[target]!)])) }
+  const linePath = (lines: [number, number][][]) => lines.map((l) => 'M' + l.map((p) => p.map((v) => v.toFixed(1)).join(' ')).join('L')).join('')
   return {
     ...base,
-    layers: shapes.trails ? { ...base.layers, trail: trailLines.map((l) => 'M' + l.map((p) => p.map((v) => v.toFixed(1)).join(' ')).join('L')).join('') } : base.layers,
+    layers: edited.length ? { ...base.layers, ...Object.fromEntries(edited.map(([, layer]) => [layer, linePath(lineLayers[layer])])) } : base.layers,
     areas: base.areas.map((a) => (shapes.areas[a.id] ? areaShape(a.id, toRings(shapes.areas[a.id])) : a)),
     sectors: shapes.sectors.map((s) => ({ ...areaShape(s.id, toRings([s.ring])), sector: s.sector })),
-    trailLines,
+    lineLayers: edited.length ? lineLayers : base.lineLayers,
   }
 }
 
@@ -162,9 +167,14 @@ async function readScaleMap(): Promise<ScaleMapData> {
       }
     }),
     sectors: [],
-    trailLines: base.features.flatMap((f) =>
-      f.properties.kind === 'trail' && f.geometry.type === 'MultiLineString' ? f.geometry.coordinates.map((l) => l.map(([lng, lat]) => project([lat, lng]))) : [],
-    ),
+    lineLayers: Object.fromEntries(
+      Object.values(LINE_TARGETS).map((layer) => [
+        layer,
+        base.features.flatMap((f) =>
+          f.properties.kind === layer && f.geometry.type === 'MultiLineString' ? f.geometry.coordinates.map((l) => l.map(([lng, lat]) => project([lat, lng]))) : [],
+        ),
+      ]),
+    ) as Record<LineLayer, [number, number][][]>,
   }
 }
 

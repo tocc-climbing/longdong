@@ -28,7 +28,7 @@ interface Group {
 const group = (key: string, label: string, items: EditItem[] = [], groups: Group[] = []): Group => ({ key, label, items, groups })
 const allItems = (g: Group): EditItem[] => [...g.items, ...g.groups.flatMap(allItems)]
 
-/** 目錄：地圖（步道、大區域、分區範圍）、Topo（各分區的照片）、說明（區域、路線） */
+/** 目錄：地圖（步道、台二線、隧道、其他道路、大區域、分區範圍）、Topo（各分區的照片）、說明（區域、路線） */
 function buildCatalog(data: LoadedData, lang: Lang, t: Translate, edited: (kind: EditKind, id: string) => boolean, photos: { id: string; sector: string }[]): Group[] {
   const names = areaNames(data, lang)
   const areaKey = (id: string) => id.slice(id.indexOf('/') + 1)
@@ -37,7 +37,12 @@ function buildCatalog(data: LoadedData, lang: Lang, t: Translate, edited: (kind:
   const mapLabel = t('edit.map')
   const textLabel = t('edit.text')
   return [
-    group('map', mapLabel, [item('map', 'trails', t('shape.trails'), [mapLabel])], [
+    group('map', mapLabel, [
+      item('map', 'trails', t('shape.trails'), [mapLabel]),
+      item('map', 'highway', t('shape.highway'), [mapLabel]),
+      item('map', 'tunnel', t('shape.tunnel'), [mapLabel]),
+      item('map', 'road', t('shape.road'), [mapLabel]),
+    ], [
       group('map-areas', t('shape.areas'), Object.entries(names).map(([key, name]) => item('map', `area:${key}`, name, [mapLabel, t('shape.areas')]))),
       group(
         'map-sectors',
