@@ -663,6 +663,8 @@ export const ja: Messages = {
   'topo.keys.pan': '押しながらドラッグで移動',
   'topo.keys.rightClick': '右クリック',
   'topo.keys.deletePoint': '点・ボルトを削除',
+  'topo.fullRoutes': 'この写真のルート（{n}）',
+  'topo.fullKeys': 'ホイールで拡大縮小 · ドラッグで移動 · ↑↓ ルート切替 · +/−/0 · Esc で閉じる',
   'topo.boltsShow': 'ボルトを表示',
   'topo.boltsHide': 'ボルトを隠す',
   'topo.previewing': 'プレビュー：{name}、{time}',

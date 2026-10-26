@@ -4969,6 +4969,98 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   z-index: 1;
 }
 
+/* 全螢幕的路線清單（電腦版）：照片在左、路線在右 */
+dialog.topo-full[open].wide {
+  flex-direction: row;
+}
+
+.topo-full-main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topo-full-side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 22rem;
+  min-height: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  background: #111;
+}
+
+.topo-full-side header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 8px 16px;
+}
+
+.topo-full-side h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.topo-full-close.inline,
+.topo-bolt-toggle.inline {
+  position: static;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 1.5rem;
+}
+
+.topo-bolt-toggle.inline[aria-pressed='true'] {
+  background: #ff5a36;
+}
+
+.topo-full-routes {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.topo-full-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.topo-full-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.topo-full-row.on {
+  background: rgba(255, 90, 54, 0.28);
+}
+
+.topo-full-info.side {
+  min-height: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.topo-full-keys {
+  margin: 0;
+  padding: 0 16px 12px;
+  background: #111;
+}
+
 dialog.topo-full {
   width: 100%;
   max-width: none;
@@ -5089,11 +5181,22 @@ dialog.topo-full[open] {
 
 g.topo-route.link {
   cursor: pointer;
+  /* 點了路線顏色已經變了，不要再出現瀏覽器的焦點方框 */
+  outline: none;
+}
+
+.topo-zoom.draggable:not(.panning) {
+  cursor: grab;
 }
 
 g.topo-route.link:is(:hover, :focus-visible) {
   opacity: 1;
   outline: none;
+}
+
+/* 鍵盤選到時不用方框，線外面的白邊加粗 */
+g.topo-route.link:focus-visible .topo-halo {
+  stroke: #fff;
 }
 
 .topo-badge rect {

@@ -16,6 +16,8 @@ export interface DesktopView {
   detail?: string
   /** 關閉右邊路線的連結 */
   closeHref: string
+  /** 左邊的清單是這個分區的路線清單（上面有這個分區的 Topo）：右邊同一個分區的路線不再重複顯示 Topo */
+  listSector?: string
   /** 不並排時用較寬的版面（首頁、分區卡片、我的、救援資訊） */
   roomy: boolean
 }
@@ -31,15 +33,19 @@ export function desktopView(page: Page, data: LoadedData): DesktopView {
   if (page.name === 'route') {
     const ref = data.routeById.get(page.id)
     if (!ref) return plain(false)
-    return { split: true, list: { name: 'sector', id: ref.sector.id }, detail: page.id, closeHref: href.sector(ref.sector.id), roomy: false }
+    return { split: true, list: { name: 'sector', id: ref.sector.id }, detail: page.id, closeHref: href.sector(ref.sector.id), listSector: ref.sector.id, roomy: false }
   }
   const closeHref = withDetail(here(), undefined)
   const routeList = page.name === 'sector' || (page.name === 'area' && data.areaById.get(page.id)?.sectors.length === 1)
-  if (routeList || page.detail) return { split: true, list: page, detail: page.detail, closeHref, roomy: false }
+  if (routeList || page.detail) {
+    const area = page.name === 'area' ? data.areaById.get(page.id) : undefined
+    const listSector = page.name === 'sector' ? page.id : area?.sectors.length === 1 ? area.sectors[0].id : undefined
+    return { split: true, list: page, detail: page.detail, closeHref, listSector, roomy: false }
+  }
   return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'admin' || page.name === 'bolts' || page.name === 'checklist' || page.name === 'topo')
 }
 
-export function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: string; closeHref: string }) {
+export function DetailPane({ data, id, closeHref, listSector }: { data: LoadedData; id?: string; closeHref: string; listSector?: string }) {
   const { t } = useLang()
   const pane = useRef<HTMLElement>(null)
   useEffect(() => {
@@ -59,7 +65,7 @@ export function DetailPane({ data, id, closeHref }: { data: LoadedData; id?: str
       <a className="icon-button detail-close" href={closeHref} aria-label={t('layout.close')} title={t('layout.close')}>
         ×
       </a>
-      <RoutePage key={id} data={data} id={id} />
+      <RoutePage key={id} data={data} id={id} topoInList={!!listSector && data.routeById.get(id)?.sector.id === listSector} />
     </aside>
   )
 }

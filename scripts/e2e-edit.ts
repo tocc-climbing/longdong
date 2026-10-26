@@ -246,7 +246,10 @@ try {
   await put(`v2/topoEdits/${photo}/e2ebolts`, {
     uid: 'seed',
     createdAt: Date.now() + 60000,
-    routes: { [key]: { line: '3000,8000 3200,5000 3000,2000', bolts: { B1: '3100,7000', B2: '3150,5500' } } },
+    routes: {
+      [key]: { line: '3000,8000 3200,5000 3000,2000', bolts: { B1: '3100,7000', B2: '3150,5500' } },
+      [topoRoutes[1].id.replace(/\//g, ':').replace(/\./g, ',')]: { line: '6000,8000 6200,5000 6000,2000' },
+    },
   })
   const viewer = await newContext()
   await viewer.page.goto(base + `sector/${topoSector.id}`)
@@ -259,6 +262,72 @@ try {
   check('選擇會記住（重新整理後還是顯示）', (await viewer.page.locator('.topo-bolt').count()) === 2)
   await viewer.page.click('.topo-bolt-toggle')
   check('再按一次：隱藏', (await viewer.page.locator('.topo-bolt').count()) === 0)
+
+  // ── 6b. 看 Topo（電腦版）：縮放、拖曳平移、不重複顯示、沒有焦點方框 ──
+  const fit = () => viewer.page.locator('figure.topo .topo-zoom-fit').textContent()
+  const zoomIn = () => viewer.page.locator('figure.topo .topo-zoom-controls button[aria-label=放大]').click()
+  check('電腦版有縮放按鈕，一開始是 100%', (await fit()) === '100%')
+  const photoBox = (await viewer.page.locator('figure.topo .topo-zoom').boundingBox())!
+  const center = { x: photoBox.x + photoBox.width / 2, y: photoBox.y + photoBox.height / 2 }
+  await viewer.page.mouse.move(center.x, center.y)
+  await viewer.page.mouse.wheel(0, -300)
+  check('一般滾輪不縮放（留給頁面捲動）', (await fit()) === '100%')
+  await viewer.page.keyboard.down('Control')
+  await viewer.page.mouse.wheel(0, -300)
+  await viewer.page.keyboard.up('Control')
+  const zoomed = Number.parseInt((await fit()) ?? '0')
+  check('Ctrl＋滾輪縮放', zoomed > 100, `${zoomed}%`)
+  await zoomIn()
+  check('按「放大」：倍率變大', Number.parseInt((await fit()) ?? '0') > zoomed)
+  const moved = async () => viewer.page.locator('figure.topo .topo-zoom-inner').getAttribute('style')
+  const styleBefore = await moved()
+  await viewer.page.mouse.move(center.x, center.y)
+  await viewer.page.mouse.down()
+  await viewer.page.mouse.move(center.x + 40, center.y + 30, { steps: 5 })
+  await viewer.page.mouse.up()
+  check('放大後按住左鍵拖曳可以平移', (await moved()) !== styleBefore, `${styleBefore} → ${await moved()}`)
+  check('拖曳平移不會誤選路線', !viewer.page.url().includes('?r='))
+  await viewer.page.locator('figure.topo .topo-zoom-fit').click()
+  check('按倍率回到整張（100%）', (await fit()) === '100%')
+
+  const line = viewer.page.locator('figure.topo g.topo-route.link').first()
+  await line.locator('.topo-hit').first().click({ force: true })
+  await viewer.page.waitForSelector('.detail-pane .route-sub, .detail-pane h1', { timeout: 15000 })
+  check('點照片上的路線：右邊顯示那條路線', viewer.page.url().includes('r='))
+  check('同時看到分區與路線時，Topo 只顯示一張（路線那邊不重複）', (await viewer.page.locator('figure.topo').count()) === 1 && (await viewer.page.locator('.detail-pane figure.topo').count()) === 0)
+  // 用鍵盤 Shift+Tab 從照片右上角的按鈕往回到路線上（有焦點方框的情況）：不出現瀏覽器的方框
+  await viewer.page.locator('figure.topo .topo-bolt-toggle').focus()
+  let onRoute = false
+  for (let i = 0; i < 40 && !onRoute; i++) {
+    await viewer.page.keyboard.press('Shift+Tab')
+    onRoute = await viewer.page.evaluate(`document.activeElement?.matches('g.topo-route.link') ?? false`)
+  }
+  check('鍵盤選到路線時沒有焦點方框', onRoute && (await viewer.page.evaluate(`getComputedStyle(document.activeElement).outlineStyle`)) === 'none')
+
+  // ── 6c. 全螢幕（電腦版）：路線清單、滾輪縮放、↑↓ 換路線、Esc 關閉 ──
+  await viewer.page.click('.topo-full-open')
+  const dialog = viewer.page.locator('dialog.topo-full[open].wide')
+  await dialog.waitFor({ timeout: 10000 })
+  check('全螢幕：右邊列出這張照片上有標記的路線', (await dialog.locator('.topo-full-row').count()) === 2)
+  const fullFit = () => dialog.locator('.topo-zoom-fit').textContent()
+  check('全螢幕有縮放按鈕，一開始是 100%', (await fullFit()) === '100%')
+  const stage = (await dialog.locator('.topo-full-stage').boundingBox())!
+  await viewer.page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2)
+  await viewer.page.mouse.wheel(0, -300)
+  check('全螢幕：滾輪縮放', Number.parseInt((await fullFit()) ?? '0') > 100)
+  await viewer.page.keyboard.press('0')
+  check('按 0 回到整張', (await fullFit()) === '100%')
+  await viewer.page.keyboard.press('+')
+  check('按 + 放大', Number.parseInt((await fullFit()) ?? '0') > 100)
+  await dialog.locator('.topo-full-row').first().click()
+  const firstNo = await dialog.locator('.topo-full-row.on .topo-route-no').textContent()
+  await viewer.page.keyboard.press('ArrowDown')
+  const secondNo = await dialog.locator('.topo-full-row.on .topo-route-no').textContent()
+  check('點清單選路線、↓ 換到下一條', !!firstNo && !!secondNo && firstNo !== secondNo, `${firstNo} → ${secondNo}`)
+  check('選到的路線在下面顯示，可以開啟', (await dialog.getByRole('button', { name: '路線頁' }).count()) === 1)
+  await viewer.page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  check('Esc 關閉全螢幕', (await viewer.page.locator('dialog.topo-full[open]').count()) === 0)
   await viewer.ctx.close()
 
   // ── 7. 管理頁：匯入已經上傳的回報，已經有的略過 ──────────────────────

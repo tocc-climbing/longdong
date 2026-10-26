@@ -660,6 +660,8 @@ export const en: Messages = {
   'topo.keys.pan': 'Hold and drag to pan',
   'topo.keys.rightClick': 'Right-click',
   'topo.keys.deletePoint': 'Delete a point or bolt',
+  'topo.fullRoutes': 'Routes in this photo ({n})',
+  'topo.fullKeys': 'Wheel to zoom · drag to pan · ↑↓ switch route · +/−/0 · Esc to close',
   'topo.boltsShow': 'Show bolts',
   'topo.boltsHide': 'Hide bolts',
   'topo.previewing': 'Preview: {name}, {time}',

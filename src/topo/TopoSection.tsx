@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
@@ -9,6 +9,7 @@ import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
 import { TopoFrame, TopoLines } from './TopoView'
 import { UploadButton } from './TopoUpload'
+import { ZoomPane } from './ZoomPane'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
 export function routeLabels(sector: Sector): Map<string, string> {
@@ -19,6 +20,20 @@ export function routeLabels(sector: Sector): Map<string, string> {
 function useCanEdit(): boolean {
   const wide = useWide()
   return useCloud().status === 'signed-in' && wide
+}
+
+/**
+ * 一張 Topo 的照片與線：電腦版可以縮放、拖曳平移（Ctrl＋滾輪、右下角的按鈕、+／-／0），手機用全螢幕（雙指縮放）。
+ * render 收到「一個螢幕像素等於幾個照片像素」，線與編號依此維持相同的螢幕大小。
+ */
+function Photo({ topo, alt, render }: { topo: SectorTopo; alt: string; render: (k: number) => ReactNode }) {
+  const wide = useWide()
+  const frame = (zoom: number) => (
+    <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={alt}>
+      {(k) => render(k / zoom)}
+    </TopoFrame>
+  )
+  return wide ? <ZoomPane viewing>{frame}</ZoomPane> : frame(1)
 }
 
 /** 分區頁：這個分區的所有 Topo，點線段換到那條路線；電腦版登入後可以新增照片、編輯 */
@@ -34,8 +49,10 @@ export function SectorTopos({ sector }: { sector: Sector }) {
     <section className="topos" aria-label={t('topo.title')}>
       {topos.map((topo) => (
         <figure key={topo.photo.id} className="topo">
-          <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
-            {(k) =>
+          <Photo
+            topo={topo}
+            alt={t('topo.alt', { name: localName(sector.name, lang).main })}
+            render={(k) =>
               topo.latest && (
                 <TopoLines
                   photo={topo.photo}
@@ -49,7 +66,7 @@ export function SectorTopos({ sector }: { sector: Sector }) {
                 />
               )
             }
-          </TopoFrame>
+          />
           {topo.latest && <FullscreenButton topo={topo} sector={sector} initial={selected} />}
         </figure>
       ))}
@@ -70,9 +87,11 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
       <h2>{t('topo.title')}</h2>
       {topos.map((topo) => (
         <figure key={topo.photo.id} className="topo">
-          <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
-            {(k) => <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} bolts={showBolts ? [routeId] : []} crop={topo.latest!.crop} />}
-          </TopoFrame>
+          <Photo
+            topo={topo}
+            alt={t('topo.alt', { name: localName(sector.name, lang).main })}
+            render={(k) => <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} bolts={showBolts ? [routeId] : []} crop={topo.latest!.crop} />}
+          />
           <FullscreenButton topo={topo} sector={sector} initial={routeId} />
         </figure>
       ))}

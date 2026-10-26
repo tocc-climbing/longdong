@@ -25,7 +25,10 @@ import { NotFound } from './AreaPage'
  * 路線頁（手機版與電腦版的右側相同）：名稱、一行重點（難度、種類、高度、評分）、安全與狀態合併的一個色塊、
  * 記錄／收藏／分享、Topo、路線資訊；首攀、Bolt、Anchor 收在「更多資訊」；最後是評分與留言。
  */
-export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
+/**
+ * topoInList：電腦版左邊的分區清單已經顯示這個分區的 Topo（選到的路線在上面亮色、可以切換 bolt），這裡不再重複顯示同一張。
+ */
+export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: string; topoInList?: boolean }) {
   const ref = data.routeById.get(id)
   const { lang, t } = useLang()
   const { link } = useRouteLink()
@@ -94,7 +97,7 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
         </div>
       )}
 
-      <RouteTopos sector={sector} routeId={route.id} />
+      {!topoInList && <RouteTopos sector={sector} routeId={route.id} />}
 
       {pitches.length > 1 && (
         <section className="route-block">

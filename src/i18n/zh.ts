@@ -657,6 +657,8 @@ export const zh = {
   'topo.keys.pan': '按住拖曳平移',
   'topo.keys.rightClick': '右鍵',
   'topo.keys.deletePoint': '刪除點、bolt',
+  'topo.fullRoutes': '這張照片的路線（{n}）',
+  'topo.fullKeys': '滾輪縮放 · 拖曳平移 · ↑↓ 換路線 · +／−／0 · Esc 關閉',
   'topo.boltsShow': '顯示 Bolt',
   'topo.boltsHide': '隱藏 Bolt',
   'topo.previewing': '預覽：{name}，{time}',
