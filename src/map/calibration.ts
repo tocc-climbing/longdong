@@ -3,13 +3,15 @@ import type { LatLng } from '../geo'
 import { getCloud, subscribeCloud, withCloud } from '../personal/sync'
 import { DB_URL } from '../social/model'
 import { simulatedLocation } from '../simulate'
+import { pinsFromGeoJSON, writePins } from './reportPins'
 
 /**
  * 比例尺地圖的回報：在明確的地點（救援點、區域邊界、岩壁轉角、步道岔路）記下 GPS 與說明；
  * 不在現場時也可以手動回報：對照航照在地圖上點位置，沒有 GPS。
  * 記錄存在這支手機上，整個 App 共用一份；連上網路時在背景自動上傳，不必停在地圖頁：
- * 登入的上傳到 v2/calibration/<uid>（所有登入者讀得到，修改地圖時當參考，見 reportPins.ts），沒登入的上傳到 v2/anonReports/<裝置代號>
+ * 登入的上傳到 v2/calibration/<uid>（本人與管理員讀得到），沒登入的上傳到 v2/anonReports/<裝置代號>
  * （只有管理員讀得到；iPhone 有時無法用 Google 登入，不登入也要能回報）。
+ * 兩種都另外存一份去識別的副本（位置、說明，沒有人、沒有時間），修改地圖的人當參考（reportPins.ts）。
  * 再把校正點加進 scripts/gen-scale-map.ts 的控制點。
  * （網頁在背景或螢幕關閉時無法定位，所以不記錄軌跡。）
  */
@@ -208,11 +210,20 @@ async function flush(): Promise<void> {
   const sent = current()
   try {
     const geojson = JSON.stringify(toGeoJSON(sent))
+    let owner: string
     if (signedIn) {
       const { m, uid } = await withCloud()
       await m.uploadCalibration(uid, geojson)
+      owner = uid
     } else {
       await uploadAnonymous(geojson)
+      owner = deviceId()
+    }
+    // 去識別的副本（修改地圖的人當參考）：只送上次上傳之後新增的；失敗不影響回報本身（管理頁可以補匯入）
+    try {
+      await writePins(await pinsFromGeoJSON(geojson, owner, sent.uploaded?.marks ?? 0))
+    } catch (err) {
+      console.warn('reportPins', err)
     }
     const latest = current()
     const uploaded = { time: Date.now(), marks: sent.marks.length }

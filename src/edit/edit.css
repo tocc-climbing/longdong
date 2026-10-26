@@ -659,3 +659,7 @@
   font-size: 0.8125rem;
   font-weight: 600;
 }
+.edit-pin-count {
+  font-weight: 700;
+  color: var(--brand);
+}

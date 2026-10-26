@@ -122,6 +122,46 @@ describe('管理員（/role）不能讀寫別人的私人資料', () => {
   })
 })
 
+describe('回報的去識別副本（v2/reportPins）', () => {
+  const KEY = '0123456789abcdef0123456789abcdef'
+  const OTHER = 'fedcba9876543210fedcba9876543210'
+  const pin = { lat: 25.1124, lng: 121.9231, note: '牆底', accuracy: 12, picked: '25.112500,121.923200', kind: 'base', area: 'longdong/school-gate', sector: 'longdong/s1' }
+
+  it('所有登入者讀得到；訪客讀不到', async () => {
+    await env.withSecurityRulesDisabled((ctx) => ctx.database().ref(`v2/reportPins/${KEY}`).set(pin))
+    await assertSucceeds(get(mallory, 'v2/reportPins'))
+    await assertSucceeds(get(admin, 'v2/reportPins'))
+    await assertFails(get(guest, 'v2/reportPins'))
+  })
+
+  it('任何人（含沒登入的裝置）都可以新增，只能新增不能覆蓋', async () => {
+    await assertSucceeds(set(guest, `v2/reportPins/${KEY}`, pin))
+    await assertSucceeds(set(mallory, `v2/reportPins/${OTHER}`, { lat: 25.1, lng: 121.92, manual: true }))
+    await assertFails(set(mallory, `v2/reportPins/${KEY}`, { ...pin, note: '改掉' }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, note: '改掉' }))
+  })
+
+  it('只有管理員可以刪除', async () => {
+    await env.withSecurityRulesDisabled((ctx) => ctx.database().ref(`v2/reportPins/${KEY}`).set(pin))
+    await assertFails(remove(mallory, `v2/reportPins/${KEY}`))
+    await assertFails(remove(guest, `v2/reportPins/${KEY}`))
+    await assertSucceeds(remove(admin, `v2/reportPins/${KEY}`))
+  })
+
+  it('代碼是 32 個十六進位字；位置在龍洞一帶；欄位與長度有限制；不能有帳號、時間等其他欄位', async () => {
+    await assertFails(set(guest, 'v2/reportPins/abc', pin))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, lat: 24.0 }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, lng: 120.0 }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { lat: 25.1124 }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, note: 'x'.repeat(301) }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, picked: 'nowhere' }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, kind: 'other' }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, uid: 'alice' }))
+    await assertFails(set(guest, `v2/reportPins/${KEY}`, { ...pin, time: 1 }))
+    await assertSucceeds(set(guest, `v2/reportPins/${KEY}`, { ...pin, route: 'longdong/abcdef' }))
+  })
+})
+
 describe('管理頁：名單上的信箱（ADMIN_EMAILS）也是管理員', () => {
   it('可以讀檢舉、地圖回報；沒驗證過的同一個信箱不行', async () => {
     await assertSucceeds(get(emailAdmin, 'v2/reports'))
@@ -282,18 +322,12 @@ describe('比例尺地圖的現場校正記錄', () => {
     await assertSucceeds(remove(alice, 'v2/calibration/alice/u1'))
   })
 
-  it('所有登入者都讀得到（修改地圖時當參考，畫面上不顯示是誰、什麼時候）；訪客不行', async () => {
+  it('只有本人與管理員讀得到', async () => {
     await assertSucceeds(get(alice, 'v2/calibration/alice'))
     await assertSucceeds(get(admin, 'v2/calibration'))
-    await assertSucceeds(get(mallory, 'v2/calibration/alice'))
-    await assertSucceeds(get(mallory, 'v2/calibration'))
+    await assertFails(get(mallory, 'v2/calibration/alice'))
+    await assertFails(get(mallory, 'v2/calibration'))
     await assertFails(get(guest, 'v2/calibration/alice'))
-    await assertFails(get(guest, 'v2/calibration'))
-  })
-
-  it('沒登入的裝置的回報（anonReports）仍然只有管理員讀得到', async () => {
-    await assertFails(get(mallory, 'v2/anonReports'))
-    await assertSucceeds(get(admin, 'v2/anonReports'))
   })
 
   it('不能整個刪掉別人的校正記錄', async () => {

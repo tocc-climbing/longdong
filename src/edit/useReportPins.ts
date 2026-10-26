@@ -1,30 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { ScaleMapData } from '../map/mapData'
-import { parseReportPins, pinsForArea, type ReportPin } from '../map/reportPins'
+import { decodePins, mergePins, pinsForArea, type PinGroup, type ReportPin } from '../map/reportPins'
 import { sectorOf, type EditTarget } from '../map/shapes'
 import { useCloud, withCloud } from '../personal/sync'
 
 let loading: Promise<ReportPin[]> | undefined
 
-/** 所有登入者的回報（位置與說明，不含是誰、什麼時候）：整個頁面只讀一次 */
+/** 回報的去識別副本（位置與說明，沒有是誰、什麼時候）：整個頁面只讀一次 */
 function loadPins(): Promise<ReportPin[]> {
   loading ??= withCloud()
-    .then(({ m }) => m.loadSignedInReports())
-    .then(parseReportPins)
+    .then(({ m }) => m.loadReportPins())
+    .then(decodePins)
     .catch((err: Error) => {
       loading = undefined
-      console.warn('reports', err)
+      console.warn('reportPins', err)
       return []
     })
   return loading
 }
 
 /**
- * 修改區域範圍、分區範圍、岩壁時，這個區域的回報（登入才讀得到）：位置與說明畫在地圖上、列在右側面板，給修改的人參考。
- * 沒有要修改這些（步道、說明）或沒登入時是空的。
+ * 修改區域範圍、分區範圍、岩壁時，這個區域的回報（登入才讀得到）：同一個點附近的合併成一個（有幾筆、相同的說明各幾筆），
+ * 畫在地圖上、列在右側面板，給修改的人參考。沒有要修改這些（步道、說明）或沒登入時是空的。
  */
-export function useReportPins(args?: { target: EditTarget; data: LoadedData; map?: ScaleMapData }): ReportPin[] {
+export function useReportPins(args?: { target: EditTarget; data: LoadedData; map?: ScaleMapData }): PinGroup[] {
   const signedIn = useCloud().status === 'signed-in'
   const [all, setAll] = useState<ReportPin[]>([])
   const enabled = signedIn && !!args
@@ -44,6 +44,6 @@ export function useReportPins(args?: { target: EditTarget; data: LoadedData; map
     const sectorId = target.startsWith('sector:') || target.startsWith('wall:') ? sectorOf(target) : undefined
     const key = sectorId ? data.sectorById.get(sectorId)?.area.id.split('/').pop() : target.startsWith('area:') ? target.slice('area:'.length) : undefined
     if (!key) return []
-    return pinsForArea(all, { key, sectorId, rings: map?.areas.find((a) => a.id === key)?.rings ?? [] })
+    return mergePins(pinsForArea(all, { key, sectorId, rings: map?.areas.find((a) => a.id === key)?.rings ?? [] }))
   }, [enabled, all, target, data, map])
 }

@@ -23,6 +23,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { connectDatabaseEmulator, get, getDatabase, onValue, push, ref, remove, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
+import type { StoredPin } from '../map/reportPins'
 import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
 import { STORAGE_BUCKET, type Crop, type StoredRoutes, type TopoPhoto } from '../topo/model'
 
@@ -226,7 +227,7 @@ export function adminDelete(paths: string[]): Promise<void> {
   return update(ref(db), Object.fromEntries(paths.map((p) => [p, null])))
 }
 
-/** 所有人上傳的回報：v2/calibration 所有登入者讀得到（修改地圖時當參考），v2/anonReports 只有管理員讀得到 */
+/** 所有人上傳的回報（v2/calibration、v2/anonReports）：只有管理員讀得到，其他人會被規則拒絕 */
 export type CalibrationUploads = Record<string, Record<string, { geojson: string; createdAt: number }>>
 
 /** 管理員：所有人上傳的回報；signedIn 依帳號（v2/calibration），anon 依沒登入的裝置代號（v2/anonReports） */
@@ -235,12 +236,12 @@ export async function loadCalibrationUploads(): Promise<{ signedIn: CalibrationU
   return { signedIn: (signedIn.val() ?? {}) as CalibrationUploads, anon: (anon.val() ?? {}) as CalibrationUploads }
 }
 
-/** 所有登入者的回報（v2/calibration）：修改地圖時當參考；沒有登入的裝置的回報（anonReports）只有管理員讀得到，不在這裡 */
-export async function loadSignedInReports(): Promise<CalibrationUploads> {
-  return ((await get(ref(db, 'v2/calibration'))).val() ?? {}) as CalibrationUploads
+/** 回報的去識別副本（v2/reportPins）：所有登入者讀得到，修改地圖時當參考（見 map/reportPins.ts） */
+export async function loadReportPins(): Promise<Record<string, StoredPin>> {
+  return ((await get(ref(db, 'v2/reportPins'))).val() ?? {}) as Record<string, StoredPin>
 }
 
-/** 上傳比例尺地圖的現場校正記錄（GeoJSON 文字）；所有登入者都讀得到（見 loadSignedInReports） */
+/** 上傳比例尺地圖的現場校正記錄（GeoJSON 文字）；只有本人與管理員讀得到 */
 export async function uploadCalibration(uid: string, geojson: string): Promise<void> {
   await push(ref(db, `v2/calibration/${uid}`), { geojson, createdAt: serverTimestamp() })
 }

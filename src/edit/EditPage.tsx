@@ -14,7 +14,7 @@ import { href, navigate, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { useTopoState } from '../topo/store'
 import { TopoEditor } from '../topo/TopoEditor'
-import type { ReportPin } from '../map/reportPins'
+import { MERGE_RADIUS_M, type PinGroup } from '../map/reportPins'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
 import { LatestEdits } from './LatestEdits'
@@ -245,21 +245,25 @@ function NeedSignIn() {
   return <SignInPrompt message={t('edit.signIn')} />
 }
 
-/** 這個區域的回報（修改地圖時當參考）：編號對應地圖上的圓點；只有位置與說明，不顯示是誰、什麼時候回報的 */
-function ReportPins({ pins, data, on, onPick }: { pins: ReportPin[]; data: LoadedData; on?: string; onPick: (id?: string) => void }) {
+/**
+ * 這個區域的回報（修改地圖時當參考）：同一個點附近的合併成一個，標出有幾筆、相同的說明各幾筆；編號對應地圖上的圓點；
+ * 只有位置與說明，不顯示是誰、什麼時候回報的。
+ */
+function ReportPins({ pins, data, on, onPick }: { pins: PinGroup[]; data: LoadedData; on?: string; onPick: (id?: string) => void }) {
   const { lang, t } = useLang()
   if (pins.length === 0) return null
-  const where = (p: ReportPin) => {
-    const target = p.target
-    if (!target) return undefined
-    const route = target.routeId ? data.routeById.get(target.routeId)?.route : undefined
-    const sector = data.sectorById.get(target.sectorId)?.sector
-    return [t(`place.kind.${target.kind}` as MessageKey), route ? localName(route.name, lang).main : sector ? localName(sector.name, lang).main : undefined].filter(Boolean).join(' · ')
-  }
+  const where = (p: PinGroup) =>
+    p.targets
+      .map((target) => {
+        const route = target.routeId ? data.routeById.get(target.routeId)?.route : undefined
+        const sector = data.sectorById.get(target.sectorId)?.sector
+        return [t(`place.kind.${target.kind}` as MessageKey), route ? localName(route.name, lang).main : sector ? localName(sector.name, lang).main : undefined].filter(Boolean).join(' · ')
+      })
+      .join('、')
   return (
     <>
-      <h2>{t('edit.pins', { n: pins.length })}</h2>
-      <p className="muted small">{t('edit.pinsTip')}</p>
+      <h2>{t('edit.pins', { n: pins.reduce((sum, p) => sum + p.count, 0), places: pins.length })}</h2>
+      <p className="muted small">{t('edit.pinsTip', { m: MERGE_RADIUS_M })}</p>
       <ol className="edit-pins">
         {pins.map((p) => (
           <li key={p.id} className={p.id === on ? 'on' : undefined}>
@@ -267,8 +271,21 @@ function ReportPins({ pins, data, on, onPick }: { pins: ReportPin[]; data: Loade
               <b>{Number(p.id) + 1}</b>
               <span>
                 {where(p) && <span className="edit-pin-where">{where(p)}</span>}
-                {p.note || <span className="muted">{t('edit.pinNoNote')}</span>}
-                <span className="muted small">{p.manual ? t('edit.pinManual') : t('edit.pinGps', { m: Math.round(p.accuracy ?? 0) })}</span>
+                {p.notes.map((n) => (
+                  <span key={n.text}>
+                    {n.text}
+                    {n.count > 1 && <span className="edit-pin-count"> ×{n.count}</span>}
+                  </span>
+                ))}
+                {p.blank > 0 && (
+                  <span className="muted">
+                    {t('edit.pinNoNote')}
+                    {p.blank > 1 && <span className="edit-pin-count"> ×{p.blank}</span>}
+                  </span>
+                )}
+                <span className="muted small">
+                  {t('edit.pinCount', { n: p.count })} · {p.manual ? t('edit.pinManual') : p.accuracy !== undefined ? t('edit.pinGps', { m: p.accuracy }) : ''}
+                </span>
               </span>
             </button>
           </li>
