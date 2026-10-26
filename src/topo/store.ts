@@ -63,6 +63,24 @@ export function loadEdits(photo: string, force = false): Promise<void> {
   return p
 }
 
+/** 所有照片的所有版本，一次讀完（修改模式首頁的最新更新用；個別照片仍用 loadEdits） */
+let allEditsPromise: Promise<void> | undefined
+export function loadAllEdits(force = false): Promise<void> {
+  if (allEditsPromise && !force) return allEditsPromise
+  allEditsPromise = get<Record<string, Record<string, StoredEdit>>>('v2/topoEdits')
+    .then((raw) => {
+      const edits = Object.fromEntries(
+        Object.entries(raw ?? {}).map(([photo, list]) => [photo, Object.entries(list).map(([id, e]) => decodeEdit(id, e)).sort((a, b) => a.createdAt - b.createdAt)]),
+      )
+      set({ edits: { ...state.edits, ...edits } })
+    })
+    .catch((err: Error) => {
+      allEditsPromise = undefined
+      set({ error: err.message })
+    })
+  return allEditsPromise
+}
+
 export interface SectorTopo {
   photo: TopoPhoto
   /** 目前顯示的版本；還沒有人標記時 undefined */

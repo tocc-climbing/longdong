@@ -472,4 +472,63 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--warn, #d99a00) 16%, transparent);
   font-size: 0.875rem;
+
+/* 修改模式首頁（src/edit/EditPage.tsx 的 Welcome）：標題與重點同分享小卡 */
+.edit-message {
+  overflow: auto;
+}
+
+.edit-welcome h1 {
+  margin-bottom: 4px;
+  font-size: 2.2rem;
+  line-height: 1.2;
+}
+
+.edit-welcome h1 em {
+  color: var(--brand);
+  font-style: normal;
+}
+
+.edit-tags {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.edit-latest {
+  margin-top: 24px;
+}
+
+.edit-latest h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.edit-latest ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.edit-latest a {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.edit-latest a:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.edit-latest-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.35;
 }

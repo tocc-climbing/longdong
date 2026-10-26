@@ -15,6 +15,7 @@ import { useTopoState } from '../topo/store'
 import { TopoEditor } from '../topo/TopoEditor'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
+import { LatestEdits } from './LatestEdits'
 import { currentText, loadTextEdits, textTarget, useTextEdits, type TextTarget, type TextVersion } from './textEdits'
 import { useMapItem } from './useMapItem'
 import './edit.css'
@@ -171,15 +172,21 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
 /** 這一年（含）以前上傳的 Topo 照片太舊，編輯前提示改上傳新照片 */
 const OLD_TOPO_YEAR = 2016
 
-/** 還沒選項目：怎麼開始、有多少項目已經有人修改 */
+/** 還沒選項目：標題與重點（與分享小卡相同）、最新的更新、怎麼修改 */
 function Welcome({ items }: { items: EditItem[] }) {
   const { t } = useLang()
+  // 標題裡 *…* 的部分用品牌色（分享小卡的「修改」）
+  const title = t('edit.welcome')
+    .split(/\*(.+?)\*/)
+    .map((part, i) => (i % 2 ? <em key={i}>{part}</em> : part))
   return (
     <>
-      <section className="edit-center edit-message">
-        <h1>{t('edit.welcome')}</h1>
-        <p>{t('edit.welcomeHint')}</p>
-        <p className="muted">{t('edit.progress', { n: items.filter((i) => i.edited).length, total: items.length })}</p>
+      <section className="edit-center edit-message edit-welcome">
+        <h1>{title}</h1>
+        <p className="edit-tags">{t('edit.welcomeTags')}</p>
+        <p className="muted">{t('edit.welcomeHint')}</p>
+        <p className="muted small">{t('edit.progress', { n: items.filter((i) => i.edited).length, total: items.length })}</p>
+        <LatestEdits items={items} />
       </section>
       <aside className="edit-panel">
         <h2>{t('edit.howTitle')}</h2>
