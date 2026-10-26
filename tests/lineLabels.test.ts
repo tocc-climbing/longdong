@@ -51,6 +51,27 @@ describe('道路、步道的名稱沿著線排，位置固定在地圖上', () =
     expect(placeLineNames([name([200, 100])], road, same, frame, () => 100, [[190, 130, 210, 140]])).toHaveLength(1)
   })
 
+  it('文字是直的：彎的線上，名稱沿著弦排', () => {
+    const slight = lines([[[50, 100], [150, 102], [250, 100], [350, 101]]])
+    const [p] = placeLineNames([name([200, 100])], slight, same, frame, () => 100)
+    expect(p.points).toHaveLength(2)
+  })
+
+  it('錨點那一段彎得太厲害時，往旁邊沿線找夠直的一段', () => {
+    // 錨點附近來回折，右邊是直線
+    const zigzag = lines([[[50, 100], [70, 140], [90, 100], [110, 140], [130, 100], [260, 100], [350, 100]]])
+    const [p] = placeLineNames([name([110, 120])], zigzag, same, frame, () => 60)
+    // 線上夠直的那一段（右邊的直線），不是錨點那邊的來回折
+    expect(Math.abs(p.points[0][1] - 100)).toBeLessThan(4)
+    expect(Math.abs(p.points[1][1] - 100)).toBeLessThan(4)
+    expect(p.points[0][0]).toBeGreaterThan(125)
+  })
+
+  it('整條線都彎得太厲害就不畫', () => {
+    const zigzag = lines([[[50, 100], [70, 140], [90, 100], [110, 140], [130, 100], [150, 140], [170, 100], [190, 140], [210, 100]]])
+    expect(placeLineNames([name([110, 120])], zigzag, same, frame, () => 60)).toEqual([])
+  })
+
   it('斜的名稱只佔沿線的範圍：旁邊的空位不算重疊', () => {
     const diagonal = lines([[[50, 50], [250, 250]]])
     expect(placeLineNames([name([150, 150])], diagonal, same, frame, () => 100, [[190, 60, 240, 100]])).toHaveLength(1)

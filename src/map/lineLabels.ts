@@ -74,12 +74,24 @@ function arcAt(points: Vec[], p: Vec): number {
   return best
 }
 
+/** 名稱底下的線偏離直線最多幾像素：彎得比這大的地方文字會擠成一團，不放 */
+const STRAIGHT_PX = 5
+/** 名稱的位置在錨點附近找最直的一段：每次移動名稱寬度的這個比例，最多往兩邊各找 SHIFT_STEPS 次 */
+const SHIFT_FRACTION = 0.5
+const SHIFT_STEPS = 6
+
+/** 折線上點到弦（首尾連線）的最大距離 */
+function bend(points: Vec[]): number {
+  const [a, b] = [points[0], points[points.length - 1]]
+  return Math.max(...points.map((p) => segmentDistance(p, a, b)))
+}
+
 /**
- * 道路、步道的名稱沿著線排，位置固定在地圖上（平移、縮放時跟著地圖走，不會在線上跑來跑去）：
- * 每個名稱找 line 圖層裡離錨點最近的那條線，名稱的中心在錨點投影到線上的位置。
- * 線往左走時反過來，文字保持朝上；超出畫面、或和已經排好的名稱、occupied（優先的圖示與文字，螢幕座標）重疊時就不畫
- * （看不到沒關係，不換到別的位置）；同一條線只排一個名稱。
- * 步道的名稱先排，道路最後（重疊時道路的名稱先不畫）。
+ * 道路、步道的名稱沿著線排，文字是直的（沿著這一段的弦，不跟著彎，才讀得清楚），位置固定在地圖上：
+ * 每個名稱找 line 圖層裡離錨點最近的那條線，名稱的中心在錨點投影到線上的位置；
+ * 那一段彎得太厲害（STRAIGHT_PX）時，在附近沿線找最近的一段夠直的（只看線的形狀，平移時不會跑來跑去）。
+ * 線往左走時反過來，文字保持朝上；沒有夠直的一段、夠直的那一段超出畫面、或和已經排好的名稱、occupied（優先的圖示與文字，螢幕座標）重疊時就不畫；
+ * 同一條線只排一個名稱。步道的名稱先排，道路最後（重疊時道路的名稱先不畫）。
  * lines 是地圖座標，screen 換成螢幕座標，metersPerPx 是每個螢幕像素幾公尺；width 是名稱在畫面上的寬度（像素）。
  */
 export function placeLineNames(
@@ -108,16 +120,25 @@ export function placeLineNames(
     const total = line.slice(1).reduce((sum, p, i) => sum + dist(line[i], p), 0)
     const half = (width(name) * metersPerPx) / 2
     if (total < 2 * half) return
-    // 中心（沿線距離，公尺）：錨點投影到線上的位置，靠近線的端點時往內收，名稱不超出線
-    const c = Math.min(total - half, Math.max(half, arcAt(line, name.at)))
-    let points = slice(line, c - half, c + half).map(screen)
-    if (points.length < 2 || !points.every(inside)) return
-    if (points[points.length - 1][0] < points[0][0]) points = [...points].reverse()
-    const boxes = boxesAlong(points)
-    if (boxes.some((b) => taken.some((o) => overlaps(b, o)))) return
-    used.add(key)
-    taken.push(...boxes)
-    placed.push({ key: `${key}:${n}`, name, points, boxes })
+    const anchor = arcAt(line, name.at)
+    const shifts = [0, ...Array.from({ length: SHIFT_STEPS }, (_, k) => [(k + 1) * SHIFT_FRACTION * half * 2, -(k + 1) * SHIFT_FRACTION * half * 2]).flat()]
+    for (const shift of shifts) {
+      const c = anchor + shift
+      if (c - half < 0 || c + half > total) continue
+      const along = slice(line, c - half, c + half).map(screen)
+      if (along.length < 2 || bend(along) > STRAIGHT_PX) continue
+      // 文字沿著弦排：中心在這一段的中點，由左往右
+      let points: Vec[] = [along[0], along[along.length - 1]]
+      if (points[1][0] < points[0][0]) points = [points[1], points[0]]
+      // 夠直的地方就是這個名稱的位置：超出畫面或被擋住就不畫，不再往旁邊找
+      if (!points.every(inside)) return
+      const boxes = boxesAlong(points)
+      if (boxes.some((b) => taken.some((o) => overlaps(b, o)))) return
+      used.add(key)
+      taken.push(...boxes)
+      placed.push({ key: `${key}:${n}`, name, points, boxes })
+      return
+    }
   })
   return placed
 }
