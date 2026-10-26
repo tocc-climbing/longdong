@@ -43,6 +43,14 @@ const placeName = (m: Extract<Marker, { kind: 'place' }>, lang: string) => (lang
 /** 危險地形的圖示（半徑）與右邊的文字 */
 const HAZARD_R = 7
 
+/** 道路、步道至少畫成實際的寬度（公尺）：放大後跟著變粗，和航照上的路一樣寬 */
+const ROAD_WIDTH_M = { highway: 8, road: 5, trail: 1.5 }
+/** 放大到每像素不到 ICON_GROW_SCALE 公尺時，圖示跟著放大，最多 ICON_MAX_GROW 倍 */
+const ICON_GROW_SCALE = 0.5
+const ICON_MAX_GROW = 1.6
+/** 航照的不透明度：稍微調淡，上面的道路、步道、區域邊界比較清楚 */
+const ORTHO_OPACITY = 0.75
+
 /** 急救器材被擋住時，往旁邊挪的候選位置（螢幕像素）：由近到遠、八個方向 */
 const EMS_NUDGES: Vec[] = [0, 18, 26, 36].flatMap((d) =>
   d === 0 ? [[0, 0] as Vec] : Array.from({ length: 8 }, (_, k): Vec => [Math.round(d * Math.cos((k * Math.PI) / 4)), Math.round(d * Math.sin((k * Math.PI) / 4))]),
@@ -385,8 +393,13 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   const atMin = view.s >= maxScale(BOUNDS, frame) * 0.9999
   const north = (view.r * 180) / Math.PI
 
-  const trailDash = dashLength(3, px)
-  const tunnelDash = dashLength(6, px)
+  // 步道畫成實際寬度後，虛線也不要比路寬短（否則看起來像實線）
+  const trailDash = Math.max(dashLength(3, px), 2 * ROAD_WIDTH_M.trail)
+  /** 圖示放大的倍數，與以圖示位置為中心放大的 transform */
+  const grow = Math.min(ICON_MAX_GROW, Math.max(1, ICON_GROW_SCALE / view.s))
+  const grown = (x: number, y: number) => (grow === 1 ? undefined : `translate(${x} ${y}) scale(${grow}) translate(${-x} ${-y})`)
+  // 隧道畫成實際寬度後，虛線間距跟著路寬放大（否則變成一顆顆圓點）
+  const tunnelDash = Math.max(dashLength(6, px), 3 * ROAD_WIDTH_M.highway)
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
   const { shown, labels, nudged } = declutter(map.markers, map.areas, areaNames, screen, lang, t('map.hazard'))
   emsAt.current = nudged
@@ -400,23 +413,26 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           <rect className="sm-sea" x={view.cx - cover} y={view.cy - cover} width={cover * 2} height={cover * 2} />
           <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
           <path className="sm-building" d={map.layers.building} />
-          {ortho &&
-            orthoTiles(view, frame, window.devicePixelRatio).map((tile) => (
+          {ortho && (
+            <g opacity={ORTHO_OPACITY}>
+            {orthoTiles(view, frame, window.devicePixelRatio).map((tile) => (
               // CORS 載入：Service Worker 才能存成一般的回應（離線快取，見 ortho.ts）
               <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" crossOrigin="anonymous" />
             ))}
+            </g>
+          )}
           {map.areas.map((a) => (
             <path key={a.id} className={`sm-area sm-area-${a.id}${focus?.area && a.id !== focus.area ? ' sm-dim' : ''}`} d={a.path} strokeWidth={px} />
           ))}
           {map.sectors.map((s) => (
             <path key={s.id} className="sm-sector" d={s.path} />
           ))}
-          <path className="sm-highway" d={map.layers.highway} strokeWidth={5 * px} />
-          <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={5 * px} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
-          <path className="sm-road" d={map.layers.road} strokeWidth={2.5 * px} />
+          <path className="sm-highway" d={map.layers.highway} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} />
+          <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
+          <path className="sm-road" d={map.layers.road} strokeWidth={Math.max(2.5 * px, ROAD_WIDTH_M.road)} />
           {/* 停車場的範圍（深藍色），P 字畫在上面的圖示層 */}
           <path className="sm-parking-area" d={map.layers.parking} />
-          <path className="sm-trail" d={map.layers.trail} strokeWidth={2 * px} strokeDasharray={`${trailDash} ${trailDash}`} />
+          <path className="sm-trail" d={map.layers.trail} strokeWidth={Math.max(2 * px, ROAD_WIDTH_M.trail)} strokeDasharray={`${trailDash} ${trailDash}`} />
           {me && here && <circle className="sm-me-accuracy" cx={me[0]} cy={me[1]} r={here.accuracy} />}
         </g>
 
@@ -432,7 +448,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               )
             if (m.kind === 'hazard')
               return (
-                <g key={i} className="sm-hazard">
+                <g key={i} className="sm-hazard" transform={grown(x, y)}>
                   <circle cx={x} cy={y} r={HAZARD_R} />
                   <text x={x} y={y} fontSize={10} textAnchor="middle" dominantBaseline="central">
                     !
@@ -444,7 +460,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               )
             if (m.kind === 'boat')
               return (
-                <g key={i} className="sm-boat">
+                <g key={i} className="sm-boat" transform={grown(x, y)}>
                   <title>{t('map.boat')}</title>
                   <circle cx={x} cy={y} r={6} strokeWidth={1} />
                   <circle cx={x} cy={y} r={3.5} strokeWidth={1.5} />
@@ -453,7 +469,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               )
             if (m.kind === 'hoist')
               return (
-                <g key={i} className="sm-hoist">
+                <g key={i} className="sm-hoist" transform={grown(x, y)}>
                   <title>{t('map.hoist')}</title>
                   {/* 圖釘：尖端在實際位置 */}
                   <path d={`M${x} ${y}l-5.5 -9a6.4 6.4 0 1 1 11 0z`} />
@@ -472,8 +488,10 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
                 <title>{t('map.ems', { n: m.no })}</title>
                 {moved && <line className="sm-ems-link" x1={x} y1={y} x2={ex} y2={ey} />}
                 {moved && <circle className="sm-ems-dot" cx={x} cy={y} r={2} />}
-                <rect x={ex - 6} y={ey - 7} width={12} height={14} rx={4} />
-                <path d={`M${ex - 3.5} ${ey}h7M${ex} ${ey - 3.5}v7`} strokeWidth={2} />
+                <g transform={grown(ex, ey)}>
+                  <rect x={ex - 6} y={ey - 7} width={12} height={14} rx={4} />
+                  <path d={`M${ex - 3.5} ${ey}h7M${ex} ${ey - 3.5}v7`} strokeWidth={2} />
+                </g>
               </g>
             )
           })}
@@ -513,7 +531,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             const [x, y] = screen(p.at)
             const on = isSelectedRescue(p.key) || !!focus?.points?.includes(p.key)
             return (
-              <g key={i} className={`sm-rescue${on ? ' on' : ''}${isSelectedRescue(p.key) ? ' selected' : ''}`}>
+              <g key={i} className={`sm-rescue${on ? ' on' : ''}${isSelectedRescue(p.key) ? ' selected' : ''}`} transform={grown(x, y)}>
                 <circle cx={x} cy={y} r={on ? 10 : 7} />
                 <text x={x} y={y} fontSize={on ? 11 : 9} textAnchor="middle" dominantBaseline="central">
                   {p.no}
@@ -525,7 +543,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             if (m.kind !== 'parking') return null
             const [x, y] = screen(m.at)
             return (
-              <text key={i} className="sm-parking" x={x} y={y} fontSize={12} textAnchor="middle" dominantBaseline="central">
+              <text key={i} className="sm-parking" x={x} y={y} fontSize={12} textAnchor="middle" dominantBaseline="central" transform={grown(x, y)}>
                 P
               </text>
             )

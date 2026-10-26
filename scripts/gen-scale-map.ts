@@ -397,11 +397,12 @@ const buildWarp = (points: { at: Pt; gps: Pt; slack: number }[]) =>
  * 對應後重新校正、再對一次（兩輪），讓對應收斂。岩場附近的岩岸太複雜、容易對錯，不在範圍內。
  * 參考資料：scripts/data/osm-reference.json（© OpenStreetMap contributors，ODbL）。
  */
-const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json', import.meta.url), 'utf8')) as { coastline: Pt[][]; highway: Pt[][]; path: Pt[][] }
+const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json', import.meta.url), 'utf8')) as { coastline: Pt[][]; highway: Pt[][]; path: Pt[][]; road: Pt[][] }
 const OSM_LINES = {
   coastline: osmReference.coastline.map((l) => l.map(toMeters)),
   highway: osmReference.highway.map((l) => l.map(toMeters)),
   path: osmReference.path.map((l) => l.map(toMeters)),
+  road: osmReference.road.map((l) => l.map(toMeters)),
 }
 
 type Box = [number, number, number, number]
@@ -663,6 +664,29 @@ for (let round = 0; round < 2; round++) {
 }
 console.log(`步道參考點：取樣 ${trailSamples.length} 個，對到 ${trailPoints.length} 個`)
 const trailWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...trailPoints])
+
+/**
+ * 道路：台二線（含隧道）與其他道路沿線每 ROAD_STEP_PT 取一點，對到 OSM 的道路（台二線對 highway=primary，其他道路對其他等級與台二線）上 ROAD_MAX_M 內最近的位置（兩輪），
+ * 比上面台二線的沿線對應（全圖共用、鬆弛大）貼得更緊；只有道路照這些點變形（roadWarp），開航照時道路與照片對齊。
+ */
+const ROAD_STEP_PT = 25
+const ROAD_MAX_M = 30
+const ROAD_SLACK = 300
+const roadSamples = [
+  ...sampleAlong(highways.flatMap((s) => s.subpaths.flatMap(clipToPage)), PAGE, ROAD_STEP_PT).map((at) => ({ at, target: [...OSM_LINES.highway] })),
+  ...sampleAlong(roads.flatMap((s) => s.subpaths.flatMap(clipToPage)), PAGE, ROAD_STEP_PT).map((at) => ({ at, target: [...OSM_LINES.road, ...OSM_LINES.highway] })),
+]
+let roadPoints: { at: Pt; gps: Pt; slack: number }[] = []
+for (let round = 0; round < 2; round++) {
+  const current = buildWarp([...CONTROL_POINTS, ...curvePoints, ...roadPoints])
+  roadPoints = roadSamples.flatMap(({ at, target }) => {
+    const here = current(at)
+    const to = nearestOn(target, here)
+    return Math.hypot(to[0] - here[0], to[1] - here[1]) <= ROAD_MAX_M ? [{ at, gps: fromMeters(to), slack: ROAD_SLACK }] : []
+  })
+}
+console.log(`道路參考點：取樣 ${roadSamples.length} 個，對到 ${roadPoints.length} 個`)
+const roadWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...roadPoints])
 /** 換算後的公尺座標 → GeoJSON 的 [經度, 緯度]（小數 6 位，約 0.1 公尺） */
 const metersToLngLat = ([e, n]: Pt): Pt => [+(lng0 + e / metersPerDegLng).toFixed(6), +(lat0 + n / metersPerDegLat).toFixed(6)]
 /** 圖上位置 → GeoJSON 的 [經度, 緯度] */
@@ -858,7 +882,7 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
   if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊，區域貼齊正射影像的岩石帶，步道以 ${trailPoints.length} 個 OpenStreetMap 步道參考點對齊）；島礁與岩石帶參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊，區域貼齊正射影像的岩石帶，步道以 ${trailPoints.length} 個、道路以 ${roadPoints.length} 個 OpenStreetMap 參考點對齊）；島礁與岩石帶參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 /**
  * 島礁和岸邊的色塊重疊時往外推：示意圖上島礁旁邊的岩脊常畫得太長，貼齊後岩脊蓋到島礁的位置。
@@ -925,9 +949,9 @@ const scaleMap = {
   features: [
     feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)), SIMPLIFY_M, coastWarp)])) }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
-    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed)) }),
-    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed)) }),
-    feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads) }),
+    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed), roadWarp) }),
+    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed), roadWarp) }),
+    feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads, roadWarp) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),

@@ -167,8 +167,9 @@
 
 .sm-attribution {
   position: absolute;
-  top: 60px;
-  right: 8px;
+  /* 左下、比例尺上方：上方的按鈕（例如下載離線航照）換行時不會蓋到 */
+  bottom: calc(var(--map-bottom, 16px) + 26px);
+  left: 12px;
   margin: 0;
   padding: 0 4px;
   border-radius: 4px;
@@ -748,3 +749,7 @@
   cursor: copy;
 }
 
+/* 步道是線段：不填色 */
+.sm-edit-ring.open {
+  fill: none;
+}
