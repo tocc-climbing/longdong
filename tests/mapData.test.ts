@@ -18,6 +18,28 @@ describe('上傳狀態', () => {
   })
 })
 
+describe('底圖的台二線與地名（scale-map.geojson）', () => {
+  type Feature = { properties: { kind: string; zh?: string }; geometry: { type: string; coordinates: unknown } }
+  const features = (JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as { features: Feature[] }).features
+
+  it('台二線各段的端點不會差幾十公尺（接點斷開：龍洞街口）', () => {
+    const lines = features.filter((f) => f.properties.kind === 'highway').flatMap((f) => f.geometry.coordinates as [number, number][][])
+    const ends = lines.flatMap((l, i) => [l[0], l.at(-1)!].map((p) => ({ i, p })))
+    const gaps = ends.flatMap((a, k) => ends.slice(k + 1).filter((b) => a.i !== b.i).map((b) => distanceM([a.p[1], a.p[0]], [b.p[1], b.p[0]])))
+    // 端點相距不到 5 公尺是接上了；超過 100 公尺是各自的端點（頁框外、隧道兩端）；中間的是斷口
+    expect(gaps.filter((m) => m > 5 && m < 100)).toEqual([])
+  })
+
+  it('和美國小、西靈巖寺的位置在 OpenStreetMap 建物的 15 公尺內', () => {
+    const at = (zh: string) => {
+      const [lng, lat] = features.find((f) => f.properties.kind === 'place' && f.properties.zh === zh)!.geometry.coordinates as [number, number]
+      return [lat, lng] as [number, number]
+    }
+    expect(distanceM(at('和美國小'), [25.1123339, 121.9195433])).toBeLessThan(15)
+    expect(distanceM(at('西靈巖寺'), [25.1051223, 121.9211926])).toBeLessThan(15)
+  })
+})
+
 describe('匯出 GeoJSON', () => {
   it('每個回報一個 Point，座標順序是 [經度, 緯度]', () => {
     const out = toGeoJSON({ marks: [{ ...fix(25.11, 121.92, 7.6, 0), note: '鐘塔' }] }) as {

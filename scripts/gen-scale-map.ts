@@ -301,15 +301,16 @@ if (hoists.length !== 5) throw new Error(`直升機吊掛點應該有 5 處，�
 /**
  * 圖上的文字（地名、道路、步道、海面、紅色的警示）：文字中心的圖上位置，中英日三種語言。
  * tone 是圖上文字的顏色種類，地圖用同樣的配色；產生時檢查圖上該位置有這個顏色的文字，版面改了就停下來。
+ * gps（OpenStreetMap 上建物的位置）：救援資訊圖上的文字不在建物上時，地圖上的位置改用它（at 仍用來檢查版面）。
  * 道路、步道的名稱（有 line）不固定位置：輸出名稱與錨點（kind: 'name'），地圖上沿著離錨點最近的那條線、在畫面上看得到的部分排字（src/map/ScaleMap.tsx）。
  */
 type PlaceTone = 'place' | 'road' | 'trail' | 'sea' | 'warning'
 type NameLine = 'highway' | 'tunnel' | 'road' | 'trail'
 const TONE_COLORS: Record<PlaceTone, string> = { place: '#898989', road: '#004080', trail: '#386808', sea: '#c8c8c8', warning: '#b80008' }
-const PLACES: { zh: string; en: string; ja: string; tone: PlaceTone; at: Pt; line?: NameLine }[] = [
-  { zh: '和美國小', en: 'Ho-Mei School', ja: '和美小学校', tone: 'place', at: [877.5, 996] },
+const PLACES: { zh: string; en: string; ja: string; tone: PlaceTone; at: Pt; line?: NameLine; gps?: Pt }[] = [
+  { zh: '和美國小', en: 'Ho-Mei School', ja: '和美小学校', tone: 'place', at: [877.5, 996], gps: [25.112334, 121.919543] },
   { zh: '和美村', en: 'Ho-Mei Village', ja: '和美村', tone: 'place', at: [541, 1130] },
-  { zh: '西靈巖寺', en: 'Hsilingyan Temple', ja: '西霊巌寺', tone: 'place', at: [1145, 2005.5] },
+  { zh: '西靈巖寺', en: 'Hsilingyan Temple', ja: '西霊巌寺', tone: 'place', at: [1145, 2005.5], gps: [25.105122, 121.921193] },
   { zh: '龍洞南口海洋公園', en: 'Long Dong South Ocean Park', ja: '龍洞南口海洋公園', tone: 'place', at: [838, 2427] },
   { zh: '太平洋', en: 'Pacific Ocean', ja: '太平洋', tone: 'sea', at: [1679, 2305] },
   { zh: '龍洞街', en: 'Long Dong Street', ja: '龍洞街', tone: 'road', at: [547, 1039], line: 'road' },
@@ -1026,21 +1027,24 @@ const OUTER_STEP_M = 2
 /** 被頁框切斷、比這個短（公尺）的小段不要：頁框附近救援資訊圖已經畫了同一條路，只剩一小截看起來像斷掉的線頭 */
 const OUTER_MIN_CUT_M = 60
 /** 線（[經度, 緯度]）切成頁面外（keepInside 時頁面內）的各段：先每 OUTER_STEP_M 一點，跨過頁框的地方斷開 */
-function splitByPage(line: Pt[], keepInside: boolean): Pt[][] {
+function splitByPage(line: Pt[], keepInside: boolean, bridgeStart = false): Pt[][] {
   const pts = densify(line.map(lngLatToMeters), OUTER_STEP_M)
-  const out: Pt[][] = []
+  const out: { run: Pt[]; from: number }[] = []
   let run: Pt[] = []
-  const flush = () => {
+  /** end：這一段之後第一個點的位置（這一段是 pts[end - run.length, end)） */
+  const flush = (end: number) => {
     const cut = run.length < pts.length
-    if (run.length > 1 && (!cut || (run.length - 1) * OUTER_STEP_M >= OUTER_MIN_CUT_M)) out.push(run)
+    if (run.length > 1 && (!cut || (run.length - 1) * OUTER_STEP_M >= OUTER_MIN_CUT_M)) out.push({ run, from: end - run.length })
     run = []
   }
-  for (const p of pts) {
+  for (const [i, p] of pts.entries()) {
     if (inPage(metersToLngLat(p)) === keepInside) run.push(p)
-    else flush()
+    else flush(i)
   }
-  flush()
-  return out.map((l) => simplify(l, OUTER_SIMPLIFY_M).map(metersToLngLat))
+  flush(pts.length)
+  // bridgeStart：線的起點是接上另一條線的地方，起點到第一段之間（沿著頁框、進出頁面的幾十公尺）也要保留，不然接點會斷開
+  const runs = out.map(({ run, from }, i) => (bridgeStart && i === 0 ? [...pts.slice(0, from + 1), ...run] : run))
+  return runs.map((l) => simplify(l, OUTER_SIMPLIFY_M).map(metersToLngLat))
 }
 const outerLines = (list: Pt[][]) => list.flatMap((l) => splitByPage(l.map(lngLat), false))
 const extentBox = { west: EXTENT_LATLNG.west, south: EXTENT_LATLNG.south, east: EXTENT_LATLNG.east, north: EXTENT_LATLNG.north }
@@ -1066,14 +1070,17 @@ const scaleMap = {
     feature({ kind: 'outerTrail' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.trail) }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
     // 往鼻頭的延伸只留頁面內的部分，頁面外是 outerHighway（同樣是 OSM 的台二線）
-    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoads.flatMap((l) => splitByPage(l, true))] }),
+    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoads.flatMap((l, i) => splitByPage(l, true, i === 0))] }),
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: [...lines(highways.filter((s) => s.dashed), roadWarp), bitouTunnel] }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads, roadWarp) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: [...parkingShapes.flat(), ...otherParking].map((r) => [r.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
     ...emsPoints.map((at, i) => feature({ kind: 'ems', no: EMS_LOCATIONS[i].no }, { type: 'Point', coordinates: metersToLngLat(at) })),
-    ...PLACES.map(({ zh, en, ja, tone, at, line }) => point({ kind: line ? 'name' : 'place', zh, en, ja, tone, ...(line ? { line } : {}) }, at)),
+    ...PLACES.map(({ zh, en, ja, tone, at, line, gps }) => {
+      const properties = { kind: line ? 'name' : 'place', zh, en, ja, tone, ...(line ? { line } : {}) }
+      return gps ? feature(properties, { type: 'Point', coordinates: [gps[1], gps[0]] }) : point(properties, at)
+    }),
     // 鼻頭隧道不在救援資訊圖上：名稱的錨點是 OSM 隧道的中點
     feature({ kind: 'name', zh: '鼻頭隧道', en: 'Bitou Tunnel', ja: '鼻頭トンネル', tone: 'road', line: 'tunnel' }, { type: 'Point', coordinates: bitouTunnel[Math.floor(bitouTunnel.length / 2)] }),
     ...HAZARDS.map((at) => point({ kind: 'hazard' }, at)),
