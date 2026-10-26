@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/map/mapView'
+import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, fitRectView, focusView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/map/mapView'
 
 const bounds = { x: 0, y: 0, w: 1000, h: 2000 }
 const frame = { w: 400, h: 400 }
@@ -43,13 +43,11 @@ describe('比例尺地圖的平移、縮放與旋轉', () => {
     // 每像素 1 公尺時畫面高 400 公尺：中心最多到範圍上緣往下 200 公尺
     expect(clampView({ cx: 500, cy: -50, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 200, s: 1, r: 0 })
     expect(clampView({ cx: 500, cy: 5000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 1800, s: 1, r: 0 })
-    // 縮到最小時上下剛好填滿，中心固定在範圍中間；框比範圍寬時左右也置中
-    expect(fitView(bounds, wide, 900)).toEqual({ cx: 500, cy: 1000, s: 5, r: 0 })
-    // 左右拖曳時畫面左右緣也不超出範圍：每像素 1 公尺時畫面寬 800 公尺
-    expect(clampView({ cx: 5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 600, cy: 1000, s: 1, r: 0 })
-    expect(clampView({ cx: -5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 400, cy: 1000, s: 1, r: 0 })
-    // 框窄時（手機直拿）縮到最小仍可以左右拖曳到範圍邊緣
-    expect(fitView(bounds, { w: 100, h: 400 }, 600)).toEqual({ cx: 600, cy: 1000, s: 5, r: 0 })
+    // 縮到最小時上下剛好填滿，中心固定在範圍中間；框比範圍寬時左右也置中（超出的是底圖）
+    expect(fitView(bounds, wide, 900)).toEqual({ cx: 900, cy: 1000, s: 5, r: 0 })
+    // 左右拖曳時只限制中心在範圍內
+    expect(clampView({ cx: 5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 1000, cy: 1000, s: 1, r: 0 })
+    expect(clampView({ cx: -5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 0, cy: 1000, s: 1, r: 0 })
   })
 
   it('縮放與平移都限制在範圍內', () => {
@@ -78,6 +76,28 @@ describe('聚焦（區域、救援點）', () => {
     expect(v.s).toBe(maxScale(bounds, frame))
     expect(v.cy).toBeGreaterThanOrEqual(0)
     expect(v.cy).toBeLessThanOrEqual(1000)
+  })
+})
+
+describe('一開始的畫面', () => {
+  const area = { x: 200, y: 600, w: 300, h: 800 }
+  const wide = { x: -1000, y: 0, w: 3000, h: 2000 }
+  it('目標置中，上下各留 10%', () => {
+    const v = fitRectView(area, wide, { w: 800, h: 500 })
+    expect(v.cx).toBe(350)
+    expect(v.cy).toBe(1000)
+    // 目標高 800 公尺佔框高的 80%：每像素 2 公尺
+    expect(v.s).toBe(2)
+    expect(v.r).toBe(0)
+  })
+
+  it('框太窄時以寬度為準（左右各留 5%）', () => {
+    const v = fitRectView(area, wide, { w: 200, h: 800 })
+    expect(v.s).toBeCloseTo(300 / (200 * 0.9))
+  })
+
+  it('不超出範圍：目標比範圍小時最多縮到範圍', () => {
+    expect(fitRectView({ x: 0, y: 0, w: 1000, h: 2000 }, bounds, { w: 800, h: 500 }).s).toBe(maxScale(bounds, { w: 800, h: 500 }))
   })
 })
 

@@ -57,6 +57,15 @@ export function fitView(bounds: Rect, frame: Size, cx = bounds.x + bounds.w / 2)
   return clampView({ cx, cy: bounds.y + bounds.h / 2, s: maxScale(bounds, frame), r: 0 }, bounds, frame)
 }
 
+/**
+ * 一開始的畫面：把 target（例如 9 個大區域的範圍）置中、北方朝上，上下各留 margin.y（框高的比例）、左右各留 margin.x；
+ * 框太窄時以寬度為準。縮放與位置仍限制在 bounds 內。
+ */
+export function fitRectView(target: Rect, bounds: Rect, frame: Size, margin = { x: 0.05, y: 0.1 }): MapView {
+  const s = Math.max(target.h / (frame.h * (1 - 2 * margin.y)), target.w / (frame.w * (1 - 2 * margin.x)))
+  return clampView({ cx: target.x + target.w / 2, cy: target.y + target.h / 2, s, r: 0 }, bounds, frame)
+}
+
 /** 把 target（例如一個區域、幾個救援點）放進框裡，北方朝上；縮放與位置仍限制在 bounds 內 */
 export function focusView(target: Rect, bounds: Rect, frame: Size): MapView {
   const s = Math.max(target.w / frame.w, target.h / frame.h)
@@ -65,7 +74,7 @@ export function focusView(target: Rect, bounds: Rect, frame: Size): MapView {
 
 /**
  * 最多縮小到範圍的上下剛好填滿框：上下不會露出範圍外的空白（範圍外沒有地圖資料）；
- * 框比較窄（手機直拿）時左右放不下，左右拖曳即可（北方朝上時畫面左右緣同樣不超出範圍；框比範圍寬時左右置中）。
+ * 框比較窄（手機直拿）時左右放不下，左右拖曳即可；左右不限制畫面的邊緣（超出的是和海同色的底圖），中心不離開範圍。
  * 有 maxW 時畫面也不比它寬（很寬的螢幕上下就放不下，上下拖曳）。
  */
 export function maxScale(bounds: Rect, frame: Size): number {
@@ -83,13 +92,13 @@ export function clampScale(s: number, bounds: Rect, frame: Size): number {
  */
 export function clampView(v: MapView, bounds: Rect, frame: Size): MapView {
   const s = clampScale(v.s, bounds, frame)
-  // 北方朝上時畫面的上下左右都不超出範圍（畫面比範圍寬時置中）；旋轉後只限制中心在範圍內
+  // 北方朝上時畫面的上下緣不超出範圍；左右只限制中心在範圍內（螢幕比範圍寬、直立的 iPad 要把 9 個區域置中時，
+  // 左右超出的部分是和海同色的底圖，不用硬把畫面推回範圍內）；旋轉後上下也只限制中心
   const halfH = v.r === 0 ? Math.min(bounds.h / 2, (s * frame.h) / 2) : 0
-  const halfW = v.r === 0 ? Math.min(bounds.w / 2, (s * frame.w) / 2) : 0
   return {
     s,
     r: v.r,
-    cx: Math.min(bounds.x + bounds.w - halfW, Math.max(bounds.x + halfW, v.cx)),
+    cx: Math.min(bounds.x + bounds.w, Math.max(bounds.x, v.cx)),
     cy: Math.min(bounds.y + bounds.h - halfH, Math.max(bounds.y + halfH, v.cy)),
   }
 }
