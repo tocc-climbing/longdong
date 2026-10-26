@@ -43,8 +43,13 @@ describe('比例尺地圖的平移、縮放與旋轉', () => {
     // 每像素 1 公尺時畫面高 400 公尺：中心最多到範圍上緣往下 200 公尺
     expect(clampView({ cx: 500, cy: -50, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 200, s: 1, r: 0 })
     expect(clampView({ cx: 500, cy: 5000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 1800, s: 1, r: 0 })
-    // 縮到最小時上下剛好填滿，中心固定在範圍中間
-    expect(fitView(bounds, wide, 900)).toEqual({ cx: 900, cy: 1000, s: 5, r: 0 })
+    // 縮到最小時上下剛好填滿，中心固定在範圍中間；框比範圍寬時左右也置中
+    expect(fitView(bounds, wide, 900)).toEqual({ cx: 500, cy: 1000, s: 5, r: 0 })
+    // 左右拖曳時畫面左右緣也不超出範圍：每像素 1 公尺時畫面寬 800 公尺
+    expect(clampView({ cx: 5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 600, cy: 1000, s: 1, r: 0 })
+    expect(clampView({ cx: -5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 400, cy: 1000, s: 1, r: 0 })
+    // 框窄時（手機直拿）縮到最小仍可以左右拖曳到範圍邊緣
+    expect(fitView(bounds, { w: 100, h: 400 }, 600)).toEqual({ cx: 600, cy: 1000, s: 5, r: 0 })
   })
 
   it('縮放與平移都限制在範圍內', () => {

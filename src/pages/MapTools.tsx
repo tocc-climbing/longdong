@@ -3,72 +3,12 @@ import { findSector, type LoadedData } from '../data/dataset'
 import type { LatLng } from '../geo'
 import { LOCALES, localName, useLang } from '../i18n'
 import type { ReportTarget } from '../map/calibration'
-import { WALL_MAX_POINTS, type Wall } from '../map/walls'
+import type { Wall } from '../map/walls'
 
 /** 分區的顯示名稱：「區域 · 分區」；分區已不存在時寫明 ID */
 export function sectorLabel(data: LoadedData, sectorId: string, lang: Parameters<typeof localName>[1]): string {
   const found = findSector(data, sectorId)
   return found ? `${localName(found.area.name, lang).main} · ${localName(found.sector.name, lang).main}` : sectorId
-}
-
-/** 選分區：依區域分組 */
-function SectorSelect({ data, value, onChange, label }: { data: LoadedData; value: string; onChange: (sector: string) => void; label: string }) {
-  const { lang } = useLang()
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
-      <option value="">{label}</option>
-      {data.dataset.areas.map((area) => (
-        <optgroup key={area.id} label={localName(area.name, lang).main}>
-          {area.sectors.map((sector) => (
-            <option key={sector.id} value={sector.id}>
-              {localName(sector.name, lang).main}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  )
-}
-
-/**
- * 畫岩壁的工具列（電腦版、登入者）：選分區，在地圖上沿著牆底點出折線，儲存。
- * 地圖上的點由地圖頁收集（pick），這裡只顯示點數與按鈕。
- */
-export function WallBar({
-  data,
-  points,
-  sector,
-  saving,
-  onSector,
-  onUndo,
-  onSave,
-  onCancel,
-}: {
-  data: LoadedData
-  points: LatLng[]
-  sector: string
-  saving: boolean
-  onSector: (sector: string) => void
-  onUndo: () => void
-  onSave: () => void
-  onCancel: () => void
-}) {
-  const { t } = useLang()
-  return (
-    <div className="map-pick-bar wall-bar" role="status">
-      <span>{t(points.length >= WALL_MAX_POINTS ? 'wall.full' : 'wall.prompt', { n: points.length })}</span>
-      <SectorSelect data={data} value={sector} onChange={onSector} label={t('wall.chooseSector')} />
-      <button type="button" className="action" disabled={points.length === 0} onClick={onUndo}>
-        {t('wall.undo')}
-      </button>
-      <button type="button" className="action primary" disabled={points.length < 2 || !sector || saving} onClick={onSave}>
-        {t('wall.save')}
-      </button>
-      <button type="button" className="action" onClick={onCancel}>
-        {t('map.cancel')}
-      </button>
-    </div>
-  )
 }
 
 /** 點到一段岩壁：分區、誰畫的、什麼時候；本人與管理員可以刪除 */

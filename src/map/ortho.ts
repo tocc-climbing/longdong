@@ -43,12 +43,24 @@ const tileUrl = (z: number, x: number, y: number) => TILE_URL.replace('{z}', Str
 const tileLatLng = (x: number, y: number, n: number): LatLng => [(Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI, (x / n) * 360 - 180]
 
 /** 畫面上看得到的圖磚：一層清楚的（圖磚像素不大於螢幕像素），底下墊一層粗兩級的，最底下再墊固定的 BASE_Z，換層級時不會整片空白 */
-export function orthoTiles(view: MapView, frame: Size, dpr = 1): OrthoTile[] {
+/** 畫面清楚需要的圖磚層級（圖磚像素不大於螢幕像素） */
+export function orthoLevel(view: MapView, dpr = 1): number {
+  const lat = unproject([view.cx, view.cy])[0]
+  const metersPerTilePx = (z: number) => (EARTH_M * Math.cos((lat * Math.PI) / 180)) / (256 * 2 ** z)
+  let z = MAX_Z
+  while (z > MIN_Z && metersPerTilePx(z - 1) <= view.s / dpr) z--
+  return z
+}
+
+/**
+ * level：用這個層級（縮放中先沿用之前的層級，圖磚不換，不會一直重新載入而閃動）；
+ * 圖磚太多（縮小很多）時往下降。沒有指定時用 orthoLevel。
+ */
+export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLevel(view, dpr)): OrthoTile[] {
   const corners = ([[0, 0], [frame.w, 0], [0, frame.h], [frame.w, frame.h]] as [number, number][]).map((p) => unproject(toMap(view, frame, p)))
   const lats = corners.map((c) => c[0])
   const lngs = corners.map((c) => c[1])
   const [north, south, west, east] = [Math.max(...lats), Math.min(...lats), Math.min(...lngs), Math.max(...lngs)]
-  const metersPerTilePx = (z: number) => (EARTH_M * Math.cos((((north + south) / 2) * Math.PI) / 180)) / (256 * 2 ** z)
 
   const layer = (z: number) => {
     const n = 2 ** z
@@ -65,8 +77,7 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1): OrthoTile[] {
     return tiles
   }
 
-  let z = MAX_Z
-  while (z > MIN_Z && metersPerTilePx(z - 1) <= view.s / dpr) z--
+  let z = level
   let fine = layer(z)
   while (!fine && z > MIN_Z) fine = layer(--z)
   const coarse = z - 2 > BASE_Z ? layer(z - 2) : undefined

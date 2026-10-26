@@ -17,11 +17,11 @@ import { href, navigate } from '../router'
 import { areaNames, project, useScaleMap } from '../map/mapData'
 import { ORTHO_DOWNLOAD_MB, cachedOrthoCount, downloadOrtho, orthoDownloadUrls } from '../map/ortho'
 import { insideRing } from '../map/reportOptions'
-import { WALL_MAX_POINTS, encodeLine, useWalls } from '../map/walls'
+import { useWalls } from '../map/walls'
 import { withCloud } from '../personal/sync'
 import { setSimulation, useSimulation } from '../simulate'
 import { displayName, useSocial } from '../social/store'
-import { ManualReportForm, WallBar, WallDetails, sectorLabel } from './MapTools'
+import { ManualReportForm, WallDetails, sectorLabel } from './MapTools'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
@@ -39,7 +39,8 @@ const TOAST_MS = 4000
  * 回報時也可以在地圖上點出自己認為所在的位置（選填）：和 GPS 的差距可以看出地圖或 GPS 偏了多少。
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
- * 「航照」切換國土測繪中心的正射影像底圖；看過的地方離線時照樣顯示，還沒存齊時可以「下載離線航照」一次存下整個範圍。電腦版登入後可以「畫岩壁」：選分區，沿著牆底點出折線；登入者看得到所有人畫的岩壁。
+ * 左上只有圖示：回報、航照（國土測繪中心的正射影像；看過的地方離線時照樣顯示，還沒存齊時提示下載整個範圍）、修改（電腦版、登入）。
+ * 登入者看得到所有人畫的岩壁，點一段看詳細、本人與管理員可以刪除。
  * 電腦版的「編輯地圖」開修改模式（/edit，src/edit/EditPage.tsx）。
  */
 export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
@@ -66,12 +67,12 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const [ortho, setOrtho] = useState(() => readFlag(ORTHO_KEY))
   /** 離線航照：整個範圍存齊了沒、下載進度；undefined 表示還沒查（或這個瀏覽器不能離線快取） */
   const [offline, setOffline] = useState<{ done: number; total: number; downloading: boolean }>()
+  /** 打開航照時提示下載離線航照，按「不用」後這次不再提示 */
+  const [offlineOfferClosed, setOfflineOfferClosed] = useState(false)
   /** 手動回報：在地圖上點位置中／點好的位置（表單開著） */
   const [manualPicking, setManualPicking] = useState(false)
   const [manualAt, setManualAt] = useState<LatLng>()
   const [manualOpen, setManualOpen] = useState(false)
-  /** 畫岩壁：undefined 表示沒有在畫 */
-  const [wallDraft, setWallDraft] = useState<{ points: LatLng[]; sector: string; saving: boolean }>()
   const [selectedWall, setSelectedWall] = useState<string>()
   const wide = useWide()
   const admin = useIsAdmin()
@@ -157,20 +158,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
     if (!simulated && (!navigator.onLine || (cloud.status === 'signed-in' && !cloud.connected))) setToast(t('map.queued'))
   }
 
-  const saveWall = async () => {
-    if (!wallDraft || wallDraft.points.length < 2 || !wallDraft.sector) return
-    setWallDraft({ ...wallDraft, saving: true })
-    try {
-      const { m, uid: me } = await withCloud()
-      await m.addWall(me, wallDraft.sector, encodeLine(wallDraft.points))
-      setWallDraft(undefined)
-      setToast(t('wall.saved'))
-    } catch (err) {
-      setWallDraft((d) => d && { ...d, saving: false })
-      setToast(t('wall.saveFailed', { error: (err as Error).message }))
-    }
-  }
-
   const deleteWall = async (owner: string, id: string) => {
     try {
       const { m } = await withCloud()
@@ -205,9 +192,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
     ? { at: draft.at, onPick: (at: LatLng) => setDraft((d) => ({ ...d, at })) }
     : manualPicking
       ? { at: manualAt, onPick: setManualAt }
-      : wallDraft
-        ? { onPick: (at: LatLng) => setWallDraft((d) => d && (d.points.length < WALL_MAX_POINTS ? { ...d, points: [...d.points, at] } : d)) }
-        : undefined
+      : undefined
   /** 點的位置所在的大區域（手動回報預設選這個區域） */
   const areaAt = (at: LatLng) => (map.status === 'ok' ? map.data.areas.findLast((a) => a.rings.some((r) => insideRing(project(at), r)))?.id : undefined)
 
@@ -223,7 +208,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           ortho={ortho}
           lines={[
             ...walls.map((w) => ({ key: w.id, points: w.points, label: sectorLabel(data, w.sector, lang), selected: w.id === selectedWall })),
-            ...(wallDraft ? [{ key: 'draft', points: wallDraft.points, draft: true }] : []),
           ]}
           onLineTap={setSelectedWall}
           sectorNames={sectorNames}
@@ -238,29 +222,23 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           }}
           topLeft={
             <>
-              <button type="button" className="sm-chip beta" onClick={() => setIntro(true)}>
-                {t('map.beta')}
+              {/* 只用圖示：回報（有還沒上傳的記錄時加一個點）、航照、修改（電腦版、登入） */}
+              <button type="button" className="sm-control sm-tool report" onClick={startReport} aria-label={t('map.report')} title={t('map.report')}>
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+                  <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor" />
+                </svg>
                 {pending && <span className="sm-chip-dot" aria-label={t('map.pending')} />}
               </button>
-              <button type="button" className="sm-chip report" onClick={startReport}>
-                {t('map.report')}
+              <button type="button" className="sm-control sm-tool" aria-pressed={ortho} onClick={toggleOrtho} aria-label={t('map.ortho')} title={t('map.ortho')}>
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+                  <path d="M12 3 2 8.5 12 14l10-5.5L12 3zm-7.6 8.8L2 13.1 12 18.6l10-5.5-2.4-1.3L12 16l-7.6-4.2zm0 4.4L2 17.5 12 23l10-5.5-2.4-1.3L12 20.4l-7.6-4.2z" fill="currentColor" />
+                </svg>
               </button>
-              <button type="button" className="sm-chip" aria-pressed={ortho} onClick={toggleOrtho}>
-                {t('map.ortho')}
-              </button>
-              {ortho && offline && offline.done < offline.total && (
-                <button type="button" className="sm-chip" disabled={offline.downloading} onClick={() => void downloadOffline()}>
-                  {offline.downloading ? t('map.orthoDownloading', { done: offline.done, total: offline.total }) : t('map.orthoDownload', { mb: ORTHO_DOWNLOAD_MB })}
-                </button>
-              )}
-              {wide && uid && !wallDraft && (
-                <button type="button" className="sm-chip" onClick={() => setWallDraft({ points: [], sector: '', saving: false })}>
-                  {t('wall.draw')}
-                </button>
-              )}
-              {wide && !wallDraft && (
-                <a className="sm-chip" href={href.edit('map', 'trails')}>
-                  {t('shape.edit')}
+              {wide && uid && (
+                <a className="sm-control sm-tool" href={href.edit('map', 'trails')} aria-label={t('shape.edit')} title={t('shape.edit')}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+                    <path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor" />
+                  </svg>
                 </a>
               )}
             </>
@@ -320,18 +298,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
         </div>
       )}
 
-      {wallDraft && (
-        <WallBar
-          data={data}
-          points={wallDraft.points}
-          sector={wallDraft.sector}
-          saving={wallDraft.saving}
-          onSector={(sector) => setWallDraft({ ...wallDraft, sector })}
-          onUndo={() => setWallDraft({ ...wallDraft, points: wallDraft.points.slice(0, -1) })}
-          onSave={() => void saveWall()}
-          onCancel={() => setWallDraft(undefined)}
-        />
-      )}
 
       <div className="map-toasts">
         {geo.status === 'error' && (
@@ -343,6 +309,21 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
         {toast && (
           <p className="map-toast" role="status">
             {toast}
+          </p>
+        )}
+        {ortho && offline && offline.done < offline.total && !offlineOfferClosed && (
+          <p className="map-toast offer" role="status">
+            {offline.downloading ? t('map.orthoDownloading', { done: offline.done, total: offline.total }) : t('map.orthoOffer')}
+            {!offline.downloading && (
+              <>
+                <button type="button" className="link-button" onClick={() => void downloadOffline()}>
+                  {t('map.orthoDownload', { mb: ORTHO_DOWNLOAD_MB })}
+                </button>
+                <button type="button" className="link-button" onClick={() => setOfflineOfferClosed(true)}>
+                  {t('map.orthoNoThanks')}
+                </button>
+              </>
+            )}
           </p>
         )}
         {wallsError && (

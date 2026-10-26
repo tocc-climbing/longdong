@@ -12,7 +12,7 @@ import { LINE_TARGETS, useMapShapes, type LineTarget, type MapShapes } from './s
 
 type Position = [number, number]
 interface Feature {
-  properties: { kind?: string; id?: string; no?: number; zh?: string; en?: string; ja?: string; tone?: PlaceTone }
+  properties: { kind?: string; id?: string; no?: number; zh?: string; en?: string; ja?: string; tone?: PlaceTone; line?: LineLayer }
   geometry:
     | { type: 'MultiPolygon'; coordinates: Position[][][] }
     | { type: 'MultiLineString'; coordinates: Position[][] }
@@ -36,7 +36,7 @@ interface FeatureCollection {
 }
 
 export interface ScaleMapData {
-  /** kind → SVG path（land、building、highway、tunnel、road、trail） */
+  /** kind → SVG path（land、landNorth、building、highway、tunnel、road、trail） */
   layers: Record<string, string>
   markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
@@ -45,6 +45,18 @@ export interface ScaleMapData {
   sectors: (AreaShape & { sector: string })[]
   /** 步道、道路的線段（地圖座標，圖層 → 線段）：編輯時的起點；畫面用 layers */
   lineLayers: Record<LineLayer, [number, number][][]>
+  /** 道路、步道的名稱：沿著 line 圖層裡離錨點最近的那條線排字（位置不固定，見 ScaleMap） */
+  names: LineName[]
+}
+
+export interface LineName {
+  zh: string
+  en: string
+  ja?: string
+  tone: PlaceTone
+  line: LineLayer
+  /** 錨點（地圖座標）：用來找是哪一條線 */
+  at: [number, number]
 }
 
 /** 可以編輯的線段圖層 */
@@ -153,7 +165,12 @@ async function readScaleMap(): Promise<ScaleMapData> {
     layers: Object.fromEntries(
       base.features.flatMap((f) => (f.geometry.type === 'Point' ? [] : [[f.properties.kind!, toPath(f.geometry)]])),
     ),
-    markers: base.features.filter((f) => f.geometry.type === 'Point').map(toMarker),
+    markers: base.features.filter((f) => f.geometry.type === 'Point' && f.properties.kind !== 'name').map(toMarker),
+    names: base.features.flatMap((f) =>
+      f.properties.kind === 'name' && f.geometry.type === 'Point' && f.properties.zh && f.properties.en && f.properties.line
+        ? [{ zh: f.properties.zh, en: f.properties.en, ja: f.properties.ja, tone: f.properties.tone ?? 'road', line: f.properties.line, at: project([f.geometry.coordinates[1], f.geometry.coordinates[0]]) }]
+        : [],
+    ),
     areas: areas.features.map((f) => {
       const rings = (f.geometry.coordinates as Position[][][]).map((polygon) => polygon[0].map(([lng, lat]) => project([lat, lng])))
       const pieces = rings.map(centroid)

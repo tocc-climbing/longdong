@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { BOUNDS, CRAG_X, inBounds, located } from './bounds'
-import { project, unproject, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
+import { project, unproject, type LineName, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
 import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
-import { orthoTiles } from './ortho'
+import { placeLineNames } from './lineLabels'
+import { orthoLevel, orthoTiles } from './ortho'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
 import './map.css'
@@ -37,8 +38,11 @@ const PRIORITY = { ems: 0, hoist: 1, boat: 2 }
 const PLACE_PRIORITY: Record<PlaceTone, number> = { warning: 3, road: 4, trail: 4, place: 5, sea: 6 }
 const priority = (m: Marker) => (m.kind === 'place' ? PLACE_PRIORITY[m.tone] : m.kind in PRIORITY ? PRIORITY[m.kind as keyof typeof PRIORITY] : 9)
 
-/** 地名：英文版用英文，日文版用日文（沒有時用中文） */
-const placeName = (m: Extract<Marker, { kind: 'place' }>, lang: string) => (lang === 'en' ? m.en : lang === 'ja' ? (m.ja ?? m.zh) : m.zh)
+/** 地名、道路與步道的名稱：英文版用英文，日文版用日文（沒有時用中文） */
+const placeName = (m: Extract<Marker, { kind: 'place' }> | LineName, lang: string) => (lang === 'en' ? m.en : lang === 'ja' ? (m.ja ?? m.zh) : m.zh)
+/** 道路、步道名稱的字級；排字的那段線要比文字長這麼多（像素） */
+const LINE_NAME_PX = 11
+const LINE_NAME_PAD_PX = 16
 
 /** 危險地形的圖示（半徑）與右邊的文字 */
 const HAZARD_R = 7
@@ -50,6 +54,8 @@ const ICON_GROW_SCALE = 0.5
 const ICON_MAX_GROW = 1.6
 /** 航照的不透明度：稍微調淡，上面的道路、步道、區域邊界比較清楚 */
 const ORTHO_OPACITY = 0.75
+/** 縮放停下多久（毫秒）才換航照的圖磚層級：縮放中沿用原本的層級，不會一直換圖磚而閃動 */
+const ORTHO_SETTLE_MS = 300
 
 /** 急救器材被擋住時，往旁邊挪的候選位置（螢幕像素）：由近到遠、八個方向 */
 const EMS_NUDGES: Vec[] = [0, 18, 26, 36].flatMap((d) =>
@@ -360,6 +366,17 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     },
   }
   useMapGestures(box, gestures)
+  /** 道路、步道名稱的 textPath id（一頁可能有好幾個地圖） */
+  const nameId = useId()
+
+  // 航照的圖磚層級：縮放停下 ORTHO_SETTLE_MS 後才換（第一次直接用）
+  const wantLevel = ortho && view ? orthoLevel(view, window.devicePixelRatio) : undefined
+  const [orthoZ, setOrthoZ] = useState<number>()
+  useEffect(() => {
+    if (wantLevel === undefined) return
+    const timer = setTimeout(() => setOrthoZ(wantLevel), ORTHO_SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [wantLevel])
 
   const me = here && project(here.coords)
 
@@ -414,10 +431,11 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
         <g transform={mapTransform(view, frame)}>
           <rect className="sm-sea" x={view.cx - cover} y={view.cy - cover} width={cover * 2} height={cover * 2} />
           <path className="sm-land" d={map.layers.land} fillRule="evenodd" />
+          {map.layers.landNorth && <path className="sm-land" d={map.layers.landNorth} />}
           <path className="sm-building" d={map.layers.building} />
           {ortho && (
             <g opacity={ORTHO_OPACITY}>
-            {orthoTiles(view, frame, window.devicePixelRatio).map((tile) => (
+            {orthoTiles(view, frame, window.devicePixelRatio, orthoZ ?? wantLevel).map((tile) => (
               // CORS 載入：Service Worker 才能存成一般的回應（離線快取，見 ortho.ts）
               <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" crossOrigin="anonymous" />
             ))}
@@ -497,6 +515,26 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               </g>
             )
           })}
+          {(() => {
+            // 道路、步道的名稱沿著線排（位置跟著畫面變，見 lineLabels.ts）
+            const names = placeLineNames(map.names, map.lineLayers, screen, frame, (n) => textWidth(placeName(n, lang), LINE_NAME_PX) + LINE_NAME_PAD_PX)
+            return (
+              <>
+                <defs>
+                  {names.map((p, i) => (
+                    <path key={p.key} id={`${nameId}-${i}`} d={'M' + p.points.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')} />
+                  ))}
+                </defs>
+                {names.map((p, i) => (
+                  <text key={p.key} className={`sm-place sm-place-${p.name.tone} sm-line-name`} fontSize={LINE_NAME_PX} dominantBaseline="central">
+                    <textPath href={`#${nameId}-${i}`} startOffset="50%" textAnchor="middle">
+                      {placeName(p.name, lang)}
+                    </textPath>
+                  </text>
+                ))}
+              </>
+            )
+          })()}
           {!hideAreas && labels.map((l) => (
             <text key={l.id} className={`sm-label sm-label-${l.id}`} x={l.at[0]} y={l.at[1]} textAnchor="middle" dominantBaseline="central">
               {l.text}

@@ -123,6 +123,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* App 模式：不能雙擊放大（也去掉點擊的延遲）；可以捲動 */
+  touch-action: manipulation;
   /* 手機瀏覽器預設的點擊反白是直角，不跟著圓角；改用各元素自己的 :active 效果 */
   -webkit-tap-highlight-color: transparent;
 }

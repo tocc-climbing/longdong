@@ -8,8 +8,10 @@ const PADDING_M = { west: 80, east: 220, north: 200, south: 40 }
 
 /** 有座標的救援點（地圖座標） */
 export const located = RESCUE_POINTS.filter((p) => p.coords).map((p) => ({ key: p.key, no: p.no, at: project(p.coords!) }))
-const xs = located.map((p) => p.at[0])
-const ys = located.map((p) => p.at[1])
+/** 範圍另外包含：台二線往北的鼻頭隧道與鼻頭路口（地圖上的台二線延伸到這裡，見 scripts/gen-scale-map.ts） */
+const EXTRA: [number, number][] = [project([25.12237, 121.91614])]
+const xs = [...located.map((p) => p.at[0]), ...EXTRA.map((p) => p[0])]
+const ys = [...located.map((p) => p.at[1]), ...EXTRA.map((p) => p[1])]
 
 export const BOUNDS: Rect = {
   x: Math.min(...xs) - PADDING_M.west,

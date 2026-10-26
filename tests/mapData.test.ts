@@ -79,15 +79,19 @@ describe('比例尺地圖資料', () => {
 
   it('3 個停車場、13 處船艇接駁點、5 處直升機吊掛點、6 處急救器材、2 處危險地形、救援資訊圖上的地名；每處急救器材離該區的就近救援點 100 公尺內', () => {
     const base = JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as {
-      features: { properties: { kind: string; no?: number; zh?: string; en?: string; ja?: string; tone?: string }; geometry: { type: string; coordinates: [number, number] } }[]
+      features: { properties: { kind: string; no?: number; zh?: string; en?: string; ja?: string; tone?: string; line?: string }; geometry: { type: string; coordinates: [number, number] } }[]
     }
     const points = base.features.filter((f) => f.geometry.type === 'Point')
     expect(points.filter((f) => f.properties.kind === 'parking')).toHaveLength(3)
     expect(points.filter((f) => f.properties.kind === 'boat')).toHaveLength(13)
     expect(points.filter((f) => f.properties.kind === 'hoist')).toHaveLength(5)
     const places = points.filter((f) => f.properties.kind === 'place')
-    expect(places.map((f) => f.properties.zh)).toEqual(expect.arrayContaining(['和美國小', '西靈巖寺', '龍洞隧道', '黃金谷小徑', '海巡署龍洞安檢所']))
-    for (const { properties: p } of places) {
+    expect(places.map((f) => f.properties.zh)).toEqual(expect.arrayContaining(['和美國小', '西靈巖寺', '往基隆、台北', '海巡署龍洞安檢所']))
+    // 道路、步道、隧道的名稱沿著線排（kind: 'name'，標明是哪一個圖層的線）
+    const names = points.filter((f) => f.properties.kind === 'name')
+    expect(names.map((f) => f.properties.zh)).toEqual(expect.arrayContaining(['龍洞街', '台二線濱海公路', '龍洞隧道', '鼻頭隧道', '黃金谷小徑']))
+    for (const { properties: p } of names) expect(['highway', 'tunnel', 'road', 'trail']).toContain(p.line)
+    for (const { properties: p } of [...places, ...names]) {
       expect([p.zh, p.en, p.ja].every(Boolean), `${p.zh} 要有中英日三種名稱`).toBe(true)
       expect(['place', 'road', 'trail', 'sea', 'warning']).toContain(p.tone)
     }

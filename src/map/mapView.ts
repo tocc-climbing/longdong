@@ -63,7 +63,7 @@ export function focusView(target: Rect, bounds: Rect, frame: Size): MapView {
 
 /**
  * 最多縮小到範圍的上下剛好填滿框：上下不會露出範圍外的空白（範圍外沒有地圖資料）；
- * 框比較窄（手機直拿）時左右放不下，左右拖曳即可。
+ * 框比較窄（手機直拿）時左右放不下，左右拖曳即可（北方朝上時畫面左右緣同樣不超出範圍；框比範圍寬時左右置中）。
  */
 export function maxScale(bounds: Rect, frame: Size): number {
   return bounds.h / frame.h
@@ -80,12 +80,14 @@ export function clampScale(s: number, bounds: Rect, frame: Size): number {
  */
 export function clampView(v: MapView, bounds: Rect, frame: Size): MapView {
   const s = clampScale(v.s, bounds, frame)
-  const half = v.r === 0 ? Math.min(bounds.h / 2, (s * frame.h) / 2) : 0
+  // 北方朝上時畫面的上下左右都不超出範圍（畫面比範圍寬時置中）；旋轉後只限制中心在範圍內
+  const halfH = v.r === 0 ? Math.min(bounds.h / 2, (s * frame.h) / 2) : 0
+  const halfW = v.r === 0 ? Math.min(bounds.w / 2, (s * frame.w) / 2) : 0
   return {
     s,
     r: v.r,
-    cx: Math.min(bounds.x + bounds.w, Math.max(bounds.x, v.cx)),
-    cy: Math.min(bounds.y + bounds.h - half, Math.max(bounds.y + half, v.cy)),
+    cx: Math.min(bounds.x + bounds.w - halfW, Math.max(bounds.x + halfW, v.cx)),
+    cy: Math.min(bounds.y + bounds.h - halfH, Math.max(bounds.y + halfH, v.cy)),
   }
 }
 

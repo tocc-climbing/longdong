@@ -73,7 +73,7 @@ try {
   // 重開 App 直接到地圖頁回報：登入狀態還在載入時就回報，載入完應自動上傳
   await page.goto(base + 'map')
   await page.waitForSelector('.sm-me', { timeout: 20000 })
-  await page.click('.sm-chip.report')
+  await page.click('.sm-tool.report')
   await page.waitForSelector('.sheet[open] .chip')
   await page.click('.sheet[open] .chip >> nth=0')
   await page.click('.sheet[open] button[type=submit]')

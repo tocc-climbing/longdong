@@ -56,7 +56,7 @@
 }
 
 .sm-control.on {
-  color: #1a73e8;
+  color: var(--brand);
 }
 
 .sm-compass {
@@ -99,12 +99,8 @@
   cursor: pointer;
 }
 
-.sm-chip.beta {
-  color: #a86a00;
-}
-
 .sm-chip.report {
-  background: #1a73e8;
+  background: var(--brand);
   color: #ffffff;
 }
 
@@ -515,7 +511,7 @@
   gap: 8px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: #7b3fe4;
+  background: var(--brand);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   font-weight: 700;
@@ -529,7 +525,7 @@
 .map-pick-bar .action {
   min-height: 36px;
   background: #ffffff;
-  color: #7b3fe4;
+  color: var(--brand);
 }
 
 .map-pick-bar .action.primary:disabled {
@@ -578,7 +574,7 @@
 }
 
 .sm-chip[aria-pressed='true'] {
-  background: #1a73e8;
+  background: var(--brand);
   color: #ffffff;
 }
 
@@ -608,12 +604,12 @@
 }
 
 .sm-line.draft .sm-line-stroke {
-  stroke: #1a73e8;
+  stroke: var(--brand);
   stroke-dasharray: 6 4;
 }
 
 .sm-line-vertex {
-  fill: #1a73e8;
+  fill: var(--brand);
   stroke: #ffffff;
   stroke-width: 2px;
 }
@@ -718,28 +714,28 @@
 
 /* 編輯多邊形：選中的那塊藍色，頂點可拖曳，邊上的中點可加頂點 */
 .sm-edit-ring {
-  fill: rgba(26, 115, 232, 0.08);
-  stroke: #1a73e8;
+  fill: color-mix(in srgb, var(--brand) 8%, transparent);
+  stroke: var(--brand);
   stroke-width: 1.5px;
   stroke-dasharray: 5 3;
 }
 
 .sm-edit-ring.selected {
-  fill: rgba(26, 115, 232, 0.2);
+  fill: color-mix(in srgb, var(--brand) 20%, transparent);
   stroke-width: 2.5px;
   stroke-dasharray: none;
 }
 
 .sm-handle {
   fill: #ffffff;
-  stroke: #1a73e8;
+  stroke: var(--brand);
   stroke-width: 2.5px;
   cursor: grab;
   touch-action: none;
 }
 
 .sm-handle.dragging {
-  fill: #1a73e8;
+  fill: var(--brand);
   cursor: grabbing;
 }
 
@@ -752,4 +748,45 @@
 /* 步道是線段：不填色 */
 .sm-edit-ring.open {
   fill: none;
+}
+
+/* 打開航照時的下載提示：按鈕可以點（提示框本身不擋地圖操作） */
+.map-toast.offer button {
+  margin-left: 10px;
+  pointer-events: auto;
+}
+
+/* 左上的圖示按鈕（回報、航照、修改）：和羅盤、右下的按鈕同一種圓形；回報用主色，開啟中的航照填主色 */
+.sm-tool {
+  position: relative;
+  width: 44px;
+  padding: 0;
+  text-decoration: none;
+}
+
+.sm-tool.report {
+  color: var(--brand);
+}
+
+.sm-tool[aria-pressed='true'] {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.sm-tool .sm-chip-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: 2px solid #ffffff;
+}
+
+/* 開航照時道路、步道半透明，看得到照片上的路 */
+.sm-ortho .sm-highway,
+.sm-ortho .sm-tunnel,
+.sm-ortho .sm-road {
+  opacity: 0.5;
+}
+
+.sm-ortho .sm-trail {
+  opacity: 0.7;
 }

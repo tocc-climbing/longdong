@@ -299,26 +299,28 @@ if (hoists.length !== 5) throw new Error(`直升機吊掛點應該有 5 處，�
 /**
  * 圖上的文字（地名、道路、步道、海面、紅色的警示）：文字中心的圖上位置，中英日三種語言。
  * tone 是圖上文字的顏色種類，地圖用同樣的配色；產生時檢查圖上該位置有這個顏色的文字，版面改了就停下來。
+ * 道路、步道的名稱（有 line）不固定位置：輸出名稱與錨點（kind: 'name'），地圖上沿著離錨點最近的那條線、在畫面上看得到的部分排字（src/map/ScaleMap.tsx）。
  */
 type PlaceTone = 'place' | 'road' | 'trail' | 'sea' | 'warning'
+type NameLine = 'highway' | 'tunnel' | 'road' | 'trail'
 const TONE_COLORS: Record<PlaceTone, string> = { place: '#898989', road: '#004080', trail: '#386808', sea: '#c8c8c8', warning: '#b80008' }
-const PLACES: { zh: string; en: string; ja: string; tone: PlaceTone; at: Pt }[] = [
+const PLACES: { zh: string; en: string; ja: string; tone: PlaceTone; at: Pt; line?: NameLine }[] = [
   { zh: '和美國小', en: 'Ho-Mei School', ja: '和美小学校', tone: 'place', at: [877.5, 996] },
   { zh: '和美村', en: 'Ho-Mei Village', ja: '和美村', tone: 'place', at: [541, 1130] },
   { zh: '西靈巖寺', en: 'Hsilingyan Temple', ja: '西霊巌寺', tone: 'place', at: [1145, 2005.5] },
   { zh: '龍洞南口海洋公園', en: 'Long Dong South Ocean Park', ja: '龍洞南口海洋公園', tone: 'place', at: [838, 2427] },
   { zh: '太平洋', en: 'Pacific Ocean', ja: '太平洋', tone: 'sea', at: [1679, 2305] },
-  { zh: '龍洞街', en: 'Long Dong Street', ja: '龍洞街', tone: 'road', at: [547, 1039] },
-  { zh: '台二線濱海公路', en: 'Coastal Highway', ja: '台2線（浜海公路）', tone: 'road', at: [663, 1281] },
-  { zh: '台二線濱海公路', en: 'Coastal Highway', ja: '台2線（浜海公路）', tone: 'road', at: [1005, 2199] },
-  { zh: '龍洞隧道', en: 'Long Dong Tunnel', ja: '龍洞トンネル', tone: 'road', at: [1010, 1846] },
+  { zh: '龍洞街', en: 'Long Dong Street', ja: '龍洞街', tone: 'road', at: [547, 1039], line: 'road' },
+  { zh: '台二線濱海公路', en: 'Coastal Highway', ja: '台2線（浜海公路）', tone: 'road', at: [663, 1281], line: 'highway' },
+  { zh: '台二線濱海公路', en: 'Coastal Highway', ja: '台2線（浜海公路）', tone: 'road', at: [1005, 2199], line: 'highway' },
+  { zh: '龍洞隧道', en: 'Long Dong Tunnel', ja: '龍洞トンネル', tone: 'road', at: [1010, 1846], line: 'tunnel' },
   { zh: '往基隆、台北', en: 'to Keelung, Taipei', ja: '基隆・台北方面', tone: 'road', at: [252, 1164] },
   { zh: '往福隆、宜蘭', en: 'to Fulong, Yilan', ja: '福隆・宜蘭方面', tone: 'road', at: [560, 2458] },
-  { zh: '校門口小徑', en: 'School Gate Trail', ja: '校門口トレイル', tone: 'trail', at: [1087, 692] },
-  { zh: '龍洞岬灣步道', en: 'Long Dong Cape Bay Trail', ja: '龍洞岬湾歩道', tone: 'trail', at: [1073, 958] },
-  { zh: '龍洞岬灣步道', en: 'Long Dong Cape Bay Trail', ja: '龍洞岬湾歩道', tone: 'trail', at: [1086, 1588] },
-  { zh: '黃金谷小徑', en: 'Golden Valley Trail', ja: '黄金谷トレイル', tone: 'trail', at: [1234, 1638] },
-  { zh: '後門小徑', en: 'Back Door Trail', ja: '後門トレイル', tone: 'trail', at: [1292, 2170] },
+  { zh: '校門口小徑', en: 'School Gate Trail', ja: '校門口トレイル', tone: 'trail', at: [1087, 692], line: 'trail' },
+  { zh: '龍洞岬灣步道', en: 'Long Dong Cape Bay Trail', ja: '龍洞岬湾歩道', tone: 'trail', at: [1073, 958], line: 'trail' },
+  { zh: '龍洞岬灣步道', en: 'Long Dong Cape Bay Trail', ja: '龍洞岬湾歩道', tone: 'trail', at: [1086, 1588], line: 'trail' },
+  { zh: '黃金谷小徑', en: 'Golden Valley Trail', ja: '黄金谷トレイル', tone: 'trail', at: [1234, 1638], line: 'trail' },
+  { zh: '後門小徑', en: 'Back Door Trail', ja: '後門トレイル', tone: 'trail', at: [1292, 2170], line: 'trail' },
   { zh: '海巡署龍洞安檢所', en: 'Coast Guard Inspection Office', ja: '海巡署龍洞安検所', tone: 'warning', at: [241, 902] },
 ]
 /** 危險地形：紅色驚嘆號圖示的中心（文字「危險地形 Terrain」在旁邊） */
@@ -397,7 +399,13 @@ const buildWarp = (points: { at: Pt; gps: Pt; slack: number }[]) =>
  * 對應後重新校正、再對一次（兩輪），讓對應收斂。岩場附近的岩岸太複雜、容易對錯，不在範圍內。
  * 參考資料：scripts/data/osm-reference.json（© OpenStreetMap contributors，ODbL）。
  */
-const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json', import.meta.url), 'utf8')) as { coastline: Pt[][]; highway: Pt[][]; path: Pt[][]; road: Pt[][] }
+const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json', import.meta.url), 'utf8')) as {
+  coastline: Pt[][]
+  highway: Pt[][]
+  path: Pt[][]
+  road: Pt[][]
+  bitou: { road: Pt[]; tunnel: Pt[]; beyond: Pt[] }
+}
 const OSM_LINES = {
   coastline: osmReference.coastline.map((l) => l.map(toMeters)),
   highway: osmReference.highway.map((l) => l.map(toMeters)),
@@ -943,20 +951,67 @@ const emsPoints = emsTips.map((tip, i): Pt => {
   return moved
 })
 
+/**
+ * 往北延伸到鼻頭隧道（救援資訊圖只畫到龍洞街口，台二線在地圖中間斷掉看起來很奇怪）：
+ * 台二線接上 OSM 的龍洞街 → 鼻頭隧道 → 鼻頭路（osm-reference.json 的 bitou）；陸地以 OSM 海岸線補上龍洞灣西岸到鼻頭這一段。
+ */
+const lngLat = ([lat, lng]: Pt): Pt => [+lng.toFixed(6), +lat.toFixed(6)]
+const bitouStart = lngLat(osmReference.bitou.road[0])
+/**
+ * 救援資訊圖的台二線在離延伸起點最近的頂點截斷（它的北端比延伸起點更往北，直接從端點接會多出一段重疊的岔線），
+ * 截斷處接上延伸的路段。
+ */
+const highwayLines = (() => {
+  const all = lines(highways.filter((s) => !s.dashed), roadWarp)
+  const gap = (p: Pt) => Math.hypot(p[0] - bitouStart[0], p[1] - bitouStart[1])
+  const hit = all.map((l, li) => ({ li, vi: l.reduce((best, p, i) => (gap(p) < gap(l[best]) ? i : best), 0) })).reduce((a, b) => (gap(all[b.li][b.vi]) < gap(all[a.li][a.vi]) ? b : a))
+  const l = all[hit.li]
+  // 保留比較長的那一邊（往南的主線），截斷點在線的尾端
+  const kept = hit.vi >= l.length / 2 ? l.slice(0, hit.vi + 1) : [...l.slice(hit.vi)].reverse()
+  return all.map((x, i) => (i === hit.li ? kept : x))
+})()
+const joinFrom = highwayLines.flat().reduce((a, b) => (Math.hypot(b[0] - bitouStart[0], b[1] - bitouStart[1]) < Math.hypot(a[0] - bitouStart[0], a[1] - bitouStart[1]) ? b : a))
+const bitouRoads = [
+  [joinFrom, ...osmReference.bitou.road.map(lngLat)],
+  osmReference.bitou.beyond.map(lngLat),
+]
+const bitouTunnel = osmReference.bitou.tunnel.map(lngLat)
+/** 龍洞灣西岸到鼻頭的陸地：OSM 海岸線龍洞岬以西、最西點之後的一段（陸地在海岸線的左側），往西北圍起來 */
+const northCoast = (() => {
+  const coast = osmReference.coastline[0]
+  const north = coast.map((p, i) => ({ p, i })).filter(({ p }) => p[0] > 25.1115)
+  const west = north.reduce((a, b) => (b.p[1] < a.p[1] ? b : a))
+  return coast.slice(west.i)
+})()
+/** 圍起來的範圍：往北到 north、往西到 west；南邊往下蓋到 south，和救援資訊圖的陸地重疊（中間不留縫） */
+const NORTH_LAND_LIMIT = { north: 25.13, west: 121.9, south: 25.105 }
+const northLand: Pt[] = [
+  ...northCoast.map(lngLat),
+  [northCoast[northCoast.length - 1][1], NORTH_LAND_LIMIT.north],
+  [NORTH_LAND_LIMIT.west, NORTH_LAND_LIMIT.north],
+  [NORTH_LAND_LIMIT.west, NORTH_LAND_LIMIT.south],
+  [northCoast[0][1], NORTH_LAND_LIMIT.south],
+  lngLat(northCoast[0]),
+]
+
 const scaleMap = {
   type: 'FeatureCollection',
   source,
   features: [
     feature({ kind: 'land' }, { type: 'MultiPolygon', coordinates: land.flatMap((s) => s.subpaths.map((p) => [ring(pushOffPage(smoothRing(p, SMOOTH_STEP_PT)), SIMPLIFY_M, coastWarp)])) }),
+    // 和救援資訊圖的陸地有重疊，分開一個圖層（同一個 evenodd 路徑裡重疊的地方會挖空）
+    feature({ kind: 'landNorth' }, { type: 'Polygon', coordinates: [northLand] }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
-    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => !s.dashed), roadWarp) }),
-    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed), roadWarp) }),
+    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoads] }),
+    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: [...lines(highways.filter((s) => s.dashed), roadWarp), bitouTunnel] }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads, roadWarp) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
     ...emsPoints.map((at, i) => feature({ kind: 'ems', no: EMS_LOCATIONS[i].no }, { type: 'Point', coordinates: metersToLngLat(at) })),
-    ...PLACES.map(({ zh, en, ja, tone, at }) => point({ kind: 'place', zh, en, ja, tone }, at)),
+    ...PLACES.map(({ zh, en, ja, tone, at, line }) => point({ kind: line ? 'name' : 'place', zh, en, ja, tone, ...(line ? { line } : {}) }, at)),
+    // 鼻頭隧道不在救援資訊圖上：名稱的錨點是 OSM 隧道的中點
+    feature({ kind: 'name', zh: '鼻頭隧道', en: 'Bitou Tunnel', ja: '鼻頭トンネル', tone: 'road', line: 'tunnel' }, { type: 'Point', coordinates: bitouTunnel[Math.floor(bitouTunnel.length / 2)] }),
     ...HAZARDS.map((at) => point({ kind: 'hazard' }, at)),
     ...boats.map((at) => point({ kind: 'boat' }, at)),
     ...hoists.map((at) => point({ kind: 'hoist' }, at)),

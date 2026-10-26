@@ -61,6 +61,7 @@ describe('套上編輯的最新版本', () => {
     areas: [{ id: 'school-gate', path: 'M0 0Z', label: [0, 0], size: 1, rings: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, { id: 'clocktower', path: 'M0 0Z', label: [0, 0], size: 1, rings: [] }],
     sectors: [],
     lineLayers: { trail: [[[0, 0], [1, 1]]], highway: [], tunnel: [], road: [[[0, 0], [2, 2]]] },
+    names: [],
   }
 
   it('有版本的大區域、步道換成新的，沒有的（其他道路）不變；加上分區範圍', () => {

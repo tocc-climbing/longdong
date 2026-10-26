@@ -247,10 +247,6 @@ export function watchWalls(callback: (value: unknown) => void, onError: (err: Er
   return onValue(ref(db, 'v2/walls'), (snap) => callback(snap.val()), onError)
 }
 
-export async function addWall(uid: string, sector: string, line: string): Promise<void> {
-  await push(ref(db, `v2/walls/${uid}`), { sector, line, createdAt: serverTimestamp() })
-}
-
 export function deleteWall(uid: string, id: string): Promise<void> {
   return remove(ref(db, `v2/walls/${uid}/${id}`))
 }

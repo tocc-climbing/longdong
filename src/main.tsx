@@ -9,6 +9,10 @@ import { startCloud } from './personal/sync'
 import { startCalibrationSync } from './map/calibration'
 import './styles.css'
 
+// 網站是 App 模式，畫面不能縮放（index.html 的 viewport）：iOS Safari 忽略 user-scalable=no，另外擋掉雙指縮放手勢；
+// 地圖自己處理雙指縮放（src/map/useMapGestures.ts，pointer 事件），不受影響
+document.addEventListener('gesturestart', (e) => e.preventDefault())
+
 // 請瀏覽器把離線資料標為持久保存，降低被系統清除的機會（iOS 需先加入主畫面）
 navigator.storage?.persist?.().catch(() => {})
 

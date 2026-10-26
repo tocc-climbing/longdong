@@ -23,9 +23,6 @@ export interface StoredWall {
   createdAt: number
 }
 
-/** 最多幾個點（資料庫規則限制 line 的長度） */
-export const WALL_MAX_POINTS = 100
-
 export function encodeLine(points: LatLng[]): string {
   return points.map(([lat, lng]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join(' ')
 }
