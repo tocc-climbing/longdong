@@ -391,7 +391,7 @@ export function editPageSvg(map: OgMap, areaColors: Record<string, string>): str
     `<defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.paper}" stop-opacity="0.97"/><stop offset="0.7" stop-color="${C.paper}" stop-opacity="0.9"/><stop offset="1" stop-color="${C.paper}" stop-opacity="0"/></linearGradient></defs>` +
     `<rect width="${w}" height="400" fill="url(#fade)"/>` +
     `<text x="${left}" y="128" font-size="80" font-weight="700" fill="${C.text}">${rich('龍洞')}<tspan dx="-22">${rich('，')}</tspan><tspan dx="-6">${rich('等你來')}</tspan><tspan fill="${C.brand}">${rich('修改')}</tspan></text>` +
-    `<text x="${left}" y="196" font-size="30" font-weight="500" fill="${C.muted}">${rich('地圖 · Topo · 路線說明 · 保留每個版本')}</text>` +
+    `<text x="${left}" y="196" font-size="30" font-weight="500" fill="${C.muted}">${rich('地圖 · Topo · 說明 · 保留每個版本')}</text>` +
     `<text x="${logo.x + 46}" y="${logo.y + logo.h - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>` +
     holdMark(logo.x + 46 + textWidth('LongDong', 28) * 1.25 + 16, logo.y + logo.h - 30, 0.22, C.brand, C.paper) +
     '</svg>'
