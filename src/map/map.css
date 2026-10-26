@@ -789,10 +789,8 @@
   border: 2px solid #ffffff;
 }
 
-/* 開航照時道路、步道半透明，看得到照片上的路 */
-.sm-ortho .sm-highway,
-.sm-ortho .sm-tunnel,
-.sm-ortho .sm-road {
+/* 開航照時道路、停車場、步道半透明，看得到照片上的路；道路與停車場整組一起透明，相接、重疊的地方不會疊成比較深的顏色 */
+.sm-ortho .sm-roads {
   opacity: 0.5;
 }
 

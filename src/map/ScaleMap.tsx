@@ -32,11 +32,16 @@ function textWidth(text: string, fontPx: number): number {
 /** 以 at 為中心、半寬 hw、半高 hh 的範圍；dy 為中心往下移 */
 const around = ([x, y]: Vec, hw: number, hh: number, dy = 0): Box => [x - hw, y + dy - hh, x + hw, y + dy + hh]
 
-/** 圖示越前面越重要：重疊時先畫重要的，其他的等放大後空間夠了才出現（停車場一定畫，不在這裡排） */
-const PRIORITY = { ems: 0, hoist: 1, boat: 2 }
-/** 地名依顏色種類：紅色的警示（安檢所）、道路與步道、一般地名、海面 */
-const PLACE_PRIORITY: Record<PlaceTone, number> = { warning: 3, road: 4, trail: 4, place: 5, sea: 6 }
-const priority = (m: Marker) => (m.kind === 'place' ? PLACE_PRIORITY[m.tone] : m.kind in PRIORITY ? PRIORITY[m.kind as keyof typeof PRIORITY] : 9)
+/**
+ * 圖示與地名越前面越重要：重疊時先畫重要的，其他的等放大後空間夠了才出現（救援點、停車場、急救器材一定畫，不在這裡排）。
+ * 救援用的（直升機吊掛點、船艇接駁點、紅色的警示如安檢所）排在區域名稱前面；其他地名排在區域、分區名稱後面，
+ * 依顏色種類：一般地名、步道、海面、危險地形（去過的岩友知道怎麼走，排後面）、道路（沿線的道路、步道名稱最後才排，見 lineLabels.ts）。
+ */
+const MARKER_PRIORITY = { hoist: 0, boat: 1, hazard: 6 }
+const PLACE_PRIORITY: Record<PlaceTone, number> = { warning: 2, place: 3, trail: 4, sea: 5, road: 7 }
+const priority = (m: Marker) => (m.kind === 'place' ? PLACE_PRIORITY[m.tone] : m.kind in MARKER_PRIORITY ? MARKER_PRIORITY[m.kind as keyof typeof MARKER_PRIORITY] : 9)
+/** 救援用的：排在區域名稱前面 */
+const isRescue = (m: Marker) => m.kind === 'hoist' || m.kind === 'boat' || (m.kind === 'place' && m.tone === 'warning')
 
 /** 地名、道路與步道的名稱：英文版用英文，日文版用日文（沒有時用中文） */
 const placeName = (m: Extract<Marker, { kind: 'place' }> | LineName, lang: string) => (lang === 'en' ? m.en : lang === 'ja' ? (m.ja ?? m.zh) : m.zh)
@@ -74,15 +79,19 @@ function markerBox(m: Marker, at: Vec, lang: string, hazardLabel: string): Box {
 }
 
 /**
- * 決定要畫哪些圖示與區域名稱（都在螢幕座標上算，旋轉後也正確）：
- * 救援點、停車場、危險地形一定畫（救援時最重要；停車場是進出岩場的集合點）。停車場 P 的位置在產生地圖時就避開救援點，畫在救援點上面；
- * 急救器材也一定畫：和上面這些重疊時往旁邊空的地方挪（nudged，螢幕座標），畫一條細線連回實際位置；
- * 其他依 priority、區域名稱依面積大小，和已畫的東西重疊就先不畫。
+ * 決定要畫哪些圖示與文字（都在螢幕座標上算，旋轉後也正確），依優先順序排，和已畫的東西重疊就先不畫：
+ *   1. 救援點、停車場一定畫（救援時最重要；停車場是進出岩場的集合點）。停車場 P 的位置在產生地圖時就避開救援點，畫在救援點上面；
+ *      急救器材也一定畫：和上面這些重疊時往旁邊空的地方挪（nudged，螢幕座標），畫一條細線連回實際位置
+ *   2. 其他救援用的圖示與地名（直升機吊掛點、船艇接駁點、安檢所）
+ *   3. 攀岩：區域名稱（面積大的先）、分區名稱
+ *   4. 其他地名、危險地形（priority）
+ * 道路、步道沿線的名稱最後排（occupied 是到這裡為止佔掉的範圍，見 lineLabels.ts）。
  */
 function declutter(
   markers: Marker[],
   areas: ScaleMapData['areas'],
   names: Record<string, string>,
+  sectors: { id: string; text: string; at: Vec }[],
   screen: (p: Vec) => Vec,
   lang: string,
   hazardLabel: string,
@@ -93,7 +102,7 @@ function declutter(
     occupied.push(box)
     return true
   }
-  const always = (m: Marker) => m.kind === 'parking' || m.kind === 'hazard'
+  const always = (m: Marker) => m.kind === 'parking'
   const fixed = markers.flatMap((m, i) => (always(m) ? [i] : []))
   for (const i of fixed) occupied.push(markerBox(markers[i], screen(markers[i].at), lang, hazardLabel))
   const nudged = new Map<number, Vec>()
@@ -105,21 +114,19 @@ function declutter(
     occupied.push(around(p, 7.5, 7.5))
     if (p[0] !== at[0] || p[1] !== at[1]) nudged.set(i, p)
   }
-  const shown = new Set([
-    ...fixed,
-    ...ems,
-    ...markers
-      .map((m, i) => ({ m, i }))
-      .filter(({ m }) => !always(m) && m.kind !== 'ems')
-      .sort((a, b) => priority(a.m) - priority(b.m))
-      .filter(({ m }) => fits(markerBox(m, screen(m.at), lang, hazardLabel)))
-      .map(({ i }) => i),
-  ])
+  const others = markers
+    .map((m, i) => ({ m, i }))
+    .filter(({ m }) => !always(m) && m.kind !== 'ems')
+    .sort((a, b) => priority(a.m) - priority(b.m))
+  const place = (list: typeof others) => list.filter(({ m }) => fits(markerBox(m, screen(m.at), lang, hazardLabel))).map(({ i }) => i)
+  const rescue = place(others.filter(({ m }) => isRescue(m)))
   const labels = [...areas]
     .sort((x, y) => y.size - x.size)
     .map((a) => ({ id: a.id, text: names[a.id] ?? a.id, at: screen(a.label) }))
     .filter((l) => fits(around(l.at, textWidth(l.text, LABEL_PX) / 2 + 4, LABEL_PX / 2 + 2)))
-  return { shown, labels, nudged }
+  const sectorLabels = sectors.filter((l) => fits(around(l.at, textWidth(l.text, SECTOR_LABEL_PX) / 2 + 2, SECTOR_LABEL_PX / 2 + 2)))
+  const shown = new Set([...fixed, ...ems, ...rescue, ...place(others.filter(({ m }) => !isRescue(m)))])
+  return { shown, labels, sectorLabels, nudged, occupied }
 }
 
 /** 聚焦：地圖移到這些東西（大區域、救援點）並放大到剛好放進框裡；key 改變時重新聚焦 */
@@ -185,6 +192,8 @@ const POPUP_HALF_PX = 150
 const POPUP_FLIP_PX = 140
 /** 放大到每像素不到這麼多公尺時才顯示分區名稱 */
 const SECTOR_LABEL_SCALE = 0.4
+/** 分區名稱的字級 */
+const SECTOR_LABEL_PX = 11
 /** 點折線：離線段這個距離（像素）內都算 */
 const LINE_HIT_PX = 10
 
@@ -420,7 +429,9 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   // 隧道畫成實際寬度後，虛線間距跟著路寬放大（否則變成一顆顆圓點）
   const tunnelDash = Math.max(dashLength(6, px), 3 * ROAD_WIDTH_M.highway)
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
-  const { shown, labels, nudged } = declutter(map.markers, map.areas, areaNames, screen, lang, t('map.hazard'))
+  const sectorTexts =
+    sectorNames && view.s < SECTOR_LABEL_SCALE ? map.sectors.map((s) => ({ id: s.id, text: sectorNames[s.sector] ?? s.sector, at: screen(s.label) })) : []
+  const { shown, labels, sectorLabels, nudged, occupied } = declutter(map.markers, hideAreas ? [] : map.areas, areaNames, hideAreas ? [] : sectorTexts, screen, lang, t('map.hazard'))
   emsAt.current = nudged
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
   const cover = Math.hypot(frame.w, frame.h) * px
@@ -458,12 +469,14 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           {!hideAreas && map.sectors.map((s) => (
             <path key={s.id} className="sm-sector" d={s.path} />
           ))}
-          {/* 頁框外的 OSM 道路、步道接在同一條路徑裡（航照下半透明時接縫不會變深） */}
-          <path className="sm-highway" d={map.layers.highway + (map.layers.outerHighway ?? '')} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} />
-          <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
-          <path className="sm-road" d={map.layers.road + (map.layers.outerRoad ?? '')} strokeWidth={Math.max(2.5 * px, ROAD_WIDTH_M.road)} />
-          {/* 停車場的範圍（深藍色），P 字畫在上面的圖示層 */}
-          <path className="sm-parking-area" d={map.layers.parking} />
+          {/* 道路與停車場一組：航照下整組一起半透明，相接、重疊的地方不會疊深；頁框外的 OSM 道路接在同一條路徑裡 */}
+          <g className="sm-roads">
+            <path className="sm-highway" d={map.layers.highway + (map.layers.outerHighway ?? '')} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} />
+            <path className="sm-tunnel" d={map.layers.tunnel} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} strokeDasharray={`${tunnelDash / 3} ${tunnelDash}`} />
+            <path className="sm-road" d={map.layers.road + (map.layers.outerRoad ?? '')} strokeWidth={Math.max(2.5 * px, ROAD_WIDTH_M.road)} />
+            {/* 停車場的範圍（深藍色），P 字畫在上面的圖示層 */}
+            <path className="sm-parking-area" d={map.layers.parking} />
+          </g>
           <path className="sm-trail" d={map.layers.trail + (map.layers.outerTrail ?? '')} strokeWidth={Math.max(2 * px, ROAD_WIDTH_M.trail)} strokeDasharray={`${trailDash} ${trailDash}`} />
           {me && here && <circle className="sm-me-accuracy" cx={me[0]} cy={me[1]} r={here.accuracy} />}
         </g>
@@ -528,8 +541,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             )
           })}
           {(() => {
-            // 道路、步道的名稱沿著線排（位置跟著畫面變，見 lineLabels.ts）
-            const names = placeLineNames(map.names, map.lineLayers, screen, frame, (n) => textWidth(placeName(n, lang), LINE_NAME_PX) + LINE_NAME_PAD_PX)
+            // 道路、步道的名稱沿著線排（位置固定在地圖上，放不下就不畫，見 lineLabels.ts）
+            const names = placeLineNames(map.names, map.lineLayers, screen, frame, (n) => textWidth(placeName(n, lang), LINE_NAME_PX) + LINE_NAME_PAD_PX, occupied, view.s)
             return (
               <>
                 <defs>
@@ -552,16 +565,11 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               {l.text}
             </text>
           ))}
-          {sectorNames &&
-            view.s < SECTOR_LABEL_SCALE &&
-            map.sectors.map((s) => {
-              const [x, y] = screen(s.label)
-              return (
-                <text key={s.id} className="sm-sector-label" x={x} y={y} fontSize={11} textAnchor="middle" dominantBaseline="central">
-                  {sectorNames[s.sector] ?? s.sector}
-                </text>
-              )
-            })}
+          {sectorLabels.map((l) => (
+            <text key={l.id} className="sm-sector-label" x={l.at[0]} y={l.at[1]} fontSize={SECTOR_LABEL_PX} textAnchor="middle" dominantBaseline="central">
+              {l.text}
+            </text>
+          ))}
           {lines?.map((l) => {
             const pts = l.points.map((q) => screen(project(q)))
             const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')

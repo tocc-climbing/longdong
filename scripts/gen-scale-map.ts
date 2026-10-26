@@ -827,6 +827,8 @@ function clipToPage(points: Pt[]): Pt[][] {
   return pieces
 }
 const lines = (list: Shape[], transform = warp) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).flatMap(clipToPage).map((p) => line(p, SIMPLIFY_M, transform)))
+/** 頁框外補上的 OpenStreetMap 資料（見下方 outerLand 等；停車場的範圍也用它） */
+const osmExtent = JSON.parse(readFileSync(new URL('./data/osm-extent.json', import.meta.url), 'utf8')) as Record<'coastline' | 'building' | 'highway' | 'road' | 'trail' | 'parking', Pt[][]>
 /**
  * 停車場：小的停車場（不超過 PARKING_RIGID_MAX_PT）逐點換算會把長方形扭成怪形狀，改成整塊只平移、旋轉、縮放（相似變換），保持原本的形狀；
  * 變換取 P 字中心附近的換算：中心點的位置，加上往右一點的方向決定旋轉與比例。
@@ -869,6 +871,24 @@ const parkingLots = parking.map((center, i) => {
     }
   }
   return { ring: r, label }
+})
+/**
+ * 停車場的範圍改用 OpenStreetMap（和航照對齊）：中心落在救援資訊圖停車場範圍裡、或離範圍不到 PARKING_MATCH_M 的 OSM 停車場，
+ * 都算這個停車場的（龍洞街旁的長條停車場在 OSM 是好幾塊）；P 字位置不變（救援資訊圖上的集合點）。對不到的保留原本的形狀。
+ * 其他 OSM 停車場（頁框外）只畫範圍，不畫 P 字。
+ */
+const PARKING_MATCH_M = 15
+const osmParking = osmExtent.parking.map((r) => r.map(toMeters))
+const centroidOf = (r: Pt[]): Pt => [r.reduce((sum, p) => sum + p[0], 0) / r.length, r.reduce((sum, p) => sum + p[1], 0) / r.length]
+const matchedParking = new Set<number>()
+const parkingShapes = parkingLots.map((lot) => {
+  const near = osmParking.flatMap((r, k) => {
+    const c = centroidOf(r)
+    const d = inside(c, lot.ring) ? 0 : Math.min(...lot.ring.slice(1).map((b, j) => segmentDistance(c, lot.ring[j], b)))
+    return d <= PARKING_MATCH_M ? [k] : []
+  })
+  near.forEach((k) => matchedParking.add(k))
+  return near.length ? near.map((k) => osmParking[k]) : [lot.ring]
 })
 
 /** 點到線段的距離 */
@@ -984,7 +1004,6 @@ const bitouTunnel = osmReference.bitou.tunnel.map(lngLat)
  * 頁面的外框換算到實際位置（page）：救援資訊圖的陸地只畫在框裡（框外推出去的部分不是海岸），OSM 的陸地墊在底下
  * （框裡救援資訊圖沒畫陸地的地方也補上）；建物與線只留框外的部分，在這裡就切開。
  */
-const osmExtent = JSON.parse(readFileSync(new URL('./data/osm-extent.json', import.meta.url), 'utf8')) as Record<'coastline' | 'building' | 'highway' | 'road' | 'trail', Pt[][]>
 const pageOutline = ring([[0, 0], [PAGE_SIZE[0], 0], [PAGE_SIZE[0], PAGE_SIZE[1]], [0, PAGE_SIZE[1]], [0, 0]], SIMPLIFY_M, coastWarp)
 /** 點在不在多邊形裡（射線法，[經度, 緯度]） */
 function inPolygon([x, y]: Pt, poly: Pt[]): boolean {
@@ -996,6 +1015,8 @@ function inPolygon([x, y]: Pt, poly: Pt[]): boolean {
   return hit
 }
 const inPage = (p: Pt) => inPolygon(p, pageOutline)
+/** 沒有對到救援資訊圖停車場、在頁框外的 OSM 停車場（只畫範圍） */
+const otherParking = osmParking.filter((r, k) => !matchedParking.has(k) && !inPage(metersToLngLat(centroidOf(r))))
 /** [經度, 緯度] → 公尺 */
 const lngLatToMeters = ([lng, lat]: Pt) => toMeters([lat, lng])
 /** OSM 線、陸地簡化的誤差（公尺）：OSM 本身的精度約 1–2 公尺 */
@@ -1049,7 +1070,7 @@ const scaleMap = {
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: [...lines(highways.filter((s) => s.dashed), roadWarp), bitouTunnel] }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads, roadWarp) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
-    feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: parkingLots.map((lot) => [lot.ring.map(metersToLngLat)]) }),
+    feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: [...parkingShapes.flat(), ...otherParking].map((r) => [r.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
     ...emsPoints.map((at, i) => feature({ kind: 'ems', no: EMS_LOCATIONS[i].no }, { type: 'Point', coordinates: metersToLngLat(at) })),
     ...PLACES.map(({ zh, en, ja, tone, at, line }) => point({ kind: line ? 'name' : 'place', zh, en, ja, tone, ...(line ? { line } : {}) }, at)),
