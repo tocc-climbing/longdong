@@ -122,8 +122,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
     await tick()
     c.addMark(mark('第二筆'))
     release()
-    await tick()
-    await tick()
+    await uploaded(2)
     expect(upload).toHaveBeenCalledTimes(2)
     expect(JSON.parse(upload.mock.calls[1][1]).features).toHaveLength(2)
   })
@@ -142,7 +141,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
     expect(events).toEqual(['failed'])
 
     setCloud('signed-in', true)
-    await tick()
+    await uploaded(1)
     expect(upload).toHaveBeenCalledTimes(2)
     expect(events).toEqual(['failed', 'sent'])
   })

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { LatLng } from '../geo'
 import { getCloud, subscribeCloud, withCloud } from '../personal/sync'
-import { DB_URL } from '../social/model'
+import { dbUrl } from '../social/model'
 import { simulatedLocation } from '../simulate'
 import { pinsFromGeoJSON, writePins } from './reportPins'
 
@@ -188,7 +188,7 @@ function deviceId(): string {
 
 /** 沒登入：用 REST 上傳（不必載入 Firebase），資料庫規則只允許新增 */
 async function uploadAnonymous(geojson: string): Promise<void> {
-  const res = await fetch(`${DB_URL}/v2/anonReports/${deviceId()}.json`, {
+  const res = await fetch(dbUrl(`v2/anonReports/${deviceId()}`), {
     method: 'POST',
     body: JSON.stringify({ geojson, createdAt: { '.sv': 'timestamp' } }),
   })

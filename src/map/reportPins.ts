@@ -1,5 +1,5 @@
 import type { LatLng } from '../geo'
-import { DB_URL } from '../social/model'
+import { dbUrl } from '../social/model'
 import type { ReportTarget } from './calibration'
 import { project } from './mapData'
 import { insideRing } from './reportOptions'
@@ -97,7 +97,7 @@ export async function writePins(entries: [string, StoredPin][]): Promise<number>
   for (let i = 0; i < entries.length; i += 10) {
     const results = await Promise.all(
       entries.slice(i, i + 10).map(async ([key, pin]) => {
-        const res = await fetch(`${DB_URL}/v2/reportPins/${key}.json`, { method: 'PUT', body: JSON.stringify(pin) })
+        const res = await fetch(dbUrl(`v2/reportPins/${key}`), { method: 'PUT', body: JSON.stringify(pin) })
         // 401：已經有了（規則只允許新增）
         if (res.ok) return 1
         if (res.status === 401) return 0
