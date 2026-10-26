@@ -121,6 +121,16 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
         </nav>
       )}
 
+      {/* 岩場（區域清單）下面：修改模式的入口 */}
+      <nav className="side-nav side-edit" aria-label={t('edit.title')}>
+        <a href={href.edit()}>
+          <svg viewBox="0 0 24 24" aria-hidden width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" />
+          </svg>
+          {t('edit.title')}
+        </a>
+      </nav>
+
       {/* 側邊欄底部的次要連結；Bolt 統計只在電腦版有入口（手機版只能從連結進入） */}
       <div className="side-about small">
         <a className={page.name === 'bolts' ? 'active' : undefined} href={href.bolts()} aria-current={page.name === 'bolts' ? 'page' : undefined}>
