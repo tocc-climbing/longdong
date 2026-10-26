@@ -1015,6 +1015,7 @@ function inPolygon([x, y]: Pt, poly: Pt[]): boolean {
   return hit
 }
 const inPage = (p: Pt) => inPolygon(p, pageOutline)
+const inExtentBox = ([x, y]: Pt) => x >= EXTENT_LATLNG.west && x <= EXTENT_LATLNG.east && y >= EXTENT_LATLNG.south && y <= EXTENT_LATLNG.north
 /** 沒有對到救援資訊圖停車場、在頁框外的 OSM 停車場（只畫範圍） */
 const otherParking = osmParking.filter((r, k) => !matchedParking.has(k) && !inPage(metersToLngLat(centroidOf(r))))
 /** [經度, 緯度] → 公尺 */
@@ -1036,7 +1037,9 @@ function splitByPage(line: Pt[], keepInside: boolean): Pt[][] {
     run = []
   }
   for (const p of pts) {
-    if (inPage(metersToLngLat(p)) === keepInside) run.push(p)
+    const at = metersToLngLat(p)
+    // 頁框外的線也只留資料範圍裡的
+    if (inPage(at) === keepInside && (keepInside || inExtentBox(at))) run.push(p)
     else flush()
   }
   flush()
