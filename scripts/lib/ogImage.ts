@@ -399,7 +399,7 @@ export function editPageSvg(map: OgMap, areaColors: Record<string, string>): str
     areaMap(map, 'golden-valley', areaColors, box, 0.55, 2.3, true) +
     `<defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.paper}" stop-opacity="0.97"/><stop offset="0.7" stop-color="${C.paper}" stop-opacity="0.9"/><stop offset="1" stop-color="${C.paper}" stop-opacity="0"/></linearGradient></defs>` +
     `<rect width="${w}" height="400" fill="url(#fade)"/>` +
-    `<text x="${left}" y="130" font-size="68" font-weight="700" fill="${C.text}">${rich('你的龍洞，你來補完')}</text>` +
+    `<text x="${left}" y="130" font-size="84" font-weight="700" fill="${C.text}">${rich('龍洞，等你來修改')}</text>` +
     chipSvg +
     `<text x="${left}" y="${mid(268, 26)}" font-size="26" font-weight="500" fill="${C.muted}">${rich('登入就能修改 · 保留每個版本')}</text>` +
     `<text x="${logo.x + 46}" y="${logo.y + logo.h - 12}" font-size="28" font-weight="700" fill="${C.text}">LongDong</text>` +
