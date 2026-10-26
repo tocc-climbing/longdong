@@ -1,10 +1,13 @@
 /* 修改模式（src/edit/EditPage.tsx）：電腦版三欄（目錄、編輯、資訊）＋上方工具列，全螢幕；手機版一欄 */
 .edit-app {
+  /* 兩側欄寬度與字級隨螢幕尺寸調整（見檔尾的 @media） */
+  --edit-catalog: 248px;
+  --edit-panel: 280px;
   position: fixed;
   inset: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr) 280px;
+  grid-template-columns: var(--edit-catalog) minmax(0, 1fr) var(--edit-panel);
   grid-template-rows: 48px minmax(0, 1fr);
   grid-template-areas:
     'top top top'
@@ -348,20 +351,53 @@
 }
 
 .edit-versions li {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'who action'
+    'time action';
+  align-items: center;
+  column-gap: 8px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
 
+/* 名稱與「目前顯示」在同一行、日期在下一行；刪除靠右對齊，不換行 */
+.edit-version-who {
+  grid-area: who;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.edit-version-who b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-version-time {
+  grid-area: time;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.edit-version-delete {
+  grid-area: action;
+  align-self: center;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
 .edit-badge {
-  margin-left: 6px;
-  padding: 0 6px;
+  flex: none;
+  padding: 0 7px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--brand) 14%, transparent);
   color: var(--brand);
   font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .edit-keys {
@@ -397,11 +433,11 @@
 
 /* 收起目錄、資訊面板：中間的編輯區變大 */
 .edit-app.no-catalog {
-  grid-template-columns: 0 minmax(0, 1fr) 280px;
+  grid-template-columns: 0 minmax(0, 1fr) var(--edit-panel);
 }
 
 .edit-app.no-panel {
-  grid-template-columns: 248px minmax(0, 1fr) 0;
+  grid-template-columns: var(--edit-catalog) minmax(0, 1fr) 0;
 }
 
 .edit-app.no-catalog.no-panel {
@@ -532,4 +568,52 @@
   display: grid;
   min-width: 0;
   line-height: 1.35;
+}
+
+/* 不同尺寸的電腦：小筆電縮窄兩側欄，大螢幕放寬、字放大；矮螢幕縮小上方工具列；首頁文字限制行寬 */
+.edit-welcome > * {
+  max-width: 760px;
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .edit-app {
+    --edit-catalog: 208px;
+    --edit-panel: 248px;
+  }
+
+  .edit-crumb {
+    display: none;
+  }
+
+  /* 工具列放不下時收起快捷鍵提示（快捷鍵仍可用，列在右側資訊面板） */
+  .edit-toolbar kbd {
+    display: none;
+  }
+}
+
+@media (min-width: 1680px) {
+  .edit-app {
+    --edit-catalog: 288px;
+    --edit-panel: 340px;
+    font-size: 0.9375rem;
+  }
+}
+
+@media (min-width: 2200px) {
+  .edit-app {
+    --edit-catalog: 336px;
+    --edit-panel: 400px;
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 720px) {
+  .edit-app {
+    grid-template-rows: 42px minmax(0, 1fr);
+  }
+
+  .edit-panel,
+  .edit-message {
+    padding-top: 10px;
+  }
 }

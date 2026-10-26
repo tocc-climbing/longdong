@@ -217,13 +217,13 @@ function VersionList({ versions, empty, onDelete }: { versions: (MapEditVersion 
         <ol className="edit-versions">
           {[...versions].reverse().map((v, i) => (
             <li key={v.id}>
-              <span>
+              <span className="edit-version-who">
                 <b>{displayName(profiles, v.uid)}</b>
-                <span className="muted"> · {time(v.createdAt)}</span>
                 {i === 0 && <span className="edit-badge">{t('shape.current')}</span>}
               </span>
+              <span className="edit-version-time muted">{time(v.createdAt)}</span>
               {(v.uid === uid || admin) && (
-                <button type="button" className="link-button" onClick={() => confirm(t('shape.confirmDeleteVersion')) && onDelete(v.id)}>
+                <button type="button" className="link-button danger edit-version-delete" onClick={() => confirm(t('shape.confirmDeleteVersion')) && onDelete(v.id)}>
                   {t('shape.deleteVersion')}
                 </button>
               )}
