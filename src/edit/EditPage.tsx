@@ -11,7 +11,9 @@ import { useWalls } from '../map/walls'
 import { useCloud, withCloud } from '../personal/sync'
 import { href, navigate, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
+import { useTopoState } from '../topo/store'
 import { TopoEditor } from '../topo/TopoEditor'
+import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
 import { currentText, loadTextEdits, textTarget, useTextEdits, type TextTarget, type TextVersion } from './textEdits'
 import { useMapItem } from './useMapItem'
@@ -165,6 +167,9 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
     </div>
   )
 }
+
+/** 這一年（含）以前上傳的 Topo 照片太舊，編輯前提示改上傳新照片 */
+const OLD_TOPO_YEAR = 2016
 
 /** 還沒選項目：怎麼開始、有多少項目已經有人修改 */
 function Welcome({ items }: { items: EditItem[] }) {
@@ -520,6 +525,9 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
 /** Topo 項目：中間是 Topo 編輯器（照片、路線、線段與 bolt 工具都在裡面）；右側面板是使用說明 */
 function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
   const { t } = useLang()
+  const signedIn = useCloud().status === 'signed-in'
+  const photo = useTopoState().photos?.[item.id]
+  const old = photo && new Date(photo.createdAt).getFullYear() <= OLD_TOPO_YEAR
   return (
     <>
       <section className="edit-center edit-topo">
@@ -527,6 +535,12 @@ function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
       </section>
       <aside className="edit-panel">
         <h2>{item.path.slice(1).join(' › ')}</h2>
+        {old && photo && (
+          <div className="edit-warn">
+            <p>{t('edit.oldTopo', { year: OLD_TOPO_YEAR })}</p>
+            {signedIn && <UploadButton sector={photo.sector} />}
+          </div>
+        )}
         <p className="muted small">{t('edit.topoTip')}</p>
       </aside>
     </>

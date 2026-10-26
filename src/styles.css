@@ -2859,14 +2859,19 @@ a.action {
   padding: 6px;
 }
 
-.tool-pop.menu a {
+.tool-pop.menu :is(a, button) {
   padding: 9px 12px;
   border-radius: 8px;
+  border: 0;
+  background: none;
   color: var(--text);
+  font: inherit;
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.tool-pop.menu a:hover {
+.tool-pop.menu :is(a, button):hover {
   text-decoration: none;
   background: var(--surface-2);
 }

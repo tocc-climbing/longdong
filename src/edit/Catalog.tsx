@@ -3,7 +3,10 @@ import type { LoadedData } from '../data/dataset'
 import { localName, useLang, type Lang, type Translate } from '../i18n'
 import { areaNames } from '../map/mapData'
 import { sectorTarget, useMapShapes } from '../map/shapes'
+import { useWide } from '../layout'
+import { useCloud } from '../personal/sync'
 import { href, type EditKind } from '../router'
+import { UploadButton } from '../topo/TopoUpload'
 import { loadPhotos, useTopoState } from '../topo/store'
 import { textTarget, useTextEdits } from './textEdits'
 
@@ -23,9 +26,11 @@ interface Group {
   label: string
   items: EditItem[]
   groups: Group[]
+  /** Topo 的分區：可以在這裡新增照片 */
+  uploadSector?: string
 }
 
-const group = (key: string, label: string, items: EditItem[] = [], groups: Group[] = []): Group => ({ key, label, items, groups })
+const group = (key: string, label: string, items: EditItem[] = [], groups: Group[] = [], uploadSector?: string): Group => ({ key, label, items, groups, uploadSector })
 const allItems = (g: Group): EditItem[] => [...g.items, ...g.groups.flatMap(allItems)]
 
 /** 目錄：地圖（步道、台二線、隧道、其他道路、大區域、分區範圍）、Topo（各分區的照片）、說明（區域、路線） */
@@ -55,24 +60,22 @@ function buildCatalog(data: LoadedData, lang: Lang, t: Translate, edited: (kind:
       'topo',
       'Topo',
       [],
-      data.dataset.areas
-        .map((a) =>
-          group(
-            `topo-${a.id}`,
-            L(a.name),
-            [],
-            a.sectors
-              .map((s) =>
-                group(
-                  `topo-${s.id}`,
-                  L(s.name),
-                  photos.filter((p) => p.sector === s.id).map((p, i) => item('topo', p.id, t('edit.photo', { n: i + 1 }), ['Topo', L(a.name), L(s.name)])),
-                ),
-              )
-              .filter((g) => g.items.length),
+      data.dataset.areas.map((a) =>
+        group(
+          `topo-${a.id}`,
+          L(a.name),
+          [],
+          a.sectors.map((s) =>
+            group(
+              `topo-${s.id}`,
+              L(s.name),
+              photos.filter((p) => p.sector === s.id).map((p, i) => item('topo', p.id, t('edit.photo', { n: i + 1 }), ['Topo', L(a.name), L(s.name)])),
+              [],
+              s.id,
+            ),
           ),
-        )
-        .filter((g) => g.groups.length),
+        ),
+      ),
     ),
     group('text', textLabel, [], [
       group('text-areas', t('edit.areaText'), data.dataset.areas.map((a) => item('text', textTarget.area(areaKey(a.id)), L(a.name), [textLabel]))),
@@ -121,6 +124,7 @@ export function useCatalog(data: LoadedData): { groups: Group[]; items: EditItem
  */
 export function Catalog({ data, current, onOpen }: { data: LoadedData; current?: { kind: EditKind; id: string }; onOpen: () => boolean }) {
   const { t } = useLang()
+  const canUpload = useWide() && useCloud().status === 'signed-in'
   const { groups, items } = useCatalog(data)
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
@@ -149,7 +153,8 @@ export function Catalog({ data, current, onOpen }: { data: LoadedData; current?:
         <summary>{g.label}</summary>
         {g.items.map((i) => link(i))}
         {g.groups.map((c) => tree(c, depth + 1))}
-        {depth > 0 && g.items.length === 0 && g.groups.length === 0 && <p className="muted small">{t('edit.emptyGroup')}</p>}
+        {g.uploadSector && canUpload && <UploadButton sector={g.uploadSector} className="edit-add" />}
+        {depth > 0 && g.items.length === 0 && g.groups.length === 0 && !(g.uploadSector && canUpload) && <p className="muted small">{t('edit.emptyGroup')}</p>}
       </details>
     )
   }

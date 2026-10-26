@@ -190,6 +190,7 @@ export const en: Messages = {
   'edit.mapTip': 'Fit the outline to the rock and coast on the aerial photo. Drag corners; click edge dots to add corners.',
   'edit.trailTip': 'Fix trails against the aerial photo. "Add path" draws approach branches; ends near a path join it.',
   'edit.roadTip': 'Fix road positions against the aerial photo. "Add path" draws missing segments; ends near a road join it.',
+  'edit.oldTopo': 'Photo from {year} or earlier and out of date. Upload a new one and edit that instead.',
   'edit.topoTip': 'Pick a route on the photo, draw its line (from the start up) and bolts, then submit a new version.',
   'edit.textTip': "The latest version is shown on the site with the editor's name.",
   'edit.areaTextHint': 'Area: approach, rock, sun, cautions',

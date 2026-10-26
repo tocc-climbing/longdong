@@ -446,3 +446,30 @@
 .edit-app.narrow .edit-text .edit-textarea {
   min-height: 50vh;
 }
+
+/* 目錄裡 Topo 分區的「新增照片」 */
+.edit-group .topo-upload {
+  margin-left: 12px;
+}
+
+.edit-add {
+  padding: 5px 8px;
+  border: 0;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.edit-add::before {
+  content: '＋ ';
+}
+
+.edit-warn {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn, #d99a00) 16%, transparent);
+  font-size: 0.875rem;
+}

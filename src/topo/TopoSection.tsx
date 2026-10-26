@@ -1,13 +1,13 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { useCloud } from '../personal/sync'
-import { href, navigate, useRouteLink } from '../router'
-import { uploadTopo } from './actions'
+import { useRouteLink } from '../router'
 import { useSectorTopos, type SectorTopo } from './store'
 import { TopoFullscreen } from './TopoFullscreen'
 import { TopoFrame, TopoLines } from './TopoView'
+import { UploadButton } from './TopoUpload'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
 export function routeLabels(sector: Sector): Map<string, string> {
@@ -87,34 +87,5 @@ function FullscreenButton({ topo, sector, initial }: { topo: SectorTopo; sector:
         />
       )}
     </>
-  )
-}
-
-function UploadButton({ sector }: { sector: string }) {
-  const { t } = useLang()
-  const input = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string>()
-  const onFile = async (file: File | undefined) => {
-    if (!file) return
-    setBusy(true)
-    setError(undefined)
-    try {
-      navigate(href.topo(await uploadTopo(sector, file)))
-    } catch (err) {
-      setError(t('topo.uploadError', { error: (err as Error).message }))
-    } finally {
-      setBusy(false)
-      if (input.current) input.current.value = ''
-    }
-  }
-  return (
-    <div className="topo-upload">
-      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
-      <button className="action" disabled={busy} onClick={() => input.current?.click()}>
-        {busy ? t('topo.uploading') : t('topo.add')}
-      </button>
-      {error && <p className="small error">{error}</p>}
-    </div>
   )
 }
