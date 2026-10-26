@@ -87,18 +87,19 @@ export function clampScale(s: number, bounds: Rect, frame: Size): number {
 }
 
 /**
- * 限制縮放範圍，中心點不離開範圍；北方朝上時，畫面的上下緣也不超出範圍（不露出範圍外的空白）。
- * 旋轉後畫面是斜的，只限制中心點。
+ * 限制縮放範圍，中心點不離開範圍；畫面的上下緣與西邊的邊緣也不超出範圍（旋轉後用外接的矩形，旋轉前後能移動的範圍一樣）。
  */
 export function clampView(v: MapView, bounds: Rect, frame: Size): MapView {
   const s = clampScale(v.s, bounds, frame)
-  // 北方朝上時畫面的上下緣不超出範圍；左右只限制中心在範圍內（螢幕比範圍寬、直立的 iPad 要把 9 個區域置中時，
-  // 左右超出的部分是和海同色的底圖，不用硬把畫面推回範圍內）；旋轉後上下也只限制中心
-  const halfH = v.r === 0 ? Math.min(bounds.h / 2, (s * frame.h) / 2) : 0
+  // 畫面（旋轉後取外接的矩形）的上緣、下緣、西邊的邊緣都不超出範圍；東邊（岩場外是海）只限制中心在範圍內，
+  // 螢幕比範圍寬、直立的 iPad 要把 9 個區域置中時，超出的部分是和海同色的底圖
+  const [sin, cos] = [Math.abs(Math.sin(v.r)), Math.abs(Math.cos(v.r))]
+  const halfW = Math.min(bounds.w / 2, (s * (cos * frame.w + sin * frame.h)) / 2)
+  const halfH = Math.min(bounds.h / 2, (s * (sin * frame.w + cos * frame.h)) / 2)
   return {
     s,
     r: v.r,
-    cx: Math.min(bounds.x + bounds.w, Math.max(bounds.x, v.cx)),
+    cx: Math.min(bounds.x + bounds.w, Math.max(bounds.x + halfW, v.cx)),
     cy: Math.min(bounds.y + bounds.h - halfH, Math.max(bounds.y + halfH, v.cy)),
   }
 }

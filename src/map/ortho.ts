@@ -1,5 +1,5 @@
 import type { LatLng } from '../geo'
-import { BOUNDS, EXTENT } from './bounds'
+import { BOUNDS, EXTENT, ROCK_AREA } from './bounds'
 import { project, unproject } from './mapData'
 import { toMap, type MapView, type Size } from './mapView'
 
@@ -19,8 +19,8 @@ const BASE_Z = 16
 const EARTH_M = 2 * Math.PI * 6_378_137
 /** Service Worker 快取航照圖磚的 cache 名稱（同 vite.config.ts） */
 export const ORTHO_CACHE = 'ortho'
-/** 離線下載的大小（2026-10-26 抽樣估計：641 張，平均 13.2 KB） */
-export const ORTHO_DOWNLOAD_MB = 8
+/** 離線下載的大小（2026-10-26 抽樣估計：673 張，平均 13.3 KB） */
+export const ORTHO_DOWNLOAD_MB = 9
 /** 下載整個範圍時同時抓幾張 */
 const DOWNLOAD_PARALLEL = 6
 
@@ -85,10 +85,14 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLev
   return [...(base ?? []), ...(coarse ?? []), ...(fine ?? [])]
 }
 
-/** 離線下載時，移動範圍（BOUNDS）以外、資料範圍（EXTENT）以內最細到這一層（外圈放大看的機會少） */
+/**
+ * 離線下載的層級：救援點周圍（ROCK_AREA）到最清楚的 MAX_Z；移動範圍（BOUNDS，多了西邊到龍洞街口）最細 ROAD_MAX_Z；
+ * 資料範圍（EXTENT）的外圈最細 OUTER_MAX_Z（外圈放大看的機會少）。
+ */
+const ROAD_MAX_Z = 18
 const OUTER_MAX_Z = 17
 
-/** 離線下載的圖磚：移動範圍 MIN_Z–MAX_Z，資料範圍 MIN_Z–OUTER_MAX_Z */
+/** 離線下載的圖磚：救援點周圍 MIN_Z–MAX_Z、移動範圍 MIN_Z–ROAD_MAX_Z、資料範圍 MIN_Z–OUTER_MAX_Z */
 export function orthoDownloadUrls(): string[] {
   const urls = new Set<string>()
   const add = (r: typeof BOUNDS, maxZ: number) => {
@@ -101,7 +105,8 @@ export function orthoDownloadUrls(): string[] {
     }
   }
   add(EXTENT, OUTER_MAX_Z)
-  add(BOUNDS, MAX_Z)
+  add(BOUNDS, ROAD_MAX_Z)
+  add(ROCK_AREA, MAX_Z)
   return [...urls]
 }
 
