@@ -2784,24 +2784,127 @@ a.action {
   min-width: 0;
 }
 
-.rescue-button {
-  display: inline-flex;
-  align-items: center;
+/* 區域、分區、路線頁標題旁的圖示（src/edit/PageTools.tsx）：修改記錄、編輯、救援，點了才展開 */
+.page-tools {
+  position: relative;
+  display: flex;
   gap: 6px;
   flex: none;
-  padding: 5px 12px 5px 6px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
-  background: var(--surface);
-  color: var(--danger);
-  font-size: 0.875rem;
-  font-weight: 700;
 }
 
-.rescue-button:hover,
-.rescue-button:active {
+.area-hero-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.area-hero-wrap .area-hero {
+  margin-bottom: 0;
+}
+
+.area-hero-wrap > .page-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+}
+
+.tool-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tool-button:hover,
+.tool-button:active,
+.tool-button[aria-expanded='true'] {
   text-decoration: none;
   background: var(--surface-2);
+  color: var(--text);
+}
+
+.tool-button.rescue {
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.tool-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(60vh, 420px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px rgba(16, 24, 28, 0.18);
+}
+
+.tool-pop h2 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.tool-pop.menu {
+  display: grid;
+  width: auto;
+  min-width: 150px;
+  padding: 6px;
+}
+
+.tool-pop.menu a {
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tool-pop.menu a:hover {
+  text-decoration: none;
+  background: var(--surface-2);
+}
+
+.tool-history {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool-history li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tool-kind {
+  flex: none;
+  min-width: 3.4em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.tool-entry {
+  display: grid;
+  min-width: 0;
+}
+
+.tool-original {
+  margin-top: 12px;
+  color: var(--muted);
 }
 
 .rescue section {
@@ -5231,22 +5334,7 @@ g.topo-route.link:is(:hover, :focus-visible) {
   margin-left: 8px;
 }
 
-/* 區域、路線說明（src/edit/CommunityText.tsx）：標題旁的「修改說明」連結；岩友修改的版本標明來源，TOCC 原文可展開 */
+/* 區域、路線說明（src/edit/CommunityText.tsx） */
 .community-text h2 {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.community-edit {
-  font-weight: 400;
-}
-
-.community-empty {
-  margin: 10px 0;
-}
-
-.community-original {
-  margin-top: 6px;
-  color: var(--muted);
+  margin-bottom: 4px;
 }

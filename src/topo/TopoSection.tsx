@@ -1,11 +1,9 @@
 import { useRef, useState } from 'react'
 import type { Sector } from '../data/schema'
-import { relativeTime } from '../format'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { useCloud } from '../personal/sync'
 import { href, navigate, useRouteLink } from '../router'
-import { displayName, useSocial } from '../social/store'
 import { uploadTopo } from './actions'
 import { useSectorTopos, type SectorTopo } from './store'
 import { TopoFullscreen } from './TopoFullscreen'
@@ -38,7 +36,6 @@ export function SectorTopos({ sector }: { sector: Sector }) {
             {(k) => topo.latest && <TopoLines photo={topo.photo} marks={topo.latest.marks} labels={labels} k={k} highlight={selected} link={link} crop={topo.latest.crop} />}
           </TopoFrame>
           {topo.latest && <FullscreenButton topo={topo} sector={sector} initial={selected} />}
-          <TopoCaption topo={topo} canEdit={canEdit} />
         </figure>
       ))}
       {canEdit && <UploadButton sector={sector.id} />}
@@ -50,7 +47,6 @@ export function SectorTopos({ sector }: { sector: Sector }) {
 export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: string }) {
   const { lang, t } = useLang()
   const topos = useSectorTopos(sector.id)?.filter((x) => x.latest?.marks[routeId])
-  const canEdit = useCanEdit()
   if (!topos || topos.length === 0) return null
   const labels = routeLabels(sector)
   return (
@@ -62,7 +58,6 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
             {(k) => <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} crop={topo.latest!.crop} />}
           </TopoFrame>
           <FullscreenButton topo={topo} sector={sector} initial={routeId} />
-          <TopoCaption topo={topo} canEdit={canEdit} />
         </figure>
       ))}
     </section>
@@ -92,27 +87,6 @@ function FullscreenButton({ topo, sector, initial }: { topo: SectorTopo; sector:
         />
       )}
     </>
-  )
-}
-
-/** 最後修改的人與時間；可以編輯時多一個「編輯」 */
-function TopoCaption({ topo, canEdit }: { topo: SectorTopo; canEdit: boolean }) {
-  const { t } = useLang()
-  const profiles = useSocial().profiles
-  const by = topo.latest ?? topo.photo
-  return (
-    <figcaption className="muted small">
-      {t(topo.latest ? 'topo.editedBy' : 'topo.uploadedBy', {
-        name: displayName(profiles, by.uid),
-        time: relativeTime(new Date(by.createdAt).toISOString(), t),
-      })}
-      {canEdit && (
-        <>
-          {' · '}
-          <a href={href.topo(topo.photo.id)}>{t('topo.edit')}</a>
-        </>
-      )}
-    </figcaption>
   )
 }
 

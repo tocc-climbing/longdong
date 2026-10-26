@@ -10,6 +10,7 @@ import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route } from '../data/schema'
 import { CommunityText } from '../edit/CommunityText'
+import { PageTools } from '../edit/PageTools'
 import { textTarget } from '../edit/textEdits'
 import { formatDate, typeText } from '../format'
 import { localName, useLang } from '../i18n'
@@ -55,7 +56,10 @@ export function RoutePage({ data, id }: { data: LoadedData; id: string }) {
         )}
       </nav>
 
-      <h1>{name.main}</h1>
+      <div className="page-title">
+        <h1>{name.main}</h1>
+        <PageTools scope={{ areaId: area.id, text: { target: textTarget.route(route.id), label: t('edit.routeText'), original: route.description }, sectors: [sector], topoEdit: true }} />
+      </div>
       {(route.number || name.sub) && <p className="route-sub">{[route.number && `#${route.number}`, name.sub].filter(Boolean).join(' · ')}</p>}
 
       <div className="route-facts">

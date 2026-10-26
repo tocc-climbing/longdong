@@ -1,4 +1,3 @@
-import { rescueKey } from '../data/rescue'
 import { useLang } from '../i18n'
 import { href } from '../router'
 
@@ -14,19 +13,6 @@ export function RescueEntry() {
         <strong>{t('rescue.entry')}</strong>
         <span className="small">{t('rescue.entryDesc')}</span>
       </span>
-    </a>
-  )
-}
-
-/** 區域頁標題旁的「救援」按鈕：進入救援資訊並先顯示這個大區域的救援圖與就近救援點 */
-export function RescueButton({ areaId }: { areaId: string }) {
-  const { t } = useLang()
-  return (
-    <a className="rescue-button" href={href.rescue(rescueKey(areaId))}>
-      <span className="rescue-cross" aria-hidden>
-        +
-      </span>
-      {t('rescue.button')}
     </a>
   )
 }
