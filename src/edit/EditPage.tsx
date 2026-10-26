@@ -33,7 +33,7 @@ function readLayout(): { catalog: boolean; panel: boolean } {
 }
 
 /**
- * 修改模式（/edit/<種類>/<項目>）：地圖（步道、大區域、分區範圍）、Topo、區域與路線說明，所有登入者都能修改，每次提交是一個新版本。
+ * 修改模式（/edit/<種類>/<項目>）：地圖（步道、大區域、分區範圍與岩壁）、Topo、區域與路線說明，所有登入者都能修改，每次提交是一個新版本。
  * 電腦版三欄：左側目錄、中間編輯、右側資訊（說明、修改紀錄、快捷鍵）；上方工具列。
  * 目錄與資訊面板可以收起，讓中間的編輯區最大（[、]、⌘\ 兩側一起）。
  * 手機版只能看目錄與修改說明；地圖與 Topo 提示用電腦開啟。每個項目有自己的網址，可以分享給岩友一起修改。
@@ -406,7 +406,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
       </section>
       <aside className="edit-panel">
         <h2>{item.label}</h2>
-        <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : target === 'trails' ? 'edit.trailTip' : 'edit.roadTip')}</p>
+        <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : 'edit.trailTip')}</p>
         <NeedSignIn />
         <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v).then(m.actions.reload)} />
         <h2>{t('edit.shortcuts')}</h2>
