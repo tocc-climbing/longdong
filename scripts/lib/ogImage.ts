@@ -146,7 +146,7 @@ const MAP_MIN_SPAN = 0.0036
  * 右邊的地圖：放大到路線所在的大區域附近（areaKey 省略時是整個龍洞）。所在區域實色（不描邊），附近的區域用各自的顏色、半透明。
  * areaColors：大區域 key → 顏色（Sheet 上的區域色）
  */
-function areaMap(map: OgMap, areaKey: string | undefined, areaColors: Record<string, string>, box: Box, othersOpacity = 0.22, pad = 1.5): string {
+function areaMap(map: OgMap, areaKey: string | undefined, areaColors: Record<string, string>, box: Box, othersOpacity = 0.22, pad = 1.5, editHandles = false): string {
   const rings = (areaKey && map.areas[areaKey]) || Object.values(map.areas).flat()
   const pts = rings.flat()
   const lat0 = pts.reduce((n, p) => n + p[1], 0) / pts.length
@@ -167,10 +167,32 @@ function areaMap(map: OgMap, areaKey: string | undefined, areaColors: Record<str
     .filter(([k]) => k !== areaKey)
     .map(([k, r]) => `<path d="${path(r)}" fill="${areaColors[k] ?? C.areaLine}" fill-opacity="${othersOpacity}"/>`)
     .join('')
-  const target = areaKey && map.areas[areaKey] ? `<path d="${path(map.areas[areaKey])}" fill="${areaColors[areaKey] ?? C.brand}"/>` : ''
+  const color = (areaKey && areaColors[areaKey]) || C.brand
+  const target = areaKey && map.areas[areaKey] ? `<path d="${path(map.areas[areaKey])}" fill="${color}"/>` : ''
+  // 修改模式：最大的一圈範圍畫上頂點（白點）與邊上的小點，像編輯中的樣子
+  const handles = editHandles && areaKey && map.areas[areaKey] ? editVertices(map.areas[areaKey], xy, color) : ''
   return `<clipPath id="map"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="${box.r}"/></clipPath>
 <g clip-path="url(#map)"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="${C.sea}"/>
-<path d="${path(map.land)}" fill="${C.land}" fill-rule="evenodd"/>${others}${target}</g>`
+<path d="${path(map.land)}" fill="${C.land}" fill-rule="evenodd"/>${others}${target}${handles}</g>`
+}
+
+/** 範圍最大的一圈取約 12 個頂點：白底有色邊的圓點，頂點之間的中點是較小的空心點（與修改模式的編輯點相同） */
+function editVertices(rings: Ring[], xy: (p: [number, number]) => string, color: string): string {
+  const ring = rings.reduce((a, b) => (b.length > a.length ? b : a))
+  const step = Math.max(1, Math.floor(ring.length / 12))
+  const picked = ring.filter((_, i) => i % step === 0).slice(0, 12)
+  const at = (p: [number, number]) => xy(p).split(',')
+  const outline = `<path d="M${picked.map(xy).join('L')}Z" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="9 6"/>`
+  const mids = picked.map((p, i) => {
+    const q = picked[(i + 1) % picked.length]
+    const [x, y] = at([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2])
+    return `<circle cx="${x}" cy="${y}" r="5" fill="#ffffff" fill-opacity="0.7"/>`
+  })
+  const dots = picked.map((p) => {
+    const [x, y] = at(p)
+    return `<circle cx="${x}" cy="${y}" r="9" fill="#ffffff" stroke="${color}" stroke-width="3"/>`
+  })
+  return outline + mids.join('') + dots.join('')
 }
 
 /** 地圖資料：救援地圖的陸地與 9 個大區域的範圍（scripts/gen-scale-map.ts 產生） */
@@ -355,9 +377,12 @@ export function mapPageSvg(map: OgMap, areaColors: Record<string, string>, stats
   return crag(map, areaColors, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '救援點 · 急救器材 · 離線可用')
 }
 
-/** 修改模式（/edit）的分享圖片：號召岩友一起修改；版面與地圖頁相同 */
+/** 修改模式（/edit）的分享圖片：號召岩友一起修改；下半部是放大的黃金谷，範圍上有編輯用的頂點 */
 export function editPageSvg(map: OgMap, areaColors: Record<string, string>): string {
-  return crag(map, areaColors, '一起修改龍洞', '地圖 · Topo · 區域與路線說明', '登入就能修改 · 保留所有版本')
+  const body: string[] = []
+  const y = pageTitle(body, '一起修改龍洞', '你熟的岩場，你來補完')
+  body.push(`<text x="${MARK.x}" y="${mid(y + 24, 28)}" font-size="28" font-weight="700" fill="${C.text}">${rich('地圖 · Topo · 路線說明 · 保留每個版本')}</text>`)
+  return frame((box) => areaMap(map, 'golden-valley', areaColors, box, 0.5, 1.7, true), body, y + 48)
 }
 
 /** 網站本身（首頁，以及沒有自己分享圖片的頁面）的分享圖片：版面與地圖頁相同 */

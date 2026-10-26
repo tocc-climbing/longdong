@@ -61,7 +61,7 @@ if (map) {
     {
       path: 'edit',
       title: '一起修改龍洞攀岩資料庫',
-      description: '對照航照修正地圖與步道、在岩壁照片上畫路線、補充區域與路線說明；登入就能修改，保留所有版本',
+      description: '對照航照修正地圖與步道、在岩壁照片上畫路線、補充路線說明；登入就能修改，每個版本都保留',
       svg: editPageSvg(map, areaColors),
     },
     {
