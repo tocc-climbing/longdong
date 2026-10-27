@@ -26,6 +26,8 @@ function nearestOnSegment(p: [number, number], a: [number, number], b: [number, 
  * 岩壁還沒有版本時用舊的岩壁標記（legacyWalls：這個分區在地圖頁畫過的牆底線）。
  */
 export function currentShapes(target: EditTarget, map: ScaleMapData | undefined, latest: LatLng[][] | undefined, legacyWalls: LatLng[][] = []): LatLng[][] {
+  // 提交過的最新版本優先：地圖上畫的就是它（只有還沒人改過時才用自動產生的），編輯框才不會和畫出來的形狀不同
+  if (latest && !target.startsWith('wall:')) return latest
   if (isLineTarget(target)) return (map?.lineLayers[LINE_TARGETS[target]] ?? []).map((l) => simplifyLine(l, SIMPLIFY_M / 2).map(unproject))
   if (target.startsWith('area:')) return (map?.areas.find((a) => a.id === target.slice(5))?.rings ?? []).map((r) => simplifyRing(r, SIMPLIFY_M).map(unproject))
   if (target.startsWith('wall:')) return latest ?? legacyWalls

@@ -94,12 +94,14 @@ export function routeInfo(routes: Route[], nameOf: (r: Route) => string): Map<st
 }
 
 /** 牌子的大小與字級（螢幕像素） */
-const PILL_H = 20
-const PILL_FONT = 11.5
-const BOLT_H = 18
-const BOLT_FONT = 11
-const NOTE_FONT = 10
-const NOTE_LINE = 12.5
+const PILL_H_BASE = 20
+const PILL_FONT_BASE = 11.5
+const BOLT_H_BASE = 18
+const BOLT_FONT_BASE = 11
+const NOTE_FONT_BASE = 10
+const NOTE_LINE_BASE = 12.5
+/** 電腦版（寬螢幕）螢幕大、離得遠，牌子與字放大一點；手機維持原樣 */
+const uiScale = () => (typeof window !== 'undefined' && window.matchMedia?.('(min-width: 900px)').matches ? 1.5 : 1)
 /** 線在畫面上至少這麼長（螢幕像素）才標編號；選到的路線不受限 */
 const MIN_LABEL_LINE_PX = 40
 /** 線在畫面上這麼長才多顯示難度、再長才多顯示名稱；選到的路線一律顯示 */
@@ -148,6 +150,8 @@ export function TopoLines({
   crop?: Crop
 }) {
   const c = crop ?? FULL_CROP
+  const u = uiScale()
+  const [PILL_H, PILL_FONT, BOLT_H, BOLT_FONT, NOTE_FONT, NOTE_LINE] = [PILL_H_BASE, PILL_FONT_BASE, BOLT_H_BASE, BOLT_FONT_BASE, NOTE_FONT_BASE, NOTE_LINE_BASE].map((v) => v * u)
   const [bx, by] = px(photo, [c.x, c.y])
   const [bw, bh] = px(photo, [c.w, c.h])
   // 亮色的畫在最上面

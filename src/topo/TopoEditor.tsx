@@ -423,10 +423,12 @@ function Editor({
           return (
             <rect
               key={pos}
-              x={x - 7 * k}
-              y={y - 7 * k}
-              width={14 * k}
-              height={14 * k}
+              className="bolt"
+              x={x - 32 * k}
+              y={y - 14 * k}
+              width={64 * k}
+              height={28 * k}
+              rx={14 * k}
               strokeWidth={2 * k}
               onPointerDown={(e) => startDrag(e, { kind: 'bolt', pos })}
               onPointerMove={onDrag}

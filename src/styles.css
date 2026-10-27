@@ -5530,6 +5530,16 @@ button.key-row:disabled {
   cursor: move;
 }
 
+.topo-handles rect.bolt {
+  /* bolt 的牌子本身就是標記：把手是蓋在牌子上的透明框，滑過去才出現外框 */
+  fill: transparent;
+  stroke: transparent;
+}
+
+.topo-handles rect.bolt:hover {
+  stroke: #c8102e;
+}
+
 .topo-handles circle.start {
   fill: #c8102e;
   stroke: #fff;
