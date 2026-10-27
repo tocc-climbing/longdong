@@ -15,6 +15,7 @@ import { removeEdit, removeTopo, submitEdit } from './actions'
 import { CropBox } from './CropBox'
 import { forkLine, moveSharedPoint } from './lines'
 import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
+import { KeyList } from '../edit/KeyList'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
 import { px, TopoFrame, TopoLines } from './TopoView'
@@ -225,16 +226,15 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
       // 在輸入框裡打字、焦點在按鈕（Enter、空白鍵留給它）時，不當作快捷鍵
       if (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
       const key = e.key.toLowerCase()
-      const mod = e.ctrlKey || e.metaKey
-      if (mod && key === 'z') {
+      // 快捷鍵都是單一按鍵（Windows、Mac 一樣）；Ctrl／⌘／Alt 的組合鍵留給瀏覽器
+      if (e.ctrlKey || e.metaKey || e.altKey || preview) {
+        return
+      } else if (key === 'z') {
         e.preventDefault()
-        if (e.shiftKey) redoOnce()
-        else undoOnce()
-      } else if (mod && key === 'y') {
+        undoOnce()
+      } else if (key === 'y') {
         e.preventDefault()
         redoOnce()
-      } else if (mod || e.altKey || preview) {
-        return
       } else if (key === 'escape') {
         setForking(false)
       } else if (key === 'enter' && mode === 'crop' && !el.closest('button, a')) {
@@ -467,8 +467,8 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
           <div className="topo-edit-toolbar" role="toolbar" aria-label={t('topo.toolbar')}>
             {/* 最常用的放最前面：復原、重做、移除最後一點 */}
             <div className="topo-tool-group">
-              {tool(t('topo.undo'), 'Ctrl+Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
-              {tool(t('topo.redo'), 'Ctrl+Shift+Z', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
+              {tool(t('topo.undo'), 'Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
+              {tool(t('topo.redo'), 'Y', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
               {mode === 'line' && tool(t('topo.removeLast'), 'Backspace', removeLast, { disabled: !current.line?.length, icon: <Icon d="M21 5H9l-6 7 6 7h12zM17 9l-5 6M12 9l5 6" /> })}
             </div>
             <div className="topo-tool-group" role="group" aria-label={t('topo.tools')}>
@@ -607,31 +607,25 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         {!preview && (
           <details className="topo-keys">
             <summary>{t('topo.keys.title')}</summary>
-            <dl>
-              {(
-                [
-                  ['Ctrl+Z', t('topo.undo')],
-                  ['Ctrl+Shift+Z', t('topo.redo')],
-                  ['Backspace', t('topo.removeLast')],
-                  ['L / B / C', `${t('topo.modeLine')} / Bolt / ${t('topo.modeCrop')}`],
-                  ['F', t('topo.fork')],
-                  ['↑ / ↓', t('topo.keys.route')],
-                  ['Esc', t('topo.keys.cancel')],
-                  ['Enter', t('topo.cropDone')],
-                  [t('topo.keys.wheel'), t('topo.keys.zoom')],
-                  ['+ / − / 0', t('topo.keys.zoomKeys')],
-                  ['Space', t('topo.keys.pan')],
-                  [t('topo.keys.rightClick'), t('topo.keys.deletePoint')],
-                ] as const
-              ).map(([k, v]) => (
-                <div key={k}>
-                  <dt>
-                    <kbd>{k}</kbd>
-                  </dt>
-                  <dd>{v}</dd>
-                </div>
-              ))}
-            </dl>
+            <KeyList
+              rows={[
+                { keys: 'Z', label: t('topo.undo'), onClick: undoOnce, disabled: undo.current.length === 0 },
+                { keys: 'Y', label: t('topo.redo'), onClick: redoOnce, disabled: redo.current.length === 0 },
+                { keys: 'Backspace', label: t('topo.removeLast'), onClick: removeLast, disabled: !current.line?.length },
+                { keys: 'L', label: t('topo.modeLine'), onClick: () => setMode('line') },
+                { keys: 'B', label: 'Bolt', onClick: () => setMode('bolt'), disabled: positions.length === 0 },
+                { keys: 'C', label: t('topo.modeCrop'), onClick: () => setMode('crop') },
+                { keys: 'F', label: t('topo.fork'), onClick: () => setForking((on) => !on) },
+                { keys: '↑', label: t('topo.keys.prevRoute'), onClick: () => stepRoute(-1) },
+                { keys: '↓', label: t('topo.keys.nextRoute'), onClick: () => stepRoute(1) },
+                { keys: 'Esc', label: t('topo.keys.cancel'), onClick: () => setForking(false), disabled: !forking },
+                { keys: 'Enter', label: t('topo.cropDone'), onClick: () => setMode('line'), disabled: mode !== 'crop' },
+                { keys: t('topo.keys.wheel'), label: t('topo.keys.zoom') },
+                { keys: '+ / − / 0', label: t('topo.keys.zoomKeys') },
+                { keys: 'Space', label: t('topo.keys.pan') },
+                { keys: t('topo.keys.rightClick'), label: t('topo.keys.deletePoint') },
+              ]}
+            />
           </details>
         )}
 

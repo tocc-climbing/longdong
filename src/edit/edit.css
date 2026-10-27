@@ -252,8 +252,7 @@
   cursor: default;
 }
 
-.edit-tool kbd,
-.edit-keys kbd {
+.edit-tool kbd {
   padding: 0 5px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -398,24 +397,6 @@
   color: var(--brand);
   font-size: 0.75rem;
   white-space: nowrap;
-}
-
-.edit-keys {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-}
-
-.edit-keys > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.edit-keys dd {
-  margin: 0;
-  color: var(--muted);
-  text-align: right;
 }
 
 .edit-toast {

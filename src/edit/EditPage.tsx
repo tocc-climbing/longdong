@@ -17,6 +17,7 @@ import { TopoEditor } from '../topo/TopoEditor'
 import { MERGE_RADIUS_M, type PinGroup } from '../map/reportPins'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
+import { KeyList } from './KeyList'
 import { LatestEdits } from './LatestEdits'
 import { groupVersions } from './versions'
 import { currentText, loadTextEdits, textTarget, useTextEdits, type TextTarget, type TextVersion } from './textEdits'
@@ -38,7 +39,7 @@ function readLayout(): { catalog: boolean; panel: boolean } {
 /**
  * 修改模式（/edit/<種類>/<項目>）：地圖（步道、大區域、分區範圍與岩壁）、Topo、區域與路線說明，所有登入者都能修改，每次提交是一個新版本。
  * 電腦版三欄：左側目錄、中間編輯、右側資訊（說明、修改紀錄、快捷鍵）；上方工具列。
- * 目錄與資訊面板可以收起，讓中間的編輯區最大（[、]、⌘\ 兩側一起）。
+ * 目錄與資訊面板可以收起，讓中間的編輯區最大（[、]）。
  * 手機版只能看目錄與修改說明；地圖與 Topo 提示用電腦開啟。每個項目有自己的網址，可以分享給岩友一起修改。
  */
 export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind; id?: string }) {
@@ -52,9 +53,9 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   const [dirty, setDirty] = useState(false)
   const [toast, setToast] = useState<string>()
   const [layout, setLayout] = useState(readLayout)
-  const toggle = (part: 'catalog' | 'panel' | 'both') =>
+  const toggle = (part: 'catalog' | 'panel') =>
     setLayout((l) => {
-      const next = part === 'both' ? { catalog: !(l.catalog || l.panel), panel: !(l.catalog || l.panel) } : { ...l, [part]: !l[part] }
+      const next = { ...l, [part]: !l[part] }
       try {
         localStorage.setItem(LAYOUT_KEY, JSON.stringify(next))
       } catch {
@@ -62,15 +63,12 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
       }
       return next
     })
-  // 收起、展開兩側：[ 目錄、] 資訊面板、⌘\ 兩側一起（同 Figma 隱藏介面）
+  // 收起、展開兩側：[ 目錄、] 資訊面板
   useEffect(() => {
     if (!wide) return
     const onKey = (e: KeyboardEvent) => {
       if (typing(e)) return
-      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
-        e.preventDefault()
-        toggle('both')
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '[' || e.key === ']')) {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '[' || e.key === ']')) {
         e.preventDefault()
         toggle(e.key === '[' ? 'catalog' : 'panel')
       }
@@ -360,20 +358,19 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
   const referenceWalls =
     sector && !isWall ? (shapes.walls[sector] ?? legacyWalls.filter((w) => w.sector === sector).map((w) => w.points)).map((points, i) => ({ key: `wall-${i}`, points })) : []
 
-  // 快捷鍵（參考 iD、Figma）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、⌘Z／⌘⇧Z 復原／重做、⌘Enter 提交、A 航照
+  // 快捷鍵都是單一按鍵（Windows、Mac 一樣）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、Z 復原、Y 重做、S 提交、A 航照
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing(e)) return
-      const mod = e.ctrlKey || e.metaKey
+      if (e.ctrlKey || e.metaKey || e.altKey) return
       const key = e.key.toLowerCase()
       const run = (f: () => void) => {
         e.preventDefault()
         f()
       }
-      if (mod && key === 'z') return run(e.shiftKey ? m.actions.redo : m.actions.undo)
-      if (mod && key === 'y') return run(m.actions.redo)
-      if (mod && key === 'enter') return m.canSubmit && signedIn ? run(() => void m.actions.submit()) : undefined
-      if (mod || e.altKey) return
+      if (key === 'z') return run(m.actions.undo)
+      if (key === 'y') return run(m.actions.redo)
+      if (key === 's') return m.canSubmit && signedIn ? run(() => void m.actions.submit()) : undefined
       if (key === 'v') return run(m.actions.cancel)
       if (key === 'n' && !m.drawing) return run(m.actions.draw)
       if (key === 'enter' && m.drawing) return run(m.actions.finishDrawing)
@@ -436,13 +433,13 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
             <>
               {tool(false, t('shape.removeRing'), 'Del', m.actions.removeSelected, m.selected === undefined)}
               <span className="edit-divider" />
-              {tool(false, t('edit.undo'), '⌘Z', m.actions.undo, !m.canUndo)}
-              {tool(false, t('edit.redo'), '⌘⇧Z', m.actions.redo, !m.canRedo)}
+              {tool(false, t('edit.undo'), 'Z', m.actions.undo, !m.canUndo)}
+              {tool(false, t('edit.redo'), 'Y', m.actions.redo, !m.canRedo)}
             </>
           )}
           <span className="edit-spacer" />
           {tool(ortho, t('map.ortho'), 'A', () => setOrtho(!ortho))}
-          <button type="button" className="edit-btn primary" disabled={!m.canSubmit || !signedIn} onClick={() => void m.actions.submit()} title="⌘Enter">
+          <button type="button" className="edit-btn primary" disabled={!m.canSubmit || !signedIn} onClick={() => void m.actions.submit()} title="S">
             {t('shape.save')}
           </button>
         </div>
@@ -471,30 +468,20 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
         <ReportPins pins={pins} data={data} on={pinOn} onPick={setPinOn} />
         <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
         <h2>{t('edit.shortcuts')}</h2>
-        <dl className="edit-keys">
-          {(
-            [
-              ['V', t('edit.select')],
-              ['N', addLabel],
-              ['Enter', finishLabel],
-              ['Esc', t('edit.cancel')],
-              ['Del', t('shape.removeRing')],
-              ['⌘Z / ⌘⇧Z', `${t('edit.undo')} / ${t('edit.redo')}`],
-              ['⌘Enter', t('shape.save')],
-              ['A', t('map.ortho')],
-              ['[ / ]', `${t('edit.catalog')} / ${t('edit.panel')}`],
-              ['⌘\\', t('edit.maximize')],
-              [t('edit.rightClick'), t('edit.deletePoint')],
-            ] as const
-          ).map(([k, v]) => (
-            <div key={k}>
-              <dt>
-                <kbd>{k}</kbd>
-              </dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
+        <KeyList
+          rows={[
+            { keys: 'V', label: t('edit.select'), onClick: m.actions.cancel },
+            { keys: 'N', label: addLabel, onClick: m.actions.draw, disabled: !!m.drawing },
+            { keys: 'Enter', label: finishLabel, onClick: m.actions.finishDrawing, disabled: !m.drawing || !m.canFinish },
+            { keys: 'Esc', label: t('edit.cancel'), onClick: m.actions.cancel },
+            { keys: 'Del', label: t('shape.removeRing'), onClick: m.actions.removeSelected, disabled: !!m.drawing || m.selected === undefined },
+            { keys: 'Z', label: t('edit.undo'), onClick: m.actions.undo, disabled: !m.canUndo },
+            { keys: 'Y', label: t('edit.redo'), onClick: m.actions.redo, disabled: !m.canRedo },
+            { keys: 'S', label: t('shape.save'), onClick: () => void m.actions.submit(), disabled: !m.canSubmit || !signedIn },
+            { keys: 'A', label: t('map.ortho'), onClick: () => setOrtho((o) => !o) },
+            { keys: t('edit.rightClick'), label: t('edit.deletePoint') },
+          ]}
+        />
       </aside>
     </>
   )
@@ -550,7 +537,7 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
         <div className="edit-toolbar">
           <span className="edit-status">{t(route ? 'edit.routeTextHint' : 'edit.areaTextHint')}</span>
           <span className="edit-spacer" />
-          <button type="button" className="edit-btn primary" disabled={!dirty || saving || !signedIn} onClick={() => void submit()} title="⌘Enter">
+          <button type="button" className="edit-btn primary" disabled={!dirty || saving || !signedIn} onClick={() => void submit()}>
             {t('shape.save')}
           </button>
         </div>
@@ -559,12 +546,6 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
           value={text}
           maxLength={3000}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && dirty && signedIn) {
-              e.preventDefault()
-              void submit()
-            }
-          }}
           aria-label={item.label}
           placeholder={t('edit.textPlaceholder')}
         />
