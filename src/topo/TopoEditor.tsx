@@ -17,6 +17,7 @@ import { CropBox } from './CropBox'
 import { forkLine, moveSharedPoint } from './lines'
 import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { HistorySection } from '../edit/HistorySection'
+import { MoreMenu } from '../edit/MoreMenu'
 import { EditKeys } from '../edit/KeyList'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
@@ -142,6 +143,15 @@ function Editor({
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  // 全畫面：只放大編輯區（工具列與照片），用瀏覽器的全螢幕
+  const layoutRef = useRef<HTMLDivElement>(null)
+  const [full, setFull] = useState(false)
+  useEffect(() => {
+    const sync = () => setFull(document.fullscreenElement === layoutRef.current)
+    document.addEventListener('fullscreenchange', sync)
+    return () => document.removeEventListener('fullscreenchange', sync)
+  }, [])
+  const toggleFull = () => void (document.fullscreenElement ? document.exitFullscreen() : layoutRef.current?.requestFullscreen())
   // 復原／重做：每個修改前的內容；改了畫面（按鈕可不可以按）要重新繪製，所以另外記一個計數
   const undo = useRef<Content[]>([])
   const redo = useRef<Content[]>([])
@@ -224,11 +234,6 @@ function Editor({
     commit({ marks: before.marks, crop: isFullCrop(next) ? undefined : next })
   }
 
-  /** 移除最後一點（線段模式）：畫錯了常用，比復原更直接 */
-  const removeLast = () => {
-    if (preview || mode !== 'line' || !current.line?.length) return
-    edit((m) => ({ ...m, line: m.line!.slice(0, -1) }))
-  }
   /** 上一條、下一條路線（依清單的順序） */
   const stepRoute = (delta: number) => {
     const i = routes.findIndex((r) => r.id === selected)
@@ -255,9 +260,6 @@ function Editor({
         setForking(false)
       } else if (key === 'enter' && mode === 'crop' && !el.closest('button, a')) {
         setMode('line')
-      } else if (key === 'backspace' || key === 'delete') {
-        e.preventDefault()
-        removeLast()
       } else if (key === 'arrowup' || key === 'arrowdown') {
         e.preventDefault()
         stepRoute(key === 'arrowup' ? -1 : 1)
@@ -443,7 +445,7 @@ function Editor({
     )
 
   /** 工具列的一顆按鈕：文字與快捷鍵（滑過去也顯示） */
-  const tool = (label: string, keys: string | undefined, onClick: () => void, opts: { pressed?: boolean; disabled?: boolean; icon?: ReactNode } = {}) => (
+  const tool = (label: string, keys: string | undefined, onClick: () => void, opts: { pressed?: boolean; disabled?: boolean; icon?: ReactNode; iconOnly?: boolean } = {}) => (
     <button
       type="button"
       className="topo-tool"
@@ -451,42 +453,55 @@ function Editor({
       disabled={opts.disabled}
       title={keys ? `${label}（${keys}）` : label}
       aria-keyshortcuts={keys}
+      aria-label={opts.iconOnly ? label : undefined}
       onClick={onClick}
     >
       {opts.icon}
+      {!opts.iconOnly && <span>{label}</span>}
+      {!opts.iconOnly && keys && <kbd>{keys}</kbd>}
+    </button>
+  )
+
+  /** 第二層選單的一個項目 */
+  const menuItem = (label: string, keys: string | undefined, onClick: () => void, disabled = false, danger = false) => (
+    <button type="button" role="menuitem" className={`edit-menu-item${danger ? ' danger' : ''}`} disabled={disabled} aria-keyshortcuts={keys} onClick={onClick}>
       <span>{label}</span>
+      {keys && <kbd>{keys}</kbd>}
     </button>
   )
 
   return (
-    <div className="topo-edit-layout">
+    <div className="topo-edit-layout" ref={layoutRef}>
       {!preview && (
         <div className="topo-edit-toolbar" role="toolbar" aria-label={t('topo.toolbar')}>
-          {/* 最常用的放最前面：復原、重做、移除最後一點 */}
+          {/* 最常用的放最前面：復原、重做；先選路線才能畫 */}
           <div className="topo-tool-group">
             {tool(t('topo.undo'), 'Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
             {tool(t('topo.redo'), 'Y', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
-            {mode === 'line' &&
-              tool(t('topo.removeLast'), 'Backspace', removeLast, { disabled: !current.line?.length, icon: <Icon d="M21 5H9l-6 7 6 7h12zM17 9l-5 6M12 9l5 6" /> })}
           </div>
           <div className="topo-tool-group" role="group" aria-label={t('topo.tools')}>
-            {tool(t('topo.modeLine'), 'L', () => setMode('line'), { pressed: mode === 'line' })}
+            {tool(t('topo.modeLine'), 'L', () => setMode('line'), { pressed: mode === 'line', disabled: !route })}
             {tool('Bolt', 'B', () => setMode('bolt'), { pressed: mode === 'bolt', disabled: positions.length === 0 })}
-            {tool(t('topo.modeCrop'), 'C', () => setMode('crop'), { pressed: mode === 'crop' })}
           </div>
-          {mode === 'line' && (
-            <div className="topo-tool-group">
-              {canFork && tool(isForking ? t('topo.forkPick') : t('topo.fork'), 'F', () => setForking((on) => !on), { pressed: isForking })}
-              {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !route || !marks[route.id] })}
-            </div>
-          )}
+          <div className="topo-tool-group topo-stepper" role="group" aria-label={t('topo.keys.prevRoute')}>
+            {tool(t('topo.keys.prevRoute'), '↑', () => stepRoute(-1), { iconOnly: true, icon: <Icon d="m6 15 6-6 6 6" /> })}
+            {tool(t('topo.keys.nextRoute'), '↓', () => stepRoute(1), { iconOnly: true, icon: <Icon d="m6 9 6 6 6-6" /> })}
+            {route && (
+              <span className="topo-current-route">
+                {route.number ?? '·'} {localName(route.name, lang).main}
+              </span>
+            )}
+          </div>
           <span className="edit-spacer" />
           <span className={needRoute ? 'edit-status warn-text' : 'edit-status'} role="status">
             {needRoute ? t('topo.needRoute') : changed ? t('topo.draft') : saved ? t('topo.saved') : t('topo.noChanges')}
           </span>
-          <button type="button" className="edit-btn" disabled={!draft || busy} onClick={discard}>
-            {t('topo.discard')}
-          </button>
+          <MoreMenu label={t('topo.more')}>
+            {menuItem(t('topo.modeCrop'), 'C', () => setMode('crop'))}
+            {menuItem(t('topo.fork'), 'F', () => setForking((on) => !on), !canFork)}
+            {menuItem(t('topo.clearRoute'), undefined, () => edit(() => ({})), !route || !marks[route.id])}
+            {menuItem(t('topo.discard'), undefined, discard, !draft || busy, true)}
+          </MoreMenu>
           <button type="button" className="edit-btn primary" disabled={!changed || needRoute || busy} onClick={() => void submit()}>
             {busy ? t('topo.submitting') : t('topo.submit')}
           </button>
@@ -502,7 +517,12 @@ function Editor({
               </button>
             ))}
           </div>
-          {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !marks[route.id] })}
+        </div>
+      )}
+      {!preview && isForking && (
+        <div className="topo-edit-subbar">
+          <span className="muted small">{t('topo.forkPick')}</span>
+          {tool(t('topo.fork'), 'F', () => setForking(false), { pressed: true })}
         </div>
       )}
       {!preview && mode === 'crop' && (
@@ -516,6 +536,9 @@ function Editor({
         </div>
       )}
       <div className="topo-edit-photo" style={{ '--fit-aspect': fitAspect } as CSSProperties}>
+        <button type="button" className="topo-full-btn" aria-pressed={full} aria-label={t('topo.fullscreen')} title={t('topo.fullscreen')} onClick={toggleFull}>
+          <Icon d={full ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'} />
+        </button>
         <ZoomPane>
           {(zoom) => (
             <TopoFrame
@@ -583,23 +606,8 @@ function Editor({
               })}
             </ul>
 
-            {/* 快捷鍵：常用的操作都有按鈕（照片上方），有經驗的人可以直接按鍵 */}
-            {!preview && (
-              <EditKeys
-                rows={[
-                  { keys: 'Z', label: t('topo.undo'), onClick: undoOnce, disabled: undo.current.length === 0 },
-                  { keys: 'Y', label: t('topo.redo'), onClick: redoOnce, disabled: redo.current.length === 0 },
-                  { keys: 'Backspace', label: t('topo.removeLast'), onClick: removeLast, disabled: !current.line?.length },
-                  { keys: 'L', label: t('topo.modeLine'), onClick: () => setMode('line') },
-                  { keys: 'B', label: 'Bolt', onClick: () => setMode('bolt'), disabled: positions.length === 0 },
-                  { keys: 'C', label: t('topo.modeCrop'), onClick: () => setMode('crop') },
-                  { keys: 'F', label: t('topo.fork'), onClick: () => setForking((on) => !on) },
-                  { keys: '↑', label: t('topo.keys.prevRoute'), onClick: () => stepRoute(-1) },
-                  { keys: '↓', label: t('topo.keys.nextRoute'), onClick: () => stepRoute(1) },
-                  { keys: t('topo.keys.rightClick'), label: t('topo.keys.deletePoint') },
-                ]}
-              />
-            )}
+            {/* 其他快捷鍵都標在上方工具列的按鈕上；這裡只留沒有按鈕的操作 */}
+            {!preview && <EditKeys rows={[{ keys: t('topo.keys.rightClick'), label: t('topo.keys.deletePoint') }]} />}
 
             <HistorySection title={t('topo.history')}>
               <div className="topo-history">
