@@ -8,7 +8,7 @@ import { loadAllEdits, loadPhotos, useTopoState } from '../topo/store'
 import type { EditItem } from './Catalog'
 import { useTextEdits } from './textEdits'
 
-const LIMIT = 10
+const LIMIT = 8
 
 interface Update {
   item: EditItem
@@ -61,11 +61,9 @@ export function LatestEdits({ items }: { items: EditItem[] }) {
             <li key={`${u.item.kind}:${u.item.id}:${u.createdAt}:${u.upload ? 'up' : ''}`}>
               <a href={href.edit(u.item.kind, u.item.id)}>
                 <span className={`tool-kind ${u.item.kind}`}>{kindLabel[u.item.kind]}</span>
-                <span className="edit-latest-text">
-                  <b>{[...u.item.path.slice(1), u.item.label].join(' › ')}</b>
-                  <span className="muted small">
-                    {[displayName(profiles, u.uid), relativeTime(new Date(u.createdAt).toISOString(), t), u.upload && t('tools.uploaded')].filter(Boolean).join(' · ')}
-                  </span>
+                <b className="edit-latest-name">{[...u.item.path.slice(1), u.item.label].join(' › ')}</b>
+                <span className="edit-latest-meta muted">
+                  {[displayName(profiles, u.uid), relativeTime(new Date(u.createdAt).toISOString(), t), u.upload && t('tools.uploaded')].filter(Boolean).join(' · ')}
                 </span>
               </a>
             </li>

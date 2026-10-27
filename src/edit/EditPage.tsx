@@ -17,8 +17,10 @@ import { TopoEditor } from '../topo/TopoEditor'
 import type { PinGroup } from '../map/reportPins'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
-import { KeyList } from './KeyList'
+import { EditKeys } from './KeyList'
 import { LatestEdits } from './LatestEdits'
+import { ProgressStats } from './ProgressStats'
+import { DockHead, DockRail, PanelLayoutContext, type DockPart } from './PanelLayout'
 import { groupVersions } from './versions'
 import { currentText, loadTextEdits, textTarget, useTextEdits, type TextTarget, type TextVersion } from './textEdits'
 import { applyDrafts, changedTargets, discardDrafts, canSubmitDraft, submitDrafts, useDrafts } from './mapDrafts'
@@ -64,7 +66,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   const hasDrafts = changedTargets(drafts).length > 0
   const [toast, setToast] = useState<string>()
   const [layout, setLayout] = useState(readLayout)
-  const toggle = (part: 'catalog' | 'panel') =>
+  const toggle = (part: DockPart) =>
     setLayout((l) => {
       const next = { ...l, [part]: !l[part] }
       try {
@@ -121,65 +123,68 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   }
 
   const props = { data, onToast: setToast, onDirty: setDirty }
-  const body: ReactNode =
-    !item ? (
-      <Welcome items={items} />
-    ) : item.kind === 'text' ? (
-      <TextItemView key={item.id} item={item} {...props} />
-    ) : !wide ? (
-      <section className="edit-center edit-message">
-        <p>{t('edit.desktopOnly')}</p>
-      </section>
-    ) : item.kind === 'map' ? (
-      <MapItemView key={item.id} item={item} {...props} initialPart={wallPart ? 'walls' : 'range'} />
-    ) : addSector ? (
-      <TopoAddView key={item.id} item={item} sectorId={addSector.sector.id} />
-    ) : (
-      <TopoItemView key={item.id} item={item} data={data} />
-    )
+  const body: ReactNode = !item ? (
+    <Welcome data={data} items={items} />
+  ) : item.kind === 'text' ? (
+    <TextItemView key={item.id} item={item} {...props} />
+  ) : !wide ? (
+    <section className="edit-center edit-message">
+      <p>{t('edit.desktopOnly')}</p>
+    </section>
+  ) : item.kind === 'map' ? (
+    <MapItemView key={item.id} item={item} {...props} initialPart={wallPart ? 'walls' : 'range'} />
+  ) : addSector ? (
+    <TopoAddView key={item.id} item={item} sectorId={addSector.sector.id} />
+  ) : (
+    <TopoItemView key={item.id} item={item} data={data} />
+  )
 
   return (
-    <div className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}${wide && !layout.catalog ? ' no-catalog' : ''}${wide && (!layout.panel || !item) ? ' no-panel' : ''}`}>
-      <header className="edit-top">
-        <a className="edit-back" href={href.home()} onClick={(e) => !leaveOk() && e.preventDefault()}>
-          ← {t('app.title')}
-        </a>
-        <strong className="edit-title">{t('edit.title')}</strong>
-        {item && (
-          <span className="edit-crumb">
-            {item.path.join(' › ')} › <b>{item.label}</b>
-          </span>
+    <PanelLayoutContext.Provider value={{ open: layout, toggle }}>
+      <div
+        className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}${wide && !layout.catalog ? ' no-catalog' : ''}${wide && !item ? ' no-panel' : ''}${wide && item && !layout.panel ? ' panel-rail' : ''}`}
+      >
+        <header className="edit-top">
+          <a className="edit-back" href={href.home()} onClick={(e) => !leaveOk() && e.preventDefault()}>
+            ← {t('app.title')}
+          </a>
+          <strong className="edit-title">{t('edit.title')}</strong>
+          {item && (
+            <span className="edit-crumb">
+              {item.path.join(' › ')} › <b>{item.label}</b>
+            </span>
+          )}
+          <span className="edit-spacer" />
+          <button type="button" className="edit-btn" onClick={() => void share()}>
+            {t('edit.share')}
+          </button>
+        </header>
+        {wide ? (
+          layout.catalog ? (
+            <div className="edit-dock">
+              <DockHead part="catalog" title={t('edit.catalog')} />
+              <Catalog data={data} current={item} onOpen={open} />
+            </div>
+          ) : (
+            <DockRail part="catalog" title={t('edit.catalog')} />
+          )
+        ) : (
+          !item && <Catalog data={data} current={item} onOpen={open} />
         )}
-        <span className="edit-spacer" />
-        {wide && (
-          <>
-            <button type="button" className="edit-tool" aria-pressed={layout.catalog} onClick={() => toggle('catalog')} title={t('edit.toggleCatalog')}>
-              {t('edit.catalog')}
-              <kbd>[</kbd>
-            </button>
-            <button type="button" className="edit-tool" aria-pressed={layout.panel} onClick={() => toggle('panel')} title={t('edit.togglePanel')}>
-              {t('edit.panel')}
-              <kbd>]</kbd>
-            </button>
-          </>
+        {!wide && item && (
+          <button type="button" className="edit-btn edit-back-to-list" onClick={() => leaveOk() && navigate(href.edit())}>
+            ← {t('edit.catalog')}
+          </button>
         )}
-        <button type="button" className="edit-btn" onClick={() => void share()}>
-          {t('edit.share')}
-        </button>
-      </header>
-      {wide ? layout.catalog && <Catalog data={data} current={item} onOpen={open} /> : !item && <Catalog data={data} current={item} onOpen={open} />}
-      {!wide && item && (
-        <button type="button" className="edit-btn edit-back-to-list" onClick={() => leaveOk() && navigate(href.edit())}>
-          ← {t('edit.catalog')}
-        </button>
-      )}
-      {body}
-      {toast && (
-        <p className="edit-toast" role="status">
-          {toast}
-        </p>
-      )}
-    </div>
+        {body}
+        {wide && item && !layout.panel && <DockRail part="panel" title={t('edit.panel')} />}
+        {toast && (
+          <p className="edit-toast" role="status">
+            {toast}
+          </p>
+        )}
+      </div>
+    </PanelLayoutContext.Provider>
   )
 }
 
@@ -187,7 +192,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
 const OLD_TOPO_YEAR = 2016
 
 /** 還沒選項目：標題與重點（與分享小卡相同）、最新的更新、怎麼修改 */
-function Welcome({ items }: { items: EditItem[] }) {
+function Welcome({ data, items }: { data: LoadedData; items: EditItem[] }) {
   const { t } = useLang()
   // 標題裡 *…* 的部分用品牌色（分享小卡的「修改」）
   const title = t('edit.welcome')
@@ -198,7 +203,7 @@ function Welcome({ items }: { items: EditItem[] }) {
       <section className="edit-center edit-message edit-welcome">
         <h1>{title}</h1>
         <p className="edit-tags">{t('edit.welcomeTags')}</p>
-        <p className="muted small">{t('edit.progress', { n: items.filter((i) => i.edited).length, total: items.length })}</p>
+        <ProgressStats data={data} items={items} />
         <LatestEdits items={items} />
       </section>
     </>
@@ -264,7 +269,9 @@ function ReportPins({ pins, data, on, onPick }: { pins: PinGroup[]; data: Loaded
       .map((target) => {
         const route = target.routeId ? data.routeById.get(target.routeId)?.route : undefined
         const sector = data.sectorById.get(target.sectorId)?.sector
-        return [t(`place.kind.${target.kind}` as MessageKey), route ? localName(route.name, lang).main : sector ? localName(sector.name, lang).main : undefined].filter(Boolean).join(' · ')
+        return [t(`place.kind.${target.kind}` as MessageKey), route ? localName(route.name, lang).main : sector ? localName(sector.name, lang).main : undefined]
+          .filter(Boolean)
+          .join(' · ')
       })
       .join('、')
   return (
@@ -466,13 +473,13 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
         </div>
       </section>
       <aside className="edit-panel">
+        <DockHead part="panel" title={t('edit.panel')} />
         <h2>{item.label}</h2>
         <NeedSignIn />
         <PendingList changed={changed} errors={errors} data={data} current={target} locked={submitting} />
         <ReportPins pins={pins} data={data} on={pinOn} onPick={setPinOn} />
         <VersionList versions={m.versions} empty={t('shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
-        <h2>{t('edit.shortcuts')}</h2>
-        <KeyList
+        <EditKeys
           rows={[
             { keys: 'V', label: t('edit.select'), onClick: m.actions.cancel },
             { keys: 'N', label: addLabel, onClick: m.actions.draw, disabled: !!m.drawing },
@@ -492,7 +499,19 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
 }
 
 /** 還沒提交的修改（跨項目）：每個項目一列，點了切過去；失敗的列出原因；可以全部放棄 */
-function PendingList({ changed, errors, data, current, locked }: { changed: EditTarget[]; errors: Readonly<Record<string, string>>; data: LoadedData; current: EditTarget; locked: boolean }) {
+function PendingList({
+  changed,
+  errors,
+  data,
+  current,
+  locked,
+}: {
+  changed: EditTarget[]
+  errors: Readonly<Record<string, string>>
+  data: LoadedData
+  current: EditTarget
+  locked: boolean
+}) {
   const { t } = useLang()
   const { items } = useCatalog(data)
   if (!changed.length) return null
@@ -503,7 +522,13 @@ function PendingList({ changed, errors, data, current, locked }: { changed: Edit
       <ul className="edit-pending">
         {changed.map((target) => (
           <li key={target}>
-            {target === current ? <b>{label(target)}</b> : <a href={href.edit('map', target)} onClick={(e) => locked && e.preventDefault()}>{label(target)}</a>}
+            {target === current ? (
+              <b>{label(target)}</b>
+            ) : (
+              <a href={href.edit('map', target)} onClick={(e) => locked && e.preventDefault()}>
+                {label(target)}
+              </a>
+            )}
             {errors[target] && <span className="edit-error"> {t('shape.saveFailed', { error: errors[target] })}</span>}
           </li>
         ))}
@@ -514,6 +539,8 @@ function PendingList({ changed, errors, data, current, locked }: { changed: Edit
     </>
   )
 }
+
+const TEXT_MAX = 3000
 
 /** 說明項目：文字框（目前顯示的說明）、TOCC 原文、提交；右側面板是修改紀錄 */
 function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
@@ -529,6 +556,7 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
   const dirty = text !== shown
   useEffect(() => onDirty(dirty), [dirty])
   const signedIn = cloud.status === 'signed-in'
+  const canSubmit = dirty && !saving && signedIn
 
   const submit = async () => {
     setSaving(true)
@@ -563,27 +591,44 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
     <>
       <section className="edit-center edit-text">
         <div className="edit-toolbar">
+          <span className="edit-status">{dirty ? t('edit.unsaved') : `${text.length} / ${TEXT_MAX}`}</span>
           <span className="edit-spacer" />
-          <button type="button" className="edit-btn primary" disabled={!dirty || saving || !signedIn} onClick={() => void submit()}>
+          <button type="button" className="edit-btn primary" disabled={!canSubmit} onClick={() => void submit()}>
             {t('shape.save')}
           </button>
         </div>
-        <textarea
-          className="edit-textarea"
-          value={text}
-          maxLength={3000}
-          onChange={(e) => setText(e.target.value)}
-          aria-label={item.label}
-          placeholder={t('edit.textPlaceholder')}
-        />
-        {route && original && (
-          <details className="edit-original">
-            <summary>{t('text.original')}</summary>
-            <p className="pre">{original}</p>
-          </details>
-        )}
+        <div className="edit-text-body">
+          <textarea
+            className="edit-textarea"
+            value={text}
+            maxLength={TEXT_MAX}
+            autoFocus
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              // 打字時沒有單一按鍵可用：Ctrl／⌘ + Enter 提交
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault()
+                if (canSubmit) void submit()
+              }
+            }}
+            aria-label={item.label}
+            placeholder={t('edit.textPlaceholder')}
+          />
+          {route && original && (
+            <aside className="edit-original">
+              <div className="edit-original-head">
+                <span>{t('text.original')}</span>
+                <button type="button" className="edit-btn" disabled={text === original} onClick={() => setText(original)}>
+                  {t('text.useOriginal')}
+                </button>
+              </div>
+              <p className="pre">{original}</p>
+            </aside>
+          )}
+        </div>
       </section>
       <aside className="edit-panel">
+        <DockHead part="panel" title={t('edit.panel')} />
         <h2>{item.label}</h2>
         {route && (
           <p className="small">
@@ -592,6 +637,7 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
         )}
         <NeedSignIn />
         <VersionList versions={versions[target] ?? []} empty={t('text.noVersions')} onDelete={(v) => void deleteVersion(v)} />
+        <EditKeys rows={[{ keys: 'Ctrl / ⌘ Enter', label: t('shape.save'), onClick: () => void submit(), disabled: !canSubmit }]} />
       </aside>
     </>
   )
@@ -623,7 +669,9 @@ function TopoAddView({ item, sectorId }: { item: EditItem; sectorId: string }) {
         )}
       </section>
       <aside className="edit-panel">
+        <DockHead part="panel" title={t('edit.panel')} />
         <h2>{item.path.slice(1).join(' › ')}</h2>
+        <EditKeys rows={[]} />
       </aside>
     </>
   )
@@ -634,13 +682,16 @@ function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
   const { t } = useLang()
   const signedIn = useCloud().status === 'signed-in'
   const photo = useTopoState().photos?.[item.id]
+  // Topo 編輯器的路線清單、提交與修改記錄放在右側面板，讓照片佔滿中間
+  const [side, setSide] = useState<HTMLElement | null>(null)
   const old = photo && new Date(photo.createdAt).getFullYear() <= OLD_TOPO_YEAR
   return (
     <>
       <section className="edit-center edit-topo">
-        <TopoEditor data={data} id={item.id} embedded />
+        <TopoEditor data={data} id={item.id} embedded side={side} />
       </section>
       <aside className="edit-panel">
+        <DockHead part="panel" title={t('edit.panel')} />
         <h2>{item.path.slice(1).join(' › ')}</h2>
         {old && photo && (
           <div className="edit-warn">
@@ -650,6 +701,7 @@ function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
         )}
         {/* 新增這個分區的另一張 Topo 照片（舊照片的提示裡已經有按鈕；目錄裡每個分區底下也有同樣的按鈕） */}
         {!old && photo && signedIn && <UploadButton sector={photo.sector} />}
+        <div ref={setSide} />
       </aside>
     </>
   )

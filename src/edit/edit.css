@@ -1,28 +1,74 @@
-/* 編輯模式（src/edit/EditPage.tsx）：電腦版三欄（目錄、編輯、資訊）＋上方工具列，全螢幕；手機版一欄 */
+/*
+ * 編輯模式（src/edit/EditPage.tsx）：電腦版三欄（目錄、編輯、資訊）＋上方標題列，全螢幕；手機版一欄。
+ * 字級只用四階（--edit-fs-xs／sm／md／lg），顏色全用站上的色彩變數（淺色、深色一起換）。
+ * 兩側面板可以收起，收起後留下窄條（.edit-rail）可以展開。
+ */
 .edit-app {
-  /* 兩側欄寬度與字級隨螢幕尺寸調整（見檔尾的 @media） */
+  /* 兩側欄寬度隨螢幕尺寸調整（見檔尾的 @media） */
   --edit-catalog: 248px;
-  --edit-panel: 280px;
+  --edit-panel: 288px;
+  --edit-rail: 34px;
+  --edit-bar: 44px;
+  --edit-fs-xs: 0.6875rem;
+  --edit-fs-sm: 0.75rem;
+  --edit-fs-md: 0.8125rem;
+  --edit-fs-lg: 0.9375rem;
+  --edit-hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --edit-radius: 6px;
+  /* 目前實際的欄寬：收起時只剩窄條，沒有項目時右側沒有面板 */
+  --catalog-col: var(--edit-catalog);
+  --panel-col: var(--edit-panel);
   position: fixed;
   inset: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: var(--edit-catalog) minmax(0, 1fr) var(--edit-panel);
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-columns: var(--catalog-col) minmax(0, 1fr) var(--panel-col);
+  grid-template-rows: var(--edit-bar) minmax(0, 1fr);
   grid-template-areas:
     'top top top'
     'catalog center panel';
+  transition: grid-template-columns 0.16s ease;
   background: var(--bg);
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: var(--edit-fs-md);
+  line-height: 1.45;
 }
 
+.edit-app.no-catalog {
+  --catalog-col: var(--edit-rail);
+}
+
+.edit-app.panel-rail {
+  --panel-col: var(--edit-rail);
+}
+
+.edit-app.no-panel {
+  --panel-col: 0px;
+}
+
+.edit-app.panel-rail .edit-panel,
+.edit-app.no-panel .edit-panel {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edit-app {
+    transition: none;
+  }
+}
+
+.edit-app :focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* ---------- 上方標題列 ---------- */
 .edit-top {
   grid-area: top;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 14px;
+  gap: 12px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   min-width: 0;
@@ -39,46 +85,57 @@
 }
 
 .edit-title {
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  font-size: var(--edit-fs-md);
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
 .edit-crumb {
   overflow: hidden;
   color: var(--muted);
+  font-size: var(--edit-fs-sm);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .edit-crumb b {
   color: var(--text);
+  font-weight: 600;
 }
 
 .edit-spacer {
   flex: 1;
 }
 
-/* 按鈕：一般與主要（提交） */
+/* ---------- 按鈕：一般、主要（提交）、圖示 ---------- */
 .edit-btn {
-  min-height: 32px;
+  min-height: 28px;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--edit-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .edit-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  background: var(--surface-2);
 }
 
 .edit-btn.primary {
   border-color: var(--brand);
   background: var(--brand);
-  color: #fff;
-  font-weight: 700;
+  color: var(--on-brand);
+  font-weight: 600;
+}
+
+.edit-btn.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand) 88%, #000);
 }
 
 .edit-btn:disabled {
@@ -86,30 +143,135 @@
   cursor: default;
 }
 
-/* 左側目錄 */
-.edit-catalog {
+.edit-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--edit-radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.edit-icon-btn:hover {
+  background: var(--edit-hover);
+  color: var(--text);
+}
+
+/* 編輯模式裡沿用全站的按鈕（.action，例如 Topo 的提交、上傳）：改成和 .edit-btn 一樣的緊湊樣式 */
+.edit-app .action {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--edit-radius);
+  background: var(--surface);
+  font-size: var(--edit-fs-md);
+  font-weight: 500;
+}
+
+.edit-app .action:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.edit-app .action.primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 600;
+}
+
+/* ---------- 兩側面板：標題列與收起後的窄條 ---------- */
+.edit-dock-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--edit-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.edit-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--edit-fs-sm);
+  cursor: pointer;
+}
+
+.edit-rail.left {
   grid-area: catalog;
-  overflow-y: auto;
-  padding: 10px 8px 24px;
+  border-right: 1px solid var(--border);
+}
+
+.edit-rail.right {
+  grid-area: panel;
+  border-left: 1px solid var(--border);
+}
+
+.edit-rail span {
+  writing-mode: vertical-rl;
+  letter-spacing: 0.12em;
+}
+
+.edit-rail:hover {
+  background: var(--surface-2);
+  color: var(--brand);
+}
+
+/* ---------- 左側目錄 ---------- */
+.edit-dock {
+  grid-area: catalog;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   border-right: 1px solid var(--border);
   background: var(--surface);
 }
 
+.edit-catalog {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 8px 24px;
+}
+
 .edit-search {
   width: 100%;
-  min-height: 34px;
+  min-height: 30px;
   margin-bottom: 8px;
   padding: 0 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--edit-radius);
   background: var(--bg);
   color: var(--text);
   font: inherit;
 }
 
+.edit-search:focus-visible {
+  outline-offset: -1px;
+}
+
 .edit-group > summary {
-  padding: 5px 6px;
-  border-radius: 6px;
+  padding: 4px 6px;
+  border-radius: var(--edit-radius);
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -132,15 +294,15 @@
 }
 
 .edit-group > summary:hover {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  background: var(--edit-hover);
 }
 
 .edit-group.depth-0 > summary {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--edit-fs-xs);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -154,20 +316,21 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
-  border-radius: 6px;
+  padding: 4px 8px;
+  border-radius: var(--edit-radius);
   color: var(--text);
   text-decoration: none;
 }
 
 .edit-item:hover {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  background: var(--edit-hover);
 }
 
 .edit-item.on {
-  background: color-mix(in srgb, var(--brand) 14%, transparent);
-  color: var(--brand);
-  font-weight: 700;
+  background: var(--brand-soft);
+  box-shadow: inset 2px 0 var(--brand);
+  color: var(--link);
+  font-weight: 600;
 }
 
 .edit-item-label {
@@ -178,19 +341,19 @@
 .edit-item-path {
   display: block;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--edit-fs-sm);
   font-weight: 400;
 }
 
 .edit-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--brand);
   flex: none;
 }
 
-/* 中間：工具列＋編輯區 */
+/* ---------- 中間：工具列＋編輯區 ---------- */
 .edit-center {
   grid-area: center;
   position: relative;
@@ -205,7 +368,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px;
+  min-height: 40px;
+  padding: 5px 10px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -214,8 +378,8 @@
   display: inline-flex;
   padding: 2px;
   border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--bg);
+  border-radius: 8px;
+  background: var(--surface-2);
 }
 
 .edit-segment .edit-tool {
@@ -226,10 +390,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 26px;
+  padding: 0 9px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--edit-radius);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -238,13 +402,14 @@
 }
 
 .edit-tool:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text) 7%, transparent);
+  background: var(--edit-hover);
 }
 
 .edit-tool.on {
   background: var(--surface);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-  font-weight: 700;
+  box-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, 0.12);
+  color: var(--link);
+  font-weight: 600;
 }
 
 .edit-tool:disabled {
@@ -252,32 +417,40 @@
   cursor: default;
 }
 
-.edit-tool kbd {
+/* 按鍵標示：像鍵帽 */
+.edit-tool kbd,
+.key-row kbd,
+.topo-tool kbd,
+.topo-edit-subbar kbd {
   padding: 0 5px;
   border: 1px solid var(--border);
+  border-bottom-width: 2px;
   border-radius: 4px;
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--muted);
-  font-family: inherit;
-  font-size: 0.6875rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--edit-fs-xs);
   font-weight: 400;
+  line-height: 1.5;
 }
 
 .edit-divider {
   width: 1px;
-  height: 20px;
+  height: 18px;
   margin: 0 4px;
   background: var(--border);
 }
 
 .edit-status {
   color: var(--muted);
+  font-size: var(--edit-fs-sm);
 }
 
 .edit-canvas {
   position: relative;
   flex: 1;
   min-height: 0;
+  background: var(--surface-2);
 }
 
 .edit-canvas .scale-map-frame {
@@ -293,49 +466,99 @@
   margin-top: 0;
 }
 
-/* 說明的文字框 */
+/* 說明：文字框在左、TOCC 原文在右（可以一鍵帶入） */
+.edit-text-body {
+  display: flex;
+  flex: 1;
+  gap: 14px;
+  min-height: 0;
+  padding: 14px;
+}
+
 .edit-text .edit-textarea {
   flex: 1;
+  min-width: 0;
   min-height: 240px;
-  margin: 14px;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: var(--edit-fs-lg);
+  line-height: 1.65;
   resize: none;
 }
 
+.edit-text .edit-textarea:focus-visible {
+  outline-offset: -1px;
+}
+
 .edit-original {
-  margin: 0 14px 14px;
+  display: flex;
+  flex: 0 0 34%;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.edit-original-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--border);
   color: var(--muted);
+  font-size: var(--edit-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
-.edit-topo {
+.edit-original p {
+  margin: 0;
+  padding: 10px 12px;
   overflow-y: auto;
-  padding: 0 14px 14px;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
-/* 右側面板 */
+/* Topo：工具列在上、照片在中間；路線清單、提交與修改記錄在右側面板 */
+.edit-topo {
+  overflow: hidden;
+}
+
+/* ---------- 右側面板 ---------- */
 .edit-panel {
   grid-area: panel;
   overflow-y: auto;
-  padding: 14px 16px 24px;
+  padding: 0 0 24px;
   border-left: 1px solid var(--border);
   background: var(--surface);
 }
 
-.edit-panel h2 {
-  margin: 18px 0 8px;
-  font-size: 0.8125rem;
+.edit-panel > :not(.edit-dock-head) {
+  margin-inline: 14px;
 }
 
-.edit-panel h2:first-child {
-  margin-top: 0;
-  font-size: 1rem;
+.edit-panel h2 {
+  margin: 20px 0 8px;
+  color: var(--muted);
+  font-size: var(--edit-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* 面板的第一個標題是項目名稱 */
+.edit-panel .edit-dock-head + h2 {
+  margin-top: 14px;
+  color: var(--text);
+  font-size: var(--edit-fs-lg);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .edit-versions {
@@ -373,14 +596,14 @@
 
 .edit-version-time {
   grid-area: time;
-  font-size: 0.8125rem;
+  font-size: var(--edit-fs-sm);
   font-variant-numeric: tabular-nums;
 }
 
 .edit-version-delete {
   grid-area: action;
   align-self: center;
-  font-size: 0.8125rem;
+  font-size: var(--edit-fs-sm);
   white-space: nowrap;
 }
 
@@ -388,10 +611,16 @@
   flex: none;
   padding: 0 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--brand) 14%, transparent);
-  color: var(--brand);
-  font-size: 0.75rem;
+  background: var(--brand-soft);
+  color: var(--link);
+  font-size: var(--edit-fs-xs);
+  font-weight: 600;
   white-space: nowrap;
+}
+
+/* 快捷鍵一節：每一列是按鈕（src/edit/KeyList.tsx） */
+.edit-keys {
+  margin-top: 4px;
 }
 
 .edit-toast {
@@ -400,35 +629,14 @@
   bottom: 24px;
   transform: translateX(-50%);
   margin: 0;
-  padding: 10px 16px;
-  border-radius: 10px;
+  padding: 9px 16px;
+  border-radius: 8px;
   background: #202124;
   color: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
-/* 收起目錄、資訊面板：中間的編輯區變大 */
-.edit-app.no-catalog {
-  grid-template-columns: 0 minmax(0, 1fr) var(--edit-panel);
-}
-
-.edit-app.no-panel {
-  grid-template-columns: var(--edit-catalog) minmax(0, 1fr) 0;
-}
-
-.edit-app.no-catalog.no-panel {
-  grid-template-columns: 0 minmax(0, 1fr) 0;
-}
-
-.edit-app.no-panel .edit-panel {
-  display: none;
-}
-
-.edit-top .edit-tool[aria-pressed='true'] {
-  background: color-mix(in srgb, var(--text) 7%, transparent);
-}
-
-/* 手機版：一欄，目錄或項目擇一顯示 */
+/* ---------- 手機版：一欄，目錄或項目擇一顯示 ---------- */
 .edit-app.narrow {
   position: static;
   display: block;
@@ -439,10 +647,14 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  min-height: 48px;
+  min-height: var(--edit-bar);
 }
 
 .edit-app.narrow .edit-crumb {
+  display: none;
+}
+
+.edit-app.narrow .edit-dock-head {
   display: none;
 }
 
@@ -451,12 +663,24 @@
   border: 0;
 }
 
+.edit-app.narrow .edit-panel > :not(.edit-dock-head) {
+  margin-inline: 16px;
+}
+
 .edit-app.narrow .edit-back-to-list {
   margin: 10px 14px 0;
 }
 
+.edit-app.narrow .edit-text-body {
+  flex-direction: column;
+}
+
 .edit-app.narrow .edit-text .edit-textarea {
   min-height: 50vh;
+}
+
+.edit-app.narrow .edit-original {
+  flex: none;
 }
 
 /* 目錄裡 Topo 分區的「新增照片」 */
@@ -465,10 +689,10 @@
 }
 
 .edit-add {
-  padding: 5px 8px;
+  padding: 4px 8px;
   border: 0;
   background: none;
-  color: var(--brand);
+  color: var(--link);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -481,9 +705,9 @@
 .edit-warn {
   margin: 0 0 12px;
   padding: 8px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--warn, #d99a00) 16%, transparent);
-  font-size: 0.875rem;
+  border-radius: var(--edit-radius);
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  font-size: var(--edit-fs-md);
 }
 
 /* 編輯模式首頁（src/edit/EditPage.tsx 的 Welcome）：標題與重點同分享小卡 */
@@ -493,7 +717,7 @@
 
 .edit-welcome h1 {
   margin-bottom: 4px;
-  font-size: 2.2rem;
+  font-size: 1.75rem;
   line-height: 1.2;
 }
 
@@ -505,7 +729,7 @@
 .edit-tags {
   margin: 0 0 14px;
   color: var(--muted);
-  font-size: 1.05rem;
+  font-size: var(--edit-fs-lg);
   font-weight: 500;
 }
 
@@ -515,12 +739,12 @@
 
 .edit-latest h2 {
   margin: 0 0 8px;
-  font-size: 1rem;
+  font-size: var(--edit-fs-lg);
 }
 
 .edit-latest ol {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -530,23 +754,17 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
   color: var(--text);
   text-decoration: none;
 }
 
 .edit-latest a:hover {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  background: var(--edit-hover);
 }
 
-.edit-latest-text {
-  display: grid;
-  min-width: 0;
-  line-height: 1.35;
-}
-
-/* 不同尺寸的電腦：小筆電縮窄兩側欄，大螢幕放寬、字放大；矮螢幕縮小上方工具列；首頁文字限制行寬 */
+/* 不同尺寸的電腦：小筆電縮窄兩側欄，大螢幕放寬、字放大；矮螢幕縮小上方標題列；首頁文字限制行寬 */
 .edit-welcome > * {
   max-width: 760px;
 }
@@ -554,14 +772,14 @@
 @media (min-width: 1024px) and (max-width: 1279px) {
   .edit-app {
     --edit-catalog: 208px;
-    --edit-panel: 248px;
+    --edit-panel: 256px;
   }
 
   .edit-crumb {
     display: none;
   }
 
-  /* 工具列放不下時收起快捷鍵提示（快捷鍵仍可用，列在右側資訊面板） */
+  /* 工具列放不下時收起快捷鍵提示（快捷鍵仍可用，列在右側面板） */
   .edit-toolbar kbd {
     display: none;
   }
@@ -571,7 +789,10 @@
   .edit-app {
     --edit-catalog: 288px;
     --edit-panel: 340px;
-    font-size: 0.9375rem;
+    --edit-fs-xs: 0.75rem;
+    --edit-fs-sm: 0.8125rem;
+    --edit-fs-md: 0.875rem;
+    --edit-fs-lg: 1rem;
   }
 }
 
@@ -579,16 +800,18 @@
   .edit-app {
     --edit-catalog: 336px;
     --edit-panel: 400px;
-    font-size: 1rem;
+    --edit-fs-xs: 0.8125rem;
+    --edit-fs-sm: 0.875rem;
+    --edit-fs-md: 0.9375rem;
+    --edit-fs-lg: 1.0625rem;
   }
 }
 
 @media (min-width: 1024px) and (max-height: 720px) {
   .edit-app {
-    grid-template-rows: 42px minmax(0, 1fr);
+    --edit-bar: 40px;
   }
 
-  .edit-panel,
   .edit-message {
     padding-top: 10px;
   }
@@ -653,4 +876,77 @@
 .edit-error {
   color: var(--danger);
   font-size: 0.85em;
+}
+
+/* 首頁的完成度 */
+.edit-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.edit-stat {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.edit-stat-label {
+  color: var(--muted);
+  font-size: var(--edit-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.edit-stat-value {
+  font-size: var(--edit-fs-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.edit-stat-value b {
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+.edit-stat-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.edit-stat-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+}
+
+.edit-stat-foot {
+  font-size: var(--edit-fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 最新更新：一個項目一行 */
+.edit-latest a {
+  align-items: center;
+}
+
+.edit-latest-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-latest-meta {
+  flex: none;
+  font-size: var(--edit-fs-sm);
+  white-space: nowrap;
 }

@@ -5239,80 +5239,74 @@ g.topo-route.link:focus-visible .topo-halo {
 
 /* ---------- 編輯（電腦版） ---------- */
 
+.edit-topo > .topo-editor,
 .topo-edit-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 22rem;
-  gap: 24px;
-  align-items: start;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
+/* 照片區：照片寬度以不超過可用高度為準（直式照片也不用捲動）；--fit-aspect 是畫面上照片的寬高比，扣掉標題列、工具列與邊距 */
 .topo-edit-photo {
-  position: sticky;
-  top: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  background: var(--surface-2);
 }
 
-/* 照片寬度以不超過視窗高度為準（直式照片也不用捲動）；--fit-aspect 是畫面上照片的寬高比，保留標題與操作說明的空間 */
 .topo-edit-photo .topo-zoom {
-  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
+  width: min(100%, max(280px, calc((100dvh - 190px) * var(--fit-aspect))));
   margin: 0 auto;
 }
 
-/* 照片上方的工具列：最常用的（復原、重做、移除最後一點）在最前面，再來是工具；每顆按鈕都標示快捷鍵 */
+/* 照片上方的工具列（和地圖編輯同一個樣式）：最常用的（復原、重做、移除最後一點）在最前面，再來是工具；每顆按鈕都標示快捷鍵 */
 .topo-edit-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 6px 14px;
   align-items: center;
-  margin: 0 auto 8px;
-  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
+  min-height: 40px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .topo-tool-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .topo-tool {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.875rem;
   cursor: pointer;
 }
 
 .topo-tool:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
 .topo-tool[aria-pressed='true'] {
-  border-color: var(--brand);
+  border-color: var(--border);
   background: var(--brand-soft);
+  color: var(--link);
   font-weight: 600;
 }
 
 .topo-tool:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: default;
-}
-
-.topo-tool kbd,
-.topo-edit-subbar kbd {
-  padding: 0 5px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.6875rem;
-  line-height: 1.5;
 }
 
 .topo-edit-subbar {
@@ -5320,31 +5314,20 @@ g.topo-route.link:focus-visible .topo-halo {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  margin: 0 auto 8px;
-  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
+  min-height: 36px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .topo-edit-subbar .topo-positions {
   margin: 0;
 }
 
-.topo-keys {
-  border-radius: var(--radius-sm);
-  box-shadow: inset 0 0 0 1px var(--border);
-  padding: 8px 12px;
-  font-size: 0.875rem;
-}
-
-.topo-keys summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
 /* 快捷鍵清單（src/edit/KeyList.tsx）：一列一個按鈕，左邊名稱、右邊按鍵 */
 .key-list {
   display: grid;
-  gap: 2px;
-  margin: 8px 0 0;
+  gap: 1px;
 }
 
 .key-row {
@@ -5352,7 +5335,7 @@ g.topo-route.link:focus-visible .topo-halo {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -5380,14 +5363,6 @@ button.key-row:disabled {
 
 .key-row kbd {
   flex: none;
-  padding: 0 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.6875rem;
-  line-height: 1.5;
 }
 
 .topo-edit-photo svg.editing {
@@ -5542,20 +5517,20 @@ button.key-row:disabled {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 50vh;
+  max-height: 40vh;
   overflow-y: auto;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .topo-route-row {
   display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr) auto 6.5rem;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 2px 8px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -5584,12 +5559,15 @@ button.key-row:disabled {
 }
 
 .topo-route-state {
-  text-align: right;
+  grid-column: 2 / -1;
+}
+
+.topo-route-state:empty {
+  display: none;
 }
 
 .topo-history h2 {
-  font-size: 1rem;
-  margin: 8px 0;
+  margin: 20px 0 8px;
 }
 
 .topo-history ul {

@@ -292,7 +292,6 @@ try {
   await editor.page.keyboard.press('Control+z')
   check('Ctrl+Z 不是快捷鍵（留給瀏覽器）：還是兩個點', (await handles()) === 2)
   // 右側的快捷鍵清單：每一列是按鈕，按下去和按鍵一樣
-  await editor.page.locator('.topo-keys summary').click()
   const keyRow = (name: string) => editor.page.locator('.key-list button.key-row', { hasText: name })
   await keyRow('復原').click()
   check('快捷鍵清單的「復原」按鈕：三個點', (await handles()) === 3)
@@ -311,6 +310,46 @@ try {
     return v && Object.keys(v).length === 1 ? Object.values(v)[0] : undefined
   })
   check('提交 Topo：資料庫有一版、第一條路線三個點', !!edit && edit.routes[key]?.line.split(' ').length === 3)
+
+  // ── 5a. 右側面板：Topo 的路線清單與快捷鍵在面板裡；兩側面板可以收起、從窄條展開 ──
+  check('Topo：路線清單與快捷鍵清單都在右側面板', (await editor.page.locator('.edit-panel .topo-route-row').count()) > 0 && (await editor.page.locator('.edit-panel .key-list button.key-row', { hasText: '復原' }).count()) === 1)
+  check('每個頁面的快捷鍵清單都有「收起目錄」「收起資訊」按鈕', (await editor.page.locator('.edit-panel .key-list button.key-row[aria-keyshortcuts="["]').count()) === 1 && (await editor.page.locator('.edit-panel .key-list button.key-row[aria-keyshortcuts="]"]').count()) === 1)
+  const width = async (sel: string) => Math.round((await editor.page.locator(sel).boundingBox())?.width ?? 0)
+  const photoWidth = () => width('.topo-edit-photo')
+  const w0 = await photoWidth()
+  await editor.page.locator('.edit-panel .edit-dock-head button').click()
+  check('收起右側面板：留下窄條、照片區變寬', (await editor.page.locator('.edit-rail.right').count()) === 1 && (await until(async () => ((await photoWidth()) > w0 ? true : undefined))) === true)
+  await editor.page.locator('.edit-rail.right').click()
+  check('點窄條：右側面板回來', (await editor.page.locator('.edit-rail.right').count()) === 0 && (await editor.page.locator('.edit-panel').isVisible()))
+  await editor.page.keyboard.press('[')
+  check('[ 收起左側目錄：留下窄條', (await editor.page.locator('.edit-rail.left').count()) === 1 && (await editor.page.locator('.edit-catalog').count()) === 0)
+  await editor.page.locator('.edit-rail.left').click()
+  check('點窄條：目錄回來', (await editor.page.locator('.edit-catalog').count()) === 1)
+
+  // ── 5c. 說明：Ctrl+Enter 提交、一鍵帶入原文；首頁的完成度 ─────────────────
+  const textRoute = topoRoutes[0].id
+  await editor.page.goto(base + `edit/text/route:${textRoute.replace(/\//g, ':').replace(/\./g, ',')}`)
+  await editor.page.waitForSelector('.edit-textarea')
+  check('說明：進來就在文字框裡（可以直接打字）', await editor.page.evaluate(`document.activeElement?.classList.contains('edit-textarea') ?? false`))
+  check('說明：右側面板有快捷鍵清單（提交）', (await editor.page.locator('.edit-panel .key-list button.key-row', { hasText: '提交' }).count()) === 1)
+  await editor.page.locator('.edit-textarea').fill('e2e 說明 ✓')
+  check('改了文字：顯示尚未提交', ((await editor.page.locator('.edit-toolbar .edit-status').textContent()) ?? '').includes('尚未提交'))
+  await editor.page.locator('.edit-textarea').press('Control+Enter')
+  const textEdit = await until(async () => {
+    const all = await read<Record<string, Record<string, { text: string }>>>('v2/textEdits')
+    const versions = Object.values(all ?? {}).flatMap((v) => Object.values(v))
+    return versions.length === 1 ? versions[0] : undefined
+  })
+  check('Ctrl+Enter 提交：資料庫有一版說明', textEdit?.text === 'e2e 說明 ✓')
+  await editor.page.goto(base + 'edit')
+  const stat = (label: string) => editor.page.locator('.edit-stat', { hasText: label }).locator('.edit-stat-value')
+  const topoStat = await until(async () => {
+    const text = ((await stat('Topo').textContent()) ?? '').replace(/\s+/g, '')
+    return /^\d+\/\d+$/.test(text) ? text : undefined
+  })
+  const totalRoutes = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')).areas.flatMap((a: { sectors: { routes: { isFixture?: boolean }[] }[] }) => a.sectors.flatMap((x) => x.routes)).filter((r: { isFixture?: boolean }) => !r.isFixture).length
+  check('首頁完成度：Topo 是「有線段的路線／全部路線」（1 條線段）', topoStat === `1/${totalRoutes}`, topoStat)
+  check('首頁完成度：說明已有 1 個項目被修改', ((await stat('說明').textContent()) ?? '').replace(/\s+/g, '').startsWith('1/'))
 
   // ── 5b. 編輯 Topo 的入口：公開頁面沒有「新增 Topo 照片」；編輯選單只有一個「Topo」，沒照片進新增頁、有照片進第一張 ──
   const emptySector = data.areas.flatMap((a) => a.sectors).find((s) => s.id !== topoSector.id)!

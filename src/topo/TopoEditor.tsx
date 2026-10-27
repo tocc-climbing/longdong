@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useIsAdmin } from '../admin'
 import { GradePill } from '../components/GradePill'
 import { SignInPrompt } from '../components/SignInPrompt'
@@ -15,7 +16,7 @@ import { removeEdit, removeTopo, submitEdit } from './actions'
 import { CropBox } from './CropBox'
 import { forkLine, moveSharedPoint } from './lines'
 import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
-import { KeyList } from '../edit/KeyList'
+import { EditKeys } from '../edit/KeyList'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
 import { px, TopoFrame, TopoLines } from './TopoView'
@@ -25,7 +26,7 @@ import { ZoomPane } from './ZoomPane'
  * Topo 編輯（電腦版）：左邊是照片，右邊選路線，在照片上標記線段（由起攀點往上）與 bolt。
  * 修改先存在這台裝置的草稿，按「提交」才上傳成新的版本；所有版本都保留，可以預覽、從舊版本繼續修改。
  */
-export function TopoEditor({ data, id, embedded }: { data: LoadedData; id: string; embedded?: boolean }) {
+export function TopoEditor({ data, id, embedded, side }: { data: LoadedData; id: string; embedded?: boolean; side: HTMLElement | null }) {
   const { lang, t } = useLang()
   const wide = useWide()
   const cloud = useCloud()
@@ -59,7 +60,7 @@ export function TopoEditor({ data, id, embedded }: { data: LoadedData; id: strin
       ) : cloud.status !== 'signed-in' ? (
         cloud.status !== 'loading' && <SignInPrompt message={t('topo.signIn')} />
       ) : (
-        <Editor photo={photo} edits={edits} routes={sector.routes} labels={routeLabels(sector)} uid={cloud.user!.uid} />
+        <Editor photo={photo} edits={edits} routes={sector.routes} labels={routeLabels(sector)} uid={cloud.user!.uid} side={side} />
       )}
     </div>
   )
@@ -112,7 +113,21 @@ function writeDraft(photo: string, draft: Draft | undefined) {
   }
 }
 
-function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits: TopoEdit[]; routes: Route[]; labels: Map<string, string>; uid: string }) {
+function Editor({
+  photo,
+  edits,
+  routes,
+  labels,
+  uid,
+  side,
+}: {
+  photo: TopoPhoto
+  edits: TopoEdit[]
+  routes: Route[]
+  labels: Map<string, string>
+  uid: string
+  side: HTMLElement | null
+}) {
   const { lang, t } = useLang()
   const isAdmin = useIsAdmin()
   const profiles = useSocial().profiles
@@ -445,51 +460,52 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
 
   return (
     <div className="topo-edit-layout">
-      <div className="topo-edit-photo" style={{ '--fit-aspect': fitAspect } as CSSProperties}>
-        {!preview && (
-          <div className="topo-edit-toolbar" role="toolbar" aria-label={t('topo.toolbar')}>
-            {/* 最常用的放最前面：復原、重做、移除最後一點 */}
+      {!preview && (
+        <div className="topo-edit-toolbar" role="toolbar" aria-label={t('topo.toolbar')}>
+          {/* 最常用的放最前面：復原、重做、移除最後一點 */}
+          <div className="topo-tool-group">
+            {tool(t('topo.undo'), 'Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
+            {tool(t('topo.redo'), 'Y', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
+            {mode === 'line' &&
+              tool(t('topo.removeLast'), 'Backspace', removeLast, { disabled: !current.line?.length, icon: <Icon d="M21 5H9l-6 7 6 7h12zM17 9l-5 6M12 9l5 6" /> })}
+          </div>
+          <div className="topo-tool-group" role="group" aria-label={t('topo.tools')}>
+            {tool(t('topo.modeLine'), 'L', () => setMode('line'), { pressed: mode === 'line' })}
+            {tool('Bolt', 'B', () => setMode('bolt'), { pressed: mode === 'bolt', disabled: positions.length === 0 })}
+            {tool(t('topo.modeCrop'), 'C', () => setMode('crop'), { pressed: mode === 'crop' })}
+          </div>
+          {mode === 'line' && (
             <div className="topo-tool-group">
-              {tool(t('topo.undo'), 'Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
-              {tool(t('topo.redo'), 'Y', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
-              {mode === 'line' && tool(t('topo.removeLast'), 'Backspace', removeLast, { disabled: !current.line?.length, icon: <Icon d="M21 5H9l-6 7 6 7h12zM17 9l-5 6M12 9l5 6" /> })}
+              {canFork && tool(isForking ? t('topo.forkPick') : t('topo.fork'), 'F', () => setForking((on) => !on), { pressed: isForking })}
+              {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !route || !marks[route.id] })}
             </div>
-            <div className="topo-tool-group" role="group" aria-label={t('topo.tools')}>
-              {tool(t('topo.modeLine'), 'L', () => setMode('line'), { pressed: mode === 'line' })}
-              {tool('Bolt', 'B', () => setMode('bolt'), { pressed: mode === 'bolt', disabled: positions.length === 0 })}
-              {tool(t('topo.modeCrop'), 'C', () => setMode('crop'), { pressed: mode === 'crop' })}
-            </div>
-            {mode === 'line' && (
-              <div className="topo-tool-group">
-                {canFork && tool(isForking ? t('topo.forkPick') : t('topo.fork'), 'F', () => setForking((on) => !on), { pressed: isForking })}
-                {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !route || !marks[route.id] })}
-              </div>
-            )}
+          )}
+        </div>
+      )}
+      {!preview && mode === 'bolt' && route && (
+        <div className="topo-edit-subbar">
+          <span className="muted small">{t('topo.boltPosition')}</span>
+          <div className="topo-positions">
+            {positions.map((p) => (
+              <button key={p} className={current.bolts?.[p] ? 'chip placed' : 'chip'} aria-pressed={p === placing} onClick={() => setBoltPos(p)}>
+                {p}
+              </button>
+            ))}
           </div>
-        )}
-        {!preview && mode === 'bolt' && route && (
-          <div className="topo-edit-subbar">
-            <span className="muted small">{t('topo.boltPosition')}</span>
-            <div className="topo-positions">
-              {positions.map((p) => (
-                <button key={p} className={current.bolts?.[p] ? 'chip placed' : 'chip'} aria-pressed={p === placing} onClick={() => setBoltPos(p)}>
-                  {p}
-                </button>
-              ))}
-            </div>
-            {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !marks[route.id] })}
-          </div>
-        )}
-        {!preview && mode === 'crop' && (
-          <div className="topo-edit-subbar">
-            <button className="action primary" onClick={() => setMode('line')}>
-              {t('topo.cropDone')} <kbd>Enter</kbd>
-            </button>
-            <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
-              {t('topo.cropReset')}
-            </button>
-          </div>
-        )}
+          {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !marks[route.id] })}
+        </div>
+      )}
+      {!preview && mode === 'crop' && (
+        <div className="topo-edit-subbar">
+          <button className="action primary" onClick={() => setMode('line')}>
+            {t('topo.cropDone')} <kbd>Enter</kbd>
+          </button>
+          <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
+            {t('topo.cropReset')}
+          </button>
+        </div>
+      )}
+      <div className="topo-edit-photo" style={{ '--fit-aspect': fitAspect } as CSSProperties}>
         <ZoomPane>
           {(zoom) => (
             <TopoFrame
@@ -515,115 +531,116 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         </ZoomPane>
       </div>
 
-      <aside className="topo-edit-side">
-        {preview ? (
-          <div className="topo-edit-bar notice">
-            <span>{t('topo.previewing', { time: relativeTime(new Date(preview.createdAt).toISOString(), t), name: displayName(profiles, preview.uid) })}</span>
-            <button
-              className="action"
-              onClick={() => {
-                record(base())
-                setDraft({ base: latest?.id, marks: preview.marks, ...(preview.crop ? { crop: preview.crop } : {}) })
-                setPreview(undefined)
-              }}
-            >
-              {t('topo.restore')}
-            </button>
-            <button className="action" onClick={() => setPreview(undefined)}>
-              {t('topo.backToEditing')}
-            </button>
-          </div>
-        ) : (
-          <div className="topo-edit-bar">
-            <span className={needRoute ? 'small warn-text' : 'muted small'} role="status">
-              {needRoute ? t('topo.needRoute') : changed ? t('topo.draft') : saved ? t('topo.saved') : t('topo.noChanges')}
-            </span>
-            <button className="action primary" disabled={!changed || needRoute || busy} onClick={() => void submit()}>
-              {busy ? t('topo.submitting') : t('topo.submit')}
-            </button>
-            <button className="action" disabled={!draft || busy} onClick={discard}>
-              {t('topo.discard')}
-            </button>
-          </div>
-        )}
-        {changed && draft?.base !== latest?.id && <p className="small warn-text">{t('topo.newerVersion')}</p>}
-        {error && <p className="small error">{error}</p>}
-
-        <ul className="topo-route-list">
-          {routes.map((r) => {
-            const m = marks[r.id]
-            const bolts = Object.keys(m?.bolts ?? {}).length
-            const total = boltPositions(r).length
-            return (
-              <li key={r.id}>
-                <button className={`topo-route-row${r.id === selected ? ' on' : ''}`} onClick={() => pick(r.id)}>
-                  <span className="topo-route-no">{r.number ?? '·'}</span>
-                  <span className="topo-route-name">{localName(r.name, lang).main}</span>
-                  <GradePill grade={r.grade} value={r.gradeValue} size="sm" />
-                  <span className="topo-route-state muted small">
-                    {[m?.line && t('topo.modeLine'), total > 0 && bolts > 0 && `Bolt ${bolts}/${total}`].filter(Boolean).join(' · ')}
-                  </span>
+      {side &&
+        createPortal(
+          <div className="topo-edit-side">
+            {preview ? (
+              <div className="topo-edit-bar notice">
+                <span>{t('topo.previewing', { time: relativeTime(new Date(preview.createdAt).toISOString(), t), name: displayName(profiles, preview.uid) })}</span>
+                <button
+                  className="action"
+                  onClick={() => {
+                    record(base())
+                    setDraft({ base: latest?.id, marks: preview.marks, ...(preview.crop ? { crop: preview.crop } : {}) })
+                    setPreview(undefined)
+                  }}
+                >
+                  {t('topo.restore')}
                 </button>
-              </li>
-            )
-          })}
-        </ul>
+                <button className="action" onClick={() => setPreview(undefined)}>
+                  {t('topo.backToEditing')}
+                </button>
+              </div>
+            ) : (
+              <div className="topo-edit-bar">
+                <span className={needRoute ? 'small warn-text' : 'muted small'} role="status">
+                  {needRoute ? t('topo.needRoute') : changed ? t('topo.draft') : saved ? t('topo.saved') : t('topo.noChanges')}
+                </span>
+                <button className="action primary" disabled={!changed || needRoute || busy} onClick={() => void submit()}>
+                  {busy ? t('topo.submitting') : t('topo.submit')}
+                </button>
+                <button className="action" disabled={!draft || busy} onClick={discard}>
+                  {t('topo.discard')}
+                </button>
+              </div>
+            )}
+            {changed && draft?.base !== latest?.id && <p className="small warn-text">{t('topo.newerVersion')}</p>}
+            {error && <p className="small error">{error}</p>}
 
-        {/* 快捷鍵：常用的操作都有按鈕（照片上方），有經驗的人可以直接按鍵 */}
-        {!preview && (
-          <details className="topo-keys">
-            <summary>{t('topo.keys.title')}</summary>
-            <KeyList
-              rows={[
-                { keys: 'Z', label: t('topo.undo'), onClick: undoOnce, disabled: undo.current.length === 0 },
-                { keys: 'Y', label: t('topo.redo'), onClick: redoOnce, disabled: redo.current.length === 0 },
-                { keys: 'Backspace', label: t('topo.removeLast'), onClick: removeLast, disabled: !current.line?.length },
-                { keys: 'L', label: t('topo.modeLine'), onClick: () => setMode('line') },
-                { keys: 'B', label: 'Bolt', onClick: () => setMode('bolt'), disabled: positions.length === 0 },
-                { keys: 'C', label: t('topo.modeCrop'), onClick: () => setMode('crop') },
-                { keys: 'F', label: t('topo.fork'), onClick: () => setForking((on) => !on) },
-                { keys: '↑', label: t('topo.keys.prevRoute'), onClick: () => stepRoute(-1) },
-                { keys: '↓', label: t('topo.keys.nextRoute'), onClick: () => stepRoute(1) },
-                { keys: 'Esc', label: t('topo.keys.cancel'), onClick: () => setForking(false), disabled: !forking },
-                { keys: 'Enter', label: t('topo.cropDone'), onClick: () => setMode('line'), disabled: mode !== 'crop' },
-                { keys: t('topo.keys.wheel'), label: t('topo.keys.zoom') },
-                { keys: '+ / − / 0', label: t('topo.keys.zoomKeys') },
-                { keys: 'Space', label: t('topo.keys.pan') },
-                { keys: t('topo.keys.rightClick'), label: t('topo.keys.deletePoint') },
-              ]}
-            />
-          </details>
-        )}
-
-        <section className="topo-history">
-          <h2>{t('topo.history')}</h2>
-          {edits.length === 0 ? (
-            <p className="muted small">{t('topo.noHistory')}</p>
-          ) : (
-            <ul>
-              {[...edits].reverse().map((e) => (
-                <li key={e.id} className={preview?.id === e.id ? 'on' : undefined}>
-                  <button className="link-button" onClick={() => setPreview(preview?.id === e.id ? undefined : e)}>
-                    {relativeTime(new Date(e.createdAt).toISOString(), t)} · {displayName(profiles, e.uid)}
-                  </button>
-                  <span className="muted small"> {t('count.routesShort', { n: Object.keys(e.marks).length })}</span>
-                  {e === latest && <span className="muted small"> · {t('topo.current')}</span>}
-                  {(e.uid === uid || isAdmin) && (
-                    <button className="link-button topo-history-delete" onClick={() => void deleteEdit(e)}>
-                      {t('topo.delete')}
+            <ul className="topo-route-list">
+              {routes.map((r) => {
+                const m = marks[r.id]
+                const bolts = Object.keys(m?.bolts ?? {}).length
+                const total = boltPositions(r).length
+                return (
+                  <li key={r.id}>
+                    <button className={`topo-route-row${r.id === selected ? ' on' : ''}`} onClick={() => pick(r.id)}>
+                      <span className="topo-route-no">{r.number ?? '·'}</span>
+                      <span className="topo-route-name">{localName(r.name, lang).main}</span>
+                      <GradePill grade={r.grade} value={r.gradeValue} size="sm" />
+                      <span className="topo-route-state muted small">
+                        {[m?.line && t('topo.modeLine'), total > 0 && bolts > 0 && `Bolt ${bolts}/${total}`].filter(Boolean).join(' · ')}
+                      </span>
                     </button>
-                  )}
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
-          )}
-          {(photo.uid === uid || isAdmin) && (
-            <button className="link-button danger" onClick={() => void deletePhoto()}>
-              {t('topo.deletePhoto')}
-            </button>
-          )}
-        </section>
-      </aside>
+
+            {/* 快捷鍵：常用的操作都有按鈕（照片上方），有經驗的人可以直接按鍵 */}
+            {!preview && (
+              <EditKeys
+                rows={[
+                  { keys: 'Z', label: t('topo.undo'), onClick: undoOnce, disabled: undo.current.length === 0 },
+                  { keys: 'Y', label: t('topo.redo'), onClick: redoOnce, disabled: redo.current.length === 0 },
+                  { keys: 'Backspace', label: t('topo.removeLast'), onClick: removeLast, disabled: !current.line?.length },
+                  { keys: 'L', label: t('topo.modeLine'), onClick: () => setMode('line') },
+                  { keys: 'B', label: 'Bolt', onClick: () => setMode('bolt'), disabled: positions.length === 0 },
+                  { keys: 'C', label: t('topo.modeCrop'), onClick: () => setMode('crop') },
+                  { keys: 'F', label: t('topo.fork'), onClick: () => setForking((on) => !on) },
+                  { keys: '↑', label: t('topo.keys.prevRoute'), onClick: () => stepRoute(-1) },
+                  { keys: '↓', label: t('topo.keys.nextRoute'), onClick: () => stepRoute(1) },
+                  { keys: 'Esc', label: t('topo.keys.cancel'), onClick: () => setForking(false), disabled: !forking },
+                  { keys: 'Enter', label: t('topo.cropDone'), onClick: () => setMode('line'), disabled: mode !== 'crop' },
+                  { keys: t('topo.keys.wheel'), label: t('topo.keys.zoom') },
+                  { keys: '+ / − / 0', label: t('topo.keys.zoomKeys') },
+                  { keys: 'Space', label: t('topo.keys.pan') },
+                  { keys: t('topo.keys.rightClick'), label: t('topo.keys.deletePoint') },
+                ]}
+              />
+            )}
+
+            <section className="topo-history">
+              <h2>{t('topo.history')}</h2>
+              {edits.length === 0 ? (
+                <p className="muted small">{t('topo.noHistory')}</p>
+              ) : (
+                <ul>
+                  {[...edits].reverse().map((e) => (
+                    <li key={e.id} className={preview?.id === e.id ? 'on' : undefined}>
+                      <button className="link-button" onClick={() => setPreview(preview?.id === e.id ? undefined : e)}>
+                        {relativeTime(new Date(e.createdAt).toISOString(), t)} · {displayName(profiles, e.uid)}
+                      </button>
+                      <span className="muted small"> {t('count.routesShort', { n: Object.keys(e.marks).length })}</span>
+                      {e === latest && <span className="muted small"> · {t('topo.current')}</span>}
+                      {(e.uid === uid || isAdmin) && (
+                        <button className="link-button topo-history-delete" onClick={() => void deleteEdit(e)}>
+                          {t('topo.delete')}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(photo.uid === uid || isAdmin) && (
+                <button className="link-button danger" onClick={() => void deletePhoto()}>
+                  {t('topo.deletePhoto')}
+                </button>
+              )}
+            </section>
+          </div>,
+          side,
+        )}
     </div>
   )
 }
