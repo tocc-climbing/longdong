@@ -176,7 +176,7 @@ try {
   check('第二次提交：有兩個版本', !!v2)
   // 同一天、同一人連續的兩個版本合併成一筆（標明 2 次）；資料庫仍是兩個版本
   check('修改記錄：同一人同一天的兩個版本合併成一筆', (await until(async () => ((await editor.page.locator('.edit-versions li').count()) === 1 ? true : undefined))) === true)
-  check('合併的一筆標明 2 次修改', /2/.test((await editor.page.locator('.edit-versions li .edit-version-time').first().textContent()) ?? ''))
+  check('合併的一筆標明 2 次修改', /2 次修改/.test((await editor.page.locator('.edit-versions li .edit-version-time').first().textContent()) ?? ''))
   // 刪除合併的一筆：只刪最新的版本（資料庫少一個、編輯的形狀回到前一版）
   await editor.page.locator('.edit-versions li').first().locator('button').click()
   const left = await until(async () => {
@@ -186,7 +186,7 @@ try {
   check('刪除最新的版本：資料庫剩第一版', !!left)
   const back = await until(async () => ((await rings(editor.page)) === n0 + 1 ? true : undefined))
   check('編輯的形狀回到前一版（不是載回舊的或停在刪掉的）', back === true, `${await rings(editor.page)} 塊，應為 ${n0 + 1}`)
-  check('刪除後只剩一個版本，不再標次數', (await editor.page.locator('.edit-versions li').count()) === 1 && !/2/.test((await editor.page.locator('.edit-versions li .edit-version-time').first().textContent()) ?? ''))
+  check('刪除後只剩一個版本，不再標次數', (await editor.page.locator('.edit-versions li').count()) === 1 && !/次修改/.test((await editor.page.locator('.edit-versions li .edit-version-time').first().textContent()) ?? ''))
 
   // ── 4. 岩壁：分區的「岩壁」可以畫、提交 ──────────────────────────────
   await editor.page.goto(base + `edit/map/wall:${wallSector.replace('/', ':')}`)
