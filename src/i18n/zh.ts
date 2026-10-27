@@ -210,7 +210,6 @@ export const zh = {
   'shape.confirmDeleteVersion': '刪除這個版本？地圖會回到前一版。',
   'shape.deleteVersion': '刪除',
   'shape.mergedCount': '{n} 次修改',
-  'shape.confirmDeleteGroup': '刪除這 {n} 個版本？會回到前一位的版本。',
   'shape.current': '目前顯示',
   'shape.noVersions': '還沒有人修改過，目前是自動產生的形狀。',
   'shape.history': '修改紀錄（{n}）',
