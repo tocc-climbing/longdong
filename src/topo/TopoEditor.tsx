@@ -426,23 +426,6 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
       </g>
     )
 
-  /** 目前這一步該做什麼（照片下面的一行提示，隨工具與進度換） */
-  const hint = preview
-    ? undefined
-    : mode === 'crop'
-      ? t('topo.hint.crop')
-      : isForking
-        ? t('topo.hint.fork')
-        : !route
-          ? t('topo.hint.pickRoute')
-          : mode === 'bolt'
-            ? placing
-              ? t('topo.hint.bolt', { pos: placing })
-              : t('topo.hint.boltDone')
-            : current.line?.length
-              ? t('topo.hint.lineMore')
-              : t('topo.hint.lineFirst')
-
   /** 工具列的一顆按鈕：文字與快捷鍵（滑過去也顯示） */
   const tool = (label: string, keys: string | undefined, onClick: () => void, opts: { pressed?: boolean; disabled?: boolean; icon?: ReactNode } = {}) => (
     <button
@@ -530,11 +513,6 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
             </TopoFrame>
           )}
         </ZoomPane>
-        {hint && (
-          <p className="topo-edit-hint" role="status">
-            {hint}
-          </p>
-        )}
       </div>
 
       <aside className="topo-edit-side">
@@ -570,18 +548,6 @@ function Editor({ photo, edits, routes, labels, uid }: { photo: TopoPhoto; edits
         )}
         {changed && draft?.base !== latest?.id && <p className="small warn-text">{t('topo.newerVersion')}</p>}
         {error && <p className="small error">{error}</p>}
-
-        {/* 第一次使用：三個步驟（還沒有人標記過這張照片時展開，之後收起來） */}
-        {!preview && (
-          <details className="topo-help" open={!latest && !draft}>
-            <summary>{t('topo.help.title')}</summary>
-            <ol>
-              <li>{t('topo.help.1')}</li>
-              <li>{t('topo.help.2')}</li>
-              <li>{t('topo.help.3')}</li>
-            </ol>
-          </details>
-        )}
 
         <ul className="topo-route-list">
           {routes.map((r) => {

@@ -5,7 +5,6 @@ import { useWide } from '../layout'
 import type { ReportTarget } from '../map/calibration'
 import { areaNames, useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
-import { importUploadedPins } from '../map/reportPins'
 import { reportsOf, type UploadScope, type UploadedReport } from '../map/uploadedReports'
 import type { CalibrationUploads } from '../personal/firebase'
 import { withCloud } from '../personal/sync'
@@ -30,8 +29,6 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
   const [sort, setSort] = useState<Sort>('new')
   const [selected, setSelected] = useState<number>()
   const [scope, setScope] = useState<UploadScope>('latest')
-  const [importing, setImporting] = useState(false)
-  const [importMsg, setImportMsg] = useState<string>()
   // 航照底圖只在電腦版：用來對照回報點、區域邊界與真實岩壁
   const wide = useWide()
   const [ortho, setOrtho] = useState(false)
@@ -62,20 +59,6 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
       .sort((a, b) => a.time - b.time)
       .map((r, i) => ({ ...r, no: i + 1 }))
   }, [raw, profiles, t, data, lang, scope])
-
-  /** 把已經上傳的所有回報（登入的、沒登入的裝置）匯入去識別的副本（修改地圖的人當參考）；已經有的略過，可以重複按 */
-  const importPins = async () => {
-    if (!raw) return
-    setImporting(true)
-    setImportMsg(undefined)
-    try {
-      setImportMsg(t('admin.pinsImported', await importUploadedPins(raw)))
-    } catch (err) {
-      setImportMsg(t('admin.pinsImportFailed', { error: (err as Error).message }))
-    } finally {
-      setImporting(false)
-    }
-  }
 
   const q = query.trim().toLowerCase()
   const shown = all
@@ -129,12 +112,6 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
           </select>
         </div>
         <p className="muted small">{t('admin.reportCount', { n: shown.length, total: all.length })}</p>
-        <p className="small">
-          <button type="button" className="link-button" disabled={importing} onClick={() => void importPins()}>
-            {t('admin.importPins')}
-          </button>
-          {importMsg && <span className="muted"> {importMsg}</span>}
-        </p>
         {all.length === 0 && <p className="muted">{t('reports.empty')}</p>}
         <ul className="map-report-rows">
           {shown.map((r) => (
