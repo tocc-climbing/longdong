@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useWide } from '../layout'
 import { inMapBounds } from '../map/bounds'
 import { ScaleMap } from '../map/ScaleMap'
@@ -110,23 +110,26 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
     return () => clearTimeout(timer)
   }, [toast])
 
+  // 離線下載的圖磚（最清楚的層級只下載 9 個區域附近，要等地圖資料）
+  const tiles = useMemo(() => (map.status === 'ok' ? orthoDownloadUrls(map.data.areas) : undefined), [map])
+
   // 開著航照時查離線快取存齊了沒
   useEffect(() => {
-    if (!ortho || !('caches' in window)) return
+    if (!ortho || !tiles || !('caches' in window)) return
     let alive = true
-    cachedOrthoCount().then(
-      (done) => alive && setOffline((o) => o ?? { done, total: orthoDownloadUrls().length, downloading: false }),
+    cachedOrthoCount(tiles).then(
+      (done) => alive && setOffline((o) => o ?? { done, total: tiles.length, downloading: false }),
       () => {},
     )
     return () => {
       alive = false
     }
-  }, [ortho])
+  }, [ortho, tiles])
 
   const downloadOffline = async () => {
     setOffline((o) => o && { ...o, downloading: true })
     try {
-      await downloadOrtho((done, total) => setOffline({ done, total, downloading: true }))
+      await downloadOrtho(tiles!, (done, total) => setOffline({ done, total, downloading: true }))
       setOffline((o) => o && { ...o, downloading: false })
       setToast(t('map.orthoDownloaded'))
     } catch (err) {
