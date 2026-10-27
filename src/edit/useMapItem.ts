@@ -56,7 +56,7 @@ interface State {
 }
 
 /**
- * 修改模式的地圖項目（大區域、分區範圍、步道與道路）：載入目前的形狀，拖曳頂點、加刪頂點、新增或刪除一塊（一條），
+ * 編輯模式的地圖項目（大區域、分區範圍、步道與道路）：載入目前的形狀，拖曳頂點、加刪頂點、新增或刪除一塊（一條），
  * 可以復原、重做；提交成新版本（src/map/shapes.ts）。步道與道路的新路段起點、終點會接到既有的線。
  */
 export function useMapItem({ target, map, onToast }: { target: EditTarget; map?: ScaleMapData; onToast: (text: string) => void }) {

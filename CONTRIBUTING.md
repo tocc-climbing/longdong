@@ -33,7 +33,7 @@
 | 介面 | `npm run build` 後以瀏覽器實際檢查：手機寬度、淺色與深色、各語言；`npm run check:text`（CI 也會跑）檢查各語言的文字沒有超出元件 |
 | 需要登入的畫面、管理頁 | `npm run shots -- --login=信箱 --seed /checklist /admin`：在 Firebase 模擬器上登入、放測試資料，拍手機與電腦、淺色與深色的截圖到 `shots/`（選項見 `scripts/shots.ts`，需要 Java） |
 | 資料庫規則 | `npm run test:rules`（Database 模擬器，需要 Java；CI 也會跑）；`firebase deploy --only database --dry-run`；PR 描述附上與線上規則的差異 |
-| 登入後的功能、資料庫的讀寫、修改模式 | `npm run test:e2e`（Firebase 模擬器、Chrome 或 Edge，需要 Java；CI 也會跑）：新功能的流程補進 `scripts/e2e-edit.ts` |
+| 登入後的功能、資料庫的讀寫、編輯模式 | `npm run test:e2e`（Firebase 模擬器、Chrome 或 Edge，需要 Java；CI 也會跑）：新功能的流程補進 `scripts/e2e-edit.ts` |
 | 離線行為 | 以 build 結果測試：載入後斷網、重新整理，頁面與資料仍可用 |
 
 **所有修改都要能自動驗證，不靠使用者手動試**：新功能、修正都要有會失敗的自動檢查——純邏輯寫單元測試（`npm test`）、資料庫規則寫規則測試、要登入或操作畫面的寫進端對端測試（`npm run test:e2e`：Firebase 模擬器上登入，檢查資料庫真的收到什麼、畫面真的出現什麼；`scripts/e2e-report.ts`、`scripts/e2e-edit.ts`，CI 也會跑）。寫完後破壞一次被測的行為，確認測試真的會失敗。實在無法自動驗證的（例如真機的手勢），PR 描述明講沒驗證什麼，不要寫成已驗證。

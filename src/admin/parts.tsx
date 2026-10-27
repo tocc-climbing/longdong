@@ -83,7 +83,7 @@ export function ItemDetail({ item, m, actions, compact }: { item: FeedItem; m: A
   )
 }
 
-/** 開啟（修改模式的項目；留言與評分的連結在對象名稱上）與刪除（規則允許時；評分只有本人能刪） */
+/** 開啟（編輯模式的項目；留言與評分的連結在對象名稱上）與刪除（規則允許時；評分只有本人能刪） */
 export function ItemActions({ item, m }: { item: FeedItem; m: AdminModel }) {
   const { t } = useLang()
   return (

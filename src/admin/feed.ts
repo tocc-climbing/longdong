@@ -61,7 +61,7 @@ export interface FeedItem {
   target: string
   /** 內容摘要：留言與說明的文字、評分、標記數… */
   summary: string
-  /** 站內連結（路線頁、修改模式的項目）；沒有時 undefined */
+  /** 站內連結（路線頁、編輯模式的項目）；沒有時 undefined */
   href?: string
   /** 管理員能刪除時的資料庫路徑；空陣列表示規則不允許管理員刪除（評分、Topo 照片：照片要連 Storage 的檔案一起刪） */
   deletePaths: string[]

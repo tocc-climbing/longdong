@@ -6,7 +6,7 @@ export interface KeyRow {
   disabled?: boolean
 }
 
-/** 修改模式的快捷鍵：單一按鍵（Windows、Mac 都一樣，不用 Ctrl／⌘），每個都有對應的按鈕 */
+/** 編輯模式的快捷鍵：單一按鍵（Windows、Mac 都一樣，不用 Ctrl／⌘），每個都有對應的按鈕 */
 export function KeyList({ rows }: { rows: KeyRow[] }) {
   return (
     <div className="key-list">

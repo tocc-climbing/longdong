@@ -39,7 +39,7 @@ const TOAST_MS = 4000
  * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
  * 左上只有圖示：回報、航照（國土測繪中心的正射影像；看過的地方離線時照樣顯示，還沒存齊時提示下載整個範圍）、修改（電腦版、登入）。
  * 登入者看得到所有人畫的岩壁，點一段看詳細、本人與管理員可以刪除。
- * 電腦版的「編輯地圖」開修改模式（/edit，src/edit/EditPage.tsx）。
+ * 電腦版的「編輯地圖」開編輯模式（/edit，src/edit/EditPage.tsx）。
  */
 export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
   const { lang, t } = useLang()

@@ -20,7 +20,7 @@ export interface ToolScope {
   text?: { target: TextTarget; label: string; original?: string }
   /** 這頁涵蓋的分區（Topo 的修改記錄） */
   sectors: Sector[]
-  /** 這頁的 Topo 可以進修改模式（分區、路線頁；區域頁只列記錄） */
+  /** 這頁的 Topo 可以進編輯模式（分區、路線頁；區域頁只列記錄） */
   topoEdit?: boolean
 }
 
@@ -54,7 +54,7 @@ const Icon = ({ children }: { children: ReactNode }) => (
 )
 
 /**
- * 區域、分區、路線頁標題旁的圖示：修改記錄（點了才展開）、編輯（進修改模式的對應項目）、救援（只有手機版）。
+ * 區域、分區、路線頁標題旁的圖示：修改記錄（點了才展開）、編輯（進編輯模式的對應項目）、救援（只有手機版）。
  * 平常只佔三個圖示的位置，不影響閱讀。
  */
 export function PageTools({ scope }: { scope: ToolScope }) {
@@ -178,7 +178,7 @@ interface EditOption {
   run?: () => void
 }
 
-/** 一個選項直接進入，多個選項跳小選單；地圖與 Topo 只在電腦版（手機版的修改模式只有說明） */
+/** 一個選項直接進入，多個選項跳小選單；地圖與 Topo 只在電腦版（手機版的編輯模式只有說明） */
 function EditButton({ scope }: { scope: ToolScope }) {
   const { t } = useLang()
   const wide = useWide()

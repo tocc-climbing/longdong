@@ -135,7 +135,7 @@ export function App() {
         <div className="shell">
           <Sidebar page={page} data={data} kbdLevel={kbdLevel} />
           <div className={`shell-main${view?.split ? ' split' : ''}`}>
-            {/* 修改模式蓋滿整個視窗（edit.css）：提示條要浮在上面，否則被蓋住、看不到有新版本 */}
+            {/* 編輯模式蓋滿整個視窗（edit.css）：提示條要浮在上面，否則被蓋住、看不到有新版本 */}
             {page.name === 'edit' || page.name === 'topo' ? banner && <div className="banner-over">{banner}</div> : banner}
             <SimulationBanner />
             <main className={page.name === 'map' ? 'map' : view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
@@ -236,7 +236,7 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
           <AdminPage data={data} initialTab="map" />
         </Suspense>
       )
-    // 修改模式：電腦版蓋滿整個視窗（edit.css），手機版在一般版面裡
+    // 編輯模式：電腦版蓋滿整個視窗（edit.css），手機版在一般版面裡
     case 'topo':
     case 'edit':
       return (

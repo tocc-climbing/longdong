@@ -57,8 +57,12 @@ describe('一個區域相關的回報', () => {
   const inside = pin(25.112, 121.923)
   const outside = pin(25.1, 121.93)
 
-  it('沒指定回報的是哪裡時，看位置在不在區域裡', () => {
+  it('沒指定回報的是哪裡時，看位置在不在區域裡或附近（剛好在範圍外的回報正是編輯範圍要參考的）', () => {
     expect(pinsForArea([inside, outside], { key: 'school-gate', rings })).toEqual([inside])
+    // 範圍的西邊界在 121.922：往西約 30 公尺（0.0003 度）在附近，約 150 公尺不算
+    const nearOutside = pin(25.112, 121.9217)
+    const farOutside = pin(25.112, 121.9205)
+    expect(pinsForArea([nearOutside, farOutside], { key: 'school-gate', rings })).toEqual([nearOutside])
   })
 
   it('有指定時，看指定的區域，不管位置', () => {

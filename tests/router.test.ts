@@ -17,7 +17,7 @@ describe('parseLocation', () => {
     expect(parseLocation('/')).toEqual({ name: 'home' })
   })
 
-  it('修改模式：/edit 是目錄，/edit/<種類>/<項目> 開那個項目（項目 id 可以含 "/" 與 ":"）；不認得的種類回到目錄', () => {
+  it('編輯模式：/edit 是目錄，/edit/<種類>/<項目> 開那個項目（項目 id 可以含 "/" 與 ":"）；不認得的種類回到目錄', () => {
     expect(parseLocation('/edit')).toEqual({ name: 'edit' })
     expect(parseLocation('/edit/map/area:school-gate')).toEqual({ name: 'edit', kind: 'map', id: 'area:school-gate' })
     expect(parseLocation('/edit/text/route:longdong:jar2yu')).toEqual({ name: 'edit', kind: 'text', id: 'route:longdong:jar2yu' })

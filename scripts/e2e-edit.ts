@@ -1,5 +1,5 @@
 /**
- * 端對端測試（修改模式）：登入 → 回報 → 去識別副本 → 修改區域範圍時看到該區的回報 → 地圖編輯（範圍、岩壁、刪除版本）→
+ * 端對端測試（編輯模式）：登入 → 回報 → 去識別副本 → 修改區域範圍時看到該區的回報 → 地圖編輯（範圍、岩壁、刪除版本）→
  * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁匯入去識別副本 → 管理頁的所有輸入、搜尋、處理檢舉（電腦版、手機版）。
  * 用 Firebase 模擬器（firebase.e2e.json），不碰正式資料；模擬器載入真正的資料庫規則，一併驗證規則允許這些寫入。
  * 每一項檢查的是「資料庫裡真的有什麼」與「畫面上真的出現什麼」，不是程式內部狀態。
@@ -143,7 +143,8 @@ try {
   await editor.page.goto(base + 'edit/map/area:school-gate')
   await editor.page.waitForSelector('.edit-canvas svg[role=img]')
   const list = await editor.page.waitForSelector('.edit-pins li', { timeout: 15000 }).catch(() => undefined)
-  check('修改校門口：右側有回報清單', !!list)
+  check('編輯校門口：右側有回報清單', !!list)
+  check('頁面標題是「編輯模式」', ((await editor.page.locator('.edit-title').textContent()) ?? '').trim() === '編輯模式')
   const text = (await editor.page.locator('.edit-pins').textContent()) ?? ''
   check('同一個點附近的回報合併成一處、標出 2 筆', (await editor.page.locator('.edit-pins li').count()) === 1 && text.includes('2 筆回報') && text.includes('×2'), text.replace(/\s+/g, ' ').slice(0, 120))
   check('地圖上有對應的圓點', (await editor.page.locator('.sm-mark').count()) === 1)
@@ -352,24 +353,36 @@ try {
   // ── 7. 管理頁：匯入已經上傳的回報，已經有的略過 ──────────────────────
   const geo = (note: string, at: [number, number], time: string) => ({ type: 'Feature', properties: { note, accuracy: 9, time }, geometry: { type: 'Point', coordinates: at } })
   const upload = (...f: object[]) => ({ geojson: JSON.stringify({ type: 'FeatureCollection', features: f }), createdAt: Date.now() })
-  await put('v2/calibration/seedalice/u1', upload(geo('舊回報一', [121.9231, 25.1124], '2026-10-01T01:00:00.000Z'), geo('舊回報二', [121.9235, 25.1128], '2026-10-01T02:00:00.000Z')))
-  await put('v2/anonReports/00000000-0000-4000-8000-000000000000/u1', upload(geo('舊的沒登入回報', [121.9233, 25.1126], '2026-10-02T01:00:00.000Z')))
+  // 位置在校門口的範圍裡與附近（約 20 公尺外）；舊回報一、二合併成一處、舊的沒登入回報在附近
+  await put('v2/calibration/seedalice/u1', upload(geo('舊回報一', [AT.lng, AT.lat + 0.00005], '2026-10-01T01:00:00.000Z'), geo('舊回報二', [AT.lng + 0.00003, AT.lat], '2026-10-01T02:00:00.000Z')))
+  await put('v2/anonReports/00000000-0000-4000-8000-000000000000/u1', upload(geo('舊的沒登入回報', [AT.lng - 0.00005, AT.lat + 0.0002], '2026-10-02T01:00:00.000Z')))
   const before = Object.keys(await pins()).length
   const admin = await newContext()
   await signIn(admin.page, 'kant.kang@gmail.com')
+
+  // 管理員打開編輯畫面：已經上傳、還沒有副本的回報自動補進去，馬上看得到（不用先去管理頁按匯入）
+  await admin.page.goto(base + 'edit/map/area:school-gate')
+  await admin.page.waitForSelector('.edit-canvas svg[role=img]')
+  const backfilled = await until(async () => (Object.keys(await pins()).length === before + 3 ? true : undefined))
+  check('管理員開編輯畫面：已經上傳的回報自動補成副本（新增 3 筆）', backfilled === true)
+  const shownCount = await until(async () => {
+    const text = (await admin.page.locator('.edit-panel h2', { hasText: '回報' }).first().textContent().catch(() => '')) ?? ''
+    return text.includes('5 筆') ? text : undefined
+  })
+  check('編輯畫面的回報包含補進去的舊回報（共 5 筆）', !!shownCount, shownCount ?? '')
+  const oldNote = await admin.page.locator('.edit-pins').getByText('舊的沒登入回報').count()
+  check('範圍外附近（約 20 公尺）的回報也看得到', oldNote === 1)
+
   await admin.page.goto(base + 'admin')
   await admin.page.getByRole('tab', { name: '地圖回報' }).click()
   const button = admin.page.getByRole('button', { name: '匯入去識別副本給修改者參考' })
   await button.waitFor({ timeout: 20000 })
   await button.click()
   const done = await until(async () => ((await admin.page.getByText(/已匯入 \d+ 筆新的/).count()) > 0 ? await admin.page.getByText(/已匯入 \d+ 筆新的/).first().textContent() : undefined))
-  // 3 筆舊的是新的；回報頁上傳過的 2 筆（沒登入）本來就有，代碼相同，略過
-  check('匯入：新增 3 筆（登入的 2 筆、沒登入的 1 筆）', !!done && done.includes('已匯入 3 筆新的'), done ?? '')
+  // 開編輯畫面時已經補過了：全部都有，新增 0 筆（也驗證補匯入與管理頁的匯入代碼相同、不會重複）
+  check('管理頁匯入：已經補過，新增 0 筆', !!done && done.includes('已匯入 0 筆新的'), done ?? '')
   check('資料庫多 3 筆、原本的沒被覆蓋', Object.keys(await pins()).length === before + 3)
   check('匯入的副本沒有帳號、裝置代號', !JSON.stringify(await pins()).includes('seedalice') && !JSON.stringify(await pins()).includes('00000000-0000'))
-  await button.click()
-  const again = await until(async () => ((await admin.page.getByText('已匯入 0 筆新的').count()) > 0 ? true : undefined))
-  check('再按一次：全部已經有，新增 0 筆', again === true && Object.keys(await pins()).length === before + 3)
 
 
   // ── 8. 管理頁：所有輸入、搜尋、依使用者看、處理檢舉、評分只有本人能刪；手機版另一種版面 ──

@@ -12,7 +12,7 @@ export function sectorLabel(data: LoadedData, sectorId: string, lang: Parameters
   return found ? `${localName(found.area.name, lang).main} · ${localName(found.sector.name, lang).main}` : sectorId
 }
 
-/** 點到一段岩壁：分區、最後誰改的、什麼時候；電腦版登入後可以到修改模式修改（岩壁的修改都在修改模式，有完整紀錄） */
+/** 點到一段岩壁：分區、最後誰改的、什麼時候；電腦版登入後可以到編輯模式修改（岩壁的修改都在編輯模式，有完整紀錄） */
 export function WallDetails({ data, wall, author, canEdit }: { data: LoadedData; wall: SectorWall; author: string; canEdit: boolean }) {
   const { lang, t } = useLang()
   const date = new Date(wall.createdAt).toLocaleDateString(LOCALES[lang])
