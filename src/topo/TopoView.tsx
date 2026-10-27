@@ -68,8 +68,8 @@ export function px(photo: TopoPhoto, [x, y]: Point): [number, number] {
 
 /** 一條路線標記時用到的說明：難度、名稱，各 bolt／anchor 的材質與年份 */
 export interface RouteInfo {
-  /** 線的顏色：運攀藍色、傳攀紅色，其他（上方架繩、抱石、混合）灰色 */
-  kind: 'sport' | 'trad' | 'other'
+  /** 線的顏色：運攀藍色，其他（傳攀、上方架繩、抱石、混合）紅色 */
+  kind: 'sport' | 'other'
   grade?: string
   name?: string
   /** 位置（B01、A01）→ 「316-TW · 2007」 */
@@ -84,7 +84,7 @@ export function routeInfo(routes: Route[], nameOf: (r: Route) => string): Map<st
     routes.map((r) => [
       r.id,
       {
-        kind: r.type === 'sport' ? 'sport' : r.type === 'trad' ? 'trad' : 'other',
+        kind: r.type === 'sport' ? 'sport' : 'other',
         grade: r.grade || undefined,
         name: nameOf(r),
         bolts: Object.fromEntries([...r.bolts, ...r.anchors].map((b) => [b.position, [isMaterialCode(b.material) ? b.material : '', b.installed].filter(Boolean).join(' · ')])),
@@ -234,8 +234,8 @@ export function TopoLines({
         const start = line?.[0]
         const p = plan.get(id)!
         const on = id === highlight
-        // 沒有路線資料（kind 不明）時用傳攀的紅色
-        const cls = `topo-route kind-${info?.get(id)?.kind ?? 'trad'}${on ? ' on' : highlight ? ' dim' : ''}`
+        // 沒有路線資料（kind 不明）時用紅色
+        const cls = `topo-route kind-${info?.get(id)?.kind ?? 'other'}${on ? ' on' : highlight ? ' dim' : ''}`
         const body = (
           <>
             {(runs.get(id) ?? []).map((run, i) => {

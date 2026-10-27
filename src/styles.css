@@ -5205,7 +5205,7 @@ dialog.topo-full[open] {
   --topo-pill: #e11d2e;
 }
 
-/* 運攀（sport）藍色、傳攀（trad）紅色，其他灰色 */
+/* 運攀（sport）藍色，其他（傳攀、上方架繩、抱石、混合）紅色 */
 .topo-route.kind-sport {
   --topo-line: #1565c0;
   --topo-pill: #1565c0;
@@ -5216,15 +5216,6 @@ dialog.topo-full[open] {
   --topo-pill: #1e7bff;
 }
 
-.topo-route.kind-other {
-  --topo-line: #4a4a4a;
-  --topo-pill: #4a4a4a;
-}
-
-.topo-route.kind-other.on {
-  --topo-line: #222;
-  --topo-pill: #222;
-}
 
 .topo-route.dim {
   opacity: 0.6;

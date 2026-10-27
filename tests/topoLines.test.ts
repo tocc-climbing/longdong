@@ -12,16 +12,17 @@ const marks: Marks = {
 const labels = new Map([['a', '10'], ['b', '11']])
 const info = new Map<string, RouteInfo>([
   ['a', { kind: 'sport', grade: '5.10a', name: '路線甲', bolts: { B01: '316-TW · 2007', A01: 'Ti-U · 2021' } }],
-  ['b', { kind: 'trad', grade: '5.11b', name: '路線乙', bolts: {} }],
+  ['b', { kind: 'other', grade: '5.11b', name: '路線乙', bolts: {} }],
 ])
 const render = (k: number, extra: object = {}) => renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks, labels, k, info, ...extra })))
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length
 
 describe('Topo 標記的自動排版（畫面上的大小）', () => {
-  it('顏色依種類：運攀藍色、傳攀紅色', () => {
+  it('顏色依種類：運攀藍色，其他（傳攀、上方架繩、抱石、混合）紅色', () => {
     const html = render(1)
     expect(html).toContain('topo-route kind-sport')
-    expect(html).toContain('topo-route kind-trad')
+    expect(html).toContain('topo-route kind-other')
+    expect(html).not.toContain('kind-trad')
   })
 
   it('選到的路線一律顯示難度與名稱；其他的要線夠長（放大）才顯示', () => {
