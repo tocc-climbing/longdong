@@ -79,24 +79,36 @@ export function decodeMapEdits(raw: Stored | null): MapShapes {
 
 const EMPTY: MapShapes = { areas: {}, sectors: [], walls: {}, lines: {}, versions: {} }
 let state: MapShapes = EMPTY
-let loading: Promise<void> | undefined
+let loading: Promise<boolean> | undefined
+let requestSeq = 0
 const listeners = new Set<() => void>()
 
-/** 讀取（force：提交或刪除後重新讀）；讀不到時維持原本的 */
-export function loadMapShapes(force = false): Promise<void> {
+/**
+ * 讀取（force：提交或刪除後重新讀，繞過 Service Worker 的快取）；讀不到時維持原本的，回傳 false。
+ * 同時有多次讀取時只採用最後送出的那次，先送出、後回來的舊結果不會蓋掉新的。
+ */
+export function loadMapShapes(force = false): Promise<boolean> {
   if (loading && !force) return loading
-  loading = get<Stored>('v2/mapEdits').then(
+  const mine = ++requestSeq
+  loading = get<Stored>('v2/mapEdits', force).then(
     (raw) => {
-      state = decodeMapEdits(raw)
-      listeners.forEach((l) => l())
+      if (mine === requestSeq) {
+        state = decodeMapEdits(raw)
+        listeners.forEach((l) => l())
+      }
+      return true
     },
     (err: Error) => {
-      loading = undefined
+      if (mine === requestSeq) loading = undefined
       console.warn('mapEdits', err)
+      return false
     },
   )
   return loading
 }
+
+/** 目前讀到的（提交後確認資料庫的版本真的讀回來了） */
+export const currentMapShapes = () => state
 
 export function useMapShapes(): MapShapes {
   useEffect(() => {

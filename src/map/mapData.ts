@@ -87,7 +87,8 @@ export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData 
   return {
     ...base,
     layers: edited.length ? { ...base.layers, ...Object.fromEntries(edited.map(([, layer]) => [layer, linePath(lineLayers[layer])])) } : base.layers,
-    areas: base.areas.map((a) => (shapes.areas[a.id] ? areaShape(a.id, toRings(shapes.areas[a.id])) : a)),
+    // 範圍全刪掉的區域（修改中還沒提交的草稿）不畫，不留下舊的形狀
+    areas: base.areas.flatMap((a) => (shapes.areas[a.id] ? (shapes.areas[a.id].length ? [areaShape(a.id, toRings(shapes.areas[a.id]))] : []) : [a])),
     sectors: shapes.sectors.map((s) => ({ ...areaShape(s.id, toRings([s.ring])), sector: s.sector })),
     lineLayers: edited.length ? lineLayers : base.lineLayers,
   }

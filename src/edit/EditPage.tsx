@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useIsAdmin } from '../admin'
 import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 import { useWide } from '../layout'
-import { useScaleMap } from '../map/mapData'
+import { useScaleMap, withShapes } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
 import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useWalls } from '../map/walls'
@@ -21,6 +21,7 @@ import { KeyList } from './KeyList'
 import { LatestEdits } from './LatestEdits'
 import { groupVersions } from './versions'
 import { currentText, loadTextEdits, textTarget, useTextEdits, type TextTarget, type TextVersion } from './textEdits'
+import { applyDrafts, changedTargets, discardDrafts, canSubmitDraft, submitDrafts, useDrafts } from './mapDrafts'
 import { useMapItem } from './useMapItem'
 import './edit.css'
 
@@ -50,7 +51,10 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   const wallPart = kind === 'map' && !!id?.startsWith('wall:')
   const itemId = wallPart ? `sector:${id!.slice('wall:'.length)}` : id
   const item = kind && itemId ? items.find((i) => i.kind === kind && i.id === itemId) : undefined
+  // 文字、Topo 的修改只在這一頁；地圖的草稿在 mapDrafts（換項目也保留），只在關閉網頁時提醒
   const [dirty, setDirty] = useState(false)
+  const { drafts, submitting } = useDrafts()
+  const hasDrafts = changedTargets(drafts).length > 0
   const [toast, setToast] = useState<string>()
   const [layout, setLayout] = useState(readLayout)
   const toggle = (part: 'catalog' | 'panel') =>
@@ -84,13 +88,13 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   }, [toast])
   // 有未提交的修改時，離開網頁先確認
   useEffect(() => {
-    if (!dirty) return
+    if (!dirty && !hasDrafts) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
+  }, [dirty, hasDrafts])
 
-  const leaveOk = () => !dirty || confirm(t('shape.confirmDiscard'))
+  const leaveOk = () => !submitting && (!dirty || confirm(t('shape.confirmDiscard')))
   const open = () => {
     if (!leaveOk()) return false
     setDirty(false)
@@ -314,41 +318,41 @@ function MapItemView({ initialPart, ...props }: ItemProps & { initialPart: 'rang
   const { t } = useLang()
   const target = props.item.id as EditTarget
   const [part, setPart] = useState(initialPart)
-  const [dirty, setDirty] = useState(false)
   if (!target.startsWith('sector:')) return <MapEditor {...props} target={target} />
-  const switchTo = (next: 'range' | 'walls') => {
-    if (next === part || (dirty && !confirm(t('shape.confirmDiscard')))) return
-    setDirty(false)
-    props.onDirty(false)
-    setPart(next)
-  }
   const parts = (
     <div className="edit-segment">
       {(['range', 'walls'] as const).map((p) => (
-        <button key={p} type="button" className={`edit-tool${part === p ? ' on' : ''}`} aria-pressed={part === p} onClick={() => switchTo(p)}>
+        <button key={p} type="button" className={`edit-tool${part === p ? ' on' : ''}`} aria-pressed={part === p} onClick={() => setPart(p)}>
           {t(p === 'range' ? 'edit.partRange' : 'edit.partWalls')}
         </button>
       ))}
     </div>
   )
-  const onDirty = (d: boolean) => {
-    setDirty(d)
-    props.onDirty(d)
-  }
-  return <MapEditor key={part} {...props} onDirty={onDirty} target={part === 'range' ? target : wallTarget(sectorOf(target))} parts={parts} />
+  return <MapEditor key={part} {...props} target={part === 'range' ? target : wallTarget(sectorOf(target))} parts={parts} />
 }
 
 /** 地圖的編輯畫面：工具列（選取、新增、刪除、復原、重做、航照、提交）、地圖、右側面板（說明、修改紀錄、快捷鍵） */
-function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & { target: EditTarget; parts?: ReactNode }) {
+function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target: EditTarget; parts?: ReactNode }) {
   const { t } = useLang()
   const cloud = useCloud()
   const map = useScaleMap()
   const shapes = useMapShapes()
   const { walls: legacyWalls } = useWalls()
-  const m = useMapItem({ target, map: map.status === 'ok' ? map.data : undefined, onToast })
+  const m = useMapItem({ target, map: map.status === 'ok' ? map.data : undefined })
+  const { drafts, submitting, errors } = useDrafts()
+  const changed = changedTargets(drafts)
+  // 地圖上顯示的是套上所有草稿的：沒提交的修改（包括別的區域的）看得到，刪光的形狀不會留下舊的
+  const overlay = useMemo(() => applyDrafts(shapes, drafts), [shapes, drafts])
+  const shown = useMemo(() => (map.status === 'ok' ? withShapes(map.data, overlay) : undefined), [map, overlay])
   const [ortho, setOrtho] = useState(true)
   const signedIn = cloud.status === 'signed-in'
-  useEffect(() => onDirty(m.dirty), [m.dirty])
+  const canSubmit = signedIn && !submitting && changed.length > 0 && changed.every((x) => canSubmitDraft(x, drafts[x]))
+  const submit = async () => {
+    const r = await submitDrafts()
+    if (r.failed) onToast(t('shape.submitPartial', { ok: r.submitted, failed: r.failed }))
+    else if (r.unsynced) onToast(t('shape.submitUnsynced', { n: r.submitted }))
+    else onToast(t('shape.submittedAll', { n: r.submitted }))
+  }
   const isWall = target.startsWith('wall:')
   const sector = target.startsWith('sector:') || isWall ? sectorOf(target) : undefined
   // 範圍、岩壁（不含步道）：這個區域的回報位置與說明畫在地圖上當參考（不顯示是誰、什麼時候）
@@ -356,12 +360,12 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
   const [pinOn, setPinOn] = useState<string>()
   /** 改分區範圍時，這個分區的岩壁畫在地圖上當參考 */
   const referenceWalls =
-    sector && !isWall ? (shapes.walls[sector] ?? legacyWalls.filter((w) => w.sector === sector).map((w) => w.points)).map((points, i) => ({ key: `wall-${i}`, points })) : []
+    sector && !isWall ? (overlay.walls[sector] ?? legacyWalls.filter((w) => w.sector === sector).map((w) => w.points)).map((points, i) => ({ key: `wall-${i}`, points })) : []
 
   // 快捷鍵都是單一按鍵（Windows、Mac 一樣）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、Z 復原、Y 重做、S 提交、A 航照
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e)) return
+      if (typing(e) || m.locked) return
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const key = e.key.toLowerCase()
       const run = (f: () => void) => {
@@ -370,7 +374,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
       }
       if (key === 'z') return run(m.actions.undo)
       if (key === 'y') return run(m.actions.redo)
-      if (key === 's') return m.canSubmit && signedIn ? run(() => void m.actions.submit()) : undefined
+      if (key === 's') return canSubmit ? run(() => void submit()) : undefined
       if (key === 'v') return run(m.actions.cancel)
       if (key === 'n' && !m.drawing) return run(m.actions.draw)
       if (key === 'enter' && m.drawing) return run(m.actions.finishDrawing)
@@ -384,7 +388,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
 
   // 打開時放大到這個項目；分區還沒有範圍（岩壁）時放大到分區範圍或所在的大區域；步道看整個地圖
   const focusArea = sector ? data.sectorById.get(sector)?.area.id.split('/').pop() : undefined
-  const sectorRings = sector ? shapes.sectors.filter((s) => s.sector === sector).flatMap((s) => s.ring) : []
+  const sectorRings = sector ? overlay.sectors.filter((s) => s.sector === sector).flatMap((s) => s.ring) : []
   const focus =
     m.ready && !isLineTarget(target)
       ? m.rings.length
@@ -395,6 +399,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
       : undefined
 
   const deleteVersion = async (version: string) => {
+    if (submitting) return
     try {
       const { m: fb } = await withCloud()
       await fb.deleteMapEdit(target, version)
@@ -406,7 +411,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
   }
 
   const tool = (on: boolean, label: string, key: string, onClick: () => void, disabled = false) => (
-    <button type="button" className={`edit-tool${on ? ' on' : ''}`} aria-pressed={on} disabled={disabled} onClick={onClick}>
+    <button type="button" className={`edit-tool${on ? ' on' : ''}`} aria-pressed={on} disabled={disabled || m.locked} onClick={onClick}>
       {label}
       <kbd>{key}</kbd>
     </button>
@@ -439,14 +444,15 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
           )}
           <span className="edit-spacer" />
           {tool(ortho, t('map.ortho'), 'A', () => setOrtho(!ortho))}
-          <button type="button" className="edit-btn primary" disabled={!m.canSubmit || !signedIn} onClick={() => void m.actions.submit()} title="S">
-            {t('shape.save')}
+          {submitting && <span className="edit-status">{t('shape.submitting')}</span>}
+          <button type="button" className="edit-btn primary" disabled={!canSubmit} onClick={() => void submit()} title="S">
+            {changed.length ? t('shape.saveAll', { n: changed.length }) : t('shape.save')}
           </button>
         </div>
         <div className="edit-canvas">
           {map.status === 'ok' ? (
             <ScaleMap
-              map={map.data}
+              map={shown!}
               areaNames={{}}
               marks={pins.map((p) => ({ at: p.at, picked: p.picked, label: String(Number(p.id) + 1), selected: p.id === pinOn }))}
               ortho={ortho}
@@ -465,6 +471,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
         <h2>{item.label}</h2>
         <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : 'edit.trailTip')}</p>
         <NeedSignIn />
+        <PendingList changed={changed} errors={errors} data={data} current={target} locked={submitting} />
         <ReportPins pins={pins} data={data} on={pinOn} onPick={setPinOn} />
         <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
         <h2>{t('edit.shortcuts')}</h2>
@@ -477,12 +484,36 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
             { keys: 'Del', label: t('shape.removeRing'), onClick: m.actions.removeSelected, disabled: !!m.drawing || m.selected === undefined },
             { keys: 'Z', label: t('edit.undo'), onClick: m.actions.undo, disabled: !m.canUndo },
             { keys: 'Y', label: t('edit.redo'), onClick: m.actions.redo, disabled: !m.canRedo },
-            { keys: 'S', label: t('shape.save'), onClick: () => void m.actions.submit(), disabled: !m.canSubmit || !signedIn },
+            { keys: 'S', label: t('shape.save'), onClick: () => void submit(), disabled: !canSubmit },
             { keys: 'A', label: t('map.ortho'), onClick: () => setOrtho((o) => !o) },
             { keys: t('edit.rightClick'), label: t('edit.deletePoint') },
           ]}
         />
       </aside>
+    </>
+  )
+}
+
+/** 還沒提交的修改（跨項目）：每個項目一列，點了切過去；失敗的列出原因；可以全部放棄 */
+function PendingList({ changed, errors, data, current, locked }: { changed: EditTarget[]; errors: Readonly<Record<string, string>>; data: LoadedData; current: EditTarget; locked: boolean }) {
+  const { t } = useLang()
+  const { items } = useCatalog(data)
+  if (!changed.length) return null
+  const label = (target: EditTarget) => items.find((i) => i.kind === 'map' && i.id === target)?.label ?? target
+  return (
+    <>
+      <h2>{t('shape.pending', { n: changed.length })}</h2>
+      <ul className="edit-pending">
+        {changed.map((target) => (
+          <li key={target}>
+            {target === current ? <b>{label(target)}</b> : <a href={href.edit('map', target)} onClick={(e) => locked && e.preventDefault()}>{label(target)}</a>}
+            {errors[target] && <span className="edit-error"> {t('shape.saveFailed', { error: errors[target] })}</span>}
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="edit-btn" disabled={locked} onClick={() => confirm(t('shape.confirmDiscardAll')) && discardDrafts()}>
+        {t('shape.discardAll')}
+      </button>
     </>
   )
 }

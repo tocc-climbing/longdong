@@ -35,8 +35,10 @@ export function useSocial(): SocialState {
   )
 }
 
-export async function get<T>(path: string): Promise<T | null> {
-  const res = await fetch(dbUrl(path))
+/** fresh：網址加上一次性參數，Service Worker 的快取對不上，讀不到最新的就失敗，不會拿到舊的 */
+export async function get<T>(path: string, fresh = false): Promise<T | null> {
+  const url = dbUrl(path)
+  const res = await fetch(fresh ? `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}` : url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return (await res.json()) as T | null
 }

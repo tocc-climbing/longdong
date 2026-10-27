@@ -644,3 +644,18 @@
   font-weight: 700;
   color: var(--brand);
 }
+
+.edit-pending {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.edit-pending li {
+  padding: 4px 0;
+}
+
+.edit-error {
+  color: var(--danger);
+  font-size: 0.85em;
+}

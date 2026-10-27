@@ -264,8 +264,9 @@ export function watchWalls(callback: (value: unknown) => void, onError: (err: Er
 /* ---------- 地圖編輯（版本，見 map/shapes.ts；讀取走 REST） ---------- */
 
 /** 提交一個新版本：大區域、分區用 rings，步道用 lines（多塊以「|」分隔） */
-export async function addMapEdit(uid: string, target: string, value: { rings: string } | { lines: string }): Promise<void> {
-  await push(ref(db, `v2/mapEdits/${target}`), { uid, createdAt: serverTimestamp(), ...value })
+export async function addMapEdit(uid: string, target: string, value: { rings: string } | { lines: string }): Promise<string> {
+  const added = await push(ref(db, `v2/mapEdits/${target}`), { uid, createdAt: serverTimestamp(), ...value })
+  return added.key!
 }
 
 export function deleteMapEdit(target: string, version: string): Promise<void> {

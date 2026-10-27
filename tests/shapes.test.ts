@@ -92,6 +92,11 @@ describe('套上編輯的最新版本', () => {
     expect(out.lineLayers.road).toBe(base.lineLayers.road)
   })
 
+  it('草稿把大區域刪光時，這個區域不畫（不留下舊的形狀），其他區域不受影響', () => {
+    const out = withShapes(base, { ...decodeMapEdits(null), areas: { 'school-gate': [] } })
+    expect(out.areas.map((a) => a.id)).toEqual(['clocktower'])
+  })
+
   it('沒有任何版本時與自動產生的相同', () => {
     const out = withShapes(base, decodeMapEdits(null))
     expect(out.layers).toBe(base.layers)

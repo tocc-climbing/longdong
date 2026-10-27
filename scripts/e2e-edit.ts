@@ -195,6 +195,51 @@ try {
   check('編輯的形狀回到前一版（不是載回舊的或停在刪掉的）', back === true, `${await rings(editor.page)} 塊，應為 ${n0 + 1}`)
   check('刪除後只剩一個版本，不再標次數', (await editor.page.locator('.edit-versions li').count()) === 1 && !/次修改/.test((await editor.page.locator('.edit-versions li .edit-version-time').first().textContent()) ?? ''))
 
+  // ── 3b. 草稿：跨區域修改，全部一起提交（切換區域不丟修改、刪光後可以新增、提交完才解鎖） ──
+  const openArea = async (id: string) => {
+    await editor.page.locator(`a.edit-item[href$="area:${id}"]`).first().dispatchEvent('click')
+    await editor.page.waitForFunction((x) => location.pathname.endsWith(`area:${x}`), id)
+    await editor.page.waitForSelector('.edit-canvas svg[role=img]')
+  }
+  const gateAreaPaths = () => editor.page.locator('path.sm-area-school-gate').count()
+  check('修改校門口：地圖上有校門口的區域', (await gateAreaPaths()) === 1)
+  // Delete 刪的是選中的那一塊：沒選中時先點一塊再刪
+  for (let i = 0; i < 20 && (await rings(editor.page)) > 0; i++) {
+    if ((await editor.page.locator('.sm-edit-ring.selected').count()) === 0) await editor.page.locator('.sm-edit-ring').first().click()
+    await editor.page.keyboard.press('Delete')
+  }
+  check('刪光所有的塊：編輯的形狀沒有了', (await rings(editor.page)) === 0)
+  check('刪光後地圖上不會留下舊的校門口區域', (await gateAreaPaths()) === 0)
+  await openArea('clocktower')
+  const clockRings = await rings(editor.page)
+  await editor.page.keyboard.press('n')
+  await clickCanvas(editor.page, [[0.2, 0.2], [0.35, 0.2], [0.35, 0.35]])
+  await editor.page.keyboard.press('Enter')
+  check('切到鐘塔：畫一塊，多一塊', (await rings(editor.page)) === clockRings + 1)
+  check('切到鐘塔後，校門口的區域還是刪光的狀態（沒有跑出舊的）', (await gateAreaPaths()) === 0)
+  check('資料庫還沒收到任何新版本（提交前不和伺服器通訊）', !(await read('v2/mapEdits/area:clocktower')) && Object.keys((await read<Record<string, unknown>>('v2/mapEdits/area:school-gate')) ?? {}).length === 1)
+  await openArea('school-gate')
+  check('切回校門口：草稿還在（還是 0 塊）', (await rings(editor.page)) === 0)
+  await editor.page.keyboard.press('n')
+  await clickCanvas(editor.page, [[0.4, 0.4], [0.55, 0.4], [0.55, 0.55]])
+  await editor.page.keyboard.press('Enter')
+  check('刪光後按 N 可以新增：多一塊', (await rings(editor.page)) === 1)
+  check('右側列出 2 個還沒提交的項目', (await editor.page.locator('.edit-pending li').count()) === 2)
+  check('提交按鈕標出 2 項', /\b2\b/.test((await editor.page.locator('.edit-toolbar .edit-btn.primary').textContent()) ?? ''))
+  await submitMap(editor.page)
+  const gateVersions = await until(async () => {
+    const v = await read<Record<string, { rings: string }>>('v2/mapEdits/area:school-gate')
+    return v && Object.keys(v).length === 2 ? v : undefined
+  })
+  const clockVersions = await until(async () => {
+    const v = await read<Record<string, { rings: string }>>('v2/mapEdits/area:clocktower')
+    return v && Object.keys(v).length === 1 ? v : undefined
+  })
+  check('全部提交：兩個區域各多一個版本', !!gateVersions && !!clockVersions)
+  check('校門口的最新版是刪光後新畫的一塊', !!gateVersions && Object.values(gateVersions).some((v) => v.rings.split('|').length === 1))
+  check('提交後草稿清空：沒有未提交的項目', (await editor.page.locator('.edit-pending').count()) === 0)
+  check('提交後校門口顯示剛提交的一塊', (await rings(editor.page)) === 1 && (await gateAreaPaths()) === 1)
+
   // ── 4. 岩壁：分區的「岩壁」可以畫、提交 ──────────────────────────────
   await editor.page.goto(base + `edit/map/wall:${wallSector.replace('/', ':')}`)
   await editor.page.waitForSelector('.edit-canvas svg[role=img]')

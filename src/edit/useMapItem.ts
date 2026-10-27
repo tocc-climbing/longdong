@@ -1,29 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { LatLng } from '../geo'
-import { useLang } from '../i18n'
 import { project, unproject, type ScaleMapData } from '../map/mapData'
 import type { MapEdit, MapLine } from '../map/ScaleMap'
-import { LINE_TARGETS, encodeShapes, isLineTarget, isOpenTarget, loadMapShapes, sectorOf, simplifyLine, simplifyRing, useMapShapes, type EditTarget } from '../map/shapes'
+import { LINE_TARGETS, isLineTarget, isOpenTarget, sectorOf, simplifyLine, simplifyRing, useMapShapes, type EditTarget } from '../map/shapes'
 import { useWalls } from '../map/walls'
-import { withCloud } from '../personal/sync'
+import { canSubmitDraft, changeDraft, checkpointDraft, redoDraft, setDraftRings, undoDraft, useDrafts } from './mapDrafts'
+
+export { tidyShapes } from './mapDrafts'
 
 /** 自動產生的形狀頂點很密，載入編輯時先簡化到這個誤差（公尺），比較容易拖曳 */
 const SIMPLIFY_M = 1.5
 /** 畫步道支線時，點在既有路徑這個距離（螢幕像素）內就接到路徑上 */
 const SNAP_PX = 12
-/** 復原最多記幾步 */
-const UNDO_LIMIT = 100
-/** 提交前合併的誤差（公尺）：幾乎在一條直線上、或靠得很近的點刪掉（約航照兩個像素，看不出差別） */
-const SUBMIT_SIMPLIFY_M = 0.5
-
-/** 提交前整理：每塊（每條）以 Douglas–Peucker 刪掉多餘的點；多邊形至少留三點、線段兩點，整理後不夠就保留原樣 */
-export function tidyShapes(shapes: LatLng[][], closed: boolean): LatLng[][] {
-  return shapes.map((r) => {
-    const pts = r.map(project)
-    const out = (closed ? simplifyRing(pts, SUBMIT_SIMPLIFY_M) : simplifyLine(pts, SUBMIT_SIMPLIFY_M)).map(unproject)
-    return out.length >= (closed ? 3 : 2) ? out : r
-  })
-}
 
 /** 點到線段上最近的位置（地圖座標） */
 function nearestOnSegment(p: [number, number], a: [number, number], b: [number, number]): [number, number] {
@@ -44,61 +32,37 @@ export function currentShapes(target: EditTarget, map: ScaleMapData | undefined,
   return latest ?? []
 }
 
-interface State {
-  rings: LatLng[][]
-  selected?: number
-  /** 正在點出的新多邊形或線段 */
-  drawing?: LatLng[]
-  past: LatLng[][][]
-  future: LatLng[][][]
-  dirty: boolean
-  saving: boolean
-}
-
 /**
- * 修改模式的地圖項目（大區域、分區範圍、步道與道路）：載入目前的形狀，拖曳頂點、加刪頂點、新增或刪除一塊（一條），
- * 可以復原、重做；提交成新版本（src/map/shapes.ts）。步道與道路的新路段起點、終點會接到既有的線。
+ * 修改模式的地圖項目（大區域、分區範圍、步道與道路）：從地圖上目前的形狀開始，拖曳頂點、加刪頂點、新增或刪除一塊（一條），
+ * 可以復原、重做。修改只存在草稿（mapDrafts.ts），切到別的項目再回來還在；提交是全部項目一起（submitDrafts）。
+ * 步道與道路的新路段起點、終點會接到既有的線。
  */
-export function useMapItem({ target, map, onToast }: { target: EditTarget; map?: ScaleMapData; onToast: (text: string) => void }) {
-  const { t } = useLang()
+export function useMapItem({ target, map }: { target: EditTarget; map?: ScaleMapData }) {
   const shapes = useMapShapes()
-  const [state, setState] = useState<State>()
+  const { drafts, submitting } = useDrafts()
+  const draft = drafts[target]
   const latest = shapes.versions[target]?.at(-1)?.shapes
   const closed = !isOpenTarget(target)
   const { walls } = useWalls()
   const legacyWalls = target.startsWith('wall:') ? walls.filter((w) => w.sector === sectorOf(target)).map((w) => w.points) : []
+  // 沒有草稿時，形狀就是地圖上目前的（資料庫最新版或自動產生的）：重新讀到新版本時跟著換，不用另外載入
+  const saved = useMemo(() => (map ? currentShapes(target, map, latest, legacyWalls) : []), [map, latest, walls])
+  const rings = draft?.rings ?? saved
+  const [selectedRing, setSelectedRing] = useState<number | undefined>(0)
+  const selected = selectedRing !== undefined && selectedRing < rings.length ? selectedRing : undefined
+  /** 正在點出的新多邊形或線段 */
+  const [drawing, setDrawing] = useState<LatLng[]>()
 
-  // 地圖資料載入後載入目前的形狀（換項目時元件重新建立，見 EditPage）
-  const load = () => {
-    const rings = currentShapes(target, map, latest, legacyWalls)
-    setState({ rings, selected: rings.length ? 0 : undefined, past: [], future: [], dirty: false, saving: false })
+  const change = (next: LatLng[][], sel = selected) => {
+    changeDraft(target, saved, () => next)
+    setSelectedRing(sel)
   }
-  useEffect(() => {
-    if (map && !state) load()
-  }, [!!map])
-  // 舊的岩壁標記是之後才讀到的（即時資料）：還沒修改時跟著換
-  useEffect(() => {
-    if (state && !state.dirty && target.startsWith('wall:') && !latest) load()
-  }, [walls])
-  // 最新版本變了（刪除版本、別人提交、晚一點才讀到）而且沒有未提交的修改時，重新載入：
-  // 在這個 render 的 effect 裡呼叫，load 用的是最新的地圖與版本（不能在刪除版本的 callback 裡呼叫，那時的 load 還是舊的，會載回舊的形狀）。
-  // 提交中（dirty 還沒清掉）不會觸發：提交完成時形狀已經是剛提交的。
-  const latestId = shapes.versions[target]?.at(-1)?.id
-  useEffect(() => {
-    if (map && state && !state.dirty && !state.saving) load()
-  }, [latestId])
-
-  const s = state ?? { rings: [], past: [], future: [], dirty: false, saving: false }
-  const set = (patch: Partial<State>) => setState((x) => x && { ...x, ...patch })
-  /** 記下修改前的形狀（復原用），清掉重做 */
-  const checkpoint = () => setState((x) => x && { ...x, past: [...x.past, x.rings].slice(-UNDO_LIMIT), future: [] })
-  const change = (rings: LatLng[][], selected = s.selected) => setState((x) => x && { ...x, past: [...x.past, x.rings].slice(-UNDO_LIMIT), future: [], rings, selected, dirty: true })
 
   /** 畫步道、道路時接到既有路徑：離最近的線段 SNAP_PX 內（換算成公尺）就用線段上的那一點；岩壁各段分開，不接 */
   const snap = (at: LatLng, metersPerPixel: number): LatLng => {
     if (!isLineTarget(target)) return at
     const p = project(at)
-    const best = s.rings
+    const best = rings
       .flatMap((r) => r.slice(1).map((b, i) => nearestOnSegment(p, project(r[i]), project(b))))
       .reduce<[number, number] | undefined>((a, q) => (!a || Math.hypot(q[0] - p[0], q[1] - p[1]) < Math.hypot(a[0] - p[0], a[1] - p[1]) ? q : a), undefined)
     return best && Math.hypot(best[0] - p[0], best[1] - p[1]) <= SNAP_PX * metersPerPixel ? unproject(best) : at
@@ -106,68 +70,56 @@ export function useMapItem({ target, map, onToast }: { target: EditTarget; map?:
 
   const minPoints = closed ? 3 : 2
   const actions = {
-    draw: () => set({ drawing: [] }),
-    undoPoint: () => s.drawing && set({ drawing: s.drawing.slice(0, -1) }),
+    draw: () => setDrawing([]),
+    undoPoint: () => drawing && setDrawing(drawing.slice(0, -1)),
     finishDrawing: () => {
-      if (!s.drawing || s.drawing.length < minPoints) return
-      const drawing = s.drawing
-      setState((x) => x && { ...x, past: [...x.past, x.rings].slice(-UNDO_LIMIT), future: [], rings: [...x.rings, drawing], selected: x.rings.length, drawing: undefined, dirty: true })
+      if (!drawing || drawing.length < minPoints) return
+      change([...rings, drawing], rings.length)
+      setDrawing(undefined)
     },
-    cancel: () => (s.drawing ? set({ drawing: undefined }) : set({ selected: undefined })),
-    removeSelected: () => s.selected !== undefined && change(s.rings.filter((_, i) => i !== s.selected), undefined),
-    undo: () =>
-      setState((x) => (x && x.past.length ? { ...x, rings: x.past.at(-1)!, past: x.past.slice(0, -1), future: [x.rings, ...x.future], selected: undefined, dirty: true } : x)),
-    redo: () =>
-      setState((x) => (x && x.future.length ? { ...x, rings: x.future[0], future: x.future.slice(1), past: [...x.past, x.rings], selected: undefined, dirty: true } : x)),
-    submit: async () => {
-      if (!state) return
-      set({ saving: true })
-      try {
-        const { m, uid } = await withCloud()
-        const tidy = tidyShapes(state.rings, closed)
-        const merged = state.rings.flat().length - tidy.flat().length
-        const text = encodeShapes(tidy)
-        await m.addMapEdit(uid, target, closed ? { rings: text } : { lines: text })
-        await loadMapShapes(true)
-        set({ saving: false, dirty: false, rings: tidy, selected: undefined })
-        onToast(merged > 0 ? t('shape.savedMerged', { n: merged }) : t('shape.saved'))
-      } catch (err) {
-        set({ saving: false })
-        onToast(t('shape.saveFailed', { error: (err as Error).message }))
-      }
+    cancel: () => (drawing ? setDrawing(undefined) : setSelectedRing(undefined)),
+    removeSelected: () => selected !== undefined && change(rings.filter((_, i) => i !== selected), undefined),
+    undo: () => {
+      undoDraft(target)
+      setSelectedRing(undefined)
+    },
+    redo: () => {
+      redoDraft(target)
+      setSelectedRing(undefined)
     },
   }
 
-  const edit: MapEdit | undefined = s.drawing
-    ? undefined
-    : {
-        rings: s.rings,
-        closed,
-        selected: s.selected,
-        onChange: (rings) => set({ rings, dirty: true }),
-        onChangeStart: checkpoint,
-        onSelect: (selected) => set({ selected }),
-      }
-  const pick = s.drawing ? { onPick: (at: LatLng, metersPerPixel: number) => set({ drawing: [...s.drawing!, snap(at, metersPerPixel)] }) } : undefined
+  // 提交中整個鎖住：不能拖曳、新增
+  const edit: MapEdit | undefined =
+    drawing || submitting
+      ? undefined
+      : {
+          rings,
+          closed,
+          selected,
+          onChange: (next) => setDraftRings(target, saved, next),
+          onChangeStart: () => checkpointDraft(target, saved),
+          onSelect: setSelectedRing,
+        }
+  const pick = drawing && !submitting ? { onPick: (at: LatLng, metersPerPixel: number) => setDrawing([...drawing, snap(at, metersPerPixel)]) } : undefined
   // 多邊形還沒閉環：點本身不補起點，暫時封閉的區域由地圖用半透明顯示（MapLine.closed）
-  const draftLine: MapLine | undefined = s.drawing && { key: 'edit-draft', points: s.drawing, draft: true, closed }
+  const draftLine: MapLine | undefined = drawing && { key: 'edit-draft', points: drawing, draft: true, closed }
 
   return {
-    ready: !!state,
-    rings: s.rings,
+    ready: !!map,
+    rings,
     closed,
     edit,
     pick,
     draftLine,
-    drawing: s.drawing,
-    selected: s.selected,
-    count: s.rings.length,
-    dirty: s.dirty,
-    canUndo: s.past.length > 0,
-    canRedo: s.future.length > 0,
-    canFinish: !!s.drawing && s.drawing.length >= minPoints,
-    // 分區範圍、岩壁可以全部刪掉（空字串）；大區域、步道、道路至少要有一塊
-    canSubmit: s.dirty && !s.saving && (target.startsWith('sector:') || target.startsWith('wall:') || s.rings.length > 0),
+    drawing,
+    selected,
+    count: rings.length,
+    locked: submitting,
+    canUndo: !!draft?.past.length && !submitting,
+    canRedo: !!draft?.future.length && !submitting,
+    canFinish: !!drawing && drawing.length >= minPoints,
+    canSubmitThis: !draft || canSubmitDraft(target, draft),
     versions: shapes.versions[target] ?? [],
     actions,
   }
