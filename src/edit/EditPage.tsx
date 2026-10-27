@@ -14,7 +14,7 @@ import { href, navigate, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { useTopoState } from '../topo/store'
 import { TopoEditor } from '../topo/TopoEditor'
-import { MERGE_RADIUS_M, type PinGroup } from '../map/reportPins'
+import type { PinGroup } from '../map/reportPins'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
 import { KeyList } from './KeyList'
@@ -130,7 +130,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
     )
 
   return (
-    <div className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}${wide && !layout.catalog ? ' no-catalog' : ''}${wide && !layout.panel ? ' no-panel' : ''}`}>
+    <div className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}${wide && !layout.catalog ? ' no-catalog' : ''}${wide && (!layout.panel || !item) ? ' no-panel' : ''}`}>
       <header className="edit-top">
         <a className="edit-back" href={href.home()} onClick={(e) => !leaveOk() && e.preventDefault()}>
           ← {t('app.title')}
@@ -189,18 +189,9 @@ function Welcome({ items }: { items: EditItem[] }) {
       <section className="edit-center edit-message edit-welcome">
         <h1>{title}</h1>
         <p className="edit-tags">{t('edit.welcomeTags')}</p>
-        <p className="muted">{t('edit.welcomeHint')}</p>
         <p className="muted small">{t('edit.progress', { n: items.filter((i) => i.edited).length, total: items.length })}</p>
         <LatestEdits items={items} />
       </section>
-      <aside className="edit-panel">
-        <h2>{t('edit.howTitle')}</h2>
-        <ul className="edit-how">
-          <li>{t('edit.how1')}</li>
-          <li>{t('edit.how2')}</li>
-          <li>{t('edit.how3')}</li>
-        </ul>
-      </aside>
     </>
   )
 }
@@ -269,8 +260,7 @@ function ReportPins({ pins, data, on, onPick }: { pins: PinGroup[]; data: Loaded
       .join('、')
   return (
     <>
-      <h2>{t('edit.pins', { n: pins.reduce((sum, p) => sum + p.count, 0), places: pins.length })}</h2>
-      <p className="muted small">{t('edit.pinsTip', { m: MERGE_RADIUS_M })}</p>
+      <h2>{t('edit.pins', { n: pins.reduce((sum, p) => sum + p.count, 0) })}</h2>
       <ol className="edit-pins">
         {pins.map((p) => (
           <li key={p.id} className={p.id === on ? 'on' : undefined}>
@@ -290,9 +280,6 @@ function ReportPins({ pins, data, on, onPick }: { pins: PinGroup[]; data: Loaded
                     {p.blank > 1 && <span className="edit-pin-count"> ×{p.blank}</span>}
                   </span>
                 )}
-                <span className="muted small">
-                  {t('edit.pinCount', { n: p.count })} · {p.manual ? t('edit.pinManual') : p.accuracy !== undefined ? t('edit.pinGps', { m: p.accuracy }) : ''}
-                </span>
               </span>
             </button>
           </li>
@@ -432,7 +419,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
           </div>
           {m.drawing ? (
             <>
-              <span className="edit-status">{t(m.closed ? 'shape.drawHint' : isWall ? 'shape.drawWallHint' : 'shape.drawLineHint', { n: m.drawing.length })}</span>
+              <span className="edit-status">{t('shape.points', { n: m.drawing.length })}</span>
               {tool(false, t('wall.undo'), 'Z', m.actions.undoPoint, m.drawing.length === 0)}
               {tool(false, finishLabel, 'Enter', m.actions.finishDrawing, !m.canFinish)}
             </>
@@ -471,11 +458,10 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
       </section>
       <aside className="edit-panel">
         <h2>{item.label}</h2>
-        <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : 'edit.trailTip')}</p>
         <NeedSignIn />
         <PendingList changed={changed} errors={errors} data={data} current={target} locked={submitting} />
         <ReportPins pins={pins} data={data} on={pinOn} onPick={setPinOn} />
-        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
+        <VersionList versions={m.versions} empty={t('shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
         <h2>{t('edit.shortcuts')}</h2>
         <KeyList
           rows={[
@@ -568,7 +554,6 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
     <>
       <section className="edit-center edit-text">
         <div className="edit-toolbar">
-          <span className="edit-status">{t(route ? 'edit.routeTextHint' : 'edit.areaTextHint')}</span>
           <span className="edit-spacer" />
           <button type="button" className="edit-btn primary" disabled={!dirty || saving || !signedIn} onClick={() => void submit()}>
             {t('shape.save')}
@@ -591,7 +576,6 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
       </section>
       <aside className="edit-panel">
         <h2>{item.label}</h2>
-        <p className="muted small">{t('edit.textTip')}</p>
         {route && (
           <p className="small">
             <a href={href.route(route.id)}>{t('edit.viewRoute')}</a>
@@ -623,14 +607,8 @@ function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
             {signedIn && <UploadButton sector={photo.sector} />}
           </div>
         )}
-        <p className="muted small">{t('edit.topoTip')}</p>
         {/* 新增這個分區的另一張 Topo 照片（舊照片的提示裡已經有按鈕；目錄裡每個分區底下也有同樣的按鈕） */}
-        {!old && photo && signedIn && (
-          <>
-            <p className="muted small">{t('edit.topoAddHint')}</p>
-            <UploadButton sector={photo.sector} />
-          </>
-        )}
+        {!old && photo && signedIn && <UploadButton sector={photo.sector} />}
       </aside>
     </>
   )

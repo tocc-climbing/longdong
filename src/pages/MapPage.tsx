@@ -326,7 +326,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
       <Sheet open={intro} onClose={closeIntro} title={t('map.introTitle')}>
         <p className="map-warn">{t('map.introWarn')}</p>
         <ul className="map-how">
-          <li>{t('map.introHow')}</li>
           <li>{t('map.introReport')}</li>
         </ul>
         <div className="actions">

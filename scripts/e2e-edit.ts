@@ -1,6 +1,6 @@
 /**
- * 端對端測試（編輯模式）：登入 → 回報 → 去識別副本 → 修改區域範圍時看到該區的回報 → 地圖編輯（範圍、岩壁、刪除版本）→
- * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁匯入去識別副本 → 管理頁的所有輸入、搜尋、處理檢舉（電腦版、手機版）。
+ * 端對端測試（編輯模式）：登入 → 回報 → 去識別副本 → 編輯區域範圍時看到該區的回報 → 地圖編輯（範圍、岩壁、刪除版本）→
+ * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁的所有輸入、搜尋、處理檢舉（電腦版、手機版）。
  * 用 Firebase 模擬器（firebase.e2e.json），不碰正式資料；模擬器載入真正的資料庫規則，一併驗證規則允許這些寫入。
  * 每一項檢查的是「資料庫裡真的有什麼」與「畫面上真的出現什麼」，不是程式內部狀態。
  *
@@ -146,7 +146,7 @@ try {
   check('編輯校門口：右側有回報清單', !!list)
   check('頁面標題是「編輯模式」', ((await editor.page.locator('.edit-title').textContent()) ?? '').trim() === '編輯模式')
   const text = (await editor.page.locator('.edit-pins').textContent()) ?? ''
-  check('同一個點附近的回報合併成一處、標出 2 筆', (await editor.page.locator('.edit-pins li').count()) === 1 && text.includes('2 筆回報') && text.includes('×2'), text.replace(/\s+/g, ' ').slice(0, 120))
+  check('同一個點附近的回報合併成一處、相同的說明標出 ×2', (await editor.page.locator('.edit-pins li').count()) === 1 && text.includes('×2'), text.replace(/\s+/g, ' ').slice(0, 120))
   check('地圖上有對應的圓點', (await editor.page.locator('.sm-mark').count()) === 1)
   const panel = (await editor.page.locator('.edit-panel').textContent()) ?? ''
   check('不顯示是誰、什麼時候回報的', !panel.includes('editor') && !/\d{4}[/-]\d{1,2}[/-]\d{1,2}.*回報/.test(text))
@@ -270,7 +270,7 @@ try {
   const click = (label: string) => editor.page.locator('.topo-tool', { hasText: label }).click()
   const disabled = (label: string) => editor.page.locator('.topo-tool', { hasText: label }).isDisabled()
   check('沒有修改時：復原、重做都不能按', (await disabled('復原')) && (await disabled('重做')))
-  check('預設選了第一條有編號的路線，照片下面有這一步的提示', (await editor.page.locator('.topo-route-row.on').count()) === 1 && ((await editor.page.locator('.topo-edit-hint').textContent()) ?? '').includes('點照片'))
+  check('預設選了第一條有編號的路線；沒有提示列、第一次使用說明', (await editor.page.locator('.topo-route-row.on').count()) === 1 && (await editor.page.locator('.topo-edit-hint, .topo-help').count()) === 0)
   const row = (number: string) => editor.page.locator('.topo-route-row', { has: editor.page.locator('.topo-route-no', { hasText: new RegExp(`^${number}$`) }) })
   await row(topoRoutes[0].number!).click()
   const frame = (await editor.page.locator('.topo-frame svg').boundingBox())!
@@ -400,40 +400,20 @@ try {
   check('Esc 關閉全螢幕', (await viewer.page.locator('dialog.topo-full[open]').count()) === 0)
   await viewer.ctx.close()
 
-  // ── 7. 管理頁：匯入已經上傳的回報，已經有的略過 ──────────────────────
-  const geo = (note: string, at: [number, number], time: string) => ({ type: 'Feature', properties: { note, accuracy: 9, time }, geometry: { type: 'Point', coordinates: at } })
-  const upload = (...f: object[]) => ({ geojson: JSON.stringify({ type: 'FeatureCollection', features: f }), createdAt: Date.now() })
-  // 位置在校門口的範圍裡與附近（約 20 公尺外）；舊回報一、二合併成一處、舊的沒登入回報在附近
-  await put('v2/calibration/seedalice/u1', upload(geo('舊回報一', [AT.lng, AT.lat + 0.00005], '2026-10-01T01:00:00.000Z'), geo('舊回報二', [AT.lng + 0.00003, AT.lat], '2026-10-01T02:00:00.000Z')))
-  await put('v2/anonReports/00000000-0000-4000-8000-000000000000/u1', upload(geo('舊的沒登入回報', [AT.lng - 0.00005, AT.lat + 0.0002], '2026-10-02T01:00:00.000Z')))
-  const before = Object.keys(await pins()).length
+  // ── 7. 範圍外附近的回報也看得到（直接放去識別的副本；位置在校門口範圍外約 20 公尺） ──
+  await put('v2/reportPins/0123456789abcdef0123456789abcdef', { lat: AT.lat + 0.0002, lng: AT.lng - 0.00005, note: '範圍外附近的回報' })
+  await editor.page.goto(base + 'edit/map/area:school-gate')
+  await editor.page.waitForSelector('.edit-canvas svg[role=img]')
+  const nearby = await until(async () => ((await editor.page.locator('.edit-pins').getByText('範圍外附近的回報').count()) === 1 ? true : undefined))
+  check('範圍外附近（約 20 公尺）的回報也看得到', nearby === true)
+  check('回報清單的標題只有筆數', ((await editor.page.locator('.edit-panel h2', { hasText: '回報' }).first().textContent()) ?? '').trim() === '回報（3）')
+  const pinsText = (await editor.page.locator('.edit-pins').textContent()) ?? ''
+  check('每一處只列位置與說明：沒有重複的「N 筆回報」、GPS 誤差', !pinsText.includes('筆回報') && !pinsText.includes('GPS'), pinsText.replace(/\s+/g, ' '))
+  const panelText = (await editor.page.locator('.edit-panel').textContent()) ?? ''
+  check('右側沒有使用說明（不寫「怎麼合併」「對照航照」之類）', !panelText.includes('合併成一處') && !panelText.includes('對照航照') && !panelText.includes('拖曳頂點'))
+
   const admin = await newContext()
   await signIn(admin.page, 'kant.kang@gmail.com')
-
-  // 管理員打開編輯畫面：已經上傳、還沒有副本的回報自動補進去，馬上看得到（不用先去管理頁按匯入）
-  await admin.page.goto(base + 'edit/map/area:school-gate')
-  await admin.page.waitForSelector('.edit-canvas svg[role=img]')
-  const backfilled = await until(async () => (Object.keys(await pins()).length === before + 3 ? true : undefined))
-  check('管理員開編輯畫面：已經上傳的回報自動補成副本（新增 3 筆）', backfilled === true)
-  const shownCount = await until(async () => {
-    const text = (await admin.page.locator('.edit-panel h2', { hasText: '回報' }).first().textContent().catch(() => '')) ?? ''
-    return text.includes('5 筆') ? text : undefined
-  })
-  check('編輯畫面的回報包含補進去的舊回報（共 5 筆）', !!shownCount, shownCount ?? '')
-  const oldNote = await admin.page.locator('.edit-pins').getByText('舊的沒登入回報').count()
-  check('範圍外附近（約 20 公尺）的回報也看得到', oldNote === 1)
-
-  await admin.page.goto(base + 'admin')
-  await admin.page.getByRole('tab', { name: '地圖回報' }).click()
-  const button = admin.page.getByRole('button', { name: '匯入去識別副本給修改者參考' })
-  await button.waitFor({ timeout: 20000 })
-  await button.click()
-  const done = await until(async () => ((await admin.page.getByText(/已匯入 \d+ 筆新的/).count()) > 0 ? await admin.page.getByText(/已匯入 \d+ 筆新的/).first().textContent() : undefined))
-  // 開編輯畫面時已經補過了：全部都有，新增 0 筆（也驗證補匯入與管理頁的匯入代碼相同、不會重複）
-  check('管理頁匯入：已經補過，新增 0 筆', !!done && done.includes('已匯入 0 筆新的'), done ?? '')
-  check('資料庫多 3 筆、原本的沒被覆蓋', Object.keys(await pins()).length === before + 3)
-  check('匯入的副本沒有帳號、裝置代號', !JSON.stringify(await pins()).includes('seedalice') && !JSON.stringify(await pins()).includes('00000000-0000'))
-
 
   // ── 8. 管理頁：所有輸入、搜尋、依使用者看、處理檢舉、評分只有本人能刪；手機版另一種版面 ──
   const rk = topoRoutes[0].id.replace('/', ':')

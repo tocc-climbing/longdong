@@ -5069,12 +5069,6 @@ dialog.topo-full[open].wide {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.topo-full-keys {
-  margin: 0;
-  padding: 0 16px 12px;
-  background: #111;
-}
-
 dialog.topo-full {
   width: 100%;
   max-width: none;
@@ -5334,16 +5328,6 @@ g.topo-route.link:focus-visible .topo-halo {
   margin: 0;
 }
 
-.topo-edit-hint {
-  margin: 8px auto 0;
-  width: min(100%, max(280px, calc((100dvh - 250px) * var(--fit-aspect))));
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--brand-soft);
-  font-size: 0.875rem;
-}
-
-.topo-help,
 .topo-keys {
   border-radius: var(--radius-sm);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -5351,17 +5335,9 @@ g.topo-route.link:focus-visible .topo-halo {
   font-size: 0.875rem;
 }
 
-.topo-help summary,
 .topo-keys summary {
   cursor: pointer;
   font-weight: 600;
-}
-
-.topo-help ol {
-  margin: 8px 0 0;
-  padding-left: 1.25rem;
-  display: grid;
-  gap: 4px;
 }
 
 /* 快捷鍵清單（src/edit/KeyList.tsx）：一列一個按鈕，左邊名稱、右邊按鍵 */

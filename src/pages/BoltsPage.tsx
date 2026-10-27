@@ -205,16 +205,12 @@ function YearChart({ years, t }: { years: YearRow[]; t: Translate }) {
           )
         })}
       </svg>
-      <figcaption className="small" aria-live="polite">
-        {shown ? (
-          <>
-            <strong>{t('bolts.yearTotal', { year: shown.year, n: shown.total })}</strong>
-            {shown.total > 0 && <span className="muted"> {breakdown(shown.counts, t)}</span>}
-          </>
-        ) : (
-          <span className="muted">{t('bolts.tapHint')}</span>
-        )}
-      </figcaption>
+      {shown && (
+        <figcaption className="small" aria-live="polite">
+          <strong>{t('bolts.yearTotal', { year: shown.year, n: shown.total })}</strong>
+          {shown.total > 0 && <span className="muted"> {breakdown(shown.counts, t)}</span>}
+        </figcaption>
+      )}
     </figure>
   )
 }

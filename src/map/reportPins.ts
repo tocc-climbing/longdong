@@ -109,18 +109,6 @@ export async function writePins(entries: [string, StoredPin][]): Promise<number>
   return added
 }
 
-/**
- * 把已經上傳的回報（管理員才讀得到：v2/calibration、v2/anonReports）匯入去識別的副本；已經有的略過。
- * total 是這些回報去重後有幾筆，added 是新增了幾筆。
- */
-export async function importUploadedPins(raw: { signedIn: Record<string, Record<string, { geojson: string }>>; anon: Record<string, Record<string, { geojson: string }>> }): Promise<{ added: number; total: number }> {
-  const entries = new Map<string, StoredPin>()
-  for (const [owner, list] of [...Object.entries(raw.signedIn), ...Object.entries(raw.anon)]) {
-    for (const upload of Object.values(list)) for (const [key, pin] of await pinsFromGeoJSON(upload.geojson, owner)) entries.set(key, pin)
-  }
-  return { added: await writePins([...entries]), total: entries.size }
-}
-
 /** 資料庫裡的副本 → 回報；順序依代碼（固定，編號不會每次不同） */
 export function decodePins(stored: Record<string, StoredPin> | null | undefined): ReportPin[] {
   return Object.entries(stored ?? {})

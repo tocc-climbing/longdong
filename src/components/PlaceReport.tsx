@@ -113,7 +113,6 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
 
           <p className="map-question">
             {t('place.pick')}
-            <span className="muted small"> · {t('place.pickWhy')}</span>
           </p>
           <div className="place-report-map">
             {map.status === 'ok' && (

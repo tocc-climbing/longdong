@@ -80,7 +80,6 @@ export function ManualReportForm({
       }}
     >
       <p className="small muted">
-        {t('map.manualHint')}{' '}
         <button type="button" className="link-button" onClick={onRepick}>
           {t('map.repick')}
         </button>

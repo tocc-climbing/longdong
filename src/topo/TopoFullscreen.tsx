@@ -163,9 +163,7 @@ export function TopoFullscreen({
         {t('topo.openRoute')}
       </button>
     </>
-  ) : (
-    <span className="muted">{t('topo.pickHint')}</span>
-  )
+  ) : null
 
   return (
     <dialog ref={dialog} className={`topo-full${wide ? ' wide' : ''}`} onClose={onClose} aria-label={t('topo.title')}>
@@ -243,7 +241,6 @@ export function TopoFullscreen({
             ))}
           </ul>
           <div className="topo-full-info side">{info}</div>
-          <p className="topo-full-keys muted small">{t('topo.fullKeys')}</p>
         </aside>
       )}
     </dialog>
