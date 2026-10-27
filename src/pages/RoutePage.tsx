@@ -1,9 +1,8 @@
 import { BoltTable } from '../components/BoltTable'
-import { CommentsSection } from '../components/CommentsSection'
 import { GradePill } from '../components/GradePill'
 import { PersonalPanel } from '../components/PersonalPanel'
 import { PlaceReport } from '../components/PlaceReport'
-import { RatingSection } from '../components/RatingSection'
+import { ReviewsSection } from '../components/ReviewsSection'
 import { SafetyLight } from '../components/SafetyLight'
 import { ShareButton } from '../components/ShareButton'
 import { SignInPrompt } from '../components/SignInPrompt'
@@ -78,26 +77,11 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
 
       {!route.isFixture && <RouteStatus route={route} />}
 
-      {signedIn && !route.isFixture ? (
-        <PersonalPanel
-          route={route}
-          extra={
-            <>
-              <PlaceReport data={data} item={ref} />
-              <ShareButton item={ref} />
-            </>
-          }
-        />
-      ) : (
-        <div className="route-actions">
-          <div className="route-actions-more">
-            <PlaceReport data={data} item={ref} />
-            <ShareButton item={ref} />
-          </div>
-        </div>
-      )}
+      <PersonalPanel route={route} signedIn={signedIn} share={<ShareButton item={ref} />} report={<PlaceReport data={data} item={ref} />} />
 
       {!topoInList && <RouteTopos sector={sector} routeId={route.id} />}
+
+      <CommunityText target={textTarget.route(route.id)} original={route.description} title={t('route.info')} />
 
       {pitches.length > 1 && (
         <section className="route-block">
@@ -121,8 +105,6 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
           </ul>
         </section>
       )}
-
-      <CommunityText target={textTarget.route(route.id)} original={route.description} title={t('route.info')} />
 
       {more.length > 0 && (
         <details className="route-block route-more">
@@ -168,14 +150,8 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
         </details>
       )}
 
-      {!route.isFixture && (
-        <div id="rating" className="route-block">
-          <RatingSection routeId={route.id} />
-        </div>
-      )}
-
-      <div className="route-block">
-        <CommentsSection routeId={route.id} />
+      <div id="rating" className="route-block">
+        <ReviewsSection routeId={route.id} rateable={!route.isFixture} />
       </div>
 
       {!signedIn && cloudStatus !== 'loading' && (

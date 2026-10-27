@@ -418,6 +418,7 @@ export const ja: Messages = {
   'route.firstAscent': '初登',
   'route.pitches': 'ピッチ',
   'route.more': '詳細情報',
+  'route.actionsMore': 'その他',
   'route.info': 'ルート情報',
   'route.anchorHardware': '終了点の部品',
   'route.installedOn': '{date} 設置',
@@ -477,6 +478,9 @@ export const ja: Messages = {
   'feel.hard': '辛い',
 
   'comments.title': 'コメント',
+  'reviews.title': '評価とコメント',
+  'comments.all': 'すべての{n}件のコメントを表示',
+  'comments.menu': 'その他',
   'comments.offline': 'オフラインです。接続後に送信してください',
   'comments.sendError': '投稿できません（{error}）',
   'comments.confirmDelete': 'このコメントを削除しますか？',

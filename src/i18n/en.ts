@@ -414,6 +414,7 @@ export const en: Messages = {
   'route.firstAscent': 'First ascent',
   'route.pitches': 'Pitches',
   'route.more': 'More details',
+  'route.actionsMore': 'More',
   'route.info': 'Route info',
   'route.anchorHardware': 'Anchor hardware',
   'route.installedOn': 'installed {date}',
@@ -473,6 +474,9 @@ export const en: Messages = {
   'feel.hard': 'hard',
 
   'comments.title': 'Comments',
+  'reviews.title': 'Reviews',
+  'comments.all': 'Show all {n} comments',
+  'comments.menu': 'More',
   'comments.offline': 'No connection — send when you’re online',
   'comments.sendError': 'Couldn’t post ({error})',
   'comments.confirmDelete': 'Delete this comment?',

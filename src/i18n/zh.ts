@@ -412,6 +412,7 @@ export const zh = {
   'route.firstAscent': '首攀',
   'route.pitches': '繩距',
   'route.more': '更多資訊',
+  'route.actionsMore': '更多',
   'route.info': '路線資訊',
   'route.anchorHardware': 'Anchor 配件',
   'route.installedOn': '{date} 安裝',
@@ -471,6 +472,9 @@ export const zh = {
   'feel.hard': '偏硬',
 
   'comments.title': '留言',
+  'reviews.title': '評價與留言',
+  'comments.all': '顯示全部 {n} 則留言',
+  'comments.menu': '更多',
   'comments.offline': '沒有網路，連線後再送出',
   'comments.sendError': '無法送出（{error}）',
   'comments.confirmDelete': '刪除這則留言？',

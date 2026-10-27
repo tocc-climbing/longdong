@@ -3952,26 +3952,33 @@ main.map > div {
   font-weight: 900;
 }
 
-/* 記錄攀登（整行）；下一列等寬的收藏、回報位置、分享，都是圖示加文字 */
+/* 按鈕列：第一層是收藏、分享、更多；「更多」展開第二層（記錄攀登、回報位置）。等寬，圖示加文字 */
 .route-actions {
   display: grid;
   gap: 8px;
   margin-bottom: 6px;
 }
 
-.route-actions-more {
+.route-actions-main,
+.route-actions-sub {
   display: flex;
   gap: 8px;
 }
 
-.route-actions-more > * {
+.route-actions-main > *,
+.route-actions-sub > * {
   flex: 1 1 0;
   min-width: 0;
 }
 
-/* 分享只有圖示：窄一點，把寬度讓給有文字的兩顆 */
-.route-actions-more > .share {
+/* 分享只有圖示：窄一點，把寬度讓給有文字的 */
+.route-actions-main > .share {
   flex: 0 0 64px;
+}
+
+.route-more-toggle[aria-expanded='true'] {
+  background: var(--brand);
+  color: #fff;
 }
 
 .route-actions .share {
@@ -4055,13 +4062,7 @@ main.map > div {
   transform: rotate(-135deg);
 }
 
-/* ── 評分（手機版） ── */
-.rating-m h2,
-.comments-m h2 {
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-}
-
+/* ── 評價與留言（ReviewsSection） ── */
 .rating-m-summary {
   display: grid;
   grid-template-columns: 96px 1fr;
@@ -4146,20 +4147,6 @@ main.map > div {
   background: #d9662e;
 }
 
-.rating-m-mine {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.rating-m-mine .chips {
-  margin: 10px 0 0;
-  align-items: center;
-}
-
-/* ── 留言（手機版） ── */
 .comment-m-list {
   margin: 0;
   padding: 0;
@@ -4178,7 +4165,7 @@ main.map > div {
   overflow-wrap: anywhere;
 }
 
-.comment-m-list .avatar {
+.reviews .avatar {
   display: grid;
   place-items: center;
   width: 34px;
@@ -4200,9 +4187,90 @@ main.map > div {
   color: var(--faint);
 }
 
-.comment-m-meta .link-button {
+.comment-m-meta .comment-rated {
+  color: var(--star);
+  font-weight: 700;
+}
+
+.comment-menu {
+  position: relative;
   margin-left: auto;
-  font-size: 0.75rem;
+}
+
+.comment-menu-button {
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.comment-menu-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 96px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.15);
+  overflow: hidden;
+}
+
+.comment-menu-list button {
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.comment-more {
+  display: block;
+  margin: 6px auto 0;
+  padding: 8px 16px;
+  border: 0;
+  background: none;
+  color: var(--brand-dark);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 發表區：頭像在左，右邊是打分與一個輸入框 */
+.review-compose {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  margin: 14px 0 6px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.review-compose-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.review-rate {
+  display: grid;
+  gap: 4px;
+}
+
+.review-rate .chips {
+  align-items: center;
+}
+
+.review-compose .comment-m-form {
+  margin-top: 0;
 }
 
 .comment-m-form {
