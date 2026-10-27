@@ -111,7 +111,7 @@ describe('比例尺地圖資料', () => {
     expect(places.map((f) => f.properties.zh)).toEqual(expect.arrayContaining(['和美國小', '西靈巖寺', '往基隆、台北', '海巡署龍洞安檢所']))
     // 道路、步道、隧道的名稱沿著線排（kind: 'name'，標明是哪一個圖層的線）
     const names = points.filter((f) => f.properties.kind === 'name')
-    expect(names.map((f) => f.properties.zh)).toEqual(expect.arrayContaining(['龍洞街', '台二線濱海公路', '龍洞隧道', '鼻頭隧道', '黃金谷小徑']))
+    expect(names.map((f) => f.properties.zh)).toEqual(expect.arrayContaining(['龍洞街', '台二線濱海公路', '龍洞隧道', '黃金谷小徑']))
     for (const { properties: p } of names) expect(['highway', 'tunnel', 'road', 'trail']).toContain(p.line)
     for (const { properties: p } of [...places, ...names]) {
       expect([p.zh, p.en, p.ja].every(Boolean), `${p.zh} 要有中英日三種名稱`).toBe(true)

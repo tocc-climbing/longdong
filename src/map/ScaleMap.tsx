@@ -1,9 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
-import { BOUNDS, CRAG_X, EXTENT, inBounds, located } from './bounds'
+import { BOUNDS, EXTENT, inBounds, located } from './bounds'
 import { project, unproject, type LineName, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
-import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
+import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitRectView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
 import { placeLineNames } from './lineLabels'
 import { orthoLevel, orthoTiles } from './ortho'
 import { insideRing } from './reportOptions'
@@ -162,6 +162,8 @@ export interface MapLine {
   points: LatLng[]
   label?: string
   draft?: boolean
+  /** 正在畫多邊形：還沒閉環時，用半透明顯示暫時封閉的區域（3 點以上），最後一點到起點畫一條淡的虛線 */
+  closed?: boolean
   selected?: boolean
 }
 
@@ -223,6 +225,15 @@ function focusRect(focus: MapFocus, map: ScaleMapData): Rect | undefined {
   return { x: cx - w / 2, y: cy - h / 2, w, h }
 }
 
+/** 9 個大區域合起來的範圍（地圖座標）：一開始的畫面以它為準；沒有區域時用整個移動範圍 */
+function areasRect(map: ScaleMapData): Rect {
+  const xy = map.areas.flatMap((a) => a.rings.flat())
+  if (xy.length === 0) return BOUNDS
+  const xs = xy.map((p) => p[0])
+  const ys = xy.map((p) => p[1])
+  return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }
+}
+
 interface Props {
   map: ScaleMapData
   /** 大區域 key → 顯示名稱 */
@@ -264,7 +275,7 @@ interface Props {
 /**
  * 照比例尺的龍洞地圖：配色與救援資訊圖相同，操作像 Google 地圖：
  * 拖曳平移、雙指縮放與旋轉、滾輪縮放、雙擊放大；右上羅盤點一下回到北方朝上，右下回到我的位置。
- * 最多縮到範圍的上下填滿畫面，上下不露出範圍外的空白；一開始左右置中在岩場。
+ * 最多縮到範圍的上下填滿畫面，上下不露出範圍外的空白；一開始（沒有聚焦的對象時）縮放到剛好看到 9 個大區域、置中，上下各留 10%、左右各留 5%（寬螢幕、直立的 iPad 也置中，超出範圍的部分是和海同色的底圖）。
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
@@ -299,12 +310,15 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       setView((v) => {
         if (v) return clampView(v, BOUNDS, f)
         const target = latestFocus.current
-        return target ? focusView(target, BOUNDS, f) : fitView(BOUNDS, f, CRAG_X)
+        return target ? focusView(target, BOUNDS, f) : fitRectView(areasRect(latestMap.current), BOUNDS, f)
       })
     })
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  const latestMap = useRef(map)
+  latestMap.current = map
 
   // 聚焦：一開始（上面）與 key 改變時移過去
   const target = focus && focusRect(focus, map)
@@ -574,8 +588,11 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             const pts = l.points.map((q) => screen(project(q)))
             const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')
             const mid = pts[Math.floor(pts.length / 2)]
+            const preview = l.draft && l.closed && pts.length >= 3
             return (
               <g key={l.key} className={`sm-line${l.draft ? ' draft' : ''}${l.selected ? ' selected' : ''}`}>
+                {preview && <path className="sm-line-fill" d={`${d}Z`} />}
+                {preview && <path className="sm-line-close" d={`M${pts[pts.length - 1][0].toFixed(1)} ${pts[pts.length - 1][1].toFixed(1)}L${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`} />}
                 {pts.length > 1 && <path className="sm-line-casing" d={d} />}
                 {pts.length > 1 && <path className="sm-line-stroke" d={d} />}
                 {l.draft && pts.map(([x, y], i) => <circle key={i} className="sm-line-vertex" cx={x} cy={y} r={4} />)}

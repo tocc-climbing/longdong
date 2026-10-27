@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { t } from '../i18n'
-import { DB_URL, E2E, routeKey, type Comment, type Profile, type Rating } from './model'
+import { dbUrl, routeKey, type Comment, type Profile, type Rating } from './model'
 
 /**
  * 公開資料用 Realtime Database 的 REST API 讀取（純 fetch，不需要 Firebase SDK），
@@ -36,7 +36,7 @@ export function useSocial(): SocialState {
 }
 
 export async function get<T>(path: string): Promise<T | null> {
-  const res = await fetch(`${DB_URL}/${path}.json${E2E ? '?ns=longdong' : ''}`)
+  const res = await fetch(dbUrl(path))
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return (await res.json()) as T | null
 }

@@ -111,6 +111,24 @@
           }
         }
       },
+      "reportPins": {
+        ".read": "auth != null",
+        "$key": {
+          ".write": "(!data.exists() && newData.exists()) || (data.exists() && !newData.exists() && (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))))",
+          ".validate": "$key.matches(/^[0-9a-f]{32}$/) && newData.hasChildren(['lat', 'lng'])",
+          "lat": { ".validate": "newData.isNumber() && newData.val() >= 25.08 && newData.val() <= 25.14" },
+          "lng": { ".validate": "newData.isNumber() && newData.val() >= 121.89 && newData.val() <= 121.95" },
+          "note": { ".validate": "newData.isString() && newData.val().length <= 300" },
+          "accuracy": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+          "picked": { ".validate": "newData.isString() && newData.val().matches(/^25\\.[0-9]{6},121\\.[0-9]{6}$/)" },
+          "manual": { ".validate": "newData.val() === true" },
+          "kind": { ".validate": "newData.val() === 'start' || newData.val() === 'rest' || newData.val() === 'top' || newData.val() === 'base'" },
+          "area": { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "sector": { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "route": { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "$other": { ".validate": false }
+        }
+      },
       "anonReports": {
         ".read": "auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))",
         "$device": {

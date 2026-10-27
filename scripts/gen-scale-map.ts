@@ -828,6 +828,8 @@ function clipToPage(points: Pt[]): Pt[][] {
   return pieces
 }
 const lines = (list: Shape[], transform = warp) => list.flatMap((s) => s.subpaths.filter((p) => p.length >= 2).flatMap(clipToPage).map((p) => line(p, SIMPLIFY_M, transform)))
+/** [經度, 緯度] 在不在地圖資料範圍裡（src/map/extent.ts） */
+const inExtentBox = ([x, y]: Pt) => x >= EXTENT_LATLNG.west && x <= EXTENT_LATLNG.east && y >= EXTENT_LATLNG.south && y <= EXTENT_LATLNG.north
 /** 頁框外補上的 OpenStreetMap 資料（見下方 outerLand 等；停車場的範圍也用它） */
 const osmExtent = JSON.parse(readFileSync(new URL('./data/osm-extent.json', import.meta.url), 'utf8')) as Record<'coastline' | 'building' | 'highway' | 'road' | 'trail' | 'parking', Pt[][]>
 /**
@@ -879,7 +881,7 @@ const parkingLots = parking.map((center, i) => {
  * 其他 OSM 停車場（頁框外）只畫範圍，不畫 P 字。
  */
 const PARKING_MATCH_M = 15
-const osmParking = osmExtent.parking.map((r) => r.map(toMeters))
+const osmParking = osmExtent.parking.filter((r) => r.some(([lat, lng]) => inExtentBox([lng, lat]))).map((r) => r.map(toMeters))
 const centroidOf = (r: Pt[]): Pt => [r.reduce((sum, p) => sum + p[0], 0) / r.length, r.reduce((sum, p) => sum + p[1], 0) / r.length]
 const matchedParking = new Set<number>()
 const parkingShapes = parkingLots.map((lot) => {
@@ -975,8 +977,8 @@ const emsPoints = emsTips.map((tip, i): Pt => {
 })
 
 /**
- * 往北延伸到鼻頭隧道（救援資訊圖只畫到龍洞街口，台二線在地圖中間斷掉看起來很奇怪）：
- * 台二線接上 OSM 的龍洞街 → 鼻頭隧道 → 鼻頭路（osm-reference.json 的 bitou）；陸地以 OSM 海岸線補上龍洞灣西岸到鼻頭這一段。
+ * 往北延伸（救援資訊圖只畫到龍洞街口，台二線在地圖中間斷掉看起來很奇怪）：
+ * 台二線在龍洞街口接上 OSM 的台二線（osm-reference.json 的 bitou），只畫到資料範圍；鼻頭隧道在範圍外，不畫。
  */
 const lngLat = ([lat, lng]: Pt): Pt => [+lng.toFixed(6), +lat.toFixed(6)]
 const bitouStart = lngLat(osmReference.bitou.road[0])
@@ -994,11 +996,20 @@ const highwayLines = (() => {
   return all.map((x, i) => (i === hit.li ? kept : x))
 })()
 const joinFrom = highwayLines.flat().reduce((a, b) => (Math.hypot(b[0] - bitouStart[0], b[1] - bitouStart[1]) < Math.hypot(a[0] - bitouStart[0], a[1] - bitouStart[1]) ? b : a))
-const bitouRoads = [
-  [joinFrom, ...osmReference.bitou.road.map(lngLat)],
-  osmReference.bitou.beyond.map(lngLat),
-]
-const bitouTunnel = osmReference.bitou.tunnel.map(lngLat)
+/** 延伸的路段：不用頁框切開（接頭在頁框附近，切了會在接頭留下缺口），只留資料範圍裡的（鼻頭隧道在範圍外，不畫） */
+const bitouRoad = (() => {
+  const out: Pt[][] = []
+  let run: Pt[] = []
+  for (const p of [joinFrom, ...osmReference.bitou.road.map(lngLat)]) {
+    if (inExtentBox(p)) run.push(p)
+    else {
+      if (run.length > 1) out.push(run)
+      run = []
+    }
+  }
+  if (run.length > 1) out.push(run)
+  return out
+})()
 /**
  * 救援資訊圖沒有畫到的地方（到地圖資料範圍 src/map/extent.ts）用 OpenStreetMap 補上：陸地、建物、台二線、其他道路、步道
  * （scripts/data/osm-extent.json，scripts/fetch-osm-extent.ts 下載）。
@@ -1027,24 +1038,23 @@ const OUTER_STEP_M = 2
 /** 被頁框切斷、比這個短（公尺）的小段不要：頁框附近救援資訊圖已經畫了同一條路，只剩一小截看起來像斷掉的線頭 */
 const OUTER_MIN_CUT_M = 60
 /** 線（[經度, 緯度]）切成頁面外（keepInside 時頁面內）的各段：先每 OUTER_STEP_M 一點，跨過頁框的地方斷開 */
-function splitByPage(line: Pt[], keepInside: boolean, bridgeStart = false): Pt[][] {
+function splitByPage(line: Pt[], keepInside: boolean): Pt[][] {
   const pts = densify(line.map(lngLatToMeters), OUTER_STEP_M)
-  const out: { run: Pt[]; from: number }[] = []
+  const out: Pt[][] = []
   let run: Pt[] = []
-  /** end：這一段之後第一個點的位置（這一段是 pts[end - run.length, end)） */
-  const flush = (end: number) => {
+  const flush = () => {
     const cut = run.length < pts.length
-    if (run.length > 1 && (!cut || (run.length - 1) * OUTER_STEP_M >= OUTER_MIN_CUT_M)) out.push({ run, from: end - run.length })
+    if (run.length > 1 && (!cut || (run.length - 1) * OUTER_STEP_M >= OUTER_MIN_CUT_M)) out.push(run)
     run = []
   }
-  for (const [i, p] of pts.entries()) {
-    if (inPage(metersToLngLat(p)) === keepInside) run.push(p)
-    else flush(i)
+  for (const p of pts) {
+    const at = metersToLngLat(p)
+    // 頁框外的線也只留資料範圍裡的
+    if (inPage(at) === keepInside && (keepInside || inExtentBox(at))) run.push(p)
+    else flush()
   }
-  flush(pts.length)
-  // bridgeStart：線的起點是接上另一條線的地方，起點到第一段之間（沿著頁框、進出頁面的幾十公尺）也要保留，不然接點會斷開
-  const runs = out.map(({ run, from }, i) => (bridgeStart && i === 0 ? [...pts.slice(0, from + 1), ...run] : run))
-  return runs.map((l) => simplify(l, OUTER_SIMPLIFY_M).map(metersToLngLat))
+  flush()
+  return out.map((l) => simplify(l, OUTER_SIMPLIFY_M).map(metersToLngLat))
 }
 const outerLines = (list: Pt[][]) => list.flatMap((l) => splitByPage(l.map(lngLat), false))
 const extentBox = { west: EXTENT_LATLNG.west, south: EXTENT_LATLNG.south, east: EXTENT_LATLNG.east, north: EXTENT_LATLNG.north }
@@ -1070,8 +1080,8 @@ const scaleMap = {
     feature({ kind: 'outerTrail' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.trail) }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
     // 往鼻頭的延伸只留頁面內的部分，頁面外是 outerHighway（同樣是 OSM 的台二線）
-    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoads.flatMap((l, i) => splitByPage(l, true, i === 0))] }),
-    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: [...lines(highways.filter((s) => s.dashed), roadWarp), bitouTunnel] }),
+    feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoad] }),
+    feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed), roadWarp) }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads, roadWarp) }),
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: [...parkingShapes.flat(), ...otherParking].map((r) => [r.map(metersToLngLat)]) }),
@@ -1081,8 +1091,6 @@ const scaleMap = {
       const properties = { kind: line ? 'name' : 'place', zh, en, ja, tone, ...(line ? { line } : {}) }
       return gps ? feature(properties, { type: 'Point', coordinates: [gps[1], gps[0]] }) : point(properties, at)
     }),
-    // 鼻頭隧道不在救援資訊圖上：名稱的錨點是 OSM 隧道的中點
-    feature({ kind: 'name', zh: '鼻頭隧道', en: 'Bitou Tunnel', ja: '鼻頭トンネル', tone: 'road', line: 'tunnel' }, { type: 'Point', coordinates: bitouTunnel[Math.floor(bitouTunnel.length / 2)] }),
     ...HAZARDS.map((at) => point({ kind: 'hazard' }, at)),
     ...boats.map((at) => point({ kind: 'boat' }, at)),
     ...hoists.map((at) => point({ kind: 'hoist' }, at)),

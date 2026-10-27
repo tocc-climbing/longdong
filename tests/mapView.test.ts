@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, focusView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/map/mapView'
+import { project, unproject } from '../src/map/mapData'
+import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitView, fitRectView, focusView, maxScale, panBy, rotateAt, toMap, toScreen, zoomAt } from '../src/map/mapView'
 
 const bounds = { x: 0, y: 0, w: 1000, h: 2000 }
 const frame = { w: 400, h: 400 }
@@ -43,19 +44,21 @@ describe('比例尺地圖的平移、縮放與旋轉', () => {
     // 每像素 1 公尺時畫面高 400 公尺：中心最多到範圍上緣往下 200 公尺
     expect(clampView({ cx: 500, cy: -50, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 200, s: 1, r: 0 })
     expect(clampView({ cx: 500, cy: 5000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 500, cy: 1800, s: 1, r: 0 })
-    // 縮到最小時上下剛好填滿，中心固定在範圍中間；框比範圍寬時左右也置中
-    expect(fitView(bounds, wide, 900)).toEqual({ cx: 500, cy: 1000, s: 5, r: 0 })
-    // 左右拖曳時畫面左右緣也不超出範圍：每像素 1 公尺時畫面寬 800 公尺
-    expect(clampView({ cx: 5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 600, cy: 1000, s: 1, r: 0 })
+    // 縮到最小時上下剛好填滿，中心固定在範圍中間
+    expect(fitView(bounds, wide, 900)).toEqual({ cx: 900, cy: 1000, s: 5, r: 0 })
+    // 西邊的邊緣也不超出範圍（每像素 1 公尺時畫面寬 800 公尺，中心最多到西邊往東 400 公尺）；東邊只限制中心在範圍內
     expect(clampView({ cx: -5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 400, cy: 1000, s: 1, r: 0 })
-    // 框窄時（手機直拿）縮到最小仍可以左右拖曳到範圍邊緣
-    expect(fitView(bounds, { w: 100, h: 400 }, 600)).toEqual({ cx: 600, cy: 1000, s: 5, r: 0 })
+    expect(clampView({ cx: 5000, cy: 1000, s: 1, r: 0 }, bounds, wide)).toEqual({ cx: 1000, cy: 1000, s: 1, r: 0 })
   })
 
   it('縮放與平移都限制在範圍內', () => {
     expect(clampScale(0.01, bounds, frame)).toBe(MIN_SCALE)
     expect(clampScale(100, bounds, frame)).toBe(maxScale(bounds, frame))
-    expect(clampView({ cx: -50, cy: 5000, s: 1, r: 0.5 }, bounds, frame)).toEqual({ cx: 0, cy: 2000, s: 1, r: 0.5 })
+    // 旋轉後用畫面外接的矩形限制：旋轉 0.5 弧度時外接的半邊長約 271 公尺
+    const v = clampView({ cx: -50, cy: 5000, s: 1, r: 0.5 }, bounds, frame)
+    expect(v.cx).toBeCloseTo(271.4, 0)
+    expect(v.cy).toBeCloseTo(2000 - 271.4, 0)
+    expect(v.r).toBe(0.5)
   })
 })
 
@@ -81,6 +84,28 @@ describe('聚焦（區域、救援點）', () => {
   })
 })
 
+describe('一開始的畫面', () => {
+  const area = { x: 200, y: 600, w: 300, h: 800 }
+  const wide = { x: -1000, y: 0, w: 3000, h: 2000 }
+  it('目標置中，上下各留 10%', () => {
+    const v = fitRectView(area, wide, { w: 800, h: 500 })
+    expect(v.cx).toBe(350)
+    expect(v.cy).toBe(1000)
+    // 目標高 800 公尺佔框高的 80%：每像素 2 公尺
+    expect(v.s).toBe(2)
+    expect(v.r).toBe(0)
+  })
+
+  it('框太窄時以寬度為準（左右各留 5%）', () => {
+    const v = fitRectView(area, wide, { w: 200, h: 800 })
+    expect(v.s).toBeCloseTo(300 / (200 * 0.9))
+  })
+
+  it('不超出範圍：目標比範圍小時最多縮到範圍', () => {
+    expect(fitRectView({ x: 0, y: 0, w: 1000, h: 2000 }, bounds, { w: 800, h: 500 }).s).toBe(maxScale(bounds, { w: 800, h: 500 }))
+  })
+})
+
 describe('虛線長度', () => {
   it('只取 2 的次方：小幅縮放時不變（虛線不會沿路線滑動），跨過級距才換', () => {
     expect(dashLength(3, 1)).toBe(4)
@@ -97,12 +122,25 @@ describe('地圖範圍', () => {
     expect(inMapBounds([25.0478, 121.517])).toBe(false)
   })
 
-  it('資料範圍：移動範圍東西各多 1.4 公里以上、南北各多 0.9 公里以上；畫面最寬就是資料範圍的寬', async () => {
+  it('資料範圍：移動範圍四周各多 300 公尺以上（北邊停在鼻頭隧道以南）；畫面最寬就是資料範圍的寬', async () => {
     const { BOUNDS, EXTENT } = await import('../src/map/bounds')
-    expect(BOUNDS.x - EXTENT.x).toBeGreaterThan(1400)
-    expect(EXTENT.x + EXTENT.w - (BOUNDS.x + BOUNDS.w)).toBeGreaterThan(1400)
-    expect(BOUNDS.y - EXTENT.y).toBeGreaterThan(900)
-    expect(EXTENT.y + EXTENT.h - (BOUNDS.y + BOUNDS.h)).toBeGreaterThan(900)
+    expect(BOUNDS.x - EXTENT.x).toBeGreaterThan(300)
+    expect(EXTENT.x + EXTENT.w - (BOUNDS.x + BOUNDS.w)).toBeGreaterThan(300)
+    expect(BOUNDS.y - EXTENT.y).toBeGreaterThan(300)
+    expect(EXTENT.y + EXTENT.h - (BOUNDS.y + BOUNDS.h)).toBeGreaterThan(300)
+    // 範圍的北邊在鼻頭隧道（北緯 25.1191）以南
+    expect(unproject([0, EXTENT.y])[0]).toBeLessThan(25.1191)
+  })
+
+  it('龍洞街與台二線的路口（121.9121）在移動範圍的西邊之內，西邊只多一點點', async () => {
+    const { BOUNDS } = await import('../src/map/bounds')
+    const x = project([25.1126, 121.9121])[0]
+    expect(x).toBeGreaterThan(BOUNDS.x)
+    expect(x - BOUNDS.x).toBeLessThan(150)
+  })
+
+  it('畫面最寬就是資料範圍的寬', async () => {
+    const { BOUNDS, EXTENT } = await import('../src/map/bounds')
     expect(BOUNDS.maxW).toBe(EXTENT.w)
   })
 

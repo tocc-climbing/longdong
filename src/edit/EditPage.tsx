@@ -2,17 +2,19 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useIsAdmin } from '../admin'
 import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
-import { LOCALES, useLang } from '../i18n'
+import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 import { useWide } from '../layout'
 import { useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
 import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useWalls } from '../map/walls'
+import { useReportPins } from './useReportPins'
 import { useCloud, withCloud } from '../personal/sync'
 import { href, navigate, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { useTopoState } from '../topo/store'
 import { TopoEditor } from '../topo/TopoEditor'
+import { MERGE_RADIUS_M, type PinGroup } from '../map/reportPins'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
 import { LatestEdits } from './LatestEdits'
@@ -252,6 +254,56 @@ function NeedSignIn() {
   return <SignInPrompt message={t('edit.signIn')} />
 }
 
+/**
+ * 這個區域的回報（修改地圖時當參考）：同一個點附近的合併成一個，標出有幾筆、相同的說明各幾筆；編號對應地圖上的圓點；
+ * 只有位置與說明，不顯示是誰、什麼時候回報的。
+ */
+function ReportPins({ pins, data, on, onPick }: { pins: PinGroup[]; data: LoadedData; on?: string; onPick: (id?: string) => void }) {
+  const { lang, t } = useLang()
+  if (pins.length === 0) return null
+  const where = (p: PinGroup) =>
+    p.targets
+      .map((target) => {
+        const route = target.routeId ? data.routeById.get(target.routeId)?.route : undefined
+        const sector = data.sectorById.get(target.sectorId)?.sector
+        return [t(`place.kind.${target.kind}` as MessageKey), route ? localName(route.name, lang).main : sector ? localName(sector.name, lang).main : undefined].filter(Boolean).join(' · ')
+      })
+      .join('、')
+  return (
+    <>
+      <h2>{t('edit.pins', { n: pins.reduce((sum, p) => sum + p.count, 0), places: pins.length })}</h2>
+      <p className="muted small">{t('edit.pinsTip', { m: MERGE_RADIUS_M })}</p>
+      <ol className="edit-pins">
+        {pins.map((p) => (
+          <li key={p.id} className={p.id === on ? 'on' : undefined}>
+            <button type="button" onClick={() => onPick(p.id === on ? undefined : p.id)} aria-pressed={p.id === on}>
+              <b>{Number(p.id) + 1}</b>
+              <span>
+                {where(p) && <span className="edit-pin-where">{where(p)}</span>}
+                {p.notes.map((n) => (
+                  <span key={n.text}>
+                    {n.text}
+                    {n.count > 1 && <span className="edit-pin-count"> ×{n.count}</span>}
+                  </span>
+                ))}
+                {p.blank > 0 && (
+                  <span className="muted">
+                    {t('edit.pinNoNote')}
+                    {p.blank > 1 && <span className="edit-pin-count"> ×{p.blank}</span>}
+                  </span>
+                )}
+                <span className="muted small">
+                  {t('edit.pinCount', { n: p.count })} · {p.manual ? t('edit.pinManual') : p.accuracy !== undefined ? t('edit.pinGps', { m: p.accuracy }) : ''}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </>
+  )
+}
+
 type ItemProps = { item: EditItem; data: LoadedData; onToast: (text: string) => void; onDirty: (dirty: boolean) => void }
 
 /** 是不是在輸入框裡打字（快捷鍵不處理） */
@@ -305,6 +357,9 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
   useEffect(() => onDirty(m.dirty), [m.dirty])
   const isWall = target.startsWith('wall:')
   const sector = target.startsWith('sector:') || isWall ? sectorOf(target) : undefined
+  // 範圍、岩壁（不含步道）：這個區域的回報位置與說明畫在地圖上當參考（不顯示是誰、什麼時候）
+  const pins = useReportPins(m.closed || isWall ? { target, data, map: map.status === 'ok' ? map.data : undefined } : undefined)
+  const [pinOn, setPinOn] = useState<string>()
   /** 改分區範圍時，這個分區的岩壁畫在地圖上當參考 */
   const referenceWalls =
     sector && !isWall ? (shapes.walls[sector] ?? legacyWalls.filter((w) => w.sector === sector).map((w) => w.points)).map((points, i) => ({ key: `wall-${i}`, points })) : []
@@ -400,7 +455,7 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
             <ScaleMap
               map={map.data}
               areaNames={{}}
-              marks={[]}
+              marks={pins.map((p) => ({ at: p.at, picked: p.picked, label: String(Number(p.id) + 1), selected: p.id === pinOn }))}
               ortho={ortho}
               hideAreas={isLineTarget(target)}
               edit={m.edit}
@@ -417,7 +472,8 @@ function MapEditor({ item, data, onToast, onDirty, target, parts }: ItemProps & 
         <h2>{item.label}</h2>
         <p className="muted small">{t(m.closed ? 'edit.mapTip' : isWall ? 'edit.wallTip' : 'edit.trailTip')}</p>
         <NeedSignIn />
-        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(ids) => void deleteVersions(ids).then(m.actions.reload)} />
+        <ReportPins pins={pins} data={data} on={pinOn} onPick={setPinOn} />
+        <VersionList versions={m.versions} empty={t(isWall ? 'edit.wallNoVersions' : 'shape.noVersions')} onDelete={(ids) => void deleteVersions(ids)} />
         <h2>{t('edit.shortcuts')}</h2>
         <dl className="edit-keys">
           {(
@@ -558,6 +614,13 @@ function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
           </div>
         )}
         <p className="muted small">{t('edit.topoTip')}</p>
+        {/* 新增這個分區的另一張 Topo 照片（舊照片的提示裡已經有按鈕；目錄裡每個分區底下也有同樣的按鈕） */}
+        {!old && photo && signedIn && (
+          <>
+            <p className="muted small">{t('edit.topoAddHint')}</p>
+            <UploadButton sector={photo.sector} />
+          </>
+        )}
       </aside>
     </>
   )

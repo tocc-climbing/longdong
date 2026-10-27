@@ -25,7 +25,13 @@ const setCloud = (status: string, connected: boolean) => {
   Object.assign(cloud, { status, connected })
   cloudListeners.forEach((l) => l())
 }
+// 上傳後還要算去識別副本的代碼（雜湊是非同步的），多等一下
 const tick = () => new Promise((r) => setTimeout(r, 0))
+/** 上傳（含副本）做完：不再排隊，已上傳的筆數是 n */
+const uploaded = (n: number) => vi.waitFor(() => expect(JSON.parse(store.get('longdong.calibration')!)).toMatchObject({ queued: false, uploaded: { marks: n } }))
+/** 回報本身的上傳（沒登入的）與去識別副本的上傳分開看 */
+const anonUploads = () => anonFetch.mock.calls.filter(([url]) => url.includes('/v2/anonReports/'))
+const pinWrites = () => anonFetch.mock.calls.filter(([url]) => url.includes('/v2/reportPins/'))
 const mark = (note: string) => ({ coords: [25.11, 121.92] as [number, number], accuracy: 5, time: 0, note })
 
 describe('回報在背景上傳（不必停在地圖頁）', () => {
@@ -50,10 +56,16 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
     expect(JSON.parse(store.get('longdong.calibration')!).queued).toBe(true)
 
     setCloud('signed-in', true)
-    await tick()
+    await uploaded(1)
     expect(upload).toHaveBeenCalledTimes(1)
-    expect(anonFetch).not.toHaveBeenCalled()
+    expect(anonUploads()).toHaveLength(0)
     expect(JSON.parse(upload.mock.calls[0][1]).features).toHaveLength(1)
+    // 另外存一份去識別的副本：位置與說明，沒有帳號、時間
+    expect(pinWrites()).toHaveLength(1)
+    const [pinUrl, pinInit] = pinWrites()[0]
+    expect(pinUrl).toMatch(/\/v2\/reportPins\/[0-9a-f]{32}\.json$/)
+    expect(pinInit.method).toBe('PUT')
+    expect(JSON.parse(pinInit.body as string)).toEqual({ lat: 25.11, lng: 121.92, note: '鐘塔', accuracy: 5 })
     expect(JSON.parse(store.get('longdong.calibration')!)).toMatchObject({ queued: false, uploaded: { marks: 1 } })
   })
 
@@ -62,11 +74,11 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
     c.startCalibrationSync()
     setCloud('signed-out', false)
     c.addMark(mark('鐘塔'))
-    await tick()
-    await tick()
+    await uploaded(1)
     expect(upload).not.toHaveBeenCalled()
-    expect(anonFetch).toHaveBeenCalledTimes(1)
-    const [url, init] = anonFetch.mock.calls[0]
+    expect(anonUploads()).toHaveLength(1)
+    expect(pinWrites()).toHaveLength(1)
+    const [url, init] = anonUploads()[0]
     const device = store.get('longdong.device')!
     expect(url).toBe(`https://longdong.firebaseio.com/v2/anonReports/${device}.json`)
     expect(init.method).toBe('POST')
@@ -76,9 +88,11 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
     expect(JSON.parse(store.get('longdong.calibration')!)).toMatchObject({ queued: false, uploaded: { marks: 1 } })
 
     c.addMark(mark('第二洞'))
-    await tick()
-    await tick()
-    expect(anonFetch.mock.calls[1][0]).toBe(url)
+    await uploaded(2)
+    expect(anonUploads()[1][0]).toBe(url)
+    // 副本只送新增的那一筆
+    expect(pinWrites()).toHaveLength(2)
+    expect(JSON.parse(pinWrites()[1][1].body as string).note).toBe('第二洞')
   })
 
   it('沒登入又沒網路時排隊，連上網路後上傳', async () => {
@@ -94,9 +108,8 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
 
     net.onLine = true
     online()
-    await tick()
-    await tick()
-    expect(anonFetch).toHaveBeenCalledTimes(1)
+    await uploaded(1)
+    expect(anonUploads()).toHaveLength(1)
   })
 
   it('上傳途中又新增的記錄，接著再上傳一次', async () => {
@@ -109,8 +122,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
     await tick()
     c.addMark(mark('第二筆'))
     release()
-    await tick()
-    await tick()
+    await uploaded(2)
     expect(upload).toHaveBeenCalledTimes(2)
     expect(JSON.parse(upload.mock.calls[1][1]).features).toHaveLength(2)
   })
@@ -129,7 +141,7 @@ describe('回報在背景上傳（不必停在地圖頁）', () => {
     expect(events).toEqual(['failed'])
 
     setCloud('signed-in', true)
-    await tick()
+    await uploaded(1)
     expect(upload).toHaveBeenCalledTimes(2)
     expect(events).toEqual(['failed', 'sent'])
   })

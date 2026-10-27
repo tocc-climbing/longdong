@@ -11,6 +11,9 @@ export const E2E = import.meta.env.MODE === 'e2e'
 
 export const DB_URL = E2E ? 'http://127.0.0.1:9000' : 'https://longdong.firebaseio.com'
 
+/** 資料庫 REST 的網址（模擬器要指定資料庫實例） */
+export const dbUrl = (path: string) => `${DB_URL}/${path}.json${E2E ? '?ns=longdong' : ''}`
+
 /** Realtime Database 的 key 不能含 "/" "."：longdong/328ac2 → longdong:328ac2 */
 export function routeKey(routeId: string): string {
   return routeId.replace(/\//g, ':').replace(/\./g, ',')

@@ -44,6 +44,8 @@ jobs:
           has() { [ "$files" = ALL ] || echo "$files" | grep -qE "$1"; }
           # 資料庫規則測試：規則、規則測試，或讀寫資料庫的程式
           if has '^(firebase/|firebase\.json|tests/rules/|src/personal/|src/social/|src/map/calibration|package(-lock)?\.json)'; then echo rules=true; else echo rules=false; fi >> "$GITHUB_OUTPUT"
+          # 端對端測試（Firebase 模擬器上登入、回報、修改地圖與 Topo、管理頁）：畫面、讀寫資料庫的程式、規則、測試本身
+          if has '^(src/|firebase/|firebase\.e2e\.json|scripts/e2e-|public/(data|rescue)/|package(-lock)?\.json|vite\.config)'; then echo e2e=true; else echo e2e=false; fi >> "$GITHUB_OUTPUT"
           # 文字溢出檢查：畫面、文字、路線資料（新的長名稱）
           if has '^(src/|public/|index\.html|vite\.config|scripts/check-text-overflow|package(-lock)?\.json)'; then echo text=true; else echo text=false; fi >> "$GITHUB_OUTPUT"
 
@@ -51,8 +53,8 @@ jobs:
 
       - run: npm test
 
-      # 資料庫規則測試：Database 模擬器需要 Java
-      - if: steps.changed.outputs.rules == 'true'
+      # 資料庫規則測試、端對端測試：Database 模擬器需要 Java
+      - if: steps.changed.outputs.rules == 'true' || steps.changed.outputs.e2e == 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -60,6 +62,12 @@ jobs:
 
       - if: steps.changed.outputs.rules == 'true'
         run: npm run test:rules
+
+      # 端對端測試：真的打開 App（用 runner 內建的 Chrome），在模擬器上登入、操作，檢查資料庫與畫面
+      - if: steps.changed.outputs.e2e == 'true'
+        run: npm run test:e2e
+        env:
+          BROWSER_CHANNEL: chrome
 
       # 分享圖片的字型（scripts/lib/ogImage.ts）
       - run: bash scripts/install-og-fonts.sh
