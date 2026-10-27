@@ -1,5 +1,5 @@
 import type { LatLng } from '../geo'
-import { BOUNDS, EXTENT, ROCK_AREA } from './bounds'
+import { BOUNDS, EXTENT, located } from './bounds'
 import { project, unproject } from './mapData'
 import { toMap, type MapView, type Size } from './mapView'
 
@@ -19,8 +19,8 @@ const BASE_Z = 16
 const EARTH_M = 2 * Math.PI * 6_378_137
 /** Service Worker 快取航照圖磚的 cache 名稱（同 vite.config.ts） */
 export const ORTHO_CACHE = 'ortho'
-/** 離線下載的大小（2026-10-26 抽樣估計：673 張，平均 13.3 KB） */
-export const ORTHO_DOWNLOAD_MB = 9
+/** 離線下載的大小（2026-10-27：336 張，抽樣 60 張平均 14.6 KB 約 4.9 MB，進位成 5；改圖磚範圍時 tests/ortho.test.ts 會提醒更新） */
+export const ORTHO_DOWNLOAD_MB = 5
 /** 下載整個範圍時同時抓幾張 */
 const DOWNLOAD_PARALLEL = 6
 
@@ -86,16 +86,36 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLev
 }
 
 /**
- * 離線下載的層級：救援點周圍（ROCK_AREA）到最清楚的 MAX_Z；移動範圍（BOUNDS，多了西邊到龍洞街口）最細 ROAD_MAX_Z；
- * 資料範圍（EXTENT）的外圈最細 OUTER_MAX_Z（外圈放大看的機會少）。
+ * 離線下載的層級（越細的越只下載用得到的地方）：
+ *   最清楚的 MAX_Z：只有 9 個區域的範圍與救援點附近（外加周圍 FINE_MARGIN_TILES 張）——其他地方（山、海）放大到這麼細很少用
+ *   移動範圍（BOUNDS，到龍洞街口）：到 BOUNDS_MAX_Z，看得清楚路與建物
+ *   資料範圍（EXTENT）的外圈：到 OUTER_MAX_Z，縮到最小再旋轉時露出的部分
  */
-const ROAD_MAX_Z = 18
-const OUTER_MAX_Z = 17
+const BOUNDS_MAX_Z = 18
+const OUTER_MAX_Z = 16
+const FINE_MARGIN_TILES = 1
+/** 取樣區域邊緣的間距（公尺）：小於一張最清楚的圖磚（約 69 公尺）的一半 */
+const FINE_SAMPLE_M = 15
 
-/** 離線下載的圖磚：救援點周圍 MIN_Z–MAX_Z、移動範圍 MIN_Z–ROAD_MAX_Z、資料範圍 MIN_Z–OUTER_MAX_Z */
-export function orthoDownloadUrls(): string[] {
+/** 9 個區域的範圍與救援點的取樣點（地圖座標）：最清楚的圖磚只下載這些點所在的圖磚與周圍一圈 */
+function finePoints(areas: { rings: [number, number][][] }[]): [number, number][] {
+  const out: [number, number][] = located.map((p) => p.at)
+  for (const { rings } of areas) {
+    for (const ring of rings) {
+      for (let i = 1; i < ring.length; i++) {
+        const [a, b] = [ring[i - 1], ring[i]]
+        const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / FINE_SAMPLE_M))
+        for (let k = 0; k <= n; k++) out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n])
+      }
+    }
+  }
+  return out
+}
+
+/** 離線下載的圖磚網址：areas 是地圖上 9 個區域（map.areas），決定哪裡下載最清楚的層級 */
+export function orthoDownloadUrls(areas: { rings: [number, number][][] }[]): string[] {
   const urls = new Set<string>()
-  const add = (r: typeof BOUNDS, maxZ: number) => {
+  const addRect = (r: typeof BOUNDS, maxZ: number) => {
     const [nw, se] = [unproject([r.x, r.y]), unproject([r.x + r.w, r.y + r.h])]
     for (let z = MIN_Z; z <= maxZ; z++) {
       const n = 2 ** z
@@ -104,28 +124,34 @@ export function orthoDownloadUrls(): string[] {
       }
     }
   }
-  add(EXTENT, OUTER_MAX_Z)
-  add(BOUNDS, ROAD_MAX_Z)
-  add(ROCK_AREA, MAX_Z)
+  addRect(EXTENT, OUTER_MAX_Z)
+  addRect(BOUNDS, BOUNDS_MAX_Z)
+  const n = 2 ** MAX_Z
+  for (const p of finePoints(areas)) {
+    const [lat, lng] = unproject(p)
+    const [x, y] = [Math.floor(tileX(lng, n)), Math.floor(tileY(lat, n))]
+    for (let dx = -FINE_MARGIN_TILES; dx <= FINE_MARGIN_TILES; dx++) {
+      for (let dy = -FINE_MARGIN_TILES; dy <= FINE_MARGIN_TILES; dy++) urls.add(tileUrl(MAX_Z, x + dx, y + dy))
+    }
+  }
   return [...urls]
 }
 
-/** 離線快取裡已經有幾張（整個範圍的圖磚中） */
-export async function cachedOrthoCount(): Promise<number> {
+/** 離線快取裡已經有幾張（urls 是 orthoDownloadUrls 的結果） */
+export async function cachedOrthoCount(urls: string[]): Promise<number> {
   if (!('caches' in window)) return 0
   const cache = await caches.open(ORTHO_CACHE)
   const have = new Set((await cache.keys()).map((r) => r.url))
-  return orthoDownloadUrls().filter((u) => have.has(u)).length
+  return urls.filter((u) => have.has(u)).length
 }
 
 /**
  * 下載整個範圍存進離線快取（已經有的跳過），onProgress 回報完成幾張；
  * 任何一張失敗就停下來丟出錯誤（已下載的留著，下次從缺的繼續）。
  */
-export async function downloadOrtho(onProgress: (done: number, total: number) => void): Promise<void> {
+export async function downloadOrtho(urls: string[], onProgress: (done: number, total: number) => void): Promise<void> {
   const cache = await caches.open(ORTHO_CACHE)
   const have = new Set((await cache.keys()).map((r) => r.url))
-  const urls = orthoDownloadUrls()
   const missing = urls.filter((u) => !have.has(u))
   let done = urls.length - missing.length
   onProgress(done, urls.length)

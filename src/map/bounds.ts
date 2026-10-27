@@ -29,13 +29,6 @@ export const BOUNDS: Rect = {
   maxW: EXTENT.w,
 }
 
-/** 救援點周圍（不含西邊延伸到龍洞街口的部分）：離線航照最清楚的層級只下載這裡，西邊的街口一帶少一級 */
-export const ROCK_AREA: Rect = (() => {
-  const [px, py] = [located.map((p) => p.at[0]), located.map((p) => p.at[1])]
-  const pad = { west: 80, east: PADDING_M.east, north: PADDING_M.north, south: PADDING_M.south }
-  return { x: Math.min(...px) - pad.west, y: Math.min(...py) - pad.north, w: Math.max(...px) - Math.min(...px) + pad.west + pad.east, h: Math.max(...py) - Math.min(...py) + pad.north + pad.south }
-})()
-
 /** 縮到最小時左右的中心：岩場（校門口到後門的救援點） */
 export const CRAG_X = (() => {
   const crag = located.filter((p) => p.no >= 3 && p.no <= 13).map((p) => p.at[0])
