@@ -454,6 +454,18 @@ try {
   const [thinAnchor, zAnchor] = [shared?.routes[keyOf(thinRoute.id)]?.bolts?.A01, shared?.routes[keyOf(zRoute.id)]?.bolts?.A01]
   check('提交：兩條路線都有 A01，位置相同', !!thinAnchor && thinAnchor === zAnchor, `${thinAnchor} / ${zAnchor}`)
 
+  // 舊資料：只有〈Z字〉標了 anchor，〈細縫〉沒有：編輯時選〈細縫〉也要看得到
+  await put('v2/topos/e2eshare2', { sector: sharedSector.id, width: 2000, height: 1200, image: 'topos/seed/e2eshare2.jpg', uid: 'seed', createdAt: Date.now() })
+  await put('v2/topoEdits/e2eshare2/seed1', {
+    uid: 'seed',
+    createdAt: Date.now(),
+    routes: { [keyOf(thinRoute.id)]: { line: '4000,9000 4100,3000 4200,1000' }, [keyOf(zRoute.id)]: { line: '4600,9000 4400,3000 4250,1000', bolts: { A01: '4250,900' } } },
+  })
+  await editor.page.goto(base + 'edit/topo/e2eshare2')
+  await editor.page.waitForSelector('.topo-route-row')
+  await row('568').click()
+  check('舊資料只有〈Z字〉標了共用的 anchor：編輯時選〈細縫〉也看得到', (await editor.page.locator('.topo-handles rect').count()) === 1)
+
   // ── 6. 看 Topo：bolt 預設不顯示，按鈕切換 ────────────────────────────
   await put(`v2/topoEdits/${photo}/e2ebolts`, {
     uid: 'seed',

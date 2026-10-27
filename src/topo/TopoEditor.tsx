@@ -14,7 +14,7 @@ import { href, navigate } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { removeEdit, removeTopo, submitEdit } from './actions'
 import { CropBox } from './CropBox'
-import { forkLine, moveSharedPoint, syncShared } from './lines'
+import { fillShared, forkLine, moveSharedPoint, syncShared } from './lines'
 import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { HistorySection } from '../edit/HistorySection'
 import { EditKeys } from '../edit/KeyList'
@@ -159,7 +159,8 @@ function Editor({
   const tick = () => setHistoryTick((n) => n + 1)
 
   const shown = preview ?? draft ?? latest
-  const marks = shown?.marks ?? {}
+  // 共用的 anchor 只標在一條路線時（舊資料），另一條路線也看得到
+  const marks = useMemo(() => fillShared(shown?.marks ?? {}, routes), [shown, routes])
   const crop = shown?.crop
   const changed = !!draft && !(sameMarks(draft.marks, latest?.marks ?? {}) && sameCrop(draft.crop, latest?.crop))
   const route = routes.find((r) => r.id === selected)
