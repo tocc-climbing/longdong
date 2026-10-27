@@ -60,6 +60,30 @@ function distanceToLine(p: Point, line: Point[]): number {
 }
 
 /**
+ * 顯示用：共用的 bolt、anchor 只有一條路線標過時，另一條路線也顯示（選到〈細縫〉也看得到只標在〈Z字〉的頂端 anchor）。
+ * 條件和 syncShared 一樣：兩條路線資料裡這個位置有一邊標「共用」、這條路線有線、點離它的線不遠、這個位置還沒標。不改資料，只補畫。
+ */
+export function fillShared(marks: Marks, routes: Route[]): Marks {
+  const slots = (r: Route) => [...r.bolts, ...r.anchors]
+  let out = marks
+  for (const route of routes) {
+    const mine = marks[route.id]
+    if (!mine?.line) continue
+    for (const slot of slots(route)) {
+      if (mine.bolts?.[slot.position]) continue
+      for (const other of routes) {
+        const at = other.id === route.id ? undefined : marks[other.id]?.bolts?.[slot.position]
+        const theirs = other.id === route.id ? undefined : slots(other).find((b) => b.position === slot.position)
+        if (!at || !theirs || (slot.material !== '共用' && theirs.material !== '共用') || distanceToLine(at, mine.line) > SHARED_NEAR) continue
+        out = { ...out, [route.id]: { ...out[route.id], bolts: { ...out[route.id].bolts, [slot.position]: at } } }
+        break
+      }
+    }
+  }
+  return out
+}
+
+/**
  * 共用的 bolt、anchor 自動同步：路線資料裡某個位置（B01、A01…）標「共用」，表示和同分區另一條路線是同一個固定點
  * （例如〈細縫〉與〈Z字〉共用頂端的 anchor）。選到的路線 id 標了、移動或刪除了這個位置，另一條路線跟著一樣：
  * - 新標的：另一條路線有這個位置、已經畫了線、點離它的線不遠、還沒標這個位置時，標在同一個點

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
 import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView } from '../src/topo/viewport'
-import { drawnRuns, forkLine, moveSharedPoint, syncShared } from '../src/topo/lines'
+import { drawnRuns, fillShared, forkLine, moveSharedPoint, syncShared } from '../src/topo/lines'
 import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
 
 const rules = JSON.parse(readFileSync('firebase/database.rules.json', 'utf8')).rules.v2.topoEdits.$photo.$edit.routes.$route
@@ -225,6 +225,15 @@ describe('全螢幕縮放與平移', () => {
       expect(far['r/thin'].bolts).toBeUndefined()
       const noLine: Marks = { ...lines, 'r/thin': {} }
       expect(syncShared(withAnchor(noLine, 'r/z', [4250, 900]), noLine, 'r/z', routes)['r/thin'].bolts).toBeUndefined()
+    })
+
+    it('顯示：只有〈Z字〉標了 anchor（舊資料）時，選〈細縫〉也補畫同一個點；沒標共用或離得遠的不補', () => {
+      const onlyZ = withAnchor(lines, 'r/z', [4250, 900])
+      const shown = fillShared(onlyZ, routes)
+      expect(shown['r/thin'].bolts).toEqual({ A01: [4250, 900] })
+      expect(shown['r/other'].bolts).toBeUndefined()
+      expect(onlyZ['r/thin'].bolts).toBeUndefined()
+      expect(fillShared(withAnchor(lines, 'r/z', [9000, 100]), routes)['r/thin'].bolts).toBeUndefined()
     })
 
     it('移動、刪除：原本在同一個點的一起移動、刪除；另一條已經標在別處的不動', () => {

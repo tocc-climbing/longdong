@@ -5,6 +5,7 @@ import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { href, navigate } from '../router'
 import { BoltToggle, useShowBolts } from './BoltToggle'
+import { fillShared } from './lines'
 import { FULL_CROP, type Crop, type Marks, type TopoPhoto } from './model'
 import { fitSize, IDENTITY, moveView, type Pt, type Size, type View } from './viewport'
 import { px, routeInfo, TopoFrame, TopoLines } from './TopoView'
@@ -24,7 +25,7 @@ const STEP = 1.5
 export function TopoFullscreen({
   photo,
   crop,
-  marks,
+  marks: saved,
   labels,
   routes,
   initial,
@@ -40,6 +41,7 @@ export function TopoFullscreen({
 }) {
   const { lang, t } = useLang()
   const wide = useWide()
+  const marks = useMemo(() => fillShared(saved, routes), [saved, routes])
   const dialog = useRef<HTMLDialogElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState<Size>({ w: 0, h: 0 })

@@ -3,6 +3,7 @@ import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { useRouteLink } from '../router'
+import { fillShared } from './lines'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
@@ -48,7 +49,7 @@ export function SectorTopos({ sector }: { sector: Sector }) {
               topo.latest && (
                 <TopoLines
                   photo={topo.photo}
-                  marks={topo.latest.marks}
+                  marks={fillShared(topo.latest.marks, sector.routes)}
                   labels={labels}
                   k={k}
                   highlight={selected}
@@ -84,7 +85,7 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
             topo={topo}
             alt={t('topo.alt', { name: localName(sector.name, lang).main })}
             render={(k) => (
-              <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} bolts={showBolts ? [routeId] : []} info={info} crop={topo.latest!.crop} />
+              <TopoLines photo={topo.photo} marks={fillShared(topo.latest!.marks, sector.routes)} labels={labels} k={k} highlight={routeId} bolts={showBolts ? [routeId] : []} info={info} crop={topo.latest!.crop} />
             )}
           />
           <FullscreenButton topo={topo} sector={sector} initial={routeId} />
