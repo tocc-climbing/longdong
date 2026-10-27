@@ -300,6 +300,37 @@ try {
   check('Y 沒有可重做的了：還是三個點', (await handles()) === 3)
   await editor.page.keyboard.press('Control+z')
   check('Ctrl+Z 不是快捷鍵（留給瀏覽器）：還是三個點', (await handles()) === 3)
+  // 平移：長按再拖曳、空白鍵拖曳；放開時不會多一個點，普通的拖曳也不會
+  await editor.page.keyboard.press('+')
+  await editor.page.keyboard.press('+')
+  const panBox = (await editor.page.locator('.topo-zoom').boundingBox())!
+  const panAt = { x: panBox.x + panBox.width / 2, y: panBox.y + panBox.height / 2 }
+  const innerStyle = () => editor.page.locator('.topo-zoom-inner').getAttribute('style')
+  const drag = async (hold = 0) => {
+    await editor.page.mouse.move(panAt.x, panAt.y)
+    await editor.page.mouse.down()
+    if (hold) await editor.page.waitForTimeout(hold)
+    await editor.page.mouse.move(panAt.x + 40, panAt.y + 20, { steps: 4 })
+    await editor.page.mouse.up()
+    await editor.page.waitForTimeout(150)
+  }
+  const style0 = await innerStyle()
+  await drag(450)
+  check('長按再拖曳：照片平移，放開時不多出一個點', (await innerStyle()) !== style0 && (await handles()) === 3)
+  const style1 = await innerStyle()
+  await editor.page.mouse.move(panAt.x, panAt.y)
+  await editor.page.keyboard.down(' ')
+  await drag()
+  await editor.page.keyboard.up(' ')
+  check('按住空白鍵拖曳：照片平移，放開時不多出一個點', (await innerStyle()) !== style1 && (await handles()) === 3)
+  const style2 = await innerStyle()
+  await drag()
+  check('普通的拖曳（沒按空白、沒長按）：照片不動，也不多出一個點', (await innerStyle()) === style2 && (await handles()) === 3)
+  await editor.page.mouse.click(panAt.x, panAt.y)
+  check('平移之後，普通的點一下照樣加一個點', (await handles()) === 4)
+  await editor.page.keyboard.press('z')
+  await editor.page.keyboard.press('0')
+  check('復原剛加的點：回到三個點', (await handles()) === 3)
   await editor.page.keyboard.press('ArrowDown')
   const next = topoSector.routes[topoSector.routes.findIndex((r) => r.id === topoRoutes[0].id) + 1]
   check('↓ 換到清單裡的下一條路線', (await editor.page.locator('.topo-route-row.on .topo-route-no').textContent()) === (next.number ?? '·'))
