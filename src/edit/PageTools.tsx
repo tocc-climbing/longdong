@@ -6,9 +6,7 @@ import { useWide } from '../layout'
 import { loadMapShapes, useMapShapes, type EditTarget } from '../map/shapes'
 import { href, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
-import { useCloud } from '../personal/sync'
 import { loadEdits, loadPhotos, useTopoState } from '../topo/store'
-import { useTopoUpload } from '../topo/TopoUpload'
 import { currentText, useTextEdits, type TextTarget } from './textEdits'
 import { groupVersions, type Versioned } from './versions'
 
@@ -173,9 +171,7 @@ function HistoryList({ scope }: { scope: ToolScope }) {
 interface EditOption {
   key: string
   label: string
-  to?: string
-  /** 沒有網址的選項（新增照片） */
-  run?: () => void
+  to: string
 }
 
 /** 一個選項直接進入，多個選項跳小選單；地圖與 Topo 只在電腦版（手機版的編輯模式只有說明） */
@@ -183,8 +179,6 @@ function EditButton({ scope }: { scope: ToolScope }) {
   const { t } = useLang()
   const wide = useWide()
   const topo = useTopoState()
-  const signedIn = useCloud().status === 'signed-in'
-  const upload = useTopoUpload(scope.sectors[0].id)
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   useDismiss(open, () => setOpen(false), box)
@@ -205,19 +199,13 @@ function EditButton({ scope }: { scope: ToolScope }) {
       label: scope.text.label,
       to: href.edit('text', scope.text.target),
     })
+  // 一個「Topo」入口：有照片進第一張；沒有照片進新增頁（edit/topo/sector:<分區>，載入完照片才知道時也會轉到第一張）
   if (wide && scope.topoEdit) {
     const sector = scope.sectors[0]
-    const photos = Object.values(topo.photos ?? {})
+    const first = Object.values(topo.photos ?? {})
       .filter((p) => p.sector === sector.id)
-      .sort((a, b) => a.createdAt - b.createdAt)
-    photos.forEach((p, i) =>
-      options.push({
-        key: p.id,
-        label: photos.length > 1 ? `Topo ${i + 1}` : 'Topo',
-        to: href.topo(p.id),
-      }),
-    )
-    if (signedIn) options.push({ key: 'upload', label: t(upload.busy ? 'topo.uploading' : 'topo.add'), run: upload.pick })
+      .sort((a, b) => a.createdAt - b.createdAt)[0]
+    options.push({ key: 'topo', label: 'Topo', to: first ? href.topo(first.id) : href.topoAdd(sector.id) })
   }
   if (options.length === 0) return null
 
@@ -226,7 +214,7 @@ function EditButton({ scope }: { scope: ToolScope }) {
       <path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" />
     </Icon>
   )
-  if (options.length === 1 && options[0].to) {
+  if (options.length === 1) {
     return (
       <a className="tool-button" href={options[0].to} aria-label={`${t('tools.edit')}：${options[0].label}`} title={`${t('tools.edit')}：${options[0].label}`}>
         {icon}
@@ -246,21 +234,13 @@ function EditButton({ scope }: { scope: ToolScope }) {
       >
         {icon}
       </button>
-      {upload.input}
       {open && (
         <div className="tool-pop menu" role="menu">
-          {options.map((o) =>
-            o.to ? (
-              <a key={o.key} role="menuitem" href={o.to}>
-                {o.label}
-              </a>
-            ) : (
-              <button key={o.key} type="button" role="menuitem" disabled={upload.busy} onClick={o.run}>
-                {o.label}
-              </button>
-            ),
-          )}
-          {upload.error && <p className="small error">{upload.error}</p>}
+          {options.map((o) => (
+            <a key={o.key} role="menuitem" href={o.to}>
+              {o.label}
+            </a>
+          ))}
         </div>
       )}
     </div>

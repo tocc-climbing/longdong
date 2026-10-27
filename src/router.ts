@@ -105,6 +105,8 @@ export const href = {
   /** Topo 編輯（電腦版） */
   /** Topo 編輯在編輯模式裡（舊的 /topo/<照片> 也會開編輯模式） */
   topo: (id: string) => `/edit/topo/${id}`,
+  /** 分區還沒有 Topo 照片時的新增頁（有照片會轉到第一張） */
+  topoAdd: (sectorId: string) => `/edit/topo/${TOPO_ADD_PREFIX}${sectorId}`,
 }
 
 /** 舊的分區網址（依位置編號的 ID）要換成的網址，?r= 照留；不是舊網址時回傳 undefined */
@@ -121,6 +123,9 @@ export function here(): string {
 const CHANGE = 'locationchange'
 
 /** 站內換頁：新增一筆瀏覽紀錄（replace 時不新增，例如輸入搜尋字串），並通知 usePage 更新 */
+/** 編輯模式的 Topo 項目網址以此開頭時，後面是分區 ID（新增頁），不是照片 ID */
+export const TOPO_ADD_PREFIX = 'sector:'
+
 export function navigate(to: string, { replace = false } = {}): void {
   if (to === here()) return
   if (replace) history.replaceState(null, '', to)

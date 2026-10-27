@@ -205,6 +205,7 @@ export const ja: Messages = {
   'edit.oldTopo': '{year}年以前の古い写真です。新しい写真をアップロードして編集することをおすすめします。',
   'edit.topoTip': '写真上でルートを選び、線（取り付きから上へ）とボルトを描いて投稿します。',
   'edit.topoAddHint': 'このセクターの別の角度の写真がありますか？Topo写真を追加すると、そのまま編集できます。',
+  'edit.topoEmpty': 'Topo 写真はまだありません',
   'edit.textTip': '最新の版が編集者名とともにサイトに表示されます。',
   'edit.areaTextHint': 'エリア：アプローチ・岩質・日当たり・注意点',
   'edit.routeTextHint': 'ルート：取り付き・ライン・注意点',

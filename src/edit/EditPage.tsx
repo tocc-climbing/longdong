@@ -10,9 +10,9 @@ import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type E
 import { useWalls } from '../map/walls'
 import { useReportPins } from './useReportPins'
 import { useCloud, withCloud } from '../personal/sync'
-import { href, navigate, type EditKind } from '../router'
+import { TOPO_ADD_PREFIX, href, navigate, type EditKind } from '../router'
 import { displayName, useSocial } from '../social/store'
-import { useTopoState } from '../topo/store'
+import { loadPhotos, useTopoState } from '../topo/store'
 import { TopoEditor } from '../topo/TopoEditor'
 import { MERGE_RADIUS_M, type PinGroup } from '../map/reportPins'
 import { UploadButton } from '../topo/TopoUpload'
@@ -50,7 +50,14 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   // 分區的岩壁（/edit/map/wall:…）是分區項目的一部分：打開分區、切到岩壁
   const wallPart = kind === 'map' && !!id?.startsWith('wall:')
   const itemId = wallPart ? `sector:${id!.slice('wall:'.length)}` : id
-  const item = kind && itemId ? items.find((i) => i.kind === kind && i.id === itemId) : undefined
+  const { lang } = useLang()
+  const addSector = kind === 'topo' && itemId?.startsWith(TOPO_ADD_PREFIX) ? data.sectorById.get(itemId.slice(TOPO_ADD_PREFIX.length)) : undefined
+  const addName = (n: { zh: string; en?: string }) => localName(n, lang).main
+  const item: EditItem | undefined = addSector
+    ? { kind: 'topo', id: itemId!, label: addName(addSector.sector.name), path: ['Topo', addName(addSector.area.name), addName(addSector.sector.name)], edited: false }
+    : kind && itemId
+      ? items.find((i) => i.kind === kind && i.id === itemId)
+      : undefined
   // 文字、Topo 的修改只在這一頁；地圖的草稿在 mapDrafts（換項目也保留），只在關閉網頁時提醒
   const [dirty, setDirty] = useState(false)
   const { drafts, submitting } = useDrafts()
@@ -125,6 +132,8 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
       </section>
     ) : item.kind === 'map' ? (
       <MapItemView key={item.id} item={item} {...props} initialPart={wallPart ? 'walls' : 'range'} />
+    ) : addSector ? (
+      <TopoAddView key={item.id} item={item} sectorId={addSector.sector.id} />
     ) : (
       <TopoItemView key={item.id} item={item} data={data} />
     )
@@ -599,6 +608,39 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
         )}
         <NeedSignIn />
         <VersionList versions={versions[target] ?? []} empty={t('text.noVersions')} onDelete={(v) => void deleteVersion(v)} />
+      </aside>
+    </>
+  )
+}
+
+/** 分區還沒有 Topo 照片：新增頁。照片載入後發現已經有，就轉到第一張 */
+function TopoAddView({ item, sectorId }: { item: EditItem; sectorId: string }) {
+  const { t } = useLang()
+  const signedIn = useCloud().status === 'signed-in'
+  const { photos } = useTopoState()
+  useEffect(() => {
+    void loadPhotos()
+  }, [])
+  const first = Object.values(photos ?? {})
+    .filter((p) => p.sector === sectorId)
+    .sort((a, b) => a.createdAt - b.createdAt)[0]
+  useEffect(() => {
+    if (first) navigate(href.topo(first.id), { replace: true })
+  }, [first?.id])
+  return (
+    <>
+      <section className="edit-center edit-message">
+        {photos && !first && (
+          <>
+            <h2>{item.label}</h2>
+            <p className="muted">{t('edit.topoEmpty')}</p>
+            {signedIn ? <UploadButton sector={sectorId} /> : <NeedSignIn />}
+          </>
+        )}
+      </section>
+      <aside className="edit-panel">
+        <h2>{item.path.slice(1).join(' › ')}</h2>
+        <p className="muted small">{t('edit.topoTip')}</p>
       </aside>
     </>
   )

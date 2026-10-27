@@ -312,6 +312,27 @@ try {
   })
   check('提交 Topo：資料庫有一版、第一條路線三個點', !!edit && edit.routes[key]?.line.split(' ').length === 3)
 
+  // ── 5b. 編輯 Topo 的入口：公開頁面沒有「新增 Topo 照片」；編輯選單只有一個「Topo」，沒照片進新增頁、有照片進第一張 ──
+  const emptySector = data.areas.flatMap((a) => a.sectors).find((s) => s.id !== topoSector.id)!
+  const topoMenu = async (sectorId: string) => {
+    await editor.page.goto(base + `sector/${sectorId}`)
+    await editor.page.waitForSelector('.tool-button')
+    await editor.page.locator('.tool-button[aria-haspopup=menu]').click()
+    return editor.page.locator('.tool-pop [role=menuitem]')
+  }
+  const withPhoto = await topoMenu(topoSector.id)
+  check('有照片的分區：選單只有一個「Topo」，沒有「新增 Topo 照片」', (await withPhoto.filter({ hasText: 'Topo' }).count()) === 1 && (await withPhoto.filter({ hasText: '新增' }).count()) === 0)
+  check('有照片：「Topo」直接連到第一張照片', ((await withPhoto.filter({ hasText: 'Topo' }).getAttribute('href')) ?? '').endsWith(`/edit/topo/${photo}`))
+  check('分區頁面上沒有「新增 Topo 照片」按鈕', (await editor.page.locator('.topos .topo-upload').count()) === 0)
+  const noPhoto = await topoMenu(emptySector.id)
+  check('沒有照片的分區：選單也只有一個「Topo」', (await noPhoto.filter({ hasText: 'Topo' }).count()) === 1 && (await noPhoto.filter({ hasText: '新增' }).count()) === 0)
+  check('沒有照片：分區頁面沒有「新增 Topo 照片」按鈕', (await editor.page.locator('.topo-upload').count()) === 0)
+  await noPhoto.filter({ hasText: 'Topo' }).click()
+  await editor.page.waitForSelector('.edit-message .topo-upload button')
+  check('沒有照片：進到新增 Topo 的頁面（有上傳按鈕）', /edit\/topo\/sector:/.test(editor.page.url()) && ((await editor.page.locator('.edit-message .topo-upload button').textContent()) ?? '').includes('新增 Topo 照片'))
+  await editor.page.goto(base + `edit/topo/sector:${topoSector.id}`)
+  check('新增頁的網址遇到已有照片的分區：轉到第一張照片', (await until(async () => (editor.page.url().endsWith(`/edit/topo/${photo}`) ? true : undefined))) === true, editor.page.url())
+
   // ── 6. 看 Topo：bolt 預設不顯示，按鈕切換 ────────────────────────────
   await put(`v2/topoEdits/${photo}/e2ebolts`, {
     uid: 'seed',

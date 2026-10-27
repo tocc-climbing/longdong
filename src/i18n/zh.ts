@@ -199,6 +199,7 @@ export const zh = {
   'edit.oldTopo': '{year} 年的舊圖，建議不要修改，改上傳新圖再編輯。',
   'edit.topoTip': '在照片上選路線，畫線段（由起攀點往上）與 bolt，按「提交」成新版本。',
   'edit.topoAddHint': '這個分區還有別的角度的照片？可以再新增一張 Topo 照片，上傳後直接進入編輯。',
+  'edit.topoEmpty': '還沒有 Topo 照片',
   'edit.textTip': '最新的版本會顯示在網站上，並標明修改者。',
   'edit.areaTextHint': '區域說明：怎麼走到、岩質、日照、注意事項',
   'edit.routeTextHint': '路線說明：起攀點、路線走向、注意事項',

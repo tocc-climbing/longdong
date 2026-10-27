@@ -201,6 +201,7 @@ export const en: Messages = {
   'edit.oldTopo': 'Photo from {year} or earlier and out of date. Upload a new one and edit that instead.',
   'edit.topoTip': 'Pick a route on the photo, draw its line (from the start up) and bolts, then submit a new version.',
   'edit.topoAddHint': 'More angles for this sector? Add another Topo photo; after uploading you go straight to editing it.',
+  'edit.topoEmpty': 'No Topo photo yet',
   'edit.textTip': "The latest version is shown on the site with the editor's name.",
   'edit.areaTextHint': 'Area: approach, rock, sun, cautions',
   'edit.routeTextHint': 'Route: start, line, cautions',

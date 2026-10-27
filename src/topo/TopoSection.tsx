@@ -2,24 +2,16 @@ import { useState, type ReactNode } from 'react'
 import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
-import { useCloud } from '../personal/sync'
 import { useRouteLink } from '../router'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
 import { TopoFrame, TopoLines } from './TopoView'
-import { UploadButton } from './TopoUpload'
 import { ZoomPane } from './ZoomPane'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
 export function routeLabels(sector: Sector): Map<string, string> {
   return new Map(sector.routes.filter((r) => r.number).map((r) => [r.id, r.number!]))
-}
-
-/** 電腦版、登入後才能上傳與編輯 */
-function useCanEdit(): boolean {
-  const wide = useWide()
-  return useCloud().status === 'signed-in' && wide
 }
 
 /**
@@ -40,10 +32,9 @@ function Photo({ topo, alt, render }: { topo: SectorTopo; alt: string; render: (
 export function SectorTopos({ sector }: { sector: Sector }) {
   const { lang, t } = useLang()
   const topos = useSectorTopos(sector.id)
-  const canEdit = useCanEdit()
   const { link, selected } = useRouteLink()
   const [showBolts] = useShowBolts()
-  if (!topos || (topos.length === 0 && !canEdit)) return null
+  if (!topos || topos.length === 0) return null
   const labels = routeLabels(sector)
   return (
     <section className="topos" aria-label={t('topo.title')}>
@@ -70,7 +61,6 @@ export function SectorTopos({ sector }: { sector: Sector }) {
           {topo.latest && <FullscreenButton topo={topo} sector={sector} initial={selected} />}
         </figure>
       ))}
-      {canEdit && <UploadButton sector={sector.id} />}
     </section>
   )
 }
