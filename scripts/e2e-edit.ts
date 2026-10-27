@@ -183,6 +183,8 @@ try {
   })
   check('第二次提交：有兩個版本', !!v2)
   // 同一天、同一人連續的兩個版本合併成一筆（標明 2 次）；資料庫仍是兩個版本
+  check('修改記錄預設收起', (await editor.page.locator('.edit-versions').count()) === 0)
+  await editor.page.locator('.edit-history-toggle').click()
   check('修改記錄：同一人同一天的兩個版本合併成一筆', (await until(async () => ((await editor.page.locator('.edit-versions li').count()) === 1 ? true : undefined))) === true)
   check('合併的一筆標明 2 次修改', /2 次修改/.test((await editor.page.locator('.edit-versions li .edit-version-time').first().textContent()) ?? ''))
   // 刪除合併的一筆：只刪最新的版本（資料庫少一個、編輯的形狀回到前一版）
@@ -303,7 +305,7 @@ try {
   const next = topoSector.routes[topoSector.routes.findIndex((r) => r.id === topoRoutes[0].id) + 1]
   check('↓ 換到清單裡的下一條路線', (await editor.page.locator('.topo-route-row.on .topo-route-no').textContent()) === (next.number ?? '·'))
   await editor.page.keyboard.press('ArrowUp')
-  await editor.page.click('.topo-edit-bar .action.primary')
+  await editor.page.click('.topo-edit-toolbar .edit-btn.primary')
   const key = topoRoutes[0].id.replace(/\//g, ':').replace(/\./g, ',')
   const edit = await until(async () => {
     const v = await read<Record<string, { routes: Record<string, { line: string }> }>>(`v2/topoEdits/${photo}`)
@@ -313,7 +315,13 @@ try {
 
   // ── 5a. 右側面板：Topo 的路線清單與快捷鍵在面板裡；兩側面板可以收起、從窄條展開 ──
   check('Topo：路線清單與快捷鍵清單都在右側面板', (await editor.page.locator('.edit-panel .topo-route-row').count()) > 0 && (await editor.page.locator('.edit-panel .key-list button.key-row', { hasText: '復原' }).count()) === 1)
-  check('每個頁面的快捷鍵清單都有「收起目錄」「收起資訊」按鈕', (await editor.page.locator('.edit-panel .key-list button.key-row[aria-keyshortcuts="["]').count()) === 1 && (await editor.page.locator('.edit-panel .key-list button.key-row[aria-keyshortcuts="]"]').count()) === 1)
+  check('目錄沒有「步道與攀岩者路徑」', (await editor.page.locator('.edit-catalog', { hasText: '步道與攀岩者路徑' }).count()) === 0)
+  check('Topo 右側面板上方沒有區域資訊（沒有標題）', (await editor.page.locator('.edit-panel > h2').count()) === 0 || ((await editor.page.locator('.edit-panel > h2').first().textContent()) ?? '').includes('快捷鍵'))
+  check('Topo 的提交在上方工具列（和地圖一樣在右側）', (await editor.page.locator('.edit-toolbar, .topo-edit-toolbar').locator('.edit-btn.primary').count()) === 1 && (await editor.page.locator('.edit-panel .edit-btn.primary, .edit-panel .action.primary').count()) === 0)
+  check('工具列與快捷鍵不重複：工具列按鈕沒有按鍵標示', (await editor.page.locator('.topo-edit-toolbar kbd').count()) === 0)
+  check('快捷鍵清單只留必要的（沒有縮放、平移、Esc）', (await editor.page.locator('.edit-panel .key-row', { hasText: /縮放|平移|Esc/ }).count()) === 0)
+  const rowHeights = await editor.page.locator('.topo-route-row').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)))
+  check('路線清單每一列單行（高度一致）', rowHeights.length > 0 && new Set(rowHeights).size === 1, rowHeights.join(','))
   const width = async (sel: string) => Math.round((await editor.page.locator(sel).boundingBox())?.width ?? 0)
   const photoWidth = () => width('.topo-edit-photo')
   const w0 = await photoWidth()

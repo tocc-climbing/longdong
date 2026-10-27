@@ -5526,9 +5526,9 @@ button.key-row:disabled {
 
 .topo-route-row {
   display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 2px 8px;
+  gap: 8px;
   width: 100%;
   padding: 6px 10px;
   border: 0;
@@ -5559,15 +5559,12 @@ button.key-row:disabled {
 }
 
 .topo-route-state {
-  grid-column: 2 / -1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .topo-route-state:empty {
   display: none;
-}
-
-.topo-history h2 {
-  margin: 20px 0 8px;
 }
 
 .topo-history ul {

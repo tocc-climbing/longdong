@@ -42,9 +42,7 @@ function buildCatalog(data: LoadedData, lang: Lang, t: Translate, edited: (kind:
   const mapLabel = t('edit.map')
   const textLabel = t('edit.text')
   return [
-    group('map', mapLabel, [
-      item('map', 'trails', t('shape.trails'), [mapLabel]),
-    ], [
+    group('map', mapLabel, [], [
       group('map-areas', t('shape.areas'), Object.entries(names).map(([key, name]) => item('map', `area:${key}`, name, [mapLabel, t('shape.areas')]))),
       group(
         'map-sectors',

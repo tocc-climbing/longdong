@@ -418,10 +418,7 @@
 }
 
 /* 按鍵標示：像鍵帽 */
-.edit-tool kbd,
-.key-row kbd,
-.topo-tool kbd,
-.topo-edit-subbar kbd {
+.key-row kbd {
   padding: 0 5px;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
@@ -618,6 +615,26 @@
   white-space: nowrap;
 }
 
+/* 修改記錄：預設收起，標題旁的 i 展開 */
+.edit-history {
+  margin-top: 20px;
+}
+
+.edit-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.edit-panel .edit-history-head h2 {
+  margin: 0;
+}
+
+.edit-history-toggle[aria-expanded='true'] {
+  background: var(--brand-soft);
+  color: var(--link);
+}
+
 /* 快捷鍵一節：每一列是按鈕（src/edit/KeyList.tsx） */
 .edit-keys {
   margin-top: 4px;
@@ -776,11 +793,6 @@
   }
 
   .edit-crumb {
-    display: none;
-  }
-
-  /* 工具列放不下時收起快捷鍵提示（快捷鍵仍可用，列在右側面板） */
-  .edit-toolbar kbd {
     display: none;
   }
 }

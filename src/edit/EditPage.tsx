@@ -17,6 +17,7 @@ import { TopoEditor } from '../topo/TopoEditor'
 import type { PinGroup } from '../map/reportPins'
 import { UploadButton } from '../topo/TopoUpload'
 import { Catalog, useCatalog, type EditItem } from './Catalog'
+import { HistorySection } from './HistorySection'
 import { EditKeys } from './KeyList'
 import { LatestEdits } from './LatestEdits'
 import { ProgressStats } from './ProgressStats'
@@ -220,8 +221,7 @@ function VersionList({ versions, empty, onDelete }: { versions: (MapEditVersion 
   const time = (ms: number) => new Date(ms).toLocaleString(LOCALES[lang], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   const groups = groupVersions(versions)
   return (
-    <>
-      <h2>{t('shape.history', { n: groups.length })}</h2>
+    <HistorySection title={t('shape.history', { n: groups.length })}>
       {versions.length === 0 ? (
         <p className="muted small">{empty}</p>
       ) : (
@@ -245,7 +245,7 @@ function VersionList({ versions, empty, onDelete }: { versions: (MapEditVersion 
           ))}
         </ol>
       )}
-    </>
+    </HistorySection>
   )
 }
 
@@ -416,9 +416,16 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
   }
 
   const tool = (on: boolean, label: string, key: string, onClick: () => void, disabled = false) => (
-    <button type="button" className={`edit-tool${on ? ' on' : ''}`} aria-pressed={on} disabled={disabled || m.locked} onClick={onClick}>
+    <button
+      type="button"
+      className={`edit-tool${on ? ' on' : ''}`}
+      aria-pressed={on}
+      aria-keyshortcuts={key}
+      title={`${label}（${key}）`}
+      disabled={disabled || m.locked}
+      onClick={onClick}
+    >
       {label}
-      <kbd>{key}</kbd>
     </button>
   )
   const addLabel = t(m.closed ? 'shape.add' : isWall ? 'shape.addWall' : 'shape.addLine')
@@ -484,7 +491,6 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
             { keys: 'V', label: t('edit.select'), onClick: m.actions.cancel },
             { keys: 'N', label: addLabel, onClick: m.actions.draw, disabled: !!m.drawing },
             { keys: 'Enter', label: finishLabel, onClick: m.actions.finishDrawing, disabled: !m.drawing || !m.canFinish },
-            { keys: 'Esc', label: t('edit.cancel'), onClick: m.actions.cancel },
             { keys: 'Del', label: t('shape.removeRing'), onClick: m.actions.removeSelected, disabled: !!m.drawing || m.selected === undefined },
             { keys: 'Z', label: t('edit.undo'), onClick: m.drawing ? m.actions.undoPoint : m.actions.undo, disabled: m.drawing ? m.drawing.length === 0 : !m.canUndo },
             { keys: 'Y', label: t('edit.redo'), onClick: m.actions.redo, disabled: !m.canRedo },
@@ -670,8 +676,6 @@ function TopoAddView({ item, sectorId }: { item: EditItem; sectorId: string }) {
       </section>
       <aside className="edit-panel">
         <DockHead part="panel" title={t('edit.panel')} />
-        <h2>{item.path.slice(1).join(' › ')}</h2>
-        <EditKeys rows={[]} />
       </aside>
     </>
   )
@@ -692,15 +696,12 @@ function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
       </section>
       <aside className="edit-panel">
         <DockHead part="panel" title={t('edit.panel')} />
-        <h2>{item.path.slice(1).join(' › ')}</h2>
         {old && photo && (
           <div className="edit-warn">
             <p>{t('edit.oldTopo', { year: OLD_TOPO_YEAR })}</p>
             {signedIn && <UploadButton sector={photo.sector} />}
           </div>
         )}
-        {/* 新增這個分區的另一張 Topo 照片（舊照片的提示裡已經有按鈕；目錄裡每個分區底下也有同樣的按鈕） */}
-        {!old && photo && signedIn && <UploadButton sector={photo.sector} />}
         <div ref={setSide} />
       </aside>
     </>

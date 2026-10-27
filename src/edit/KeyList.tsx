@@ -1,5 +1,4 @@
 import { useLang } from '../i18n'
-import { usePanelLayout } from './PanelLayout'
 
 /** 快捷鍵清單的一列：有 onClick 的是按鈕（按下去和按鍵一樣）；沒有的只是說明（滑鼠、滾輪） */
 export interface KeyRow {
@@ -30,20 +29,13 @@ export function KeyList({ rows }: { rows: KeyRow[] }) {
   )
 }
 
-/** 右側面板的快捷鍵一節：每個頁面自己的快捷鍵，加上所有頁面共通的收起目錄、資訊面板（[、]，見 EditPage） */
+/** 右側面板的快捷鍵一節：每個頁面自己的快捷鍵 */
 export function EditKeys({ rows }: { rows: KeyRow[] }) {
   const { t } = useLang()
-  const { toggle } = usePanelLayout()
   return (
     <section className="edit-keys">
       <h2>{t('edit.shortcuts')}</h2>
-      <KeyList
-        rows={[
-          ...rows,
-          { keys: '[', label: t('edit.toggleCatalog'), onClick: () => toggle('catalog') },
-          { keys: ']', label: t('edit.togglePanel'), onClick: () => toggle('panel') },
-        ]}
-      />
+      <KeyList rows={rows} />
     </section>
   )
 }
