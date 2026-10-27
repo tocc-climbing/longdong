@@ -327,9 +327,6 @@
     },
     "role": {
       ".read": true
-    },
-    "topos": {
-      ".read": true
     }
   }
 }

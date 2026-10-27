@@ -725,14 +725,6 @@
   content: '＋ ';
 }
 
-.edit-warn {
-  margin: 0 0 12px;
-  padding: 8px 10px;
-  border-radius: var(--edit-radius);
-  background: color-mix(in srgb, var(--warn) 16%, transparent);
-  font-size: var(--edit-fs-md);
-}
-
 /* 編輯模式首頁（src/edit/EditPage.tsx 的 Welcome）：標題與重點同分享小卡 */
 .edit-message {
   overflow: auto;
@@ -968,64 +960,4 @@
   flex: none;
   font-size: var(--edit-fs-sm);
   white-space: nowrap;
-}
-
-/* 工具列的第二層選單（src/edit/MoreMenu.tsx） */
-.edit-more {
-  position: relative;
-}
-
-.edit-more-btn[aria-expanded='true'] {
-  background: var(--edit-chip);
-  color: var(--text);
-}
-
-.edit-more-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 5;
-  display: grid;
-  min-width: 200px;
-  padding: 4px;
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--border), 0 8px 28px rgba(16, 24, 28, 0.18);
-}
-
-.edit-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.edit-menu-item:hover:not(:disabled) {
-  background: var(--edit-chip);
-}
-
-.edit-menu-item:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.edit-menu-item.danger {
-  color: var(--danger);
-}
-
-.edit-menu-item kbd {
-  padding: 1px 6px;
-  border-radius: 5px;
-  background: var(--edit-chip);
-  color: var(--muted);
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: var(--edit-fs-xs);
 }

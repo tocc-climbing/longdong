@@ -189,9 +189,6 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   )
 }
 
-/** 這一年（含）以前上傳的 Topo 照片太舊，編輯前提示改上傳新照片 */
-const OLD_TOPO_YEAR = 2016
-
 /** 還沒選項目：標題與重點（與分享小卡相同）、最新的更新、怎麼修改 */
 function Welcome({ data, items }: { data: LoadedData; items: EditItem[] }) {
   const { t } = useLang()
@@ -486,19 +483,8 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
         <PendingList changed={changed} errors={errors} data={data} current={target} locked={submitting} />
         <ReportPins pins={pins} data={data} on={pinOn} onPick={setPinOn} />
         <VersionList versions={m.versions} empty={t('shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
-        <EditKeys
-          rows={[
-            { keys: 'V', label: t('edit.select'), onClick: m.actions.cancel },
-            { keys: 'N', label: addLabel, onClick: m.actions.draw, disabled: !!m.drawing },
-            { keys: 'Enter', label: finishLabel, onClick: m.actions.finishDrawing, disabled: !m.drawing || !m.canFinish },
-            { keys: 'Del', label: t('shape.removeRing'), onClick: m.actions.removeSelected, disabled: !!m.drawing || m.selected === undefined },
-            { keys: 'Z', label: t('edit.undo'), onClick: m.drawing ? m.actions.undoPoint : m.actions.undo, disabled: m.drawing ? m.drawing.length === 0 : !m.canUndo },
-            { keys: 'Y', label: t('edit.redo'), onClick: m.actions.redo, disabled: !m.canRedo },
-            { keys: 'S', label: t('shape.save'), onClick: () => void submit(), disabled: !canSubmit },
-            { keys: 'A', label: t('map.ortho'), onClick: () => setOrtho((o) => !o) },
-            { keys: t('edit.rightClick'), label: t('edit.deletePoint') },
-          ]}
-        />
+        {/* 其他快捷鍵都標在上方工具列的按鈕上；這裡只留沒有按鈕的操作 */}
+        <EditKeys rows={[{ keys: 'S', label: t('shape.save') }, { keys: t('edit.rightClick'), label: t('edit.deletePoint') }]} />
       </aside>
     </>
   )
@@ -643,7 +629,7 @@ function TextItemView({ item, data, onToast, onDirty }: ItemProps) {
         )}
         <NeedSignIn />
         <VersionList versions={versions[target] ?? []} empty={t('text.noVersions')} onDelete={(v) => void deleteVersion(v)} />
-        <EditKeys rows={[{ keys: 'Ctrl / ⌘ Enter', label: t('shape.save'), onClick: () => void submit(), disabled: !canSubmit }]} />
+        <EditKeys rows={[{ keys: 'Ctrl / ⌘ Enter', label: t('shape.save') }]} />
       </aside>
     </>
   )
@@ -684,11 +670,8 @@ function TopoAddView({ item, sectorId }: { item: EditItem; sectorId: string }) {
 /** Topo 項目：中間是 Topo 編輯器（照片、路線、線段與 bolt 工具都在裡面）；右側面板是使用說明 */
 function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
   const { t } = useLang()
-  const signedIn = useCloud().status === 'signed-in'
-  const photo = useTopoState().photos?.[item.id]
   // Topo 編輯器的路線清單、提交與修改記錄放在右側面板，讓照片佔滿中間
   const [side, setSide] = useState<HTMLElement | null>(null)
-  const old = photo && new Date(photo.createdAt).getFullYear() <= OLD_TOPO_YEAR
   return (
     <>
       <section className="edit-center edit-topo">
@@ -696,12 +679,6 @@ function TopoItemView({ item, data }: { item: EditItem; data: LoadedData }) {
       </section>
       <aside className="edit-panel">
         <DockHead part="panel" title={t('edit.panel')} />
-        {old && photo && (
-          <div className="edit-warn">
-            <p>{t('edit.oldTopo', { year: OLD_TOPO_YEAR })}</p>
-            {signedIn && <UploadButton sector={photo.sector} />}
-          </div>
-        )}
         <div ref={setSide} />
       </aside>
     </>

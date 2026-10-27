@@ -17,7 +17,6 @@ import { CropBox } from './CropBox'
 import { forkLine, moveSharedPoint } from './lines'
 import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { HistorySection } from '../edit/HistorySection'
-import { MoreMenu } from '../edit/MoreMenu'
 import { EditKeys } from '../edit/KeyList'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
@@ -462,19 +461,11 @@ function Editor({
     </button>
   )
 
-  /** 第二層選單的一個項目 */
-  const menuItem = (label: string, keys: string | undefined, onClick: () => void, disabled = false, danger = false) => (
-    <button type="button" role="menuitem" className={`edit-menu-item${danger ? ' danger' : ''}`} disabled={disabled} aria-keyshortcuts={keys} onClick={onClick}>
-      <span>{label}</span>
-      {keys && <kbd>{keys}</kbd>}
-    </button>
-  )
-
   return (
     <div className="topo-edit-layout" ref={layoutRef}>
       {!preview && (
         <div className="topo-edit-toolbar" role="toolbar" aria-label={t('topo.toolbar')}>
-          {/* 最常用的放最前面：復原、重做；先選路線才能畫 */}
+          {/* 只有一列：最常用的在最前面（復原、重做），接著是工具；目前工具要用的選項接在同一列，最右邊是提交 */}
           <div className="topo-tool-group">
             {tool(t('topo.undo'), 'Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
             {tool(t('topo.redo'), 'Y', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
@@ -482,7 +473,25 @@ function Editor({
           <div className="topo-tool-group" role="group" aria-label={t('topo.tools')}>
             {tool(t('topo.modeLine'), 'L', () => setMode('line'), { pressed: mode === 'line', disabled: !route })}
             {tool('Bolt', 'B', () => setMode('bolt'), { pressed: mode === 'bolt', disabled: positions.length === 0 })}
+            {tool(t('topo.modeCrop'), 'C', () => setMode('crop'), { pressed: mode === 'crop' })}
+            {tool(t('topo.fork'), 'F', () => setForking((on) => !on), { pressed: isForking, disabled: !canFork && !isForking })}
           </div>
+          {mode === 'bolt' && route && (
+            <div className="topo-tool-group topo-positions" role="group" aria-label={t('topo.boltPosition')}>
+              {positions.map((p) => (
+                <button key={p} type="button" className={current.bolts?.[p] ? 'chip placed' : 'chip'} aria-pressed={p === placing} onClick={() => setBoltPos(p)}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+          {isForking && <span className="edit-status">{t('topo.forkPick')}</span>}
+          {mode === 'crop' && (
+            <div className="topo-tool-group">
+              {tool(t('topo.cropDone'), 'Enter', () => setMode('line'))}
+              {tool(t('topo.cropReset'), undefined, () => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true), { disabled: isFullCrop(crop) })}
+            </div>
+          )}
           <div className="topo-tool-group topo-stepper" role="group" aria-label={t('topo.keys.prevRoute')}>
             {tool(t('topo.keys.prevRoute'), '↑', () => stepRoute(-1), { iconOnly: true, icon: <Icon d="m6 15 6-6 6 6" /> })}
             {tool(t('topo.keys.nextRoute'), '↓', () => stepRoute(1), { iconOnly: true, icon: <Icon d="m6 9 6 6 6-6" /> })}
@@ -492,46 +501,14 @@ function Editor({
               </span>
             )}
           </div>
+          {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !route || !marks[route.id] })}
           <span className="edit-spacer" />
           <span className={needRoute ? 'edit-status warn-text' : 'edit-status'} role="status">
             {needRoute ? t('topo.needRoute') : changed ? t('topo.draft') : saved ? t('topo.saved') : t('topo.noChanges')}
           </span>
-          <MoreMenu label={t('topo.more')}>
-            {menuItem(t('topo.modeCrop'), 'C', () => setMode('crop'))}
-            {menuItem(t('topo.fork'), 'F', () => setForking((on) => !on), !canFork)}
-            {menuItem(t('topo.clearRoute'), undefined, () => edit(() => ({})), !route || !marks[route.id])}
-            {menuItem(t('topo.discard'), undefined, discard, !draft || busy, true)}
-          </MoreMenu>
+          {tool(t('topo.discard'), undefined, discard, { disabled: !draft || busy })}
           <button type="button" className="edit-btn primary" disabled={!changed || needRoute || busy} onClick={() => void submit()}>
             {busy ? t('topo.submitting') : t('topo.submit')}
-          </button>
-        </div>
-      )}
-      {!preview && mode === 'bolt' && route && (
-        <div className="topo-edit-subbar">
-          <span className="muted small">{t('topo.boltPosition')}</span>
-          <div className="topo-positions">
-            {positions.map((p) => (
-              <button key={p} className={current.bolts?.[p] ? 'chip placed' : 'chip'} aria-pressed={p === placing} onClick={() => setBoltPos(p)}>
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {!preview && isForking && (
-        <div className="topo-edit-subbar">
-          <span className="muted small">{t('topo.forkPick')}</span>
-          {tool(t('topo.fork'), 'F', () => setForking(false), { pressed: true })}
-        </div>
-      )}
-      {!preview && mode === 'crop' && (
-        <div className="topo-edit-subbar">
-          <button className="action primary" onClick={() => setMode('line')}>
-            {t('topo.cropDone')}
-          </button>
-          <button className="link-button" disabled={isFullCrop(crop)} onClick={() => setCrop({ x: 0, y: 0, w: 10000, h: 10000 }, true)}>
-            {t('topo.cropReset')}
           </button>
         </div>
       )}

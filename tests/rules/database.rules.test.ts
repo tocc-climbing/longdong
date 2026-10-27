@@ -75,18 +75,12 @@ beforeEach(async () => {
 })
 
 describe('舊站節點', () => {
-  it('topos（路線圖，之後做進 App）：公開可讀，不能刪除或新增', async () => {
-    await assertSucceeds(get(guest, 'topos'))
-    await assertFails(remove(mallory, 'topos'))
-    await assertFails(set(mallory, 'topos/new', { x: 1 }))
-  })
-
   it('role：公開可讀', async () => {
     await assertSucceeds(get(guest, 'role'))
   })
 
-  it('已刪除的舊站節點（2026-10-18 備份後刪除）：任何人都不能讀寫', async () => {
-    for (const node of ['routes', 'comments', 'tags', 'tests', 'tasks']) {
+  it('已刪除的舊站節點（2026-10-18 備份後刪除；topos 在 2026-10-27）：任何人都不能讀寫', async () => {
+    for (const node of ['routes', 'comments', 'tags', 'tests', 'tasks', 'topos']) {
       await assertFails(get(guest, node))
       await assertFails(set(admin, `${node}/new`, { x: 1 }))
     }

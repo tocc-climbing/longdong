@@ -22,9 +22,15 @@ const put = async (path: string, body: unknown) => {
 
 /** 龍洞的資料：找一個有至少三條編號路線的分區放 Topo，校門口所在的分區放岩壁 */
 const data = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as {
-  areas: { id: string; sectors: { id: string; routes: { id: string; number?: string }[] }[] }[]
+  areas: { id: string; sectors: { id: string; routes: { id: string; number?: string; bolts?: unknown[]; anchors?: unknown[] }[] }[] }[]
 }
-const topoSector = data.areas.flatMap((a) => a.sectors).find((s) => s.routes.filter((r) => r.number).length >= 3)!
+// 有至少三條編號路線、而且前三條都有 bolt／anchor 位置的分區（測試 bolt 位置的按鈕要用）
+const topoSector = data.areas
+  .flatMap((a) => a.sectors)
+  .find((s) => {
+    const numbered = s.routes.filter((r) => r.number)
+    return numbered.length >= 3 && numbered.slice(0, 3).every((r) => (r.bolts?.length ?? 0) + (r.anchors?.length ?? 0) > 0)
+  })!
 const topoRoutes = topoSector.routes.filter((r) => r.number).slice(0, 3)
 const gate = data.areas.find((a) => a.id.endsWith('/school-gate'))!
 const wallSector = gate.sectors[0].id
@@ -159,11 +165,12 @@ try {
   await clickCanvas(editor.page, [[0.2, 0.35]])
   await editor.page.keyboard.press('Enter')
   check('完成多邊形：多一塊', (await rings(editor.page)) === n0 + 1)
-  // 快捷鍵都是單一按鍵，右側清單的每一列也是按鈕
+  // 快捷鍵都是單一按鍵，上方工具列的按鈕標示按鍵；右側不再重複列一份
   await editor.page.keyboard.press('z')
   check('Z 復原：少一塊', (await rings(editor.page)) === n0)
-  await editor.page.locator('.key-list button.key-row', { hasText: '重做' }).click()
-  check('快捷鍵清單的「重做」按鈕：回到多一塊', (await rings(editor.page)) === n0 + 1)
+  await editor.page.locator('.edit-toolbar .edit-tool', { hasText: '重做' }).click()
+  check('工具列的「重做」按鈕：回到多一塊', (await rings(editor.page)) === n0 + 1)
+  check('地圖編輯：右側快捷鍵只列沒有按鈕的（提交 S、右鍵），沒有按鈕列', (await editor.page.locator('.edit-panel .key-list button.key-row').count()) === 0 && (await editor.page.locator('.edit-panel .key-row.info').count()) === 2)
   await editor.page.waitForSelector('.edit-toast', { state: 'detached', timeout: 10000 }).catch(() => {})
   await editor.page.keyboard.press('s')
   await editor.page.waitForSelector('.edit-toast', { timeout: 15000 })
@@ -313,11 +320,10 @@ try {
   check('上方按鈕與右側快捷鍵不重複：右側清單沒有按鈕（只剩沒有按鈕的右鍵）', (await editor.page.locator('.edit-panel .key-list button.key-row').count()) === 0 && (await editor.page.locator('.edit-panel .key-row.info').count()) === 1)
   check('工具列按鈕標示按鍵', (await editor.page.locator('.topo-edit-toolbar .topo-tool kbd').count()) >= 4)
   check('工具列是「路線」（不是「線段」），沒有「移除最後一點」', (await editor.page.locator('.topo-tool', { hasText: '路線' }).count()) >= 1 && (await editor.page.locator('.topo-tool', { hasText: /線段|移除最後一點/ }).count()) === 0)
-  check('不常用的在第二層：裁切、分岔、清除、捨棄修改不在工具列上', (await editor.page.locator('.topo-edit-toolbar').getByText(/裁切|分岔|清除|捨棄修改/).count()) === 0)
-  await editor.page.locator('.edit-more-btn').click()
-  check('第二層選單有裁切、分岔、清除、捨棄修改', (await editor.page.locator('.edit-menu-item').count()) === 4)
-  await editor.page.keyboard.press('Escape')
-  check('Esc 收起第二層選單', (await editor.page.locator('.edit-menu-item').count()) === 0)
+  check('工具列只有一層：裁切、分岔、清除路線、捨棄都在同一列，沒有「更多」選單', (await editor.page.locator('.topo-edit-toolbar .topo-tool', { hasText: /裁切|分岔|清除|捨棄/ }).count()) === 4 && (await editor.page.locator('.edit-more, .edit-more-btn, .topo-edit-subbar').count()) === 0)
+  await editor.page.keyboard.press('b')
+  check('選 Bolt：bolt 位置的按鈕在同一列（沒有另開一列）', (await editor.page.locator('.topo-edit-toolbar .topo-positions .chip').count()) > 0 && (await editor.page.locator('.topo-edit-subbar').count()) === 0)
+  await editor.page.keyboard.press('l')
   await editor.page.locator('.topo-full-btn').click()
   check('右上的全畫面按鈕：編輯區進入全螢幕', (await until(async () => ((await editor.page.evaluate(`document.fullscreenElement?.className ?? ''`)) as string).includes('topo-edit-layout') || undefined)) === true)
   await editor.page.locator('.topo-full-btn').click()
@@ -341,7 +347,7 @@ try {
   await editor.page.goto(base + `edit/text/route:${textRoute.replace(/\//g, ':').replace(/\./g, ',')}`)
   await editor.page.waitForSelector('.edit-textarea')
   check('說明：進來就在文字框裡（可以直接打字）', await editor.page.evaluate(`document.activeElement?.classList.contains('edit-textarea') ?? false`))
-  check('說明：右側面板有快捷鍵清單（提交）', (await editor.page.locator('.edit-panel .key-list button.key-row', { hasText: '提交' }).count()) === 1)
+  check('說明：右側面板只標示提交的按鍵（上方有提交按鈕，右側不重複放按鈕）', (await editor.page.locator('.edit-panel .key-row.info', { hasText: '提交' }).count()) === 1 && (await editor.page.locator('.edit-panel .key-list button.key-row').count()) === 0)
   await editor.page.locator('.edit-textarea').fill('e2e 說明 ✓')
   check('改了文字：顯示尚未提交', ((await editor.page.locator('.edit-toolbar .edit-status').textContent()) ?? '').includes('尚未提交'))
   await editor.page.locator('.edit-textarea').press('Control+Enter')

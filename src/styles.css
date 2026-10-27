@@ -5356,20 +5356,6 @@ g.topo-route.link:focus-visible .topo-halo {
   cursor: default;
 }
 
-.topo-edit-subbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  min-height: 40px;
-  padding: 4px 12px 8px;
-  background: var(--surface);
-}
-
-.topo-edit-subbar .topo-positions {
-  margin: 0;
-}
-
 /* 快捷鍵清單（src/edit/KeyList.tsx）：一列一個按鈕，左邊名稱、右邊按鍵 */
 .key-list {
   display: grid;
@@ -5480,13 +5466,6 @@ button.key-row:disabled {
   stroke: #fff;
 }
 
-.topo-crop-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
 .topo-fork circle {
   fill: rgba(255, 255, 255, 0.35);
   stroke: #fff;
@@ -5547,7 +5526,6 @@ button.key-row:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 8px;
 }
 
 .topo-positions .chip {
