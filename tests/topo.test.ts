@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
 import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView } from '../src/topo/viewport'
-import { drawnRuns, forkLine, moveSharedPoint, spreadBadges } from '../src/topo/lines'
+import { drawnRuns, forkLine, moveSharedPoint, syncShared } from '../src/topo/lines'
 import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
 
 const rules = JSON.parse(readFileSync('firebase/database.rules.json', 'utf8')).rules.v2.topoEdits.$photo.$edit.routes.$route
@@ -152,18 +152,6 @@ describe('共用線段', () => {
     expect(runs.get('b')).toEqual([[[0, 0], [1, 1]], [[2, 2], [3, 3]]])
   })
 
-  it('同一位置的編號橫向排開並置中，不同位置不動', () => {
-    const offsets = spreadBadges([
-      { id: 'a', at: [100, 100], width: 20 },
-      { id: 'b', at: [100, 100], width: 30 },
-      { id: 'c', at: [900, 100], width: 20 },
-    ])
-    // 總寬 20 + 3 + 30 = 53，左緣 -26.5：a 的中心 -16.5，b 的中心 -26.5 + 23 + 15 = 11.5
-    expect(offsets.get('a')).toBe(-16.5)
-    expect(offsets.get('b')).toBe(11.5)
-    expect(offsets.get('c')).toBe(0)
-  })
-
   it('拖曳共用的點時，所有落在同一點的線段端點一起移動，bolt 不動', () => {
     const marks: Marks = { a: { line: trunk, bolts: { B01: [4800, 6000] } }, b: { line: branch } }
     const moved = moveSharedPoint(marks, [4800, 6000], [4700, 6100])
@@ -205,5 +193,55 @@ describe('全螢幕縮放與平移', () => {
   it('單指拖曳：照片跟著手指移動同樣的距離', () => {
     const zoomed = { scale: 3, x: 0, y: 0 }
     expect(moveView(zoomed, { x: 0, y: 0 }, { x: -120, y: 30 }, 1, stage, content)).toEqual({ scale: 3, x: -120, y: 0 })
+  })
+
+  describe('共用的 anchor（〈細縫〉與〈Z字〉共用頂端的 anchor）自動同步', () => {
+    const slot = (position: string, material: string) => ({ position, material, tests: [] })
+    const route = (id: string, bolts: ReturnType<typeof slot>[], anchors: ReturnType<typeof slot>[]) => ({ id, bolts, anchors }) as unknown as Route
+    // 細縫的 anchor 標「共用」；Z 字有自己的材質
+    const thin = route('r/thin', [], [slot('A01', '共用')])
+    const z = route('r/z', [slot('B01', '316-TW')], [slot('A01', '316-TW')])
+    const other = route('r/other', [], [slot('A01', '316-TW')])
+    const routes = [thin, z, other]
+    const lines: Marks = {
+      'r/thin': { line: [[4000, 9000], [4100, 3000], [4200, 1000]] },
+      'r/z': { line: [[4600, 9000], [4400, 3000], [4250, 1000]] },
+      'r/other': { line: [[8000, 9000], [8100, 1000]] },
+    }
+    const withAnchor = (marks: Marks, id: string, at: Point): Marks => ({ ...marks, [id]: { ...marks[id], bolts: { ...marks[id].bolts, A01: at } } })
+
+    it('一條路線標了 anchor，另一條共用的路線在同一個點也標上（不管從哪一條標）', () => {
+      const a = syncShared(withAnchor(lines, 'r/z', [4250, 900]), lines, 'r/z', routes)
+      expect(a['r/thin'].bolts).toEqual({ A01: [4250, 900] })
+      const b = syncShared(withAnchor(lines, 'r/thin', [4200, 900]), lines, 'r/thin', routes)
+      expect(b['r/z'].bolts).toEqual({ A01: [4200, 900] })
+    })
+
+    it('沒標「共用」的、離得遠的、沒畫線的路線不跟著標', () => {
+      const a = syncShared(withAnchor(lines, 'r/z', [4250, 900]), lines, 'r/z', routes)
+      expect(a['r/other'].bolts).toBeUndefined()
+      // 另一條路線的線離這個點很遠：不是同一個點
+      const far = syncShared(withAnchor(lines, 'r/z', [9000, 100]), lines, 'r/z', routes)
+      expect(far['r/thin'].bolts).toBeUndefined()
+      const noLine: Marks = { ...lines, 'r/thin': {} }
+      expect(syncShared(withAnchor(noLine, 'r/z', [4250, 900]), noLine, 'r/z', routes)['r/thin'].bolts).toBeUndefined()
+    })
+
+    it('移動、刪除：原本在同一個點的一起移動、刪除；另一條已經標在別處的不動', () => {
+      const both = syncShared(withAnchor(lines, 'r/z', [4250, 900]), lines, 'r/z', routes)
+      const moved = syncShared(withAnchor(both, 'r/z', [4300, 800]), both, 'r/z', routes)
+      expect(moved['r/thin'].bolts).toEqual({ A01: [4300, 800] })
+      const removed = syncShared({ ...moved, 'r/z': { line: moved['r/z'].line } }, moved, 'r/z', routes)
+      expect(removed['r/thin']).toEqual({ line: lines['r/thin'].line })
+      // 細縫的 anchor 已經標在別處：Z 字再標，不覆蓋細縫的
+      const apart = withAnchor(lines, 'r/thin', [4100, 1500])
+      expect(syncShared(withAnchor(apart, 'r/z', [4250, 900]), apart, 'r/z', routes)['r/thin'].bolts).toEqual({ A01: [4100, 1500] })
+    })
+
+    it('其他位置、其他欄位沒改的不處理；路線資料裡沒有這個位置的不同步', () => {
+      const noSlot = syncShared({ ...lines, 'r/z': { ...lines['r/z'], bolts: { B09: [4300, 5000] } } }, lines, 'r/z', routes)
+      expect(noSlot['r/thin'].bolts).toBeUndefined()
+      expect(syncShared(lines, lines, 'r/z', routes)).toBe(lines)
+    })
   })
 })

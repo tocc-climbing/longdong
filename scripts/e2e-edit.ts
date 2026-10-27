@@ -388,17 +388,68 @@ try {
   await editor.page.goto(base + `edit/topo/sector:${topoSector.id}`)
   check('新增頁的網址遇到已有照片的分區：轉到第一張照片', (await until(async () => (editor.page.url().endsWith(`/edit/topo/${photo}`) ? true : undefined))) === true, editor.page.url())
 
+  // ── 5d. 共用的 anchor：〈細縫〉與〈Z字〉共用頂端的 anchor，一條標好，另一條自動同步 ──
+  const sharedSector = data.areas.flatMap((a) => a.sectors).find((x) => x.routes.some((r) => r.number === '568'))!
+  const thinRoute = sharedSector.routes.find((r) => r.number === '568')!
+  const zRoute = sharedSector.routes.find((r) => r.number === '569')!
+  const keyOf = (id: string) => id.replace(/\//g, ':').replace(/\./g, ',')
+  await put('v2/topos/e2eshare', { sector: sharedSector.id, width: 2000, height: 1200, image: 'topos/seed/e2eshare.jpg', uid: 'seed', createdAt: Date.now() })
+  await put('v2/topoEdits/e2eshare/seed1', {
+    uid: 'seed',
+    createdAt: Date.now(),
+    routes: { [keyOf(thinRoute.id)]: { line: '4000,9000 4100,3000 4200,1000' }, [keyOf(zRoute.id)]: { line: '4600,9000 4400,3000 4250,1000' } },
+  })
+  await editor.page.goto(base + 'edit/topo/e2eshare')
+  await editor.page.waitForSelector('.topo-route-row')
+  await row('569').click()
+  await editor.page.keyboard.press('b')
+  await editor.page.locator('.topo-positions .chip', { hasText: 'A01' }).click()
+  const shareFrame = (await editor.page.locator('.topo-frame svg').boundingBox())!
+  await editor.page.mouse.click(shareFrame.x + shareFrame.width * 0.425, shareFrame.y + shareFrame.height * 0.14)
+  check('Z字標好 anchor（A01）', (await editor.page.locator('.topo-handles rect').count()) === 1)
+  await row('568').click()
+  check('切到〈細縫〉：它的 A01 已經自動標在同一個點（沒有另外標）', (await editor.page.locator('.topo-handles rect').count()) === 1)
+  await row('569').click()
+  await editor.page.keyboard.press('z')
+  await row('568').click()
+  check('復原：兩條路線的 A01 一起回到沒標', (await editor.page.locator('.topo-handles rect').count()) === 0)
+  await editor.page.keyboard.press('y')
+  await editor.page.click('.topo-edit-toolbar .edit-btn.primary')
+  const shared = await until(async () => {
+    const v = await read<Record<string, { routes: Record<string, { bolts?: Record<string, string> }> }>>('v2/topoEdits/e2eshare')
+    const latest = v && Object.values(v).find((e) => e.routes[keyOf(zRoute.id)]?.bolts)
+    return latest
+  })
+  const [thinAnchor, zAnchor] = [shared?.routes[keyOf(thinRoute.id)]?.bolts?.A01, shared?.routes[keyOf(zRoute.id)]?.bolts?.A01]
+  check('提交：兩條路線都有 A01，位置相同', !!thinAnchor && thinAnchor === zAnchor, `${thinAnchor} / ${zAnchor}`)
+
   // ── 6. 看 Topo：bolt 預設不顯示，按鈕切換 ────────────────────────────
   await put(`v2/topoEdits/${photo}/e2ebolts`, {
     uid: 'seed',
     createdAt: Date.now() + 60000,
     routes: {
-      [key]: { line: '3000,8000 3200,5000 3000,2000', bolts: { B1: '3100,7000', B2: '3150,5500' } },
+      [key]: { line: '3000,8000 3200,5000 3000,2000', bolts: { B01: '3080,7600', A01: '3000,1800' } },
       [topoRoutes[1].id.replace(/\//g, ':').replace(/\./g, ',')]: { line: '6000,8000 6200,5000 6000,2000' },
     },
   })
   const viewer = await newContext()
+  // 照片載入得慢：載入完之前，標記不先出現（照片與標記一起淡入）
+  const slowPhoto = async (r: { fulfill: (o: { status: number }) => Promise<void> }) => {
+    await new Promise((res) => setTimeout(res, 2500))
+    await r.fulfill({ status: 404 })
+  }
+  await viewer.page.route(/:9199\//, slowPhoto)
   await viewer.page.goto(base + `sector/${topoSector.id}`)
+  await viewer.page.waitForSelector('.topo-frame svg', { state: 'attached', timeout: 20000 })
+  const frameState = () => viewer.page.evaluate(`(() => { const f = document.querySelector('.topo-frame'); return [f.classList.contains('ready'), getComputedStyle(f.querySelector('svg')).opacity] })()`) as Promise<[boolean, string]>
+  const loading = await frameState()
+  check('照片載入中：標記不先出現', loading[0] === false && Number(loading[1]) < 0.5, JSON.stringify(loading))
+  const loaded = await until(async () => {
+    const [ready, opacity] = await frameState()
+    return ready && opacity === '1' ? true : undefined
+  })
+  check('照片載入完：標記淡入', loaded === true)
+  await viewer.page.unroute(/:9199\//, slowPhoto)
   await viewer.page.waitForSelector('.topo-bolt-toggle', { timeout: 20000 })
   check('bolt 預設不顯示', (await viewer.page.locator('.topo-bolt').count()) === 0)
   await viewer.page.click('.topo-bolt-toggle')

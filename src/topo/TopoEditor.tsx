@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useIsAdmin } from '../admin'
 import { GradePill } from '../components/GradePill'
@@ -14,13 +14,13 @@ import { href, navigate } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { removeEdit, removeTopo, submitEdit } from './actions'
 import { CropBox } from './CropBox'
-import { forkLine, moveSharedPoint } from './lines'
+import { forkLine, moveSharedPoint, syncShared } from './lines'
 import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { HistorySection } from '../edit/HistorySection'
 import { EditKeys } from '../edit/KeyList'
 import { loadEdits, loadPhotos, useTopoState } from './store'
 import { routeLabels } from './TopoSection'
-import { px, TopoFrame, TopoLines } from './TopoView'
+import { px, routeInfo, TopoFrame, TopoLines } from './TopoView'
 import { ZoomPane } from './ZoomPane'
 
 /**
@@ -132,6 +132,7 @@ function Editor({
   const { lang, t } = useLang()
   const isAdmin = useIsAdmin()
   const profiles = useSocial().profiles
+  const info = useMemo(() => routeInfo(routes, (r) => localName(r.name, lang).main), [routes, lang])
   const latest = edits.at(-1)
   const [draft, setDraftState] = useState<Draft | undefined>(() => readDraft(photo.id))
   const [preview, setPreview] = useState<TopoEdit>()
@@ -222,8 +223,10 @@ function Editor({
     if (!selected) return
     const { marks: before, crop: keep } = base()
     record({ marks: before, crop: keep })
-    const next = { ...before, [selected]: change(before[selected] ?? {}) }
+    let next = { ...before, [selected]: change(before[selected] ?? {}) }
     if (!next[selected].line?.length && !Object.keys(next[selected].bolts ?? {}).length) delete next[selected]
+    // 共用的 bolt、anchor（例如兩條路線共用頂端的 anchor）：另一條路線自動同步
+    next = syncShared(next, before, selected, routes)
     commit({ marks: next, crop: keep })
   }
   /** 修改裁切；拖曳開始時記一次復原點（record），之後只更新草稿 */
@@ -312,7 +315,7 @@ function Editor({
       return
     }
     const m = all[selected] ?? {}
-    commit({ marks: { ...all, [selected]: { ...m, bolts: { ...m.bolts, [d.pos]: p } } }, crop: keep })
+    commit({ marks: syncShared({ ...all, [selected]: { ...m, bolts: { ...m.bolts, [d.pos]: p } } }, all, selected, routes), crop: keep })
   }
   const endDrag = () => {
     // click 事件在 pointerup 之後才觸發：等它過去再清除，拖曳結束時不會多加一點
@@ -529,7 +532,7 @@ function Editor({
                 const k = frameK / zoom
                 return (
                   <>
-                    <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} crop={shownCrop} />
+                    <TopoLines photo={photo} marks={marks} labels={labels} k={k} highlight={selected} info={info} crop={shownCrop} />
                     {handles(k)}
                     {forkPoints(k)}
                     {cropping && <CropBox photo={photo} crop={crop} k={k} onChange={setCrop} />}

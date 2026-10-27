@@ -5142,6 +5142,43 @@ dialog.topo-full[open] {
   background: var(--surface-2);
 }
 
+/* 照片載入中：淡淡的流光；載入完照片與標記一起淡入 */
+.topo-frame:not(.ready) {
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface) 50%, var(--surface-2) 70%) 0 0 / 300% 100%;
+  animation: topo-loading 1.4s ease-in-out infinite;
+}
+
+.topo-frame img,
+.topo-frame svg {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.topo-frame.ready img,
+.topo-frame.ready svg {
+  opacity: 1;
+}
+
+@keyframes topo-loading {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topo-frame:not(.ready) {
+    animation: none;
+  }
+
+  .topo-frame img,
+  .topo-frame svg {
+    transition: none;
+  }
+}
+
 .topo-frame img,
 .topo-frame svg {
   position: absolute;
@@ -5157,19 +5194,43 @@ dialog.topo-full[open] {
   user-select: none;
 }
 
+/* 標記的風格：深紅色的平滑曲線，起點一個圓點；編號、anchor 是紅色的圓角牌，bolt 是藍色的圓角牌；說明是白字加深色描邊 */
 .topo-route {
-  --topo-line: #ffd23f;
+  --topo-line: #c8102e;
+  --topo-pill: #c8102e;
 }
 
 .topo-route.on {
-  --topo-line: #ff5a36;
+  --topo-line: #e11d2e;
+  --topo-pill: #e11d2e;
+}
+
+/* 運攀（sport）藍色、傳攀（trad）紅色，其他灰色 */
+.topo-route.kind-sport {
+  --topo-line: #1565c0;
+  --topo-pill: #1565c0;
+}
+
+.topo-route.kind-sport.on {
+  --topo-line: #1e7bff;
+  --topo-pill: #1e7bff;
+}
+
+.topo-route.kind-other {
+  --topo-line: #4a4a4a;
+  --topo-pill: #4a4a4a;
+}
+
+.topo-route.kind-other.on {
+  --topo-line: #222;
+  --topo-pill: #222;
 }
 
 .topo-route.dim {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
-.topo-route polyline {
+.topo-route path {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -5179,12 +5240,18 @@ dialog.topo-full[open] {
   stroke: transparent;
 }
 
+/* 線外面一圈淡淡的白邊：深紅色在深色的岩壁上也看得清楚 */
 .topo-halo {
-  stroke: rgba(0, 0, 0, 0.6);
+  stroke: rgba(255, 255, 255, 0.55);
 }
 
 .topo-line {
   stroke: var(--topo-line);
+}
+
+.topo-start {
+  fill: var(--topo-line);
+  stroke: #fff;
 }
 
 g.topo-route.link {
@@ -5208,11 +5275,8 @@ g.topo-route.link:focus-visible .topo-halo {
 }
 
 .topo-badge rect {
-  fill: rgba(0, 0, 0, 0.72);
-}
-
-.topo-route.on .topo-badge rect {
-  fill: #ff5a36;
+  fill: var(--topo-pill);
+  stroke: #fff;
 }
 
 .topo-badge text {
@@ -5221,16 +5285,30 @@ g.topo-route.link:focus-visible .topo-halo {
   font-variant-numeric: tabular-nums;
 }
 
-.topo-bolt circle {
-  fill: #ff5a36;
+.topo-bolt rect {
+  fill: #1ea0e6;
   stroke: #fff;
+  stroke-width: 1px;
+}
+
+.topo-bolt.anchor rect {
+  fill: var(--topo-pill);
 }
 
 .topo-bolt text {
   fill: #fff;
   font-weight: 700;
+}
+
+.topo-note {
+  fill: #fff;
   paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.75);
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-linejoin: round;
+}
+
+.topo-bolt text.topo-note {
+  font-weight: 500;
 }
 
 .topo-upload .error {
@@ -5456,13 +5534,13 @@ button.key-row:disabled {
 
 .topo-handles circle,
 .topo-handles rect {
-  fill: rgba(255, 255, 255, 0.9);
-  stroke: #ff5a36;
+  fill: rgba(255, 255, 255, 0.92);
+  stroke: #c8102e;
   cursor: move;
 }
 
 .topo-handles circle.start {
-  fill: #ff5a36;
+  fill: #c8102e;
   stroke: #fff;
 }
 

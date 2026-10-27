@@ -6,7 +6,7 @@ import { useRouteLink } from '../router'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
-import { TopoFrame, TopoLines } from './TopoView'
+import { routeInfo, TopoFrame, TopoLines } from './TopoView'
 import { ZoomPane } from './ZoomPane'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
@@ -36,6 +36,7 @@ export function SectorTopos({ sector }: { sector: Sector }) {
   const [showBolts] = useShowBolts()
   if (!topos || topos.length === 0) return null
   const labels = routeLabels(sector)
+  const info = routeInfo(sector.routes, (r) => localName(r.name, lang).main)
   return (
     <section className="topos" aria-label={t('topo.title')}>
       {topos.map((topo) => (
@@ -52,6 +53,7 @@ export function SectorTopos({ sector }: { sector: Sector }) {
                   k={k}
                   highlight={selected}
                   bolts={showBolts ? (selected ? [selected] : Object.keys(topo.latest.marks)) : []}
+                  info={info}
                   link={link}
                   crop={topo.latest.crop}
                 />
@@ -72,6 +74,7 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
   const [showBolts] = useShowBolts()
   if (!topos || topos.length === 0) return null
   const labels = routeLabels(sector)
+  const info = routeInfo(sector.routes, (r) => localName(r.name, lang).main)
   return (
     <section className="route-block topos">
       <h2>{t('topo.title')}</h2>
@@ -80,7 +83,9 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
           <Photo
             topo={topo}
             alt={t('topo.alt', { name: localName(sector.name, lang).main })}
-            render={(k) => <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} bolts={showBolts ? [routeId] : []} crop={topo.latest!.crop} />}
+            render={(k) => (
+              <TopoLines photo={topo.photo} marks={topo.latest!.marks} labels={labels} k={k} highlight={routeId} bolts={showBolts ? [routeId] : []} info={info} crop={topo.latest!.crop} />
+            )}
           />
           <FullscreenButton topo={topo} sector={sector} initial={routeId} />
         </figure>

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { GradePill } from '../components/GradePill'
 import type { Route } from '../data/schema'
 import { localName, useLang } from '../i18n'
@@ -7,7 +7,7 @@ import { href, navigate } from '../router'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { FULL_CROP, type Crop, type Marks, type TopoPhoto } from './model'
 import { fitSize, IDENTITY, moveView, type Pt, type Size, type View } from './viewport'
-import { px, TopoFrame, TopoLines } from './TopoView'
+import { px, routeInfo, TopoFrame, TopoLines } from './TopoView'
 
 /** 手指移動超過這個距離（螢幕像素）才算拖曳，之前都當作點擊 */
 const DRAG_PX = 8
@@ -74,6 +74,7 @@ export function TopoFullscreen({
   const [cw, ch] = px(photo, [c.w, c.h])
   const content = fitSize(stage, cw / ch)
   const route = routes.find((r) => r.id === selected)
+  const annotations = useMemo(() => routeInfo(routes, (r) => localName(r.name, lang).main), [routes, lang])
   /** 這張照片上有標記的路線（依編號） */
   const listed = routes.filter((r) => marks[r.id]).sort((a, b) => Number(a.number ?? Infinity) - Number(b.number ?? Infinity))
 
@@ -197,6 +198,7 @@ export function TopoFullscreen({
                     k={k / view.scale}
                     highlight={selected}
                     bolts={showBolts ? (selected ? [selected] : Object.keys(marks)) : []}
+                    info={annotations}
                     onPick={setSelected}
                     crop={crop}
                   />
