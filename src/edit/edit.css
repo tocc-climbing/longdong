@@ -1,4 +1,4 @@
-/* 修改模式（src/edit/EditPage.tsx）：電腦版三欄（目錄、編輯、資訊）＋上方工具列，全螢幕；手機版一欄 */
+/* 編輯模式（src/edit/EditPage.tsx）：電腦版三欄（目錄、編輯、資訊）＋上方工具列，全螢幕；手機版一欄 */
 .edit-app {
   /* 兩側欄寬度與字級隨螢幕尺寸調整（見檔尾的 @media） */
   --edit-catalog: 248px;
@@ -491,7 +491,7 @@
   font-size: 0.875rem;
 }
 
-/* 修改模式首頁（src/edit/EditPage.tsx 的 Welcome）：標題與重點同分享小卡 */
+/* 編輯模式首頁（src/edit/EditPage.tsx 的 Welcome）：標題與重點同分享小卡 */
 .edit-message {
   overflow: auto;
 }

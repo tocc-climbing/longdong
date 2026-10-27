@@ -2,7 +2,7 @@ import type { LatLng } from '../geo'
 import { dbUrl } from '../social/model'
 import type { ReportTarget } from './calibration'
 import { project } from './mapData'
-import { insideRing } from './reportOptions'
+import { ringDistance } from './reportOptions'
 
 /**
  * 修改地圖時當參考的回報：別人在地圖上回報的位置與說明。
@@ -109,6 +109,18 @@ export async function writePins(entries: [string, StoredPin][]): Promise<number>
   return added
 }
 
+/**
+ * 把已經上傳的回報（管理員才讀得到：v2/calibration、v2/anonReports）匯入去識別的副本；已經有的略過。
+ * total 是這些回報去重後有幾筆，added 是新增了幾筆。
+ */
+export async function importUploadedPins(raw: { signedIn: Record<string, Record<string, { geojson: string }>>; anon: Record<string, Record<string, { geojson: string }>> }): Promise<{ added: number; total: number }> {
+  const entries = new Map<string, StoredPin>()
+  for (const [owner, list] of [...Object.entries(raw.signedIn), ...Object.entries(raw.anon)]) {
+    for (const upload of Object.values(list)) for (const [key, pin] of await pinsFromGeoJSON(upload.geojson, owner)) entries.set(key, pin)
+  }
+  return { added: await writePins([...entries]), total: entries.size }
+}
+
 /** 資料庫裡的副本 → 回報；順序依代碼（固定，編號不會每次不同） */
 export function decodePins(stored: Record<string, StoredPin> | null | undefined): ReportPin[] {
   return Object.entries(stored ?? {})
@@ -130,14 +142,17 @@ export function decodePins(stored: Record<string, StoredPin> | null | undefined)
     })
 }
 
+/** 沒指定回報的是哪裡的回報，離區域範圍多近（公尺）算這個區域的：GPS 的誤差本來就有十幾公尺，剛好在範圍外的回報正是修改範圍時要參考的 */
+export const PIN_NEAR_M = 50
+
 /**
  * 一個區域（或分區）相關的回報：
- * 有指定回報的是哪裡（從路線頁回報）的，看它指的區域或分區；沒有指定的，看位置在不在這個區域的範圍裡。
- * sectorId 有值（修改分區的範圍、岩壁）時只留這個分區的，加上沒指定分區、位置在區域裡的。
+ * 有指定回報的是哪裡（從路線頁回報）的，看它指的區域或分區；沒有指定的，看位置在不在這個區域的範圍裡或附近（PIN_NEAR_M）。
+ * sectorId 有值（編輯分區的範圍、岩壁）時只留這個分區的，加上沒指定分區、位置在區域裡或附近的。
  * rings 是區域目前的範圍（地圖座標）。
  */
 export function pinsForArea(pins: ReportPin[], area: { key: string; sectorId?: string; rings: [number, number][][] }): ReportPin[] {
-  const within = (p: ReportPin) => area.rings.some((r) => insideRing(project(p.at), r))
+  const within = (p: ReportPin) => area.rings.some((r) => ringDistance(project(p.at), r) <= PIN_NEAR_M)
   return pins.filter((p) => {
     if (area.sectorId) return p.target?.sectorId ? p.target.sectorId === area.sectorId : within(p)
     return p.target?.areaId ? p.target.areaId.endsWith(`/${area.key}`) : within(p)

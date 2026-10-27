@@ -1,16 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { ScaleMapData } from '../map/mapData'
-import { decodePins, mergePins, pinsForArea, type PinGroup, type ReportPin } from '../map/reportPins'
+import { decodePins, importUploadedPins, mergePins, pinsForArea, type PinGroup, type ReportPin } from '../map/reportPins'
 import { sectorOf, type EditTarget } from '../map/shapes'
+import { useIsAdmin } from '../admin'
 import { useCloud, withCloud } from '../personal/sync'
 
 let loading: Promise<ReportPin[]> | undefined
+let backfilled = false
 
-/** 回報的去識別副本（位置與說明，沒有是誰、什麼時候）：整個頁面只讀一次 */
-function loadPins(): Promise<ReportPin[]> {
+/**
+ * 回報的去識別副本（位置與說明，沒有是誰、什麼時候）：整個頁面只讀一次。
+ * 管理員開的時候先把已經上傳、還沒有副本的回報補進去（只有管理員讀得到原本的回報；已經有的略過，每次開啟 App 一次）。
+ */
+function loadPins(admin: boolean): Promise<ReportPin[]> {
   loading ??= withCloud()
-    .then(({ m }) => m.loadReportPins())
+    .then(async ({ m }) => {
+      if (admin && !backfilled) {
+        backfilled = true
+        try {
+          await importUploadedPins(await m.loadCalibrationUploads())
+        } catch (err) {
+          console.warn('reportPins backfill', err)
+        }
+      }
+      return m.loadReportPins()
+    })
     .then(decodePins)
     .catch((err: Error) => {
       loading = undefined
@@ -26,16 +41,17 @@ function loadPins(): Promise<ReportPin[]> {
  */
 export function useReportPins(args?: { target: EditTarget; data: LoadedData; map?: ScaleMapData }): PinGroup[] {
   const signedIn = useCloud().status === 'signed-in'
+  const admin = useIsAdmin()
   const [all, setAll] = useState<ReportPin[]>([])
-  const enabled = signedIn && !!args
+  const enabled = signedIn && !!args && admin !== undefined
   useEffect(() => {
     if (!enabled) return
     let alive = true
-    void loadPins().then((pins) => alive && setAll(pins))
+    void loadPins(admin === true).then((pins) => alive && setAll(pins))
     return () => {
       alive = false
     }
-  }, [enabled])
+  }, [enabled, admin])
   const target = args?.target
   const data = args?.data
   const map = args?.map

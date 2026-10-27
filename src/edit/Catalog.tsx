@@ -10,7 +10,7 @@ import { UploadButton } from '../topo/TopoUpload'
 import { loadPhotos, useTopoState } from '../topo/store'
 import { textTarget, useTextEdits } from './textEdits'
 
-/** 修改模式的一個項目：地圖的對象、Topo 照片、說明的對象 */
+/** 編輯模式的一個項目：地圖的對象、Topo 照片、說明的對象 */
 export interface EditItem {
   kind: EditKind
   id: string

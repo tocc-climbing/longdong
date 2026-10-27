@@ -169,14 +169,14 @@ function areaMap(map: OgMap, areaKey: string | undefined, areaColors: Record<str
     .join('')
   const color = (areaKey && areaColors[areaKey]) || C.brand
   const target = areaKey && map.areas[areaKey] ? `<path d="${path(map.areas[areaKey])}" fill="${color}"/>` : ''
-  // 修改模式：最大的一圈範圍畫上頂點（白點）與邊上的小點，像編輯中的樣子
+  // 編輯模式：最大的一圈範圍畫上頂點（白點）與邊上的小點，像編輯中的樣子
   const handles = editHandles && areaKey && map.areas[areaKey] ? editVertices(map.areas[areaKey], xy, color) : ''
   return `<clipPath id="map"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="${box.r}"/></clipPath>
 <g clip-path="url(#map)"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="${C.sea}"/>
 <path d="${path(map.land)}" fill="${C.land}" fill-rule="evenodd"/>${others}${target}${handles}</g>`
 }
 
-/** 範圍最大的一圈取約 12 個頂點：白底有色邊的圓點，頂點之間的中點是較小的空心點（與修改模式的編輯點相同） */
+/** 範圍最大的一圈取約 12 個頂點：白底有色邊的圓點，頂點之間的中點是較小的空心點（與編輯模式的編輯點相同） */
 function editVertices(rings: Ring[], xy: (p: [number, number]) => string, color: string): string {
   const ring = rings.reduce((a, b) => (b.length > a.length ? b : a))
   const step = Math.max(1, Math.floor(ring.length / 12))
@@ -377,7 +377,7 @@ export function mapPageSvg(map: OgMap, areaColors: Record<string, string>, stats
   return crag(map, areaColors, '龍洞地圖', `${stats.areas} 個區域 · ${stats.routes} 條路線`, '救援點 · 急救器材 · 離線可用')
 }
 
-/** 修改模式（/edit）的分享圖片：整張是放大的黃金谷，範圍上有編輯用的頂點；文字壓在上方的淡色漸層上，標誌在右下角 */
+/** 編輯模式（/edit）的分享圖片：整張是放大的黃金谷，範圍上有編輯用的頂點；文字壓在上方的淡色漸層上，標誌在右下角 */
 export function editPageSvg(map: OgMap, areaColors: Record<string, string>): string {
   const { w, h } = D
   const left = MARK.x
@@ -398,7 +398,7 @@ export function editPageSvg(map: OgMap, areaColors: Record<string, string>): str
   )
 }
 
-/** 修改模式分享圖片的標誌（右下角）：x 是臺灣島的左緣，right 是右緣（含「LongDong」與岩點） */
+/** 編輯模式分享圖片的標誌（右下角）：x 是臺灣島的左緣，right 是右緣（含「LongDong」與岩點） */
 const EDIT_LOGO = { x: 0, y: D.h - 32 - 60, h: 60, right: D.w - 40 }
 EDIT_LOGO.x = EDIT_LOGO.right - (46 + textWidth('LongDong', 28) * 1.25 + 16)
 
@@ -485,5 +485,5 @@ function checklistPanel(area: Area, sector: Sector, box: Box): string {
   )
 }
 
-/** 修改模式分享圖片裡 TOCC 臺灣島的位置（右下角標誌的左上角） */
+/** 編輯模式分享圖片裡 TOCC 臺灣島的位置（右下角標誌的左上角） */
 export const editMarkAt = { x: EDIT_LOGO.x, y: EDIT_LOGO.y }

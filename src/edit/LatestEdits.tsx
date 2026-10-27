@@ -18,7 +18,7 @@ interface Update {
   upload?: boolean
 }
 
-/** 修改模式首頁：最近有更新的項目（地圖、Topo、說明混排，新到舊，每個項目一筆），點一筆進那個項目 */
+/** 編輯模式首頁：最近有更新的項目（地圖、Topo、說明混排，新到舊，每個項目一筆），點一筆進那個項目 */
 export function LatestEdits({ items }: { items: EditItem[] }) {
   const { t } = useLang()
   const maps = useMapShapes()

@@ -5,7 +5,7 @@ import { useWide } from '../layout'
 import type { ReportTarget } from '../map/calibration'
 import { areaNames, useScaleMap } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
-import { pinsFromGeoJSON, writePins, type StoredPin } from '../map/reportPins'
+import { importUploadedPins } from '../map/reportPins'
 import { reportsOf, type UploadScope, type UploadedReport } from '../map/uploadedReports'
 import type { CalibrationUploads } from '../personal/firebase'
 import { withCloud } from '../personal/sync'
@@ -69,11 +69,7 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
     setImporting(true)
     setImportMsg(undefined)
     try {
-      const entries = new Map<string, StoredPin>()
-      for (const [owner, list] of [...Object.entries(raw.signedIn), ...Object.entries(raw.anon)]) {
-        for (const upload of Object.values(list)) for (const [key, pin] of await pinsFromGeoJSON(upload.geojson, owner)) entries.set(key, pin)
-      }
-      setImportMsg(t('admin.pinsImported', { added: await writePins([...entries]), total: entries.size }))
+      setImportMsg(t('admin.pinsImported', await importUploadedPins(raw)))
     } catch (err) {
       setImportMsg(t('admin.pinsImportFailed', { error: (err as Error).message }))
     } finally {

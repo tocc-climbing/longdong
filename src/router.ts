@@ -5,7 +5,7 @@ import { parseSimulation } from './simulate'
 
 /**
  * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map、/reports、/admin、/bolts、/topo/<照片>、
- * /edit/<種類>/<項目>（修改模式：map、topo、text；id 本身含 "/"）。
+ * /edit/<種類>/<項目>（編輯模式：map、topo、text；id 本身含 "/"）。
  * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
  * 伺服器（Firebase Hosting）把所有路徑都交給 index.html；站內連結由這裡攔下來換頁，不重新載入。
  */
@@ -26,7 +26,7 @@ export type Page = (
   | { name: 'checklist' }
   /** Topo 編輯（電腦版）；id 是照片 id */
   | { name: 'topo'; id: string }
-  /** 修改模式：kind 是 map（地圖編輯的對象）、topo（照片 id）、text（說明的對象）；沒有時顯示目錄 */
+  /** 編輯模式：kind 是 map（地圖編輯的對象）、topo（照片 id）、text（說明的對象）；沒有時顯示目錄 */
   | { name: 'edit'; kind?: EditKind; id?: string }
   /** 不是 App 的頁面（例如 /terms.html 等靜態檔案）：站內連結不攔，直接載入時顯示找不到頁面 */
   | { name: 'notFound' }
@@ -103,7 +103,7 @@ export const href = {
   /** 路線清單：快速記錄每條路線的最佳攀登方式與評分（我的 → 路線清單） */
   checklist: () => '/checklist',
   /** Topo 編輯（電腦版） */
-  /** Topo 編輯在修改模式裡（舊的 /topo/<照片> 也會開修改模式） */
+  /** Topo 編輯在編輯模式裡（舊的 /topo/<照片> 也會開編輯模式） */
   topo: (id: string) => `/edit/topo/${id}`,
 }
 

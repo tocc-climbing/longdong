@@ -63,7 +63,7 @@ export function loadEdits(photo: string, force = false): Promise<void> {
   return p
 }
 
-/** 所有照片的所有版本，一次讀完（修改模式首頁的最新更新用；個別照片仍用 loadEdits） */
+/** 所有照片的所有版本，一次讀完（編輯模式首頁的最新更新用；個別照片仍用 loadEdits） */
 let allEditsPromise: Promise<void> | undefined
 export function loadAllEdits(force = false): Promise<void> {
   if (allEditsPromise && !force) return allEditsPromise

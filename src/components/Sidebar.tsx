@@ -121,7 +121,7 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
         </nav>
       )}
 
-      {/* 岩場（區域清單）下面：修改模式的入口 */}
+      {/* 岩場（區域清單）下面：編輯模式的入口 */}
       <nav className="side-nav side-edit" aria-label={t('edit.title')}>
         <a href={href.edit()}>
           <svg viewBox="0 0 24 24" aria-hidden width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
