@@ -1,6 +1,6 @@
 /**
  * 端對端測試（修改模式）：登入 → 回報 → 去識別副本 → 修改區域範圍時看到該區的回報 → 地圖編輯（範圍、岩壁、刪除版本）→
- * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁匯入去識別副本。
+ * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁匯入去識別副本 → 管理頁的所有輸入、搜尋、處理檢舉（電腦版、手機版）。
  * 用 Firebase 模擬器（firebase.e2e.json），不碰正式資料；模擬器載入真正的資料庫規則，一併驗證規則允許這些寫入。
  * 每一項檢查的是「資料庫裡真的有什麼」與「畫面上真的出現什麼」，不是程式內部狀態。
  *
@@ -354,6 +354,54 @@ try {
   await button.click()
   const again = await until(async () => ((await admin.page.getByText('已匯入 0 筆新的').count()) > 0 ? true : undefined))
   check('再按一次：全部已經有，新增 0 筆', again === true && Object.keys(await pins()).length === before + 3)
+
+
+  // ── 8. 管理頁：所有輸入、搜尋、依使用者看、處理檢舉、評分只有本人能刪；手機版另一種版面 ──
+  const rk = topoRoutes[0].id.replace('/', ':')
+  const stamp = Date.now()
+  const iso = new Date().toISOString()
+  await put('v2/profiles/seedA', { name: '測試甲', updatedAt: iso })
+  await put('v2/profiles/seedB', { name: '測試乙', updatedAt: iso })
+  await put(`v2/comments/${rk}/e2ec1`, { uid: 'seedA', text: 'e2e 好岩質', createdAt: stamp })
+  await put(`v2/comments/${rk}/e2ec2`, { uid: 'seedB', text: 'e2e 加 LINE 領優惠', createdAt: stamp + 1 })
+  await put(`v2/ratings/${rk}/seedA`, { stars: 4, feel: 'hard', updatedAt: iso })
+  await put('v2/reports/e2er1', { path: `v2/comments/${rk}/e2ec2`, uid: 'seedA', reason: '廣告', createdAt: stamp + 2 })
+  const ap = admin.page
+  await ap.goto(base + 'admin')
+  await ap.waitForSelector('.admin-row', { timeout: 20000 })
+  check('管理頁電腦版：左邊六個分類', (await ap.locator('.admin-rail [role=tab]').count()) === 6)
+  check('待處理標出 1 筆檢舉', /1/.test((await ap.getByRole('tab', { name: '待處理' }).textContent()) ?? ''))
+  await ap.fill('.admin-search', '領優惠')
+  const found = await until(async () => ((await ap.locator('.admin-row').count()) === 1 ? true : undefined))
+  check('搜尋內容：只剩那一則留言', found === true)
+  await ap.locator('.admin-row').first().click()
+  await ap.locator('.admin-who', { hasText: '測試乙' }).click()
+  const filtered = await until(async () => ((await ap.locator('.admin-chip.on', { hasText: '測試乙' }).count()) === 1 ? true : undefined))
+  check('點使用者名稱：只看這個人（出現篩選標籤）', filtered === true)
+  await ap.fill('.admin-search', '')
+  const whos = await until(async () => {
+    const names = await ap.locator('.admin-row-who').allTextContents()
+    return names.length > 0 ? names : undefined
+  })
+  check('清單裡都是這個人的輸入', !!whos && whos.every((n) => n === '測試乙'), String(whos))
+  await ap.getByRole('button', { name: '清除' }).click()
+  await ap.getByRole('tab', { name: '待處理' }).click()
+  await ap.locator('.admin-row').first().click()
+  await ap.getByRole('button', { name: '刪除留言' }).click()
+  const gone = await until(async () => ((await read(`v2/comments/${rk}/e2ec2`)) === null && (await read('v2/reports/e2er1')) === null ? true : undefined))
+  check('刪除被檢舉的留言：留言與檢舉都從資料庫消失', gone === true)
+  await ap.getByRole('tab', { name: '全部' }).click()
+  await ap.fill('.admin-search', '★ 4')
+  await until(async () => ((await ap.locator('.admin-row').count()) === 1 ? true : undefined))
+  await ap.locator('.admin-row').first().click()
+  check('評分：管理員不能刪（顯示「僅本人可刪」，沒有刪除按鈕）', (await ap.getByText('僅本人可刪').count()) === 1 && (await ap.locator('.admin-desk-detail').getByRole('button', { name: '刪除' }).count()) === 0)
+  // 手機寬度：換成上方分頁加可展開的卡片
+  await ap.setViewportSize({ width: 390, height: 844 })
+  await ap.fill('.admin-search', '')
+  await ap.waitForSelector('.admin-mtabs', { timeout: 10000 })
+  check('管理頁手機版：上方六個分頁、沒有三欄', (await ap.locator('.admin-mtabs [role=tab]').count()) === 6 && (await ap.locator('.admin-desk').count()) === 0)
+  await ap.locator('.admin-card-head').first().click()
+  check('點卡片：在原地展開（詳細內容、操作）', (await ap.locator('.admin-card.open .admin-card-body').count()) === 1)
   await admin.ctx.close()
   await editor.ctx.close()
 } catch (err) {

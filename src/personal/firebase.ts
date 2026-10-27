@@ -23,6 +23,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { connectDatabaseEmulator, get, getDatabase, onValue, push, ref, remove, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
+import { isAdminDeletable, type AdminRaw } from '../admin/feed'
 import type { StoredPin } from '../map/reportPins'
 import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
 import { STORAGE_BUCKET, type Crop, type StoredRoutes, type TopoPhoto } from '../topo/model'
@@ -209,21 +210,28 @@ export async function reportComment(uid: string, routeId: string, id: string, re
 export type CommentReports = Record<string, { path: string; uid: string; reason?: string; createdAt: number }>
 
 /**
- * 管理員：所有留言、檢舉（只有管理員讀得到）與暱稱。用 SDK 讀，和刪除用的是同一個資料庫連線
- * （公開資料平常用 REST 讀，見 src/social/store.ts）。
+ * 管理員：所有人輸入的資料（留言、評分、Topo、地圖編輯、說明修改、岩壁）、檢舉（只有管理員讀得到）與暱稱。
+ * 用 SDK 讀，和刪除用的是同一個資料庫連線（公開資料平常用 REST 讀，見 src/social/store.ts）。
  */
-export async function loadAdminData(): Promise<{
-  comments: Record<string, Record<string, { uid: string; text: string; createdAt: number; hidden?: boolean }>>
-  reports: CommentReports
-  profiles: Record<string, { name: string }>
-}> {
-  const [comments, reports, profiles] = await Promise.all(['v2/comments', 'v2/reports', 'v2/profiles'].map((p) => get(ref(db, p))))
-  return { comments: comments.val() ?? {}, reports: reports.val() ?? {}, profiles: profiles.val() ?? {} }
+export async function loadAdminData(): Promise<AdminRaw & { profiles: Record<string, { name: string }> }> {
+  const paths = ['comments', 'ratings', 'topos', 'topoEdits', 'mapEdits', 'textEdits', 'walls', 'reports', 'profiles'] as const
+  const [comments, ratings, topos, topoEdits, mapEdits, textEdits, walls, reports, profiles] = await Promise.all(paths.map((p) => get(ref(db, `v2/${p}`))))
+  return {
+    comments: comments.val() ?? {},
+    ratings: ratings.val() ?? {},
+    topos: topos.val() ?? {},
+    topoEdits: topoEdits.val() ?? {},
+    mapEdits: mapEdits.val() ?? {},
+    textEdits: textEdits.val() ?? {},
+    walls: walls.val() ?? {},
+    reports: reports.val() ?? {},
+    profiles: profiles.val() ?? {},
+  }
 }
 
-/** 管理員：一次刪除幾個節點（留言與它的檢舉）；只接受 v2/comments、v2/reports 底下的路徑 */
+/** 管理員：一次刪除幾個節點（見 isAdminDeletable：留言、檢舉、各種修改版本、岩壁） */
 export function adminDelete(paths: string[]): Promise<void> {
-  if (paths.some((p) => !/^v2\/(comments\/[^/]+|reports)\/[^/]+$/.test(p))) throw new Error(`不能刪除：${paths.join(', ')}`)
+  if (!paths.every(isAdminDeletable)) throw new Error(`不能刪除：${paths.join(', ')}`)
   return update(ref(db), Object.fromEntries(paths.map((p) => [p, null])))
 }
 
