@@ -101,6 +101,11 @@
 - **不直接推 `main`**（受保護）：從最新的 `main` 開分支（`feat/`、`fix/`、`docs/`、`chore/`），推上分支後開 PR，依 `.github/pull_request_template.md` 填寫。
 - **CI（`ci`）必須通過**；引入新行為的 PR 依審查規範審查。
 - **合併上開發站，發布上正式站**：`main` 自動部署到開發站 https://longdong-dev.web.app/ ，`release` 部署到正式站 https://longdong.web.app/ 。使用者交代的工作即為授權，Claude 開好 PR、CI 通過後**直接 squash 合併**再回報（2026-10-18 使用者指示），回報時給開發站網址。**開 PR、合併都不用先問**，做完交代的工作就開 PR 並設定自動合併（2026-10-27 使用者再次強調）；**只有「發布」要問使用者**。開 PR 時就設定自動合併（`gh pr merge <n> --auto --squash --delete-branch`），CI 通過即合併，不必等 CI 跑完再下指令；同一輪的小改動盡量合成一個 PR。
+- **PR 的合併衝突、CI 失敗由 Claude 自己處理到合併為止，不需要使用者介入**（2026-10-27 使用者指示）：
+  - 開 PR 後**必須檢查 PR 的可合併狀態**（有衝突時 CI 不會啟動，自動合併也不會發生；`dirty` 即衝突），不能只設定自動合併就回報完成；回報「已合併」前要確認 PR 真的合併了。
+  - 有衝突：把 `main` 合併進分支（`git fetch origin main && git merge origin/main`，不 rebase、不 force push），自己解衝突；`public/data/longdong.json` 依下方規則重新匯入；解完跑 `npm run typecheck`、`npm test`，並檢查合併結果沒有重複的函式或遺留的衝突標記，再推上去。同一分支帶著已 squash 合併過的舊 commit 是常見原因，合併 `main` 即可。
+  - CI 失敗：看日誌、修好、推上去，直到通過；不要停下來問。
+  - 只有「解法會改變需求或行為取捨」時才問使用者（例如兩邊都改了同一段邏輯、取捨會失去其中一邊的行為）。
 - **發布要使用者說「發布」**：先列出 `release..main` 的 commit 給使用者看，再 `git push origin main:release`（只能快轉，不可 force push）。路線資料（`public/data`）合併到 `main` 後會直接更新正式站，不必發布。部署資料庫規則、寫入或刪除正式資料、修改 Firebase 設定仍須先取得明確同意。
 - **重構與新行為分開成不同 PR**（規範 7.5）。
 - **每日資料同步**由 `.github/workflows/sync.yml` 開 `data-sync` PR，不直接推 `main`。
