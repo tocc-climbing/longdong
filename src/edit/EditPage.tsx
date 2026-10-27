@@ -372,6 +372,8 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
         e.preventDefault()
         f()
       }
+      // 畫新的形狀時，Z、Backspace 退回上一個點；畫完才是復原、重做
+      if (m.drawing && (key === 'z' || key === 'backspace')) return run(m.actions.undoPoint)
       if (key === 'z') return run(m.actions.undo)
       if (key === 'y') return run(m.actions.redo)
       if (key === 's') return canSubmit ? run(() => void submit()) : undefined
@@ -431,7 +433,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
           {m.drawing ? (
             <>
               <span className="edit-status">{t(m.closed ? 'shape.drawHint' : isWall ? 'shape.drawWallHint' : 'shape.drawLineHint', { n: m.drawing.length })}</span>
-              {tool(false, t('wall.undo'), '⌫', m.actions.undoPoint, m.drawing.length === 0)}
+              {tool(false, t('wall.undo'), 'Z', m.actions.undoPoint, m.drawing.length === 0)}
               {tool(false, finishLabel, 'Enter', m.actions.finishDrawing, !m.canFinish)}
             </>
           ) : (
@@ -482,7 +484,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
             { keys: 'Enter', label: finishLabel, onClick: m.actions.finishDrawing, disabled: !m.drawing || !m.canFinish },
             { keys: 'Esc', label: t('edit.cancel'), onClick: m.actions.cancel },
             { keys: 'Del', label: t('shape.removeRing'), onClick: m.actions.removeSelected, disabled: !!m.drawing || m.selected === undefined },
-            { keys: 'Z', label: t('edit.undo'), onClick: m.actions.undo, disabled: !m.canUndo },
+            { keys: 'Z', label: t('edit.undo'), onClick: m.drawing ? m.actions.undoPoint : m.actions.undo, disabled: m.drawing ? m.drawing.length === 0 : !m.canUndo },
             { keys: 'Y', label: t('edit.redo'), onClick: m.actions.redo, disabled: !m.canRedo },
             { keys: 'S', label: t('shape.save'), onClick: () => void submit(), disabled: !canSubmit },
             { keys: 'A', label: t('map.ortho'), onClick: () => setOrtho((o) => !o) },
