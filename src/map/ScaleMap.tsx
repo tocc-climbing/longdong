@@ -57,7 +57,7 @@ const ROAD_WIDTH_M = { highway: 8, road: 5, trail: 1.5 }
 /** 放大到每像素不到 ICON_GROW_SCALE 公尺時，圖示跟著放大，最多 ICON_MAX_GROW 倍 */
 const ICON_GROW_SCALE = 0.5
 const ICON_MAX_GROW = 1.6
-/** 航照的不透明度：稍微調淡，上面的道路、步道、區域邊界比較清楚 */
+/** 航照完全不透明，避免底層陸海填色透出造成色塊 */
 const ORTHO_OPACITY = 1
 /** 縮放停下多久（毫秒）才換航照的圖磚層級：縮放中沿用原本的層級，不會一直換圖磚而閃動 */
 const ORTHO_SETTLE_MS = 300
