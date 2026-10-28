@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Bolt } from '../data/schema'
 import { formatDate, yearsSince } from '../format'
 import { useLang } from '../i18n'
 
 /** 路線的 Bolt 或 Anchor：位置、材質、安裝日期（幾年前）、最近一次拉測 */
-export function BoltTable({ title, bolts, data }: { title: string; bolts: Bolt[]; data: LoadedData }) {
+export function BoltTable({ title, bolts, data, children }: { title: string; bolts: Bolt[]; data: LoadedData; children?: ReactNode }) {
   const { t } = useLang()
   return (
     <section>
@@ -41,6 +42,7 @@ export function BoltTable({ title, bolts, data }: { title: string; bolts: Bolt[]
           </tbody>
         </table>
       </div>
+      {children}
     </section>
   )
 }

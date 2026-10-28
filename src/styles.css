@@ -900,75 +900,17 @@ a.action {
   font-weight: 500;
 }
 
-.share-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.share-button:hover,
-.share-button:active {
-  background: var(--surface-2);
-}
-
-/* 分享選單：從按鈕下方展開；按鈕靠右時往左展開 */
-.share {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.share-status {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--brand);
-}
-
-.share-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 25;
+.share-list {
   display: grid;
-  min-width: 200px;
-  padding: 6px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  margin: 0 0 4px 12px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
 }
 
-.share-menu.right {
-  left: auto;
-  right: 0;
-}
-
-.share-menu button {
+.tool-pop.menu .share-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-
-.share-menu button:hover,
-.share-menu button:active {
-  background: var(--surface-2);
 }
 
 .share-badge {
@@ -2344,20 +2286,6 @@ a.action {
   .detail-pane > .route > .route-side > section:first-child h2 {
     margin-top: 12px;
   }
-}
-
-.detail-close {
-  position: sticky;
-  top: 0;
-  float: right;
-  z-index: 1;
-  margin: 4px 0 0 12px;
-  font-size: 1.4rem;
-}
-
-.detail-close:hover {
-  text-decoration: none;
-  color: var(--text);
 }
 
 .detail-empty {
@@ -3952,69 +3880,6 @@ main.map > div {
   font-weight: 900;
 }
 
-/* 按鈕列：第一層是收藏、分享、更多；「更多」展開第二層（記錄攀登、回報位置）。等寬，圖示加文字 */
-.route-actions {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.route-actions-main,
-.route-actions-sub {
-  display: flex;
-  gap: 8px;
-}
-
-.route-actions-main > *,
-.route-actions-sub > * {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-/* 分享只有圖示：窄一點，把寬度讓給有文字的 */
-.route-actions-main > .share {
-  flex: 0 0 64px;
-}
-
-.route-more-toggle[aria-expanded='true'] {
-  background: var(--brand);
-  color: #fff;
-}
-
-.route-actions .share {
-  display: flex;
-}
-
-.route-actions .icon-action,
-.route-actions .place-report-button,
-[data-layout] .route-actions .share-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--brand-soft);
-  color: var(--brand-dark);
-  box-shadow: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.route-actions .icon-action svg,
-.route-actions .share-button svg {
-  flex: none;
-  width: 20px;
-  height: 20px;
-}
-
-.route-actions .icon-action[aria-pressed='true'] {
-  color: var(--style-rp);
-}
-
 /* 各段：細線分隔 */
 .route-block {
   margin-top: 12px;
@@ -4848,8 +4713,13 @@ main.map > div {
 
 /* 區域頁上方：區域形狀不要佔太寬 */
 
+/* 收藏：已收藏時紅色 */
+.tool-button.fav.on {
+  color: var(--style-rp);
+}
+
 /* 回報位置送出後：打勾、綠色 */
-.route-actions .place-report-button.on {
+.place-report-button.on {
   color: var(--style-os);
 }
 

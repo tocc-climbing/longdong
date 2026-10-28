@@ -1,18 +1,18 @@
 import { BoltTable } from '../components/BoltTable'
 import { GradePill } from '../components/GradePill'
 import { PersonalPanel } from '../components/PersonalPanel'
-import { PlaceReport } from '../components/PlaceReport'
 import { ReviewsSection } from '../components/ReviewsSection'
 import { SafetyLight } from '../components/SafetyLight'
-import { ShareButton } from '../components/ShareButton'
+import { RouteTools } from '../components/RouteTools'
 import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route } from '../data/schema'
 import { CommunityText } from '../edit/CommunityText'
-import { PageTools } from '../edit/PageTools'
+import type { ToolScope } from '../edit/PageTools'
 import { textTarget } from '../edit/textEdits'
 import { formatDate, typeText } from '../format'
 import { localName, useLang } from '../i18n'
+import { useState } from 'react'
 import { useCloud } from '../personal/sync'
 import { href, useRouteLink } from '../router'
 import { routeKey, summarize } from '../social/model'
@@ -34,17 +34,19 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
   const cloudStatus = useCloud().status
   const signedIn = cloudStatus === 'signed-in'
   const rating = summarize(useSocial().ratings[routeKey(id)])
+  const [tickOpen, setTickOpen] = useState(false)
   if (!ref) return <NotFound />
   const { route, sector, area } = ref
   const name = localName(route.name, lang)
   const pitches = route.pitch ? sector.routes.filter((r) => r.pitch && baseName(r.name.zh) === baseName(route.name.zh)) : []
+  const fixings = [...route.bolts, ...route.anchors]
   const more = [
+    !route.isFixture && t('route.safetyTests'),
     route.firstAscent && t('route.firstAscent'),
-    route.bolts.length > 0 && 'Bolt',
-    route.anchors.length > 0 && 'Anchor',
-    route.anchorHardware.length > 0 && t('route.anchorHardware'),
+    fixings.length > 0 && 'Bolt / Anchor',
     route.notes && t('route.notes'),
   ].filter(Boolean) as string[]
+  const scope: ToolScope = { areaId: area.id, text: { target: textTarget.route(route.id), label: t('edit.routeText'), original: route.description }, sectors: [sector], topoEdit: true }
 
   return (
     <article className="route route-m">
@@ -60,7 +62,7 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
 
       <div className="page-title">
         <h1>{name.main}</h1>
-        <PageTools scope={{ areaId: area.id, text: { target: textTarget.route(route.id), label: t('edit.routeText'), original: route.description }, sectors: [sector], topoEdit: true }} />
+        <RouteTools data={data} item={ref} signedIn={signedIn} scope={scope} onTick={() => setTickOpen(true)} />
       </div>
       {(route.number || name.sub) && <p className="route-sub">{[route.number && `#${route.number}`, name.sub].filter(Boolean).join(' · ')}</p>}
 
@@ -77,7 +79,7 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
 
       {!route.isFixture && <RouteStatus route={route} />}
 
-      <PersonalPanel route={route} signedIn={signedIn} share={<ShareButton item={ref} />} report={<PlaceReport data={data} item={ref} />} />
+      {signedIn && !route.isFixture && <PersonalPanel route={route} open={tickOpen} onClose={() => setTickOpen(false)} />}
 
       {!topoInList && <RouteTopos sector={sector} routeId={route.id} />}
 
@@ -114,6 +116,7 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
               <span className="muted small">{more.join('、')}</span>
             </span>
           </summary>
+          {!route.isFixture && <RouteStatusInfo route={route} />}
           {route.firstAscent && (
             <dl className="kv">
               <dt>{t('route.firstAscent')}</dt>
@@ -124,29 +127,24 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
               </dd>
             </dl>
           )}
-          {route.bolts.length > 0 && <BoltTable title="Bolt" bolts={route.bolts} data={data} />}
-          {route.anchors.length > 0 && <BoltTable title="Anchor" bolts={route.anchors} data={data} />}
-          {route.anchorHardware.length > 0 && (
-            <section>
-              <h2>{t('route.anchorHardware')}</h2>
-              <ul className="plain">
-                {route.anchorHardware.map((h, i) => (
-                  <li key={i}>
-                    {h.item}
-                    {h.quantity && ` ×${h.quantity}`}
-                    {h.spec && <span className="muted"> {h.spec}</span>}
-                    {h.installed && <span className="muted"> · {t('route.installedOn', { date: formatDate(h.installed) })}</span>}
-                  </li>
-                ))}
-              </ul>
-            </section>
+          {fixings.length > 0 && (
+            <BoltTable title="Bolt / Anchor" bolts={fixings} data={data}>
+              {route.anchorHardware.length > 0 && (
+                <ul className="plain small">
+                  {route.anchorHardware.map((h, i) => (
+                    <li key={i}>
+                      {h.item}
+                      {h.quantity && ` ×${h.quantity}`}
+                      {h.spec && <span className="muted"> {h.spec}</span>}
+                      {h.installed && <span className="muted"> · {t('route.installedOn', { date: formatDate(h.installed) })}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {route.notes && <p className="pre small">{route.notes}</p>}
+            </BoltTable>
           )}
-          {route.notes && (
-            <section>
-              <h2>{t('route.notes')}</h2>
-              <p className="pre small">{route.notes}</p>
-            </section>
-          )}
+          {fixings.length === 0 && route.notes && <p className="pre small">{route.notes}</p>}
         </details>
       )}
 
@@ -163,31 +161,51 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
   )
 }
 
+type Level = 'ok' | 'warn' | 'danger' | 'unknown'
+
+/** 安全等級：待移除、封閉一律為危險 */
+function safetyLevel(route: Route): Level {
+  const closed = route.status === 'closed' || route.status === 'to-remove'
+  return closed || route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : route.safety === 'green' ? 'ok' : 'unknown'
+}
+
 /**
- * 安全燈號與路線狀態合併成一個色塊：
- * 第一行「正常 · 已更新」（燈號 · 狀態），第二行狀態日期與最近拉測；待移除、封閉一律為危險。
+ * 頁面上方只在安全不是綠燈（小心、危險、封閉、待移除）時顯示警告色塊；
+ * 正常、尚未評級的不佔版面，安全與拉測的資訊在「更多資訊」（RouteStatusInfo）。
  */
 function RouteStatus({ route }: { route: Route }) {
   const { lang, t } = useLang()
-  const closed = route.status === 'closed' || route.status === 'to-remove'
-  const level = closed || route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : route.safety === 'green' ? 'ok' : 'unknown'
-  const icon = { ok: '✓', warn: '!', danger: '!', unknown: '?' }[level]
-  const safety = t(level === 'danger' ? 'safety.red' : route.safety ? `safety.${route.safety}` : 'safety.unrated')
+  const level = safetyLevel(route)
+  if (level === 'ok' || level === 'unknown') return null
+  const safety = t(level === 'danger' ? 'safety.red' : 'safety.yellow')
   const status = route.status && (lang === 'zh' ? route.statusLabel : t(`status.${route.status}`))
-  const detail = [
-    route.statusDate && formatDate(route.statusDate),
-    route.lastTested ? `${t('route.lastTested')} ${formatDate(route.lastTested)}` : `${t('route.lastTested')}：${t('route.noRecord')}`,
-  ].filter(Boolean)
   return (
     <div className={`route-status ${level}`} role={level === 'danger' ? 'alert' : undefined}>
       <span className="route-status-icon" aria-hidden>
-        {icon}
+        !
       </span>
       <span>
         <strong>{[safety, status].filter(Boolean).join(' · ')}</strong>
-        <span className="small">{detail.join(' · ')}</span>
+        {route.statusDate && <span className="small">{formatDate(route.statusDate)}</span>}
       </span>
     </div>
+  )
+}
+
+/** 「更多資訊」裡的安全與拉測：安全評級、狀態、最近拉測 */
+function RouteStatusInfo({ route }: { route: Route }) {
+  const { lang, t } = useLang()
+  const level = safetyLevel(route)
+  const safety = t(level === 'danger' ? 'safety.red' : route.safety ? `safety.${route.safety}` : 'safety.unrated')
+  const status = route.status && (lang === 'zh' ? route.statusLabel : t(`status.${route.status}`))
+  return (
+    <dl className="kv">
+      <dt>{t('route.safetyTests')}</dt>
+      <dd>
+        {[safety, status, route.statusDate && formatDate(route.statusDate)].filter(Boolean).join(' · ')}
+        <span className="muted"> · {route.lastTested ? `${t('route.lastTested')} ${formatDate(route.lastTested)}` : `${t('route.lastTested')}：${t('route.noRecord')}`}</span>
+      </dd>
+    </dl>
   )
 }
 

@@ -106,7 +106,7 @@ export function App() {
         <div className="list-pane">
           <PageView page={view.list} data={state.data} />
         </div>
-        <DetailPane data={state.data} id={view.detail} closeHref={view.closeHref} listSector={view.listSector} />
+        <DetailPane data={state.data} id={view.detail} listSector={view.listSector} />
       </>
     ) : !wide && page.detail ? (
       // 電腦版分享的「清單＋路線」網址，在手機上直接顯示路線頁

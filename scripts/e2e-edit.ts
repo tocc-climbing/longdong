@@ -636,16 +636,55 @@ try {
   const rp = editor.page
   await rp.setViewportSize({ width: 390, height: 844 })
   await rp.goto(base + `route/${topoRoutes[0].id}`)
-  await rp.waitForSelector('.route-actions-main .icon-action[aria-pressed]')
-  const visible = (name: string) => rp.locator('.route-actions button:visible', { hasText: name }).count()
-  check('按鈕第一層：收藏、分享、更多', (await visible('收藏')) === 1 && (await rp.locator('.route-actions-main .share-button').count()) === 1 && (await visible('更多')) === 1)
-  check('不常用的（記錄攀登、回報位置）收在第二層，一開始看不到', (await visible('記錄攀登')) === 0 && (await visible('回報位置')) === 0)
-  await rp.locator('.route-more-toggle').click()
-  check('按「更多」：第二層出現記錄攀登、回報位置', (await visible('記錄攀登')) === 1 && (await visible('回報位置')) === 1)
-  await rp.locator('.route-more-toggle').click()
-  check('再按一次：收起來', (await visible('記錄攀登')) === 0)
-  const order = await rp.evaluate(`(() => ['.route-facts', '.route-actions', '.topos', '.reviews'].map((s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect().top + scrollY : -1 }))()`) as number[]
-  check('版面順序：重點、按鈕、Topo（有的話）、評價與留言在最後', order[0] < order[1] && (order[2] < 0 || order[1] < order[2]) && (order[2] < 0 ? order[1] : order[2]) < order[3], order.join(','))
+  await rp.waitForSelector('.page-tools .tool-button.fav')
+  const tool = (label: string) => rp.locator('.page-tools').getByRole('button', { name: label, exact: true })
+  check('右上的工具：收藏、回報位置（圖示）、更多', (await tool('收藏').count()) === 1 && (await tool('回報位置').count()) === 1 && (await tool('更多').count()) === 1)
+  check('工具只有圖示、沒有文字，頁面上沒有另一列按鈕', ((await tool('收藏').textContent()) ?? '').trim() === '' && ((await tool('回報位置').textContent()) ?? '').trim() === '' && (await rp.locator('.route-actions').count()) === 0)
+  const menuItems = () => rp.locator('.page-tools [role=menuitem]').allTextContents()
+  check('「更多」選單一開始收起來', (await menuItems()).length === 0)
+  await tool('更多').click()
+  const items = await menuItems()
+  check('「更多」：分享、記錄攀登、編輯（路線說明）、修改記錄（這個分區有修改才有）', items.includes('分享') && items.includes('記錄攀登') && items.some((x) => x.includes('路線說明')) && items.includes('修改記錄'), items.join('|'))
+  await rp.getByRole('menuitem', { name: '分享', exact: true }).click()
+  check('分享：展開 LINE、Facebook、複製連結', (await rp.locator('.share-item').allTextContents()).join('|').includes('LINE') && (await rp.locator('.share-item').allTextContents()).join('|').includes('複製連結'))
+  await rp.getByRole('menuitem', { name: '記錄攀登' }).click()
+  check('記錄攀登：打開視窗', (await rp.locator('.sheet[open]').count()) === 1 && (await rp.locator('.page-tools [role=menuitem]').count()) === 0)
+  await rp.keyboard.press('Escape')
+  await tool('更多').click()
+  await rp.getByRole('menuitem', { name: '修改記錄' }).click()
+  check('修改記錄：展開清單', (await rp.locator('.page-tools .tool-history li').count()) > 0)
+  await rp.keyboard.press('Escape')
+  // 這個分區沒有任何修改：選單沒有「修改記錄」
+  const quiet = data.areas.flatMap((a) => a.sectors).find((x) => x.id !== topoSector.id && x.id !== sharedSector.id && x.routes.some((r) => r.number))!
+  await rp.goto(base + `route/${quiet.routes.find((r) => r.number)!.id}`)
+  await rp.waitForSelector('.page-tools .tool-button.fav')
+  await tool('更多').click()
+  check('沒有修改記錄的路線：選單沒有「修改記錄」', !(await menuItems()).includes('修改記錄') && (await menuItems()).includes('分享'), (await menuItems()).join('|'))
+  // 安全：只有不是綠燈才在上方顯示警告；拉測、安全評級在「更多資訊」
+  type Safe = { id: string; isFixture?: boolean; safety?: string; status?: string; bolts: unknown[]; anchors: unknown[] }
+  const everyRoute = data.areas.flatMap((a) => a.sectors).flatMap((x) => x.routes) as unknown as Safe[]
+  const warn = everyRoute.find((r) => !r.isFixture && (r.safety === 'yellow' || r.safety === 'red'))
+  const green = everyRoute.find((r) => !r.isFixture && r.safety === 'green' && r.status !== 'closed' && r.status !== 'to-remove' && r.bolts.length > 0 && r.anchors.length > 0)!
+  if (warn) {
+    await rp.goto(base + `route/${warn.id}`)
+    await rp.waitForSelector('.route-facts')
+    check('非綠燈（小心、危險）：上方顯示警告色塊', (await rp.locator('.route-status').count()) === 1)
+  }
+  await rp.goto(base + `route/${green.id}`)
+  await rp.waitForSelector('.route-facts')
+  check('綠燈：上方沒有安全色塊', (await rp.locator('.route-status').count()) === 0)
+  const summary = (await rp.locator('.route-more summary').textContent()) ?? ''
+  check('「更多資訊」摘要：安全與拉測、Bolt / Anchor 合併成一項', summary.includes('安全與拉測') && summary.includes('Bolt / Anchor') && !summary.includes('Anchor 配件'), summary)
+  await rp.locator('.route-more summary').click()
+  const bolted = green.bolts.length + green.anchors.length > 0
+  check('更多資訊：有拉測資訊，Bolt 與 Anchor 在同一張表', ((await rp.locator('.route-more').textContent()) ?? '').includes('最近拉測') && (await rp.locator('.route-more table.bolts').count()) === (bolted ? 1 : 0))
+  // 電腦版：路線頁右上沒有 ×
+  await rp.setViewportSize({ width: 1366, height: 900 })
+  await rp.goto(base + `route/${green.id}`)
+  await rp.waitForSelector('.detail-pane .route')
+  check('電腦版路線頁：右上沒有 ×（Esc 可以關閉）', (await rp.locator('.detail-close').count()) === 0)
+  await rp.setViewportSize({ width: 390, height: 844 })
+  await rp.goto(base + `route/${topoRoutes[0].id}`)
   await rp.waitForSelector('.reviews .comment-m-list li')
   check('評價與留言：先顯示最新 5 則，其餘收在「顯示全部」', (await rp.locator('.reviews .comment-m-list li').count()) === 5 && (await rp.locator('.comment-more').count()) === 1)
   check('最新的在最上面', ((await rp.locator('.reviews .comment-m-list li').first().textContent()) ?? '').includes('e2e 留言 5'))

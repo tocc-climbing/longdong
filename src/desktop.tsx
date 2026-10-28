@@ -45,7 +45,7 @@ export function desktopView(page: Page, data: LoadedData): DesktopView {
   return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'admin' || page.name === 'bolts' || page.name === 'checklist' || page.name === 'topo')
 }
 
-export function DetailPane({ data, id, closeHref, listSector }: { data: LoadedData; id?: string; closeHref: string; listSector?: string }) {
+export function DetailPane({ data, id, listSector }: { data: LoadedData; id?: string; listSector?: string }) {
   const { t } = useLang()
   const pane = useRef<HTMLElement>(null)
   useEffect(() => {
@@ -62,9 +62,6 @@ export function DetailPane({ data, id, closeHref, listSector }: { data: LoadedDa
   }
   return (
     <aside className="detail-pane" ref={pane} aria-label={t('layout.detail')}>
-      <a className="icon-button detail-close" href={closeHref} aria-label={t('layout.close')} title={t('layout.close')}>
-        ×
-      </a>
       <RoutePage key={id} data={data} id={id} topoInList={!!listSector && data.routeById.get(id)?.sector.id === listSector} />
     </aside>
   )

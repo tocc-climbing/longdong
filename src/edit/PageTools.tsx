@@ -31,7 +31,7 @@ interface Entry {
 }
 
 /** 點選單外面或按 Esc 關閉 */
-function useDismiss(open: boolean, onClose: () => void, box: React.RefObject<HTMLElement | null>) {
+export function useDismiss(open: boolean, onClose: () => void, box: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     if (!open) return
     const onDown = (e: PointerEvent) => !box.current?.contains(e.target as Node) && onClose()
@@ -45,7 +45,7 @@ function useDismiss(open: boolean, onClose: () => void, box: React.RefObject<HTM
   }, [open, onClose, box])
 }
 
-const Icon = ({ children }: { children: ReactNode }) => (
+export const Icon = ({ children }: { children: ReactNode }) => (
   <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     {children}
   </svg>
@@ -97,13 +97,12 @@ function HistoryButton({ scope }: { scope: ToolScope }) {
   )
 }
 
-/** 展開後才讀取 Topo 的版本；地圖、說明的版本全站共用，已經讀好 */
-function HistoryList({ scope }: { scope: ToolScope }) {
+/** 讀取這頁的修改記錄（地圖、說明、Topo 的版本），由新到舊；Topo 的版本要另外載入 */
+export function useHistory(scope: ToolScope): { entries: Entry[]; edited: boolean } {
   const { lang, t } = useLang()
   const maps = useMapShapes()
   const texts = useTextEdits()
   const topo = useTopoState()
-  const { profiles } = useSocial()
   const sectorIds = scope.sectors.map((s) => s.id)
   const photos = Object.values(topo.photos ?? {}).filter((p) => sectorIds.includes(p.sector))
   const photoIds = photos.map((p) => p.id).join(' ')
@@ -132,13 +131,23 @@ function HistoryList({ scope }: { scope: ToolScope }) {
     })
   }
   entries.sort((a, b) => b.createdAt - a.createdAt)
+  return { entries, edited: !!scope.text && !!currentText(texts[scope.text.target]) }
+}
 
+/** 展開後才讀取 Topo 的版本；地圖、說明的版本全站共用，已經讀好 */
+function HistoryList({ scope }: { scope: ToolScope }) {
+  return <HistoryView scope={scope} history={useHistory(scope)} />
+}
+
+export function HistoryView({ scope, history }: { scope: ToolScope; history: { entries: Entry[]; edited: boolean } }) {
+  const { lang, t } = useLang()
+  const { profiles } = useSocial()
+  const { entries, edited } = history
   const kindLabel: Record<EditKind, string> = {
     map: t('edit.map'),
     topo: 'Topo',
     text: t('edit.text'),
   }
-  const edited = scope.text && currentText(texts[scope.text.target])
   return (
     <>
       {entries.length === 0 ? (
@@ -168,20 +177,16 @@ function HistoryList({ scope }: { scope: ToolScope }) {
   )
 }
 
-interface EditOption {
+export interface EditOption {
   key: string
   label: string
   to: string
 }
 
-/** 一個選項直接進入，多個選項跳小選單；地圖與 Topo 只在電腦版（手機版的編輯模式只有說明） */
-function EditButton({ scope }: { scope: ToolScope }) {
-  const { t } = useLang()
+/** 這頁能進的編輯模式；地圖與 Topo 只在電腦版（手機版的編輯模式只有說明） */
+export function useEditOptions(scope: ToolScope): EditOption[] {
   const wide = useWide()
   const topo = useTopoState()
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-  useDismiss(open, () => setOpen(false), box)
   useEffect(() => {
     if (scope.topoEdit) void loadPhotos()
   }, [scope.topoEdit])
@@ -207,6 +212,16 @@ function EditButton({ scope }: { scope: ToolScope }) {
       .sort((a, b) => a.createdAt - b.createdAt)[0]
     options.push({ key: 'topo', label: 'Topo', to: first ? href.topo(first.id) : href.topoAdd(sector.id) })
   }
+  return options
+}
+
+/** 一個選項直接進入，多個選項跳小選單 */
+function EditButton({ scope }: { scope: ToolScope }) {
+  const { t } = useLang()
+  const options = useEditOptions(scope)
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useDismiss(open, () => setOpen(false), box)
   if (options.length === 0) return null
 
   const icon = (
