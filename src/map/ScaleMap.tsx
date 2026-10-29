@@ -7,7 +7,7 @@ import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitRectVie
 import { placeLineNames } from './lineLabels'
 import { useContourTiles } from './contourTiles'
 import { orthoLevel, orthoTiles } from './ortho'
-import { insideRing } from './reportOptions'
+import { innermost } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
 import './map.css'
 
@@ -349,8 +349,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       const { frame: f, view: v } = latest.current
       if (!f || !v) return undefined
       const at = toMap(v, f, [p.x, p.y])
-      // 區域重疊時取畫在最上面的（後面的）
-      return () => map.areas.findLast((a) => a.rings.some((r) => insideRing(at, r)))?.id
+      return () => innermost(at, map.areas, (a) => a.rings)?.id
     },
     onAreaPress,
     onTap: (p) => {
@@ -365,7 +364,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           return Math.min(...pts.slice(1).map((b, i) => segmentDistance([p.x, p.y], pts[i], b)))
         }
         const i = edit.closed
-          ? edit.rings.findIndex((r) => insideRing(at, r.map(project)))
+          ? innermost(at, edit.rings.map((r, i) => ({ i, r: r.map(project) })), (x) => [x.r])?.i ?? -1
           : edit.rings.map((r, i) => ({ i, d: near(r) })).filter((x) => x.d <= LINE_HIT_PX).sort((a, b) => a.d - b.d)[0]?.i ?? -1
         if (i >= 0) edit.onSelect(i)
         return

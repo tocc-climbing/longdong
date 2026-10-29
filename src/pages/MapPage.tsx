@@ -15,7 +15,7 @@ import { reportOptions, type ReportOption } from '../map/reportOptions'
 import { href, navigate } from '../router'
 import { areaNames, project, useScaleMap } from '../map/mapData'
 import { ORTHO_DOWNLOAD_MB, cachedOrthoCount, downloadOrtho, orthoDownloadUrls } from '../map/ortho'
-import { insideRing } from '../map/reportOptions'
+import { innermost } from '../map/reportOptions'
 import { useSectorWalls, wallLabelAt } from '../map/shapes'
 import { setSimulation, useSimulation } from '../simulate'
 import { displayName, useSocial } from '../social/store'
@@ -188,7 +188,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
       ? { at: manualAt, onPick: setManualAt }
       : undefined
   /** 點的位置所在的大區域（手動回報預設選這個區域） */
-  const areaAt = (at: LatLng) => (map.status === 'ok' ? map.data.areas.findLast((a) => a.rings.some((r) => insideRing(project(at), r)))?.id : undefined)
+  const areaAt = (at: LatLng) => (map.status === 'ok' ? innermost(project(at), map.data.areas, (a) => a.rings)?.id : undefined)
 
   return (
     <div className="map-page">

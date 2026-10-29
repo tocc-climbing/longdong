@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_OPTIONS, insideRing, reportOptions, ringDistance } from '../src/map/reportOptions'
+import { MAX_OPTIONS, innermost, insideRing, reportOptions, ringArea, ringDistance } from '../src/map/reportOptions'
 import type { RescuePoint } from '../src/data/rescue'
 import { project } from '../src/map/mapData'
 
@@ -12,6 +12,15 @@ describe('回報位置的選項', () => {
     expect(insideRing([150, 50], square)).toBe(false)
     expect(ringDistance([50, 50], square)).toBe(0)
     expect(ringDistance([130, 50], square)).toBe(30)
+  })
+
+  it('套疊的多邊形：點在小塊裡取小塊，不管先後順序', () => {
+    const small: [number, number][] = [[40, 40], [60, 40], [60, 60], [40, 60], [40, 40]]
+    expect(ringArea(square)).toBe(1e4)
+    expect(innermost([50, 50], [square, small], (r) => [r])).toBe(small)
+    expect(innermost([50, 50], [small, square], (r) => [r])).toBe(small)
+    expect(innermost([10, 10], [small, square], (r) => [r])).toBe(square)
+    expect(innermost([150, 10], [small, square], (r) => [r])).toBeUndefined()
   })
 
   it('在區域內排第一，附近的救援點、標示、區域依距離排序；太遠的不列', () => {

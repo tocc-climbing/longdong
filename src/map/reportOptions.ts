@@ -37,6 +37,26 @@ export function insideRing([px, py]: Pt, ring: Pt[]): boolean {
   return inside
 }
 
+/** 多邊形面積（鞋帶公式，取絕對值） */
+export function ringArea(ring: Pt[]): number {
+  let sum = 0
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) sum += (ring[j][0] - ring[i][0]) * (ring[j][1] + ring[i][1])
+  return Math.abs(sum) / 2
+}
+
+/** 點落在哪一個多邊形裡；套疊時取最小的那塊，大塊中間另外畫的小塊才點得到 */
+export function innermost<T>(at: Pt, items: readonly T[], ringsOf: (item: T) => Pt[][]): T | undefined {
+  let best: T | undefined
+  let bestArea = Infinity
+  for (const item of items) {
+    for (const ring of ringsOf(item)) {
+      const a = ringArea(ring)
+      if (a <= bestArea && insideRing(at, ring)) [best, bestArea] = [item, a]
+    }
+  }
+  return best
+}
+
 /** 點到多邊形的距離；在裡面為 0 */
 export function ringDistance(p: Pt, ring: Pt[]): number {
   if (insideRing(p, ring)) return 0
