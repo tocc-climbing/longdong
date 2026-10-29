@@ -5,7 +5,7 @@ import { decodeLine, encodeLine } from './walls'
 
 /**
  * 地圖編輯（所有登入者，版本同 Topo）：每次提交都是一個新版本（完整的形狀，不是差異），保留所有版本；
- * 每個對象顯示最新的版本，刪掉它就回到前一版；沒有任何版本時用原始版（大區域、岩壁：public/rescue/areas.geojson、walls.geojson；步道、道路：scripts/gen-scale-map.ts 自動產生的）。
+ * 每個對象顯示最新的版本，刪掉它就回到前一版；沒有任何版本時用原始版（大區域、岩壁：public/rescue/areas.geojson、walls.geojson；步道：scale-map.geojson 裡編輯修改後的版本；道路：scripts/gen-scale-map.ts 自動產生的）。
  *   /v2/mapEdits/area:<大區域>/<版本>        { uid, createdAt, rings }   大區域的形狀
  *   /v2/mapEdits/wall:<分區 key>/<版本>      { uid, createdAt, lines }   分區的岩壁（沿著牆底的折線，可以多條；空字串表示沒有）
  *   /v2/mapEdits/<trails|highway|tunnel|road>/<版本>   { uid, createdAt, lines }   步道與攀岩者路徑、台二線、隧道、其他道路（各自整個路網）
@@ -35,7 +35,7 @@ export interface MapShapes {
   areas: Record<string, LatLng[][]>
   /** 有版本的分區 → 岩壁（最新版本）；沒有版本的分區用原始版 */
   walls: Record<string, LatLng[][]>
-  /** 步道、道路（最新版本）；沒有版本的不在裡面，用自動產生的 */
+  /** 步道、道路（最新版本）；沒有版本的不在裡面，用原始版 */
   lines: Partial<Record<LineTarget, LatLng[][]>>
   /** 每個對象的所有版本（舊到新） */
   versions: Record<string, MapEditVersion[]>

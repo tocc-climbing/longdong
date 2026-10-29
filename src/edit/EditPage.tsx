@@ -339,7 +339,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   const allWalls = shown?.walls ?? {}
   const otherSectors = isWall ? Object.keys(allWalls).filter((s) => s !== sector) : []
   const linesOf = (s: string) => allWalls[s]
-  const otherWalls = otherSectors.flatMap((s) => linesOf(s).map((points, i) => ({ key: `${s}#${i}`, points })))
+  const otherWalls = otherSectors.flatMap((s) => linesOf(s).map((points, i) => ({ key: `${s}#${i}`, points, area: data.sectorById.get(s)?.area.id.split('/').pop() })))
   const otherLabels = otherSectors.flatMap((id) => {
     const at = wallLabelAt(linesOf(id))
     const found = data.sectorById.get(id)

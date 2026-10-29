@@ -7,7 +7,7 @@ import { LINE_TARGETS, useMapShapes, wallTarget, type LineTarget, type MapShapes
 
 /**
  * 照比例尺的龍洞簡圖（scripts/gen-scale-map.ts 由救援資訊圖產生，放在 public/rescue/，在離線快取裡）。
- * 大區域範圍（areas.geojson）與分區岩壁（walls.geojson）是編輯模式修改後的原始版，不是自動產生的。
+ * 大區域範圍（areas.geojson）、分區岩壁（walls.geojson）與步道是編輯模式修改後的原始版，不是自動產生的。
  * 畫面上用以 ORIGIN 為原點的平面座標（公尺，x 向東、y 向南），龍洞的範圍只有一兩公里，平面近似的誤差可忽略。
  */
 
@@ -79,7 +79,7 @@ function areaShape(id: string, rings: [number, number][][]): AreaShape {
   return { id, path, label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0), rings }
 }
 
-/** 套上使用者編輯的最新版本：大區域、步道取代自動產生的 */
+/** 套上使用者編輯的最新版本：取代原始版 */
 export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData {
   const toRings = (rings: LatLng[][]) => rings.map((r) => r.map(project))
   const edited = (Object.entries(LINE_TARGETS) as [LineTarget, LineLayer][]).filter(([target]) => shapes.lines[target])

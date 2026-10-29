@@ -1,7 +1,7 @@
 /**
  * 由 TOCC 龍洞岩場救援資訊圖（.ai／.pdf）的向量圖形產生照比例尺的地圖資料（GeoJSON，WGS84）：
  *   public/rescue/scale-map.geojson   陸地、建物、道路、步道、停車場（範圍與 P 字位置）、急救器材、船艇接駁點、直升機吊掛點、地名
- * 大區域範圍（public/rescue/areas.geojson）與分區岩壁（walls.geojson）是編輯模式修改後的原始版，不在這裡產生。
+ * 大區域範圍（public/rescue/areas.geojson）、分區岩壁（walls.geojson）與步道是編輯模式修改後的原始版，不在這裡產生（步道沿用 scale-map.geojson 現有的）。
  *
  *   npm run scale-map -- <救援資訊圖.ai 或 .pdf>
  *
@@ -397,7 +397,6 @@ const osmReference = JSON.parse(readFileSync(new URL('./data/osm-reference.json'
 const OSM_LINES = {
   coastline: osmReference.coastline.map((l) => l.map(toMeters)),
   highway: osmReference.highway.map((l) => l.map(toMeters)),
-  path: osmReference.path.map((l) => l.map(toMeters)),
   road: osmReference.road.map((l) => l.map(toMeters)),
 }
 
@@ -497,29 +496,10 @@ for (let round = 0; round < 2; round++) {
 }
 console.log(`岩岸參考點：取樣 ${cragSamples.length} 個，對到 ${cragPoints.length} 個`)
 const coastWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...cragPoints])
-/**
- * 步道：沿救援資訊圖的步道每 TRAIL_STEP_PT 取一點，對到 OSM 步道（highway=path、footway、track、steps）上 TRAIL_MAX_M 內最近的位置，對應後重新校正再對一次（兩輪）。
- * 只有步道照這些點變形（trailWarp）；OSM 沒有的步道段落跟著附近對到的點平滑內插。
- */
-const TRAIL_STEP_PT = 25
-const TRAIL_MAX_M = 30
-const TRAIL_SLACK = 3000
-const trailSamples = sampleAlong(
-  trails.flatMap((s) => s.subpaths.flatMap(clipToPage)),
-  PAGE,
-  TRAIL_STEP_PT,
-)
-let trailPoints: { at: Pt; gps: Pt; slack: number }[] = []
-for (let round = 0; round < 2; round++) {
-  const current = buildWarp([...CONTROL_POINTS, ...curvePoints, ...trailPoints])
-  trailPoints = trailSamples.flatMap((at) => {
-    const here = current(at)
-    const to = nearestOn(OSM_LINES.path, here)
-    return Math.hypot(to[0] - here[0], to[1] - here[1]) <= TRAIL_MAX_M ? [{ at, gps: fromMeters(to), slack: TRAIL_SLACK }] : []
-  })
-}
-console.log(`步道參考點：取樣 ${trailSamples.length} 個，對到 ${trailPoints.length} 個`)
-const trailWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...trailPoints])
+/** 步道是編輯模式修改後的原始版：沿用 public/rescue/scale-map.geojson 現有的步道，重跑不會蓋掉 */
+const trailLines = (JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as { features: { properties: { kind?: string }; geometry: { coordinates: Pt[][] } }[] }).features.find(
+  (f) => f.properties.kind === 'trail',
+)!.geometry.coordinates
 
 /**
  * 道路：台二線（含隧道）與其他道路沿線每 ROAD_STEP_PT 取一點，對到 OSM 的道路（台二線對 highway=primary，其他道路對其他等級與台二線）上 ROAD_MAX_M 內最近的位置（兩輪），
@@ -760,20 +740,20 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
   if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點對齊，步道以 ${trailPoints.length} 個、道路以 ${roadPoints.length} 個 OpenStreetMap 參考點對齊）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點對齊，道路以 ${roadPoints.length} 個 OpenStreetMap 參考點對齊）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 /**
  * 急救器材的位置（緯度、經度）：#1 是現場回報的（2026-10 四筆 GPS，誤差 5～15 公尺，彼此相距 2 公尺內，依誤差加權平均）；
  * 其他依 EMS_LOCATIONS 的放置位置說明，對照編輯模式畫的分區岩壁（public/rescue/walls.geojson）放：
  * #3 長巷兩側岩壁最深處的中間、#4 第一洞內西面與東北面岩壁的內角、#6 鱷魚岬與老人牆兩段岩壁之間的內角；
- * #2、#5 的說明對不到岩壁（洞穴、小木屋），維持救援資訊圖換算的位置。
+ * #5 傳奇岩前面（岩壁東側）；#2 的說明對不到岩壁（洞穴），維持救援資訊圖換算的位置。
  */
 const EMS_AT: Record<number, Pt> = {
   1: [25.112738, 121.921587],
   2: [25.111433, 121.922568],
   3: [25.110835, 121.922587],
   4: [25.109305, 121.92204],
-  5: [25.106445, 121.922556],
+  5: [25.106624, 121.92252],
   6: [25.105243, 121.922678],
 }
 
@@ -884,7 +864,7 @@ const scaleMap = {
     feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoad] }),
     feature({ kind: 'tunnel' }, { type: 'MultiLineString', coordinates: lines(highways.filter((s) => s.dashed), roadWarp) }),
     feature({ kind: 'road' }, { type: 'MultiLineString', coordinates: lines(roads, roadWarp) }),
-    feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
+    feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: trailLines }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: [...parkingShapes.flat(), ...otherParking].map((r) => [r.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
     ...EMS_LOCATIONS.map(({ no }) => feature({ kind: 'ems', no }, { type: 'Point', coordinates: [EMS_AT[no][1], EMS_AT[no][0]] })),

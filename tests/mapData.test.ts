@@ -159,6 +159,24 @@ describe('比例尺地圖資料', () => {
       for (const zh of ['第一洞內 西面', '第一洞內 東北面', '第一洞內 南面']) expect(toWall(ems(4), zh), zh).toBeLessThan(3)
       for (const zh of ['鱷魚岬', '老人牆']) expect(toWall(ems(6), zh), zh).toBeLessThan(6)
     })
+
+    it('急救器材 #5 在傳奇岩前面：靠著岩壁、在面向谷地的東側', () => {
+      expect(toWall(ems(5), '傳奇岩')).toBeLessThan(6)
+      // 同一個緯度上岩壁的位置（地圖座標 y 往南增加）
+      const [x, y] = project(ems(5))
+      const wall = walls.find((f) => f.properties.sector === sectors.find((s) => s.name.zh === '傳奇岩')!.id)!.geometry.coordinates[0].map(([lng, lat]) => project([lat, lng]))
+      const i = wall.findIndex((p, j) => j > 0 && (wall[j - 1][1] - y) * (p[1] - y) <= 0)
+      const [a, b] = [wall[i - 1], wall[i]]
+      expect(x).toBeGreaterThan(a[0] + ((y - a[1]) / (b[1] - a[1])) * (b[0] - a[0]))
+    })
+  })
+
+  it('步道是編輯修改後的原始版，不是救援資訊圖自動產生的路線', () => {
+    const base = JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as { features: { properties: { kind: string }; geometry: { coordinates: [number, number][][] } }[] }
+    const points = base.features.find((f) => f.properties.kind === 'trail')!.geometry.coordinates.flat()
+    // 修改後的路線經過這一點（自動產生的離這裡約 29 公尺）
+    const q = project([25.10706, 121.921294])
+    expect(Math.min(...points.map(([lng, lat]) => project([lat, lng])).map((p) => Math.hypot(p[0] - q[0], p[1] - q[1])))).toBeLessThan(1)
   })
 
   it('3 個停車場、13 處船艇接駁點、5 處直升機吊掛點、6 處急救器材、2 處危險地形、救援資訊圖上的地名；每處急救器材離該區的就近救援點 100 公尺內', () => {

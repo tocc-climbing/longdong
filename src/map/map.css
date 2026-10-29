@@ -587,25 +587,19 @@
   color: #ffffff;
 }
 
-/* 岩壁標記：白色外框＋橘色線；正在畫的是虛線，標出每個點 */
+/* 岩壁：用所屬大區域的外框色（.sm-area-*，沒有區域時是橘色）；正在畫的是虛線，標出每個點 */
+:where(.sm-line) {
+  stroke: #e8590c;
+}
+
 .sm-line path {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.sm-line-casing {
-  stroke: #ffffff;
-  stroke-width: 6px;
-}
-
 .sm-line-stroke {
-  stroke: #e8590c;
   stroke-width: 3px;
-}
-
-.sm-line.selected .sm-line-casing {
-  stroke-width: 9px;
 }
 
 .sm-line.selected .sm-line-stroke {
@@ -635,8 +629,11 @@
   stroke-width: 2px;
 }
 
-.sm-line-label {
+:where(.sm-line-label) {
   fill: #e8590c;
+}
+
+.sm-line-label {
   font-weight: 700;
   paint-order: stroke;
   stroke: #ffffff;

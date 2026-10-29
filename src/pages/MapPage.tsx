@@ -202,7 +202,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           pick={pick}
           ortho={ortho}
           lines={[
-            ...walls.map((w) => ({ key: w.key, points: w.points, label: sectorLabel(data, w.sector, lang), selected: w.key === selectedWall })),
+            ...walls.map((w) => ({ key: w.key, points: w.points, label: sectorLabel(data, w.sector, lang), area: data.sectorById.get(w.sector)?.area.id.split('/').pop(), selected: w.key === selectedWall })),
           ]}
           onLineTap={setSelectedWall}
           sectorLabels={sectorLabels}

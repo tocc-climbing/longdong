@@ -154,6 +154,16 @@ try {
   const anonLines = () => anon.page.locator('.sm-line').count()
   const allBaseWalls = await until(async () => ((await anonLines()) === baseWallLines ? true : undefined), 5000)
   check('沒登入也畫出各分區岩壁的原始版', allBaseWalls === true, `${await anonLines()} 條，應為 ${baseWallLines}`)
+  // 每段岩壁的顏色是所屬大區域的外框色，沒有白色外框
+  const wallColors = await anon.page.evaluate(() =>
+    [...document.querySelectorAll('.sm-line')].map((g) => {
+      const area = [...g.classList].find((c) => c.startsWith('sm-area-'))
+      const outline = area && document.querySelector(`path.sm-area.${area}`)
+      return { area, strokes: [...g.querySelectorAll('path')].map((p) => getComputedStyle(p).stroke), outline: outline ? getComputedStyle(outline).stroke : undefined }
+    }),
+  )
+  const offColor = wallColors.filter((w) => !w.outline || w.strokes.some((s) => s !== w.outline))
+  check('岩壁用所屬大區域的外框色、沒有白邊', wallColors.length === baseWallLines && offColor.length === 0, JSON.stringify(offColor.slice(0, 2)))
   await anon.ctx.close()
 
   // ── 2. 修改區域範圍：看到該區的回報（合併、有幾筆） ──────────────────
