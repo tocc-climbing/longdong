@@ -5792,6 +5792,7 @@ button.key-row:disabled {
   text-decoration: none;
   -webkit-touch-callout: none;
   user-select: none;
+}
 
 /* 分區頁的標題卡在電腦版只佔清單那一欄：和手機版一樣名稱在左、地圖在右 */
 [data-layout='wide'] .area-hero.compact {
