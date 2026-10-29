@@ -183,7 +183,7 @@ export interface EditOption {
   to: string
 }
 
-/** 這頁能進的編輯模式；地圖與 Topo 只在電腦版（手機版的編輯模式只有說明） */
+/** 這頁能進的編輯模式；地圖只在電腦版（手機版的編輯模式是說明與 Topo） */
 export function useEditOptions(scope: ToolScope): EditOption[] {
   const wide = useWide()
   const topo = useTopoState()
@@ -205,7 +205,7 @@ export function useEditOptions(scope: ToolScope): EditOption[] {
       to: href.edit('text', scope.text.target),
     })
   // 一個「Topo」入口：有照片進第一張；沒有照片進新增頁（edit/topo/sector:<分區>，載入完照片才知道時也會轉到第一張）
-  if (wide && scope.topoEdit) {
+  if (scope.topoEdit) {
     const sector = scope.sectors[0]
     const first = Object.values(topo.photos ?? {})
       .filter((p) => p.sector === sector.id)

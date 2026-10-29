@@ -498,6 +498,7 @@ function Editor({
       {!preview && (
         <div className="topo-edit-toolbar" role="toolbar" aria-label={t('topo.toolbar')}>
           {/* 只有一列：最常用的在最前面（復原、重做），接著是工具；目前工具要用的選項接在同一列，最右邊是提交 */}
+          <div className="topo-tools-row">
           <div className="topo-tool-group">
             {tool(t('topo.undo'), 'Z', undoOnce, { disabled: undo.current.length === 0, icon: <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" /> })}
             {tool(t('topo.redo'), 'Y', redoOnce, { disabled: redo.current.length === 0, icon: <Icon d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" /> })}
@@ -535,6 +536,7 @@ function Editor({
           </div>
           {tool(t('topo.deletePoint'), 'Delete', removePicked, { disabled: !pickedLive })}
           {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !route || !marks[route.id] })}
+          </div>
           <span className="edit-spacer" />
           <span className={needRoute ? 'edit-status warn-text' : 'edit-status'} role="status">
             {needRoute ? t('topo.needRoute') : changed ? t('topo.draft') : saved ? t('topo.saved') : t('topo.noChanges')}

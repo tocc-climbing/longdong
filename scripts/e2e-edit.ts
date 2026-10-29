@@ -469,6 +469,12 @@ try {
   await phone.page.goto(base + 'edit/topo/e2ephone')
   await phone.page.waitForSelector('.topo-route-row')
   check('手機寬度也能編輯 Topo（不是「請用電腦」）', (await phone.page.locator('.topo-zoom').count()) === 1 && (await phone.page.locator('.edit-message').count()) === 0)
+  check('手機：編輯單一項目時上方只有「目錄」與項目名稱，沒有電腦版的連結與分享', (await phone.page.locator('.edit-back-to-list').count()) === 1 && (await phone.page.locator('.edit-back, .edit-title, .edit-top .edit-btn:not(.edit-back-to-list)').count()) === 0)
+  const covered = await phone.page.evaluate(`document.elementFromPoint(195, 830)?.closest('.edit-app') !== null`)
+  check('手機：編輯畫面蓋住底部導覽（整個畫面給這個項目）', covered === true)
+  const zoomBottom = (await phone.page.locator('.topo-zoom').boundingBox())!
+  check('手機：照片在第一個畫面裡看得完整（不用捲動）', zoomBottom.y + zoomBottom.height <= 844, `${zoomBottom.y + zoomBottom.height}`)
+  check('手機：工具列只佔一排（工具）加一排（狀態與提交）', ((await phone.page.locator('.topo-edit-toolbar').boundingBox())!.height) < 130, `${(await phone.page.locator('.topo-edit-toolbar').boundingBox())!.height}`)
   check('手機：工具列沒有快捷鍵提示', !(await phone.page.locator('.topo-tool kbd').first().isVisible()))
   await phone.page.locator('.topo-route-row', { has: phone.page.locator('.topo-route-no', { hasText: new RegExp(`^${topoRoutes[0].number}$`) }) }).click()
   await phone.page.locator('.topo-zoom').scrollIntoViewIfNeeded()
@@ -525,6 +531,10 @@ try {
   await phone.page.waitForTimeout(200)
   check('手機：放大後單指拖曳空白處，照片平移，不多出一個點', (await innerNow()) !== panBefore && (await phoneHandles().count()) === 2)
   await phone.page.screenshot({ path: process.env.PHONE_SHOT ?? 'dist-e2e/phone.png' })
+  // 手機的目錄：分區下有「新增 Topo 照片」（手機也能上傳）
+  await phone.page.goto(base + 'edit')
+  await phone.page.waitForSelector('.edit-catalog')
+  check('手機：目錄的分區下有上傳 Topo 照片的按鈕', (await phone.page.locator('.edit-catalog .topo-upload').count()) > 0)
   await phone.ctx.close()
   // 這張照片只給手機測試用：後面的測試以「分區只有一張照片」為前提
   await fetch(url('v2/topos/e2ephone'), { method: 'DELETE', ...asOwner })

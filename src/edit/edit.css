@@ -961,3 +961,46 @@
   font-size: var(--edit-fs-sm);
   white-space: nowrap;
 }
+
+/* ---------- 手機版編輯單一項目：整個畫面給它 ---------- */
+.edit-app.narrow.focus {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  /* Topo 照片的高度：扣掉上方列與工具列 */
+  --topo-chrome: 176px;
+}
+
+.edit-app.narrow.focus .edit-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  min-height: 48px;
+  gap: 10px;
+  padding: 0 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.edit-app.narrow.focus .edit-back-to-list {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.edit-focus-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-app.narrow.focus .edit-center {
+  margin: 0;
+}
+
+.edit-app.narrow.focus .edit-panel {
+  margin: 8px 0 0;
+}

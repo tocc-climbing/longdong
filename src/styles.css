@@ -5808,3 +5808,34 @@ button.key-row:disabled {
 [data-layout='wide'] .area-hero.compact .area-hero-shape {
   height: 140px;
 }
+
+/* 工具列的工具那一排：電腦版與其他按鈕同一列；手機版單獨一排，左右滑動（不佔三四排的高度） */
+.topo-tools-row {
+  display: contents;
+}
+
+.edit-app.narrow.focus .topo-edit-toolbar {
+  position: sticky;
+  top: 48px;
+  z-index: 4;
+  gap: 4px 8px;
+  min-height: 0;
+  padding: 4px 8px;
+}
+
+.edit-app.narrow.focus .topo-tools-row {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 4px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.edit-app.narrow.focus .topo-tools-row > * {
+  flex: none;
+}
+
+.edit-app.narrow.focus .topo-edit-photo {
+  padding: 4px;
+}

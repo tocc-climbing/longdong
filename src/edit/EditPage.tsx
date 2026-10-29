@@ -141,23 +141,33 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   return (
     <PanelLayoutContext.Provider value={{ open: layout, toggle }}>
       <div
-        className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}${wide && !layout.catalog ? ' no-catalog' : ''}${wide && !item ? ' no-panel' : ''}${wide && item && !layout.panel ? ' panel-rail' : ''}`}
+        className={`edit-app${wide ? '' : ' narrow'}${item ? ' has-item' : ''}${!wide && item ? ' focus' : ''}${wide && !layout.catalog ? ' no-catalog' : ''}${wide && !item ? ' no-panel' : ''}${wide && item && !layout.panel ? ' panel-rail' : ''}`}
       >
-        <header className="edit-top">
-          <a className="edit-back" href={href.home()} onClick={(e) => !leaveOk() && e.preventDefault()}>
-            ← {t('app.title')}
-          </a>
-          <strong className="edit-title">{t('edit.title')}</strong>
-          {item && (
-            <span className="edit-crumb">
-              {item.path.join(' › ')} › <b>{item.label}</b>
-            </span>
-          )}
-          <span className="edit-spacer" />
-          <button type="button" className="edit-btn" onClick={() => void share()}>
-            {t('edit.share')}
-          </button>
-        </header>
+        {!wide && item ? (
+          // 手機：一次只改一個項目，整個畫面給它；上面只有回目錄與項目名稱，沒有電腦版的連結
+          <header className="edit-top">
+            <button type="button" className="edit-btn edit-back-to-list" onClick={() => leaveOk() && navigate(href.edit())}>
+              ← {t('edit.catalog')}
+            </button>
+            <b className="edit-focus-title">{item.label}</b>
+          </header>
+        ) : (
+          <header className="edit-top">
+            <a className="edit-back" href={href.home()} onClick={(e) => !leaveOk() && e.preventDefault()}>
+              ← {t('app.title')}
+            </a>
+            <strong className="edit-title">{t('edit.title')}</strong>
+            {item && (
+              <span className="edit-crumb">
+                {item.path.join(' › ')} › <b>{item.label}</b>
+              </span>
+            )}
+            <span className="edit-spacer" />
+            <button type="button" className="edit-btn" onClick={() => void share()}>
+              {t('edit.share')}
+            </button>
+          </header>
+        )}
         {wide ? (
           layout.catalog ? (
             <div className="edit-dock">
@@ -169,11 +179,6 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
           )
         ) : (
           !item && <Catalog data={data} current={item} onOpen={open} />
-        )}
-        {!wide && item && (
-          <button type="button" className="edit-btn edit-back-to-list" onClick={() => leaveOk() && navigate(href.edit())}>
-            ← {t('edit.catalog')}
-          </button>
         )}
         {body}
         {wide && item && !layout.panel && <DockRail part="panel" title={t('edit.panel')} />}

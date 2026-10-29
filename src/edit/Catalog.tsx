@@ -3,7 +3,6 @@ import type { LoadedData } from '../data/dataset'
 import { localName, useLang, type Lang, type Translate } from '../i18n'
 import { areaNames } from '../map/mapData'
 import { useMapShapes, wallTarget } from '../map/shapes'
-import { useWide } from '../layout'
 import { useCloud } from '../personal/sync'
 import { href, type EditKind } from '../router'
 import { UploadButton } from '../topo/TopoUpload'
@@ -117,7 +116,7 @@ export function useCatalog(data: LoadedData): { groups: Group[]; items: EditItem
  */
 export function Catalog({ data, current, onOpen }: { data: LoadedData; current?: { kind: EditKind; id: string }; onOpen: () => boolean }) {
   const { t } = useLang()
-  const canUpload = useWide() && useCloud().status === 'signed-in'
+  const canUpload = useCloud().status === 'signed-in'
   const { groups, items } = useCatalog(data)
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
