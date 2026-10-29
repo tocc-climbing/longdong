@@ -12,14 +12,13 @@ export function sectorLabel(data: LoadedData, sectorId: string, lang: Parameters
   return found ? `${localName(found.area.name, lang).main} · ${localName(found.sector.name, lang).main}` : sectorId
 }
 
-/** 點到一段岩壁：分區、最後誰改的、什麼時候；電腦版登入後可以到編輯模式修改（岩壁的修改都在編輯模式，有完整紀錄） */
-export function WallDetails({ data, wall, author, canEdit }: { data: LoadedData; wall: SectorWall; author: string; canEdit: boolean }) {
+/** 點到一段岩壁：分區、最後誰改的、什麼時候（修改過才有）；電腦版登入後可以到編輯模式修改（岩壁的修改都在編輯模式，有完整紀錄） */
+export function WallDetails({ data, wall, author, canEdit }: { data: LoadedData; wall: SectorWall; author?: string; canEdit: boolean }) {
   const { lang, t } = useLang()
-  const date = new Date(wall.createdAt).toLocaleDateString(LOCALES[lang])
   return (
     <>
       <p>{sectorLabel(data, wall.sector, lang)}</p>
-      <p className="muted small">{t('wall.by', { name: author, date })}</p>
+      {author && wall.createdAt && <p className="muted small">{t('wall.by', { name: author, date: new Date(wall.createdAt).toLocaleDateString(LOCALES[lang]) })}</p>}
       {canEdit && (
         <div className="actions">
           <a className="action" href={href.edit('map', wallTarget(wall.sector))}>

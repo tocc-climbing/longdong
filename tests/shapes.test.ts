@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { withShapes, type ScaleMapData } from '../src/map/mapData'
+import { sectorWalls, withShapes, type ScaleMapData } from '../src/map/mapData'
 import { decodeMapEdits, encodeShapes, isOpenTarget, sectorOf, simplifyRing, wallLabelAt, wallTarget } from '../src/map/shapes'
 
 const RING: [number, number][] = [
@@ -79,7 +79,20 @@ describe('套上編輯的最新版本', () => {
     areas: [{ id: 'school-gate', path: 'M0 0Z', label: [0, 0], size: 1, rings: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, { id: 'clocktower', path: 'M0 0Z', label: [0, 0], size: 1, rings: [] }],
     lineLayers: { trail: [[[0, 0], [1, 1]]], highway: [], tunnel: [], road: [[[0, 0], [2, 2]]] },
     names: [],
+    walls: { 'longdong/s1': [[[25.11, 121.92], [25.111, 121.92]]], 'longdong/s2': [[[25.12, 121.92], [25.121, 121.92]]] },
   }
+
+  it('有版本的分區岩壁換成新的，沒有版本的用原始版；每一段帶著最後修改的人與時間（原始版沒有）', () => {
+    const out = withShapes(base, decodeMapEdits({ 'wall:longdong:s1': { a: { uid: 'u1', createdAt: 5, lines: encodeShapes([RING.slice(0, 2), OTHER.slice(0, 2)]) } } }))
+    expect(out.walls['longdong/s1']).toEqual([RING.slice(0, 2), OTHER.slice(0, 2)])
+    expect(out.walls['longdong/s2']).toBe(base.walls['longdong/s2'])
+    const walls = sectorWalls(out, decodeMapEdits({ 'wall:longdong:s1': { a: { uid: 'u1', createdAt: 5, lines: '' } } }))
+    expect(walls.map((w) => [w.key, w.uid, w.createdAt])).toEqual([
+      ['longdong/s1#0', 'u1', 5],
+      ['longdong/s1#1', 'u1', 5],
+      ['longdong/s2#0', undefined, undefined],
+    ])
+  })
 
   it('有版本的大區域、步道換成新的，沒有的（其他道路）不變', () => {
     const out = withShapes(base, decodeMapEdits({

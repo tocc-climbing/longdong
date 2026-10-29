@@ -35,6 +35,14 @@ const topoRoutes = topoSector.routes.filter((r) => r.number).slice(0, 3)
 const gate = data.areas.find((a) => a.id.endsWith('/school-gate'))!
 const wallSector = gate.sectors[0].id
 const gateSectorName = (gate.sectors[0] as unknown as { name: { zh: string } }).name.zh
+/** 岩壁的原始版：分區 → 幾條線 */
+const baseWalls = new Map(
+  (JSON.parse(readFileSync('public/rescue/walls.geojson', 'utf8')) as { features: { properties: { sector: string }; geometry: { coordinates: unknown[] } }[] }).features.map((f) => [
+    f.properties.sector,
+    f.geometry.coordinates.length,
+  ]),
+)
+const baseWallLines = [...baseWalls.values()].reduce((a, b) => a + b, 0)
 /** 校門口範圍裡的一個位置（areas.geojson 的一塊的中間） */
 const AT = { lat: 25.11272, lng: 121.92216 }
 
@@ -142,6 +150,10 @@ try {
   await report(anon.page)
   const two = await until(() => added(2))
   check('再回報一次：副本有兩筆', !!two && Object.keys(two).length === 2)
+  // 資料庫還沒有任何岩壁的修改：沒登入也畫出各分區岩壁的原始版
+  const anonLines = () => anon.page.locator('.sm-line').count()
+  const allBaseWalls = await until(async () => ((await anonLines()) === baseWallLines ? true : undefined), 5000)
+  check('沒登入也畫出各分區岩壁的原始版', allBaseWalls === true, `${await anonLines()} 條，應為 ${baseWallLines}`)
   await anon.ctx.close()
 
   // ── 2. 修改區域範圍：看到該區的回報（合併、有幾筆） ──────────────────
@@ -313,7 +325,12 @@ try {
     const v = await read<Record<string, { lines: string }>>(`v2/mapEdits/${wallKey}`)
     return v && Object.keys(v).length === 1 ? v : undefined
   })
-  check('提交岩壁：資料庫有一版、一條三點的線', !!wall && Object.values(wall)[0].lines.split('|').length === 1 && Object.values(wall)[0].lines.split(' ').length === 3)
+  const submittedLines = wall ? Object.values(wall)[0].lines.split('|') : []
+  check(
+    '提交岩壁：資料庫有一版，原始版的線加上新畫的一條三點的線',
+    submittedLines.length === (baseWalls.get(wallSector) ?? 0) + 1 && submittedLines.at(-1)!.split(' ').length === 3,
+    `${submittedLines.length} 條`,
+  )
   // 換到別的分區畫岩壁：地圖停在原處，剛畫的岩壁（別的分區）也畫出來
   const mapTransform = () => editor.page.locator('.edit-canvas svg[role=img] > g[transform]').first().getAttribute('transform')
   const canvasBox = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
@@ -348,9 +365,9 @@ try {
   await editor.page.waitForFunction((h) => location.pathname.endsWith(h.slice(h.lastIndexOf('/'))), otherHref)
   await editor.page.keyboard.press('z')
   check('復原後沒有未提交的項目', (await until(async () => ((await editor.page.locator('.edit-pending li').count()) === 0 ? true : undefined), 3000)) === true)
-  // 地圖頁：放大到校門口，分區名稱標在岩壁中間
+  // 地圖頁：放大到校門口（急救器材 #1 在校門口），分區名稱標在岩壁中間
   await editor.page.goto(base + 'map')
-  const gateLabel = await editor.page.waitForSelector('.sm-label-school-gate', { timeout: 20000 })
+  const gateLabel = await editor.page.waitForSelector('.sm-ems:has(title:text-is("急救器材 #1")) rect', { timeout: 20000 })
   const gateBox = (await gateLabel.boundingBox())!
   await editor.page.mouse.move(gateBox.x + gateBox.width / 2, gateBox.y + gateBox.height / 2)
   for (let i = 0; i < 8; i++) {

@@ -133,7 +133,6 @@ export const zh = {
   'map.manualRoute': '路線',
   'map.manualWholeWall': '整面牆（牆底）',
   'wall.undo': '復原',
-  'wall.loadFailed': '岩壁載入失敗：{error}',
   'wall.title': '岩壁',
   'wall.by': '{name} · {date}',
   'wall.edit': '在編輯模式修改',

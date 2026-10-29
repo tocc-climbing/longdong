@@ -3,16 +3,17 @@ import type { LatLng } from '../geo'
 import type { LoadedData } from '../data/dataset'
 import { AREA_RESCUE } from '../data/rescue'
 import { localName, type Lang } from '../i18n'
-import { LINE_TARGETS, useMapShapes, type LineTarget, type MapShapes } from './shapes'
+import { LINE_TARGETS, useMapShapes, wallTarget, type LineTarget, type MapShapes, type SectorWall } from './shapes'
 
 /**
  * 照比例尺的龍洞簡圖（scripts/gen-scale-map.ts 由救援資訊圖產生，放在 public/rescue/，在離線快取裡）。
+ * 大區域範圍（areas.geojson）與分區岩壁（walls.geojson）是編輯模式修改後的原始版，不是自動產生的。
  * 畫面上用以 ORIGIN 為原點的平面座標（公尺，x 向東、y 向南），龍洞的範圍只有一兩公里，平面近似的誤差可忽略。
  */
 
 type Position = [number, number]
 interface Feature {
-  properties: { kind?: string; id?: string; no?: number; zh?: string; en?: string; ja?: string; tone?: PlaceTone; line?: LineLayer }
+  properties: { kind?: string; id?: string; sector?: string; no?: number; zh?: string; en?: string; ja?: string; tone?: PlaceTone; line?: LineLayer }
   geometry:
     | { type: 'MultiPolygon'; coordinates: Position[][][] }
     | { type: 'MultiLineString'; coordinates: Position[][] }
@@ -45,6 +46,8 @@ export interface ScaleMapData {
   lineLayers: Record<LineLayer, [number, number][][]>
   /** 道路、步道的名稱：沿著 line 圖層裡離錨點最近的那條線排字（位置不固定，見 ScaleMap） */
   names: LineName[]
+  /** 分區 ID → 岩壁（沿著牆底的折線，經緯度） */
+  walls: Record<string, LatLng[][]>
 }
 
 export interface LineName {
@@ -88,7 +91,16 @@ export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData 
     // 範圍全刪掉的區域（修改中還沒提交的草稿）不畫，不留下舊的形狀
     areas: base.areas.flatMap((a) => (shapes.areas[a.id] ? (shapes.areas[a.id].length ? [areaShape(a.id, toRings(shapes.areas[a.id]))] : []) : [a])),
     lineLayers: edited.length ? lineLayers : base.lineLayers,
+    walls: { ...base.walls, ...shapes.walls },
   }
+}
+
+/** 地圖上的每一段岩壁；修改過的分區帶著最後修改的人與時間 */
+export function sectorWalls(map: ScaleMapData, shapes: MapShapes): SectorWall[] {
+  return Object.entries(map.walls).flatMap(([sector, lines]) => {
+    const latest = shapes.versions[wallTarget(sector)]?.at(-1)
+    return lines.map((points, i) => ({ key: `${sector}#${i}`, sector, points, uid: latest?.uid, createdAt: latest?.createdAt }))
+  })
 }
 
 const ORIGIN: LatLng = [25.107, 121.92]
@@ -158,7 +170,7 @@ async function fetchJSON(url: string): Promise<FeatureCollection> {
 }
 
 async function readScaleMap(): Promise<ScaleMapData> {
-  const [base, areas] = await Promise.all([fetchJSON(`${import.meta.env.BASE_URL}rescue/scale-map.geojson`), fetchJSON(`${import.meta.env.BASE_URL}rescue/areas.geojson`)])
+  const [base, areas, walls] = await Promise.all(['scale-map', 'areas', 'walls'].map((name) => fetchJSON(`${import.meta.env.BASE_URL}rescue/${name}.geojson`)))
   /** 某一種線（kind）的線段，地圖座標 */
   const linesOf = (kind: string) =>
     base.features.flatMap((f) =>
@@ -187,6 +199,9 @@ async function readScaleMap(): Promise<ScaleMapData> {
     lineLayers: Object.fromEntries(
       Object.values(LINE_TARGETS).map((layer) => [layer, linesOf(layer)]),
     ) as Record<LineLayer, [number, number][][]>,
+    walls: Object.fromEntries(
+      walls.features.map((f) => [f.properties.sector!, (f.geometry.coordinates as Position[][]).map((l) => l.map(([lng, lat]): LatLng => [lat, lng]))]),
+    ),
   }
 }
 

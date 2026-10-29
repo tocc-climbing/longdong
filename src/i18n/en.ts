@@ -135,7 +135,6 @@ export const en: Messages = {
   'map.manualRoute': 'Route',
   'map.manualWholeWall': 'Whole wall (base)',
   'wall.undo': 'Undo',
-  'wall.loadFailed': "Couldn't load walls: {error}",
   'wall.title': 'Wall',
   'wall.by': '{name} · {date}',
   'wall.edit': 'Edit in edit mode',

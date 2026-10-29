@@ -139,7 +139,6 @@ export const ja: Messages = {
   'map.manualRoute': 'ルート',
   'map.manualWholeWall': '壁全体（基部）',
   'wall.undo': '元に戻す',
-  'wall.loadFailed': '岩壁を読み込めませんでした：{error}',
   'wall.title': '岩壁',
   'wall.by': '{name} · {date}',
   'wall.edit': '編集モードで編集',

@@ -260,13 +260,6 @@ export async function uploadCalibration(uid: string, geojson: string): Promise<v
   await push(ref(db, `v2/calibration/${uid}`), { geojson, createdAt: serverTimestamp() })
 }
 
-/* ---------- 岩壁標記（見 map/walls.ts） ---------- */
-
-/** 所有人畫的岩壁（只有登入者讀得到） */
-export function watchWalls(callback: (value: unknown) => void, onError: (err: Error) => void): Unsubscribe {
-  return onValue(ref(db, 'v2/walls'), (snap) => callback(snap.val()), onError)
-}
-
 /* ---------- 地圖編輯（版本，見 map/shapes.ts；讀取走 REST） ---------- */
 
 /** 提交一個新版本：大區域、分區用 rings，步道用 lines（多塊以「|」分隔） */

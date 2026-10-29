@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeLine, decodeWalls, encodeLine } from '../src/map/walls'
+import { decodeLine, encodeLine } from '../src/map/walls'
 
 describe('岩壁標記的座標', () => {
   it('「緯度,經度」以空格分隔、小數 6 位（資料庫規則要求的格式）', () => {
@@ -13,15 +13,4 @@ describe('岩壁標記的座標', () => {
     ])
   })
 
-  it('所有人的岩壁攤平成一份，依建立時間由舊到新，帶著畫的人', () => {
-    const raw = {
-      bob: { w2: { sector: 'longdong/b', line: '25.1,121.9 25.2,121.9', createdAt: 2 } },
-      alice: { w1: { sector: 'longdong/a', line: '25.1,121.9 25.2,121.9', createdAt: 1 } },
-    }
-    expect(decodeWalls(raw).map((w) => [w.id, w.uid, w.sector])).toEqual([
-      ['w1', 'alice', 'longdong/a'],
-      ['w2', 'bob', 'longdong/b'],
-    ])
-    expect(decodeWalls(null)).toEqual([])
-  })
 })

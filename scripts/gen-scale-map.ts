@@ -1,7 +1,7 @@
 /**
  * 由 TOCC 龍洞岩場救援資訊圖（.ai／.pdf）的向量圖形產生照比例尺的地圖資料（GeoJSON，WGS84）：
  *   public/rescue/scale-map.geojson   陸地、建物、道路、步道、停車場（範圍與 P 字位置）、急救器材、船艇接駁點、直升機吊掛點、地名
- *   public/rescue/areas.geojson       9 個大區域的範圍（之後也可用在路線分區的介面）
+ * 大區域範圍（public/rescue/areas.geojson）與分區岩壁（walls.geojson）是編輯模式修改後的原始版，不在這裡產生。
  *
  *   npm run scale-map -- <救援資訊圖.ai 或 .pdf>
  *
@@ -106,8 +106,6 @@ const AREA_FILLS: Record<string, string> = {
  */
 const DENSIFY_PT = 3
 const SIMPLIFY_M = 0.15
-/** 9 個區域放大看得最多，去點更細 */
-const AREA_SIMPLIFY_M = 0.04
 /** 曲線切成幾段：控制點折線每 CURVE_STEP_PT 一段，至少 8 段、最多 64 段 */
 const CURVE_STEP_PT = 1.5
 /** 陸地超出頁面的部分是圖面裁切的邊，不是海岸：往外推這麼遠（點），讓陸地自然延伸出畫面 */
@@ -266,19 +264,6 @@ const parkingAreas = parking.map((at) => {
   if (!lot) throw new Error(`停車場 ${at} 找不到深藍色的範圍：版面可能改了`)
   return lot.subpaths.find((p) => inside(at, p))!
 })
-
-// 急救器材：圖示旁的藍色箭頭（線＋三角形）指向實際位置，取三角形離箭頭起點最遠的一點；由北到南依序是 #1–#6
-const arrowHeads = shapes.filter((s) => !s.stroke && s.fill === '#0c4f8b' && bbox(s).w > 10 && bbox(s).w < 20 && bbox(s).h > 10 && bbox(s).h < 20)
-const emsTips = shapes
-  .filter((s) => s.stroke && s.strokeColor === '#0c4f8b')
-  .map((arrow) => {
-    const start = arrow.subpaths[0][0]
-    const end = arrow.subpaths[0][arrow.subpaths[0].length - 1]
-    const head = arrowHeads.reduce((a, b) => (near(centerOf(b), end) < near(centerOf(a), end) ? b : a))
-    return head.subpaths.flat().reduce((a, b) => (near(b, start) > near(a, start) ? b : a))
-  })
-  .sort((a, b) => a[1] - b[1])
-if (emsTips.length !== EMS_LOCATIONS.length) throw new Error(`急救器材應該有 ${EMS_LOCATIONS.length} 處，找到 ${emsTips.length} 個箭頭：版面可能改了`)
 
 // 圖例（左上角）裡也有同樣的圖示，不算
 const LEGEND = { x0: 150, y0: 450, x1: 850, y1: 850 }
@@ -483,17 +468,12 @@ const warp = buildWarp([...CONTROL_POINTS, ...curvePoints])
  * 外海的島礁也是色塊，但 OSM 的海岸線沒有島礁，不取（整塊都不碰到陸地的就是島礁）。
  * 靠海：往八個方向 CRAG_SEA_PT 點內有一處既不是陸地、也不是任何色塊。岩岸曲折，只接受 CRAG_MAX_M 內的對應，避免對到隔壁的岬角。
  *
- * 只有陸地照這些點變形（coastWarp）。救援資訊圖把岩盤與島礁畫得比實際寬，區域色塊若也跟著變形會被擠成細長條，
- * 所以色塊先各自旋轉＋平移（areaWarp，剛體對齊）：取色塊附近海岸被拉動的方式（海岸點 warp → coastWarp，大範圍加權）最接近的剛體運動，
- * 旋轉跟著附近海岸方向的變化；島礁有 ISLET_POINTS 時以島礁點剛體對齊。之後再貼齊航照上的岩石帶（fitArea，見下）。
- * 其他圖形（步道、道路、圖示）不受影響。
+ * 只有陸地照這些點變形（coastWarp），其他圖形（步道、道路、圖示）不受影響。
  */
 const CRAG_SEA_PT = 6
 const CRAG_STEP_PT = 20
 const CRAG_MAX_M = 40
 const CRAG_BOX: Box = [1000, 650, 1700, 2150]
-/** 附近海岸點的高斯加權，距離的標準差（點） */
-const CRAG_SHIFT_SIGMA_PT = 80
 const onLand = (p: Pt) => land[0].subpaths.some((r) => inside(p, r))
 const isSea = (p: Pt) => !onLand(p) && !areaShapes.some((s) => s.subpaths.some((r) => inside(p, r)))
 const seaward = (p: Pt) =>
@@ -517,141 +497,6 @@ for (let round = 0; round < 2; round++) {
 }
 console.log(`岩岸參考點：取樣 ${cragSamples.length} 個，對到 ${cragPoints.length} 個`)
 const coastWarp = buildWarp([...CONTROL_POINTS, ...curvePoints, ...cragPoints])
-/**
- * 島礁：OSM 的海岸線沒有島礁，以國土測繪中心 2024 年正射影像對應（政府資料開放授權，© 內政部國土測繪中心）。
- * 圖上位置 ↔ 航照上的 GPS；點所在的島礁色塊以這些點剛體對齊（旋轉＋平移，形狀與大小不變），一塊島礁至少兩點。
- */
-const ISLET_POINTS: { note: string; at: Pt; gps: Pt }[] = [
-  { note: '校門口外海的大礁石：西北端', at: [1390, 850], gps: [25.11272, 121.9231] },
-  { note: '校門口外海的大礁石：東南端', at: [1465, 943], gps: [25.11201, 121.92365] },
-]
-/** 色塊的換算：剛體對齊（旋轉＋平移）；島礁（整塊不碰到陸地）有兩個以上島礁點時以島礁點對齊，其他取附近海岸被拉動的方式 */
-function areaWarp(ring: Pt[]): (p: Pt) => Pt {
-  const own = ring.some(onLand) ? [] : ISLET_POINTS.filter(({ at }) => inside(at, ring))
-  const fit =
-    own.length >= 2
-      ? rigidFit(
-          own.map(({ at }) => warp(at)),
-          own.map(({ gps }) => toMeters(gps)),
-        )
-      : coastMotion(centerOfRing(ring))
-  return (p) => fit.apply(warp(p))
-}
-
-/** 剛體對齊（旋轉＋平移，不縮放）：讓 from 的各點最接近對應的 to（加權最小平方） */
-function rigidFit(from: Pt[], to: Pt[], weights: number[] = from.map(() => 1)): { angle: number; apply: (p: Pt) => Pt } {
-  const total = weights.reduce((a, b) => a + b, 0)
-  const mean = (ps: Pt[]): Pt => [ps.reduce((v, p, i) => v + weights[i] * p[0], 0) / total, ps.reduce((v, p, i) => v + weights[i] * p[1], 0) / total]
-  const [cf, ct] = [mean(from), mean(to)]
-  let [cross, dot] = [0, 0]
-  from.forEach((p, i) => {
-    const [ax, ay] = [p[0] - cf[0], p[1] - cf[1]]
-    const [bx, by] = [to[i][0] - ct[0], to[i][1] - ct[1]]
-    cross += weights[i] * (ax * by - ay * bx)
-    dot += weights[i] * (ax * bx + ay * by)
-  })
-  const angle = Math.atan2(cross, dot)
-  const [c, s] = [Math.cos(angle), Math.sin(angle)]
-  return { angle, apply: ([x, y]) => [ct[0] + c * (x - cf[0]) - s * (y - cf[1]), ct[1] + s * (x - cf[0]) + c * (y - cf[1])] }
-}
-
-/** 色塊附近海岸被拉動的方式取最接近的剛體運動：海岸點 warp → coastWarp，以離色塊中心的距離高斯加權 */
-function coastMotion(center: Pt): { angle: number; apply: (p: Pt) => Pt } {
-  const weights = cragPoints.map(({ at }) => Math.exp(-((at[0] - center[0]) ** 2 + (at[1] - center[1]) ** 2) / (2 * CRAG_SHIFT_SIGMA_PT ** 2)))
-  return rigidFit(
-    cragPoints.map(({ at }) => warp(at)),
-    cragPoints.map(({ at }) => coastWarp(at)),
-    weights,
-  )
-}
-function centerOfRing(ring: Pt[]): Pt {
-  const xs = ring.map((p) => p[0])
-  const ys = ring.map((p) => p[1])
-  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
-}
-
-/**
- * 貼齊航照上的岩石帶（scripts/data/nlsc-crag-edges.json，由 scripts/gen-crag-edges.ts 產生，© 內政部國土測繪中心）：
- * 形狀只求近似，色塊靠海的邊貼到岩石與海的交界、靠陸地（淺灰色）的邊貼到岩石與植物的交界；色塊之間共用的邊不限制。
- * 每塊色塊各自處理（fitArea）：從上面的剛體對齊開始，先整塊剛體對齊岩石帶，再每輪找最近的交界點（EDGE_MAX_M 內）建這塊自己的薄板樣條，反覆 EDGE_ROUNDS 輪。
- * 各自處理而不是全部色塊共用一個變形：相鄰色塊的剛體對齊不同，共用的邊會把夾在中間的色塊擠扁（例如大禮堂）；代價是相鄰色塊之間可能有數公尺的縫或重疊。
- * 只接受 EDGE_MAX_M 內的交界點：陰影很深的地方（例如大禮堂的凹灣）顏色分類不可靠，維持整塊對齊的位置。
- */
-const cragEdges = JSON.parse(readFileSync(new URL('./data/nlsc-crag-edges.json', import.meta.url), 'utf8')) as { sea: Pt[]; vegetation: Pt[]; islet: Pt[] }
-const EDGE_LINES = { sea: cragEdges.sea.map(toMeters), vegetation: cragEdges.vegetation.map(toMeters), islet: cragEdges.islet.map(toMeters) }
-const EDGE_STEP_PT = 10
-const EDGE_MAX_M = 25
-const EDGE_SLACK = 300
-const EDGE_ROUNDS = 6
-/** 每個取樣點也輕輕拉回剛體對齊的位置（slack 大，約束弱），色塊不會被拉扁（例如兩側都貼到同一段交界） */
-const KEEP_SLACK = 3000
-/** 整塊剛體對齊岩石帶的 ICP 輪數；至少要有 CRAG_FIT_MIN 個點對到才移動 */
-const EDGE_RIGID_ROUNDS = 10
-/** 細部貼齊後的面積不能小於整塊對齊的這個比例 */
-const EDGE_MIN_AREA_RATIO = 0.5
-const CRAG_FIT_MIN = 3
-/** 色塊旁邊是什麼：往八個方向 CRAG_SEA_PT 點內有海就是靠海；沒有海、有陸地（不是任何色塊）就是靠陸地 */
-const sideOf = (p: Pt): 'sea' | 'vegetation' | undefined => {
-  const around = Array.from({ length: 8 }, (_, k): Pt => [p[0] + CRAG_SEA_PT * Math.cos((k * Math.PI) / 4), p[1] + CRAG_SEA_PT * Math.sin((k * Math.PI) / 4)])
-  if (around.some(isSea)) return 'sea'
-  if (around.some((q) => onLand(q) && !areaShapes.some((s) => s.subpaths.some((r) => inside(q, r))))) return 'vegetation'
-  return undefined
-}
-const nearestPoint = (points: Pt[], q: Pt): Pt => points.reduce((best, p) => ((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 < (best[0] - q[0]) ** 2 + (best[1] - q[1]) ** 2 ? p : best))
-/** 一塊色塊的換算：剛體對齊（areaWarp）→ 整塊剛體對齊岩石帶的兩條邊（ICP）→ 細部貼齊（這塊自己的薄板樣條） */
-function fitArea(ring: Pt[], key: string): (p: Pt) => Pt {
-  const start = areaWarp(ring)
-  const label = `${key} ${centerOfRing(ring).map((v) => v.toFixed(0)).join(',')}`
-  // 島礁（整塊不碰到陸地）只貼齊航照上的島礁，不會被吸到旁邊陸地岩石帶的邊上而和同區的色塊重疊
-  const islandRing = !ring.some(onLand)
-  const samples = sampleAlong([ring], PAGE, EDGE_STEP_PT).map((at) => {
-    const side = sideOf(at)
-    return { at, side: islandRing && side === 'sea' ? ('islet' as const) : side, here: start(at) }
-  })
-  const nearestEdge = (side: keyof typeof EDGE_LINES, m: Pt) => {
-    const to = nearestPoint(EDGE_LINES[side], m)
-    return Math.hypot(to[0] - m[0], to[1] - m[1]) <= EDGE_MAX_M ? to : undefined
-  }
-  // 整塊剛體對齊：把放錯地方的色塊整塊移過去
-  let rigid = { angle: 0, apply: (p: Pt) => p }
-  for (let round = 0; round < EDGE_RIGID_ROUNDS; round++) {
-    const matched = samples.flatMap(({ side, here }) => {
-      const to = side && nearestEdge(side, rigid.apply(here))
-      return to ? [{ here, to }] : []
-    })
-    if (matched.length < CRAG_FIT_MIN) break
-    rigid = rigidFit(
-      matched.map((p) => p.here),
-      matched.map((p) => p.to),
-    )
-  }
-  const placed = (p: Pt) => rigid.apply(start(p))
-  // 細部貼齊：靠海、靠陸地的點貼到交界，每個點也輕輕拉回整塊對齊後的位置
-  const keep = samples.map(({ at }) => ({ at, gps: fromMeters(placed(at)), slack: KEEP_SLACK }))
-  const islets = ISLET_POINTS.filter(({ at }) => inside(at, ring)).map(({ at, gps }) => ({ at, gps, slack: EDGE_SLACK }))
-  let fit = placed
-  let matchedCount = 0
-  for (let round = 0; round < EDGE_ROUNDS; round++) {
-    const matched = samples.flatMap(({ at, side }) => {
-      const to = side && nearestEdge(side, fit(at))
-      return to ? [{ at, gps: fromMeters(to), slack: EDGE_SLACK }] : []
-    })
-    matchedCount = matched.length
-    if (keep.length + matched.length < 3) break
-    fit = buildWarp([...islets, ...matched, ...keep])
-  }
-  const summary = `色塊 ${label}：對齊岩石帶再旋轉 ${((rigid.angle * 180) / Math.PI).toFixed(1)}°，${samples.length} 個取樣點中 ${matchedCount} 個貼到交界`
-  // 貼齊後面積縮小太多：兩側貼到同一段交界（陰影處分類不可靠），改用整塊對齊的結果
-  const ratio = areaOf(densify(ring, DENSIFY_PT).map(fit)) / areaOf(densify(ring, DENSIFY_PT).map(placed))
-  if (ratio < EDGE_MIN_AREA_RATIO) {
-    console.log(`${summary}；貼齊後面積只剩 ${(ratio * 100).toFixed(0)}%，改用整塊對齊`)
-    return placed
-  }
-  console.log(summary)
-  return fit
-}
-/** 多邊形面積（鞋帶公式） */
-const areaOf = (ring: Pt[]) => Math.abs(ring.reduce((sum, p, i) => sum + p[0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * p[1], 0)) / 2
 /**
  * 步道：沿救援資訊圖的步道每 TRAIL_STEP_PT 取一點，對到 OSM 步道（highway=path、footway、track、steps）上 TRAIL_MAX_M 內最近的位置，對應後重新校正再對一次（兩輪）。
  * 只有步道照這些點變形（trailWarp）；OSM 沒有的步道段落跟著附近對到的點平滑內插。
@@ -915,72 +760,22 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
   if (err > limit) throw new Error(`控制點 ${note ?? gps} 換算後偏了 ${err.toFixed(1)} 公尺（上限 ${limit}）`)
 }
 
-const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點、${ISLET_POINTS.length} 個國土測繪中心正射影像島礁點對齊，區域貼齊正射影像的岩石帶，步道以 ${trailPoints.length} 個、道路以 ${roadPoints.length} 個 OpenStreetMap 參考點對齊）；島礁與岩石帶參考 © 內政部國土測繪中心；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
+const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點對齊，步道以 ${trailPoints.length} 個、道路以 ${roadPoints.length} 個 OpenStreetMap 參考點對齊）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
 /**
- * 島礁和岸邊的色塊重疊時往外推：示意圖上島礁旁邊的岩脊常畫得太長，貼齊後岩脊蓋到島礁的位置。
- * 島礁沿著「重疊的岸邊色塊中心 → 島礁中心」的方向每次移 ISLET_PUSH_STEP_M，直到頂點都不在岸邊色塊裡，最多 ISLET_PUSH_MAX_M。
+ * 急救器材的位置（緯度、經度）：#1 是現場回報的（2026-10 四筆 GPS，誤差 5～15 公尺，彼此相距 2 公尺內，依誤差加權平均）；
+ * 其他依 EMS_LOCATIONS 的放置位置說明，對照編輯模式畫的分區岩壁（public/rescue/walls.geojson）放：
+ * #3 長巷兩側岩壁最深處的中間、#4 第一洞內西面與東北面岩壁的內角、#6 鱷魚岬與老人牆兩段岩壁之間的內角；
+ * #2、#5 的說明對不到岩壁（洞穴、小木屋），維持救援資訊圖換算的位置。
  */
-const ISLET_PUSH_STEP_M = 1
-const ISLET_PUSH_MAX_M = 40
-const fittedRings = Object.entries(AREA_FILLS).flatMap(([fill, key]) =>
-  areaShapes
-    .filter((s) => s.fill === fill)
-    .flatMap((s) => s.subpaths.filter((p) => p.length >= 3))
-    .map((p) => {
-      const fit = fitArea(p, key)
-      return { key, page: p, fit, island: !p.some(onLand), ring: ring(smoothRing(p, SMOOTH_STEP_PT), AREA_SIMPLIFY_M, fit).map(([lng, lat]) => toMeters([lat, lng])) }
-    }),
-)
-const mean = (r: Pt[]): Pt => [r.reduce((v, p) => v + p[0], 0) / r.length, r.reduce((v, p) => v + p[1], 0) / r.length]
-for (const islet of fittedRings.filter((r) => r.island)) {
-  const shores = fittedRings.filter((r) => !r.island)
-  const overlapping = () => shores.find((shore) => islet.ring.some((p) => inside(p, shore.ring)))
-  const first = overlapping()
-  if (!first) continue
-  let moved = 0
-  for (let shore: (typeof shores)[number] | undefined = first; shore && moved < ISLET_PUSH_MAX_M; shore = overlapping()) {
-    const [from, to] = [mean(shore.ring), mean(islet.ring)]
-    const len = Math.hypot(to[0] - from[0], to[1] - from[1])
-    islet.ring = islet.ring.map(([x, y]) => [x + ((to[0] - from[0]) / len) * ISLET_PUSH_STEP_M, y + ((to[1] - from[1]) / len) * ISLET_PUSH_STEP_M])
-    moved += ISLET_PUSH_STEP_M
-  }
-  console.log(`島礁 ${islet.key} 和岸邊色塊重疊，往外推 ${moved} 公尺${overlapping() ? '（仍重疊）' : ''}`)
-}
-
-
-/**
- * 急救器材在所屬區域的範圍內：和那塊色塊用同一個換算移動（圖上的箭頭尖端在色塊裡就用那塊，否則用最近的一塊）。
- * 換算後仍在區域外（示意圖上本來就畫在色塊外），拉到區域邊界上最近的位置再往內 EMS_INSET_M。
- * EMS_LOCATIONS 的名稱就是所屬的區域。
- */
-const EMS_AREA: Record<number, string> = { 1: 'school-gate', 2: 'clocktower', 3: 'long-lane', 4: 'first-cave', 5: 'golden-valley', 6: 'back-door' }
-const EMS_INSET_M = 1
-/** 現場回報過的急救器材位置（緯度、經度，幾筆 GPS 依誤差加權平均）：直接用，不從示意圖換算 */
-const EMS_SURVEYED: Record<number, Pt> = {
-  // 2026-10 四筆回報（誤差 5～15 公尺），彼此相距 2 公尺內
+const EMS_AT: Record<number, Pt> = {
   1: [25.112738, 121.921587],
+  2: [25.111433, 121.922568],
+  3: [25.110835, 121.922587],
+  4: [25.109305, 121.92204],
+  5: [25.106445, 121.922556],
+  6: [25.105243, 121.922678],
 }
-/** 點到多邊形邊界上最近的位置 */
-function nearestOnRing(ring: Pt[], q: Pt): Pt {
-  return nearestOn([[...ring, ring[0]]], q)
-}
-const emsPoints = emsTips.map((tip, i): Pt => {
-  const { no } = EMS_LOCATIONS[i]
-  if (EMS_SURVEYED[no]) return toMeters(EMS_SURVEYED[no])
-  const own = fittedRings.filter((r) => r.key === EMS_AREA[no])
-  if (own.length === 0) throw new Error(`急救器材 #${no} 的區域 ${EMS_AREA[no]} 沒有色塊`)
-  const distanceTo = (r: (typeof own)[number]) => (inside(tip, r.page) ? 0 : Math.min(...r.page.map((p) => Math.hypot(p[0] - tip[0], p[1] - tip[1]))))
-  const host = own.reduce((a, b) => (distanceTo(b) < distanceTo(a) ? b : a))
-  const at = host.fit(tip)
-  if (own.some((r) => inside(at, r.ring))) return at
-  const edge = own.map((r) => ({ r, p: nearestOnRing(r.ring, at) })).reduce((a, b) => (Math.hypot(b.p[0] - at[0], b.p[1] - at[1]) < Math.hypot(a.p[0] - at[0], a.p[1] - at[1]) ? b : a))
-  const c = mean(edge.r.ring)
-  const len = Math.hypot(c[0] - edge.p[0], c[1] - edge.p[1])
-  const moved: Pt = [edge.p[0] + ((c[0] - edge.p[0]) / len) * EMS_INSET_M, edge.p[1] + ((c[1] - edge.p[1]) / len) * EMS_INSET_M]
-  console.log(`急救器材 #${no} 換算後在區域外 ${Math.hypot(moved[0] - at[0], moved[1] - at[1]).toFixed(1)} 公尺，拉到區域內`)
-  return moved
-})
 
 /**
  * 往北延伸（救援資訊圖只畫到龍洞街口，台二線在地圖中間斷掉看起來很奇怪）：
@@ -1092,7 +887,7 @@ const scaleMap = {
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: lines(trails, trailWarp) }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: [...parkingShapes.flat(), ...otherParking].map((r) => [r.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
-    ...emsPoints.map((at, i) => feature({ kind: 'ems', no: EMS_LOCATIONS[i].no }, { type: 'Point', coordinates: metersToLngLat(at) })),
+    ...EMS_LOCATIONS.map(({ no }) => feature({ kind: 'ems', no }, { type: 'Point', coordinates: [EMS_AT[no][1], EMS_AT[no][0]] })),
     ...PLACES.map(({ zh, en, ja, tone, at, line, gps }) => {
       const properties = { kind: line ? 'name' : 'place', zh, en, ja, tone, ...(line ? { line } : {}) }
       return gps ? feature(properties, { type: 'Point', coordinates: [gps[1], gps[0]] }) : point(properties, at)
@@ -1103,22 +898,7 @@ const scaleMap = {
   ],
 }
 
-const areas = {
-  type: 'FeatureCollection',
-  source,
-  // 色塊各自貼齊，相鄰的可能重疊：面積大的排前面，小的畫在上面，不會被整塊蓋住
-  features: Object.values(AREA_FILLS)
-    .map((key) => {
-      const rings = fittedRings.filter((r) => r.key === key).map((r) => r.ring)
-      return { key, rings, size: rings.reduce((sum, r) => sum + areaOf(r), 0) }
-    })
-    .sort((a, b) => b.size - a.size)
-    .map(({ key, rings }) => feature({ id: key }, { type: 'MultiPolygon', coordinates: rings.map((r) => [r.map(metersToLngLat)]) })),
-}
-
 mkdirSync('public/rescue', { recursive: true })
-for (const [name, data] of [['scale-map', scaleMap], ['areas', areas]] as const) {
-  const text = JSON.stringify(data)
-  writeFileSync(`public/rescue/${name}.geojson`, text + '\n')
-  console.log(`${name}.geojson ${(text.length / 1024).toFixed(0)} KB`)
-}
+const text = JSON.stringify(scaleMap)
+writeFileSync('public/rescue/scale-map.geojson', text + '\n')
+console.log(`scale-map.geojson ${(text.length / 1024).toFixed(0)} KB`)

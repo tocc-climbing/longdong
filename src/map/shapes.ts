@@ -1,11 +1,11 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import type { LatLng } from '../geo'
 import { get } from '../social/store'
-import { decodeLine, encodeLine, useWalls } from './walls'
+import { decodeLine, encodeLine } from './walls'
 
 /**
  * 地圖編輯（所有登入者，版本同 Topo）：每次提交都是一個新版本（完整的形狀，不是差異），保留所有版本；
- * 每個對象顯示最新的版本，刪掉它就回到前一版；沒有任何版本時用自動產生的（scripts/gen-scale-map.ts）。
+ * 每個對象顯示最新的版本，刪掉它就回到前一版；沒有任何版本時用原始版（大區域、岩壁：public/rescue/areas.geojson、walls.geojson；步道、道路：scripts/gen-scale-map.ts 自動產生的）。
  *   /v2/mapEdits/area:<大區域>/<版本>        { uid, createdAt, rings }   大區域的形狀
  *   /v2/mapEdits/wall:<分區 key>/<版本>      { uid, createdAt, lines }   分區的岩壁（沿著牆底的折線，可以多條；空字串表示沒有）
  *   /v2/mapEdits/<trails|highway|tunnel|road>/<版本>   { uid, createdAt, lines }   步道與攀岩者路徑、台二線、隧道、其他道路（各自整個路網）
@@ -33,7 +33,7 @@ export interface MapEditVersion {
 export interface MapShapes {
   /** 大區域 key → 多塊多邊形（最新版本） */
   areas: Record<string, LatLng[][]>
-  /** 有版本的分區 → 岩壁（最新版本）；沒有版本的分區用舊的岩壁標記（map/walls.ts） */
+  /** 有版本的分區 → 岩壁（最新版本）；沒有版本的分區用原始版 */
   walls: Record<string, LatLng[][]>
   /** 步道、道路（最新版本）；沒有版本的不在裡面，用自動產生的 */
   lines: Partial<Record<LineTarget, LatLng[][]>>
@@ -166,19 +166,7 @@ export interface SectorWall {
   key: string
   sector: string
   points: LatLng[]
-  /** 最後修改的人與時間 */
-  uid: string
-  createdAt: number
-}
-
-/** 各分區目前的岩壁：有版本的用最新版本，還沒有版本的用舊的岩壁標記（map/walls.ts，只有登入者讀得到） */
-export function useSectorWalls(): { walls: SectorWall[]; error?: string } {
-  const shapes = useMapShapes()
-  const { walls: legacy, error } = useWalls()
-  const edited = Object.entries(shapes.walls).flatMap(([sector, lines]) => {
-    const v = shapes.versions[wallTarget(sector)]!.at(-1)!
-    return lines.map((points, i) => ({ key: `${sector}#${i}`, sector, points, uid: v.uid, createdAt: v.createdAt }))
-  })
-  const old = legacy.filter((w) => !shapes.walls[w.sector]).map((w) => ({ key: w.id, sector: w.sector, points: w.points, uid: w.uid, createdAt: w.createdAt }))
-  return { walls: [...edited, ...old], error }
+  /** 最後修改的人與時間（原始版沒有） */
+  uid?: string
+  createdAt?: number
 }

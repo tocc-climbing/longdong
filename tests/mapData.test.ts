@@ -89,20 +89,76 @@ describe('比例尺地圖資料', () => {
     expect(centroid([...square].reverse())).toEqual({ at: [5, 5], size: 100 })
   })
 
-  it('9 個大區域都有範圍，且就近的救援點在該區範圍附近（50 公尺內）', () => {
+  it('9 個大區域都有範圍，且就近的救援點在該區範圍附近（60 公尺內；第二洞列的是鄰區的，120 公尺內）', () => {
     const areas = JSON.parse(readFileSync('public/rescue/areas.geojson', 'utf8')) as {
       features: { properties: { id: string }; geometry: { coordinates: [number, number][][][] } }[]
     }
     expect(areas.features.map((f) => f.properties.id).sort()).toEqual(Object.keys(AREA_RESCUE).sort())
-    for (const f of areas.features) {
-      const vertices = f.geometry.coordinates.flat(2)
-      const nearest = Math.min(
-        ...AREA_RESCUE[f.properties.id].points.flatMap((no) =>
-          RESCUE_POINTS.filter((p) => p.no === no && p.coords).map((p) => Math.min(...vertices.map(([lng, lat]) => distanceM(p.coords!, [lat, lng])))),
+    /** 點到多邊形邊界的距離（公尺，地圖座標） */
+    const toEdges = (q: [number, number], rings: [number, number][][]) =>
+      Math.min(
+        ...rings.flatMap((r) =>
+          r.slice(1).map((b, i) => {
+            const a = r[i]
+            const [dx, dy] = [b[0] - a[0], b[1] - a[1]]
+            const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)))
+            return Math.hypot(a[0] + t * dx - q[0], a[1] + t * dy - q[1])
+          }),
         ),
       )
-      expect(nearest, f.properties.id).toBeLessThan(50)
+    for (const f of areas.features) {
+      const rings = f.geometry.coordinates.map((polygon) => polygon[0].map(([lng, lat]) => project([lat, lng])))
+      const nearest = Math.min(
+        ...AREA_RESCUE[f.properties.id].points.flatMap((no) => RESCUE_POINTS.filter((p) => p.no === no && p.coords).map((p) => toEdges(project(p.coords!), rings))),
+      )
+      // 第二洞自己的救援點 #9 沒有座標，列的是南北兩側鄰區的 #8、#10
+      expect(nearest, f.properties.id).toBeLessThan(f.properties.id === 'second-cave' ? 120 : 60)
     }
+  })
+
+  describe('分區岩壁的原始版（walls.geojson）', () => {
+    const walls = (JSON.parse(readFileSync('public/rescue/walls.geojson', 'utf8')) as { features: { properties: { sector: string }; geometry: { coordinates: [number, number][][] } }[] }).features
+    const dataset = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as { areas: { sectors: { id: string; name: { zh: string } }[] }[] }
+    const sectors = dataset.areas.flatMap((a) => a.sectors)
+
+    it('每個分區都有岩壁，沒有不存在的分區', () => {
+      expect(walls.map((f) => f.properties.sector).sort()).toEqual(sectors.map((s) => s.id).sort())
+    })
+
+    /** 點到某個分區岩壁的距離（公尺） */
+    const toWall = (at: [number, number], zh: string) => {
+      const id = sectors.find((s) => s.name.zh === zh)!.id
+      const lines = walls.find((f) => f.properties.sector === id)!.geometry.coordinates
+      const q = project(at)
+      return Math.min(
+        ...lines.flatMap((l) =>
+          l.slice(1).map((b, i) => {
+            const [a, c] = [project([l[i][1], l[i][0]]), project([b[1], b[0]])]
+            const [dx, dy] = [c[0] - a[0], c[1] - a[1]]
+            const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)))
+            return Math.hypot(a[0] + t * dx - q[0], a[1] + t * dy - q[1])
+          }),
+        ),
+      )
+    }
+    const ems = (no: number): [number, number] => {
+      const f = (JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as { features: { properties: { kind: string; no?: number }; geometry: { coordinates: [number, number] } }[] }).features.find(
+        (f) => f.properties.kind === 'ems' && f.properties.no === no,
+      )!
+      return [f.geometry.coordinates[1], f.geometry.coordinates[0]]
+    }
+
+    it('急救器材依放置位置的說明靠著分區岩壁：長巷最深處、第一洞洞內、鱷魚岬與老人牆的內角', () => {
+      // 長巷的岩壁是兩側牆底連成的 U 字，最深處是離入口（線的兩端）最遠的地方
+      const lane = walls.find((f) => f.properties.sector === sectors.find((s) => s.name.zh === '長巷')!.id)!.geometry.coordinates[0]
+      const [start, end] = [lane[0], lane.at(-1)!].map(([lng, lat]) => project([lat, lng]))
+      const depth = (p: [number, number]) => Math.min(Math.hypot(p[0] - start[0], p[1] - start[1]), Math.hypot(p[0] - end[0], p[1] - end[1]))
+      const deepest = Math.max(...lane.map(([lng, lat]) => depth(project([lat, lng]))))
+      expect(deepest - depth(project(ems(3)))).toBeLessThan(3)
+      expect(toWall(ems(3), '長巷')).toBeLessThan(5)
+      for (const zh of ['第一洞內 西面', '第一洞內 東北面', '第一洞內 南面']) expect(toWall(ems(4), zh), zh).toBeLessThan(3)
+      for (const zh of ['鱷魚岬', '老人牆']) expect(toWall(ems(6), zh), zh).toBeLessThan(6)
+    })
   })
 
   it('3 個停車場、13 處船艇接駁點、5 處直升機吊掛點、6 處急救器材、2 處危險地形、救援資訊圖上的地名；每處急救器材離該區的就近救援點 100 公尺內', () => {
@@ -158,10 +214,11 @@ describe('地圖資料只載入一次', () => {
       if (offline) return new Response(null, { status: 503 })
       return new Response(readFileSync(`public${url}`, 'utf8'))
     })
+    const FILES = ['/rescue/scale-map.geojson', '/rescue/areas.geojson', '/rescue/walls.geojson']
     await expect(loadScaleMap()).rejects.toThrow('503')
     offline = false
     const first = await loadScaleMap()
     expect(await loadScaleMap()).toBe(first)
-    expect(urls).toEqual(['/rescue/scale-map.geojson', '/rescue/areas.geojson', '/rescue/scale-map.geojson', '/rescue/areas.geojson'])
+    expect(urls).toEqual([...FILES, ...FILES])
   })
 })

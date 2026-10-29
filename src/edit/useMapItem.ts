@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react'
 import type { LatLng } from '../geo'
 import { project, unproject, type ScaleMapData } from '../map/mapData'
 import type { MapEdit, MapLine } from '../map/ScaleMap'
-import { LINE_TARGETS, isLineTarget, isOpenTarget, sectorOf, simplifyLine, simplifyRing, useMapShapes, type EditTarget } from '../map/shapes'
-import { useWalls } from '../map/walls'
+import { LINE_TARGETS, isLineTarget, isOpenTarget, sectorOf, simplifyLine, useMapShapes, type EditTarget } from '../map/shapes'
 import { canSubmitDraft, changeDraft, checkpointDraft, redoDraft, setDraftRings, undoDraft, useDrafts } from './mapDrafts'
 
 export { tidyShapes } from './mapDrafts'
 
-/** 自動產生的形狀頂點很密，載入編輯時先簡化到這個誤差（公尺），比較容易拖曳 */
+/** 自動產生的步道、道路頂點很密，載入編輯時先簡化到這個誤差（公尺），比較容易拖曳 */
 const SIMPLIFY_M = 1.5
 /** 畫步道支線時，點在既有路徑這個距離（螢幕像素）內就接到路徑上 */
 const SNAP_PX = 12
@@ -22,15 +21,15 @@ function nearestOnSegment(p: [number, number], a: [number, number], b: [number, 
 }
 
 /**
- * 目前地圖上的形狀（最新版本或自動產生的，先簡化）；
- * 岩壁還沒有版本時用舊的岩壁標記（legacyWalls：這個分區在地圖頁畫過的牆底線）。
+ * 目前地圖上的形狀（最新版本、原始版；自動產生的步道與道路先簡化）
  */
-export function currentShapes(target: EditTarget, map: ScaleMapData | undefined, latest: LatLng[][] | undefined, legacyWalls: LatLng[][] = []): LatLng[][] {
+export function currentShapes(target: EditTarget, map: ScaleMapData | undefined, latest: LatLng[][] | undefined): LatLng[][] {
   // 提交過的最新版本優先：地圖上畫的就是它（只有還沒人改過時才用自動產生的），編輯框才不會和畫出來的形狀不同
   if (latest && !target.startsWith('wall:')) return latest
   if (isLineTarget(target)) return (map?.lineLayers[LINE_TARGETS[target]] ?? []).map((l) => simplifyLine(l, SIMPLIFY_M / 2).map(unproject))
-  if (target.startsWith('area:')) return (map?.areas.find((a) => a.id === target.slice(5))?.rings ?? []).map((r) => simplifyRing(r, SIMPLIFY_M).map(unproject))
-  if (target.startsWith('wall:')) return latest ?? legacyWalls
+  // 大區域的原始版是精修過的，不簡化
+  if (target.startsWith('area:')) return (map?.areas.find((a) => a.id === target.slice(5))?.rings ?? []).map((r) => r.map(unproject))
+  if (target.startsWith('wall:')) return latest ?? map?.walls[sectorOf(target)] ?? []
   return latest ?? []
 }
 
@@ -45,10 +44,8 @@ export function useMapItem({ target, map }: { target: EditTarget; map?: ScaleMap
   const draft = drafts[target]
   const latest = shapes.versions[target]?.at(-1)?.shapes
   const closed = !isOpenTarget(target)
-  const { walls } = useWalls()
-  const legacyWalls = target.startsWith('wall:') ? walls.filter((w) => w.sector === sectorOf(target)).map((w) => w.points) : []
-  // 沒有草稿時，形狀就是地圖上目前的（資料庫最新版或自動產生的）：重新讀到新版本時跟著換，不用另外載入
-  const saved = useMemo(() => (map ? currentShapes(target, map, latest, legacyWalls) : []), [map, latest, walls])
+  // 沒有草稿時，形狀就是地圖上目前的（資料庫最新版或原始版）：重新讀到新版本時跟著換，不用另外載入
+  const saved = useMemo(() => (map ? currentShapes(target, map, latest) : []), [map, latest])
   const rings = draft?.rings ?? saved
   const [selectedRing, setSelectedRing] = useState<number | undefined>(0)
   const selected = selectedRing !== undefined && selectedRing < rings.length ? selectedRing : undefined

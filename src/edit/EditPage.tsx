@@ -7,7 +7,7 @@ import { useWide } from '../layout'
 import { useScaleMap, withShapes } from '../map/mapData'
 import type { MapView } from '../map/mapView'
 import { ScaleMap } from '../map/ScaleMap'
-import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, useSectorWalls, wallLabelAt, type EditTarget, type MapEditVersion } from '../map/shapes'
+import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallLabelAt, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useReportPins } from './useReportPins'
 import { useCloud, withCloud } from '../personal/sync'
 import { TOPO_ADD_PREFIX, href, navigate, type EditKind } from '../router'
@@ -336,9 +336,9 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   const isWall = target.startsWith('wall:')
   const sector = isWall ? sectorOf(target) : undefined
   // 畫岩壁時，其他分區的岩壁也畫出來，包括還沒提交的修改（名稱標在岩壁中間，點不到）
-  const { walls } = useSectorWalls()
-  const otherSectors = isWall ? [...new Set([...walls.map((w) => w.sector), ...Object.keys(overlay.walls)])].filter((s) => s !== sector) : []
-  const linesOf = (s: string) => overlay.walls[s] ?? walls.filter((w) => w.sector === s).map((w) => w.points)
+  const allWalls = shown?.walls ?? {}
+  const otherSectors = isWall ? Object.keys(allWalls).filter((s) => s !== sector) : []
+  const linesOf = (s: string) => allWalls[s]
   const otherWalls = otherSectors.flatMap((s) => linesOf(s).map((points, i) => ({ key: `${s}#${i}`, points })))
   const otherLabels = otherSectors.flatMap((id) => {
     const at = wallLabelAt(linesOf(id))

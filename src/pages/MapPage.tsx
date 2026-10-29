@@ -13,10 +13,10 @@ import { localName, useLang, type MessageKey, type Translate } from '../i18n'
 import { useCloud } from '../personal/sync'
 import { reportOptions, type ReportOption } from '../map/reportOptions'
 import { href, navigate } from '../router'
-import { areaNames, project, useScaleMap } from '../map/mapData'
+import { areaNames, project, sectorWalls, useScaleMap } from '../map/mapData'
 import { ORTHO_DOWNLOAD_MB, cachedOrthoCount, downloadOrtho, orthoDownloadUrls } from '../map/ortho'
 import { innermost } from '../map/reportOptions'
-import { useSectorWalls, wallLabelAt } from '../map/shapes'
+import { useMapShapes, wallLabelAt } from '../map/shapes'
 import { setSimulation, useSimulation } from '../simulate'
 import { displayName, useSocial } from '../social/store'
 import { ManualReportForm, WallDetails, sectorLabel } from './MapTools'
@@ -38,7 +38,7 @@ const TOAST_MS = 4000
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
  * 左上只有圖示：回報、航照（國土測繪中心的正射影像；看過的地方離線時照樣顯示，還沒存齊時提示下載整個範圍）、修改（電腦版、登入）。
- * 登入者看得到所有人畫的岩壁，點一段看詳細、本人與管理員可以刪除。
+ * 畫出各分區的岩壁，點一段看是哪個分區、最後誰修改的。
  * 電腦版的「編輯地圖」開編輯模式（/edit，src/edit/EditPage.tsx）。
  */
 export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLng }) {
@@ -73,7 +73,8 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const [manualOpen, setManualOpen] = useState(false)
   const [selectedWall, setSelectedWall] = useState<string>()
   const wide = useWide()
-  const { walls, error: wallsError } = useSectorWalls()
+  const shapes = useMapShapes()
+  const walls = map.status === 'ok' ? sectorWalls(map.data, shapes) : []
   const { profiles } = useSocial()
   const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
   // 分區名稱標在岩壁中間（沒有岩壁的分區不標）
@@ -320,11 +321,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
             )}
           </p>
         )}
-        {wallsError && (
-          <p className="map-toast warn" role="alert">
-            {t('wall.loadFailed', { error: wallsError })}
-          </p>
-        )}
       </div>
 
       <Sheet open={intro} onClose={closeIntro} title={t('map.introTitle')}>
@@ -357,7 +353,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
 
       <Sheet open={!!wall} onClose={() => setSelectedWall(undefined)} title={t('wall.title')}>
         {wall && (
-          <WallDetails data={data} wall={wall} author={displayName(profiles, wall.uid)} canEdit={wide && !!uid} />
+          <WallDetails data={data} wall={wall} author={wall.uid && displayName(profiles, wall.uid)} canEdit={wide && !!uid} />
         )}
       </Sheet>
 
