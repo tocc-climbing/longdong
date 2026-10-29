@@ -21,7 +21,7 @@ function loadPins(): Promise<ReportPin[]> {
 }
 
 /**
- * 修改區域範圍、分區的岩壁時，這個區域的回報（登入才讀得到）：同一個點附近的合併成一個（有幾筆、相同的說明各幾筆），
+ * 修改區域範圍、分區的岩壁時，所在大區的回報（登入才讀得到）：同一個點附近的合併成一個（有幾筆、相同的說明各幾筆），
  * 畫在地圖上、列在右側面板，給修改的人參考。沒有要修改這些（步道、說明）或沒登入時是空的。
  */
 export function useReportPins(args?: { target: EditTarget; data: LoadedData; map?: ScaleMapData }): PinGroup[] {
@@ -44,6 +44,6 @@ export function useReportPins(args?: { target: EditTarget; data: LoadedData; map
     const sectorId = target.startsWith('wall:') ? sectorOf(target) : undefined
     const key = sectorId ? data.sectorById.get(sectorId)?.area.id.split('/').pop() : target.startsWith('area:') ? target.slice('area:'.length) : undefined
     if (!key) return []
-    return mergePins(pinsForArea(all, { key, sectorId, rings: map?.areas.find((a) => a.id === key)?.rings ?? [] }))
+    return mergePins(pinsForArea(all, { key, rings: map?.areas.find((a) => a.id === key)?.rings ?? [] }))
   }, [enabled, all, target, data, map])
 }

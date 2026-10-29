@@ -134,15 +134,13 @@ export function decodePins(stored: Record<string, StoredPin> | null | undefined)
 export const PIN_NEAR_M = 50
 
 /**
- * 一個區域（或分區）相關的回報：
- * 有指定回報的是哪裡（從路線頁回報）的，看它指的區域或分區；沒有指定的，看位置在不在這個區域的範圍裡或附近（PIN_NEAR_M）。
- * sectorId 有值（編輯分區的岩壁）時只留這個分區的，加上沒指定分區、位置在區域裡或附近的。
+ * 一個區域相關的回報：
+ * 有指定回報的是哪裡（從路線頁回報）的，看它指的區域；沒有指定的，看位置在不在這個區域的範圍裡或附近（PIN_NEAR_M）。
  * rings 是區域目前的範圍（地圖座標）。
  */
-export function pinsForArea(pins: ReportPin[], area: { key: string; sectorId?: string; rings: [number, number][][] }): ReportPin[] {
+export function pinsForArea(pins: ReportPin[], area: { key: string; rings: [number, number][][] }): ReportPin[] {
   const within = (p: ReportPin) => area.rings.some((r) => ringDistance(project(p.at), r) <= PIN_NEAR_M)
   return pins.filter((p) => {
-    if (area.sectorId) return p.target?.sectorId ? p.target.sectorId === area.sectorId : within(p)
     return p.target?.areaId ? p.target.areaId.endsWith(`/${area.key}`) : within(p)
   })
 }

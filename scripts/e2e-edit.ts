@@ -317,6 +317,21 @@ try {
     return v && Object.keys(v).length === 1 ? v : undefined
   })
   check('提交岩壁：資料庫有一版、一條三點的線', !!wall && Object.values(wall)[0].lines.split('|').length === 1 && Object.values(wall)[0].lines.split(' ').length === 3)
+  // 換到別的分區畫岩壁：地圖停在原處，剛畫的岩壁（別的分區）也畫出來
+  const mapTransform = () => editor.page.locator('.edit-canvas svg[role=img] > g[transform]').first().getAttribute('transform')
+  const canvasBox = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
+  await editor.page.mouse.move(canvasBox.x + canvasBox.width * 0.8, canvasBox.y + canvasBox.height * 0.8)
+  await editor.page.mouse.wheel(0, -300)
+  await editor.page.waitForTimeout(300)
+  const viewBefore = await mapTransform()
+  const otherWallLink = editor.page.locator(`.edit-catalog a[href*="edit/map/wall:"]:not([href$="${wallKey}"])`).first()
+  const otherHref = (await otherWallLink.getAttribute('href')) ?? ''
+  await otherWallLink.dispatchEvent('click')
+  await editor.page.waitForFunction((h) => location.pathname.endsWith(h.slice(h.lastIndexOf('/'))), otherHref)
+  await editor.page.waitForTimeout(500)
+  check('換到別的分區畫岩壁：地圖範圍不變', !!viewBefore && (await mapTransform()) === viewBefore, `${viewBefore} → ${await mapTransform()}`)
+  const shownWall = await until(async () => ((await editor.page.locator('.edit-canvas .sm-line').count()) > 0 && (await editor.page.locator('.edit-canvas .sm-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
+  check('畫岩壁時，其他分區已有的岩壁也畫出來', shownWall === true)
   // 地圖頁：放大到校門口，分區名稱標在岩壁中間
   await editor.page.goto(base + 'map')
   const gateLabel = await editor.page.waitForSelector('.sm-label-school-gate', { timeout: 20000 })
@@ -640,6 +655,12 @@ try {
   check('每一處只列位置與說明：沒有重複的「N 筆回報」、GPS 誤差', !pinsText.includes('筆回報') && !pinsText.includes('GPS'), pinsText.replace(/\s+/g, ' '))
   const panelText = (await editor.page.locator('.edit-panel').textContent()) ?? ''
   check('右側沒有使用說明（不寫「怎麼合併」「對照航照」之類）', !panelText.includes('合併成一處') && !panelText.includes('對照航照') && !panelText.includes('拖曳頂點'))
+  // 畫分區的岩壁：列出整個大區的回報，包括指定了同一大區其他分區的
+  await put('v2/reportPins/fedcba9876543210fedcba9876543210', { lat: 25.12, lng: 121.9, note: '同大區別的分區的回報', kind: 'base', area: gate.id, sector: `${gate.id}-e2e-other` })
+  await editor.page.goto(base + `edit/map/wall:${wallSector.replace('/', ':')}`)
+  await editor.page.waitForSelector('.edit-canvas svg[role=img]')
+  const areaPins = await until(async () => ((await editor.page.locator('.edit-pins').getByText('同大區別的分區的回報').count()) === 1 ? true : undefined))
+  check('畫分區岩壁時，整個大區的回報都列出來', areaPins === true && (await editor.page.locator('.edit-pins').getByText('範圍外附近的回報').count()) === 1)
 
   const admin = await newContext()
   await signIn(admin.page, 'kant.kang@gmail.com')

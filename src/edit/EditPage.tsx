@@ -5,8 +5,9 @@ import type { LoadedData } from '../data/dataset'
 import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 import { useWide } from '../layout'
 import { useScaleMap, withShapes } from '../map/mapData'
+import type { MapView } from '../map/mapView'
 import { ScaleMap } from '../map/ScaleMap'
-import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, type EditTarget, type MapEditVersion } from '../map/shapes'
+import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, useSectorWalls, wallLabelAt, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useReportPins } from './useReportPins'
 import { useCloud, withCloud } from '../personal/sync'
 import { TOPO_ADD_PREFIX, href, navigate, type EditKind } from '../router'
@@ -308,8 +309,11 @@ const typing = (e: KeyboardEvent) => {
 }
 
 /** 地圖的編輯畫面：工具列（選取、新增、刪除、復原、重做、航照、提交）、地圖、右側面板（說明、修改紀錄、快捷鍵） */
+/** 畫岩壁時的地圖畫面：換到別的分區也停在原處 */
+const wallView: { current?: MapView } = {}
+
 function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTarget }) {
-  const { t } = useLang()
+  const { lang, t } = useLang()
   const cloud = useCloud()
   const map = useScaleMap()
   const shapes = useMapShapes()
@@ -331,6 +335,15 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   }
   const isWall = target.startsWith('wall:')
   const sector = isWall ? sectorOf(target) : undefined
+  // 畫岩壁時，其他分區已有的岩壁也畫出來（名稱標在岩壁中間，點不到）
+  const { walls } = useSectorWalls()
+  const others = isWall ? walls.filter((w) => w.sector !== sector) : []
+  const otherWalls = others.map((w) => ({ key: w.key, points: w.points }))
+  const otherLabels = [...new Set(others.map((w) => w.sector))].flatMap((id) => {
+    const at = wallLabelAt(others.filter((w) => w.sector === id).map((w) => w.points))
+    const found = data.sectorById.get(id)
+    return at && found ? [{ id, text: localName(found.sector.name, lang).main, at }] : []
+  })
   // 範圍、岩壁（不含步道）：這個區域的回報位置與說明畫在地圖上當參考（不顯示是誰、什麼時候）
   const pins = useReportPins(m.closed || isWall ? { target, data, map: map.status === 'ok' ? map.data : undefined } : undefined)
   const [pinOn, setPinOn] = useState<string>()
@@ -440,8 +453,10 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
               hideAreas={isLineTarget(target)}
               edit={m.edit}
               pick={m.pick}
-              lines={m.draftLine ? [m.draftLine] : []}
+              lines={[...otherWalls, ...(m.draftLine ? [m.draftLine] : [])]}
               focus={focus || undefined}
+              keepView={isWall ? wallView : undefined}
+              sectorLabels={otherLabels}
             />
           ) : (
             <p className="muted edit-message">{map.status === 'error' ? map.message : t('app.loading')}</p>

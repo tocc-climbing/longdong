@@ -71,10 +71,10 @@ describe('一個區域相關的回報', () => {
     expect(pinsForArea([mine, other], { key: 'school-gate', rings })).toEqual([mine])
   })
 
-  it('分區：只留這個分區的，加上沒指定分區、位置在區域裡的', () => {
+  it('指定了同一大區的其他分區也算（畫分區岩壁時看整個大區的回報）', () => {
     const mine = pin(25.1, 121.93, { kind: 'base', areaId: 'longdong/school-gate', sectorId: 's1' })
     const sibling = pin(25.112, 121.923, { kind: 'base', areaId: 'longdong/school-gate', sectorId: 's2' })
-    expect(pinsForArea([mine, sibling, inside, outside], { key: 'school-gate', sectorId: 's1', rings })).toEqual([mine, inside])
+    expect(pinsForArea([mine, sibling, inside, outside], { key: 'school-gate', rings })).toEqual([mine, sibling, inside])
   })
 })
 

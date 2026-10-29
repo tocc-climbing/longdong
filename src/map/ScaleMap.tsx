@@ -256,6 +256,8 @@ interface Props {
   topLeft?: ReactNode
   /** 聚焦的區域、救援點（例如救援頁從區域進來時）；有聚焦時，定位到也不會自動移到目前位置 */
   focus?: MapFocus
+  /** 換頁也沿用的畫面：有記下的就從那裡開始（不聚焦），之後的移動、縮放都記回去 */
+  keepView?: { current?: MapView }
   /** 選中的救援點或急救器材：加大標示 */
   selected?: MapSelection
   /** 點救援點或急救器材時 */
@@ -287,7 +289,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorLabels: sectorPlaces, edit, hideAreas, ortho, topo }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorLabels: sectorPlaces, edit, hideAreas, ortho, topo, keepView }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -317,6 +319,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       setFrame(f)
       setView((v) => {
         if (v) return clampView(v, BOUNDS, f)
+        if (keepView?.current) return clampView(keepView.current, BOUNDS, f)
         const target = latestFocus.current
         return target ? focusView(target, BOUNDS, f) : fitRectView(areasRect(latestMap.current), BOUNDS, f)
       })
@@ -324,6 +327,10 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (keepView && view) keepView.current = view
+  }, [view])
 
   const latestMap = useRef(map)
   latestMap.current = map
