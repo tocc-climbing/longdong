@@ -97,7 +97,7 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
                   aria-current={here.area === area.id && !here.sector ? 'page' : undefined}
                 >
                   <span className="dot" style={{ background: area.color }} aria-hidden />
-                  {localName(area.name, lang).main}
+                  <span className="tree-name">{localName(area.name, lang).main}</span>
                 </a>
                 {here.area === area.id && area.sectors.length > 1 && (
                   <ul>
@@ -105,11 +105,12 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
                       <li key={sector.id}>
                         <a
                           href={href.sector(sector.id)}
+                          title={localName(sector.name, lang).main}
                           className={cls(here.sector === sector.id, here.sector === sector.id && kbdLevel === 'sector')}
                           aria-current={here.sector === sector.id ? 'page' : undefined}
                         >
                           <span className="dot" style={{ background: sectorColor(area.color, i, area.sectors.length) }} aria-hidden />
-                          {localName(sector.name, lang).main}
+                          <span className="tree-name">{localName(sector.name, lang).main}</span>
                         </a>
                       </li>
                     ))}

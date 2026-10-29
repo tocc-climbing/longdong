@@ -2220,6 +2220,14 @@ a.action {
   font-size: 0.85rem;
 }
 
+/* 名稱太長（英文的分區名）時一行截斷，滑過去看全名 */
+.area-tree a .tree-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .area-tree .dot {
   width: 8px;
   height: 8px;
