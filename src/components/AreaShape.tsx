@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Area, Sector } from '../data/schema'
+import { sectorColor } from '../format'
 import { localName, useLang } from '../i18n'
 import { project, useScaleMap } from '../map/mapData'
 import { useHorizontalSwipe } from '../swipeGesture'
@@ -27,16 +28,33 @@ function bounds(points: [number, number][]) {
 const ringsPath = (rings: Ring[], at: (p: [number, number]) => [number, number]) =>
   rings.map((ring) => `M${ring.map((p) => at(p).map((n) => n.toFixed(1)).join(',')).join('L')}Z`).join('')
 
-/** 一個大區域的形狀，用區域的顏色填滿 */
+const wallPath = (pts: [number, number][]) => `M${pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join('L')}`
+
+/** 一個大區域的形狀（區域的顏色，淡色）與裡面所有分區的岩壁（分區的顏色，與清單的色點相同），看得出岩壁的相對位置 */
 export function AreaShape({ area, className }: { area: Area; className?: string }) {
   const map = useScaleMap()
   const shape = map.status === 'ok' ? map.data.areas.find((a) => a.id === areaKey(area)) : undefined
-  if (!shape) return <div className={className} aria-hidden />
+  if (map.status !== 'ok' || !shape) return <div className={className} aria-hidden />
   const b = bounds(shape.rings.flat())
   const pad = Math.max(b.w, b.h) * 0.03
   return (
     <svg className={className} viewBox={`${b.x - pad} ${b.y - pad} ${b.w + 2 * pad} ${b.h + 2 * pad}`} aria-hidden>
-      <path d={shape.path} fill={area.color ?? 'var(--brand)'} />
+      <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.3} />
+      {area.sectors.map((sector, i) => {
+        const walls = (map.data.walls[sector.id] ?? []).map((line) => line.map(project))
+        return (
+          <path
+            key={sector.id}
+            d={walls.map(wallPath).join('')}
+            fill="none"
+            stroke={sectorColor(area.color, i, area.sectors.length) ?? 'var(--brand)'}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        )
+      })}
     </svg>
   )
 }
@@ -58,12 +76,11 @@ export function SectorShape({ area, sector, color, className }: { area: Area; se
   const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2]
   const shape = map.data.areas.find((a) => a.id === areaKey(area))
   const others = area.sectors.filter((s) => s.id !== sector.id).flatMap((s) => (map.data.walls[s.id] ?? []).map((line) => line.map(project)))
-  const line = (pts: [number, number][]) => `M${pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join('L')}`
   return (
     <svg className={className} viewBox={`${cx - side / 2} ${cy - side / 2} ${side} ${side}`} aria-hidden>
       {shape && <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.28} />}
-      <path d={others.map(line).join('')} fill="none" stroke="var(--muted)" strokeOpacity={0.55} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      <path d={own.map(line).join('')} fill="none" stroke={color ?? area.color ?? 'var(--brand)'} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <path d={others.map(wallPath).join('')} fill="none" stroke="var(--muted)" strokeOpacity={0.55} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <path d={own.map(wallPath).join('')} fill="none" stroke={color ?? area.color ?? 'var(--brand)'} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }

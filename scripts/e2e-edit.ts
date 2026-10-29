@@ -388,6 +388,11 @@ try {
   check('地圖放大後，分區名稱標在岩壁上', sectorLabel === true)
 
   // 分區頁的標題卡：和區域頁同一個樣式，右側是放大到這個分區岩壁的地圖
+  // 區域頁的標題卡：區域形狀裡畫出所有分區的岩壁（看得出相對位置）
+  await editor.page.goto(base + `area/${gate.id}`)
+  await editor.page.waitForSelector('.area-hero')
+  const wallPaths = () => editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="3"]').count()
+  check('區域頁：標題卡畫出每個分區的岩壁', (await until(async () => ((await wallPaths()) === gate.sectors.length ? true : undefined), 5000)) === true, `${await wallPaths()} / ${gate.sectors.length}`)
   await editor.page.goto(base + `sector/${wallSector}`)
   await editor.page.waitForSelector('.area-hero')
   check('分區頁：標題卡有分區名稱', ((await editor.page.locator('.area-hero h1').textContent()) ?? '').includes(gateSectorName))
