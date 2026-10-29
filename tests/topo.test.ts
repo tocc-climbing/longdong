@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
 import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView } from '../src/topo/viewport'
-import { drawnRuns, fillShared, forkLine, moveSharedPoint, syncShared } from '../src/topo/lines'
+import { addLinePoint, drawnRuns, fillShared, forkLine, moveSharedPoint, segmentAt, syncShared } from '../src/topo/lines'
 import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
 
 const rules = JSON.parse(readFileSync('firebase/database.rules.json', 'utf8')).rules.v2.topoEdits.$photo.$edit.routes.$route
@@ -159,6 +159,61 @@ describe('共用線段', () => {
     expect(moved.b.line![1]).toEqual([4700, 6100])
     expect(moved.a.bolts!.B01).toEqual([4800, 6000])
     expect(moved.b.line![2]).toEqual([3000, 2000])
+  })
+})
+
+describe('點在線段中間', () => {
+  const line: Point[] = [[3000, 9000], [3000, 5000], [3000, 1000]]
+
+  it('找到點所在的那一段；離線太遠、在兩端之外、在把手上都不算', () => {
+    expect(segmentAt(line, [3050, 7000], 1)).toBe(0)
+    expect(segmentAt(line, [3050, 3000], 1)).toBe(1)
+    expect(segmentAt(line, [3400, 7000], 1)).toBe(-1)
+    expect(segmentAt(line, [3000, 900], 1)).toBe(-1)
+    expect(segmentAt(line, [3000, 9100], 1)).toBe(-1)
+    expect(segmentAt([[3000, 9000]], [3000, 9000], 1)).toBe(-1)
+  })
+
+  it('距離依照片的寬高比計算：橫向的 100 在寬照片上比縱向的 100 長', () => {
+    // 寬高比 2：橫向差 100（萬分比）= 200 單位，超過 150
+    expect(segmentAt(line, [3100, 7000], 1)).toBe(0)
+    expect(segmentAt(line, [3100, 7000], 2)).toBe(-1)
+  })
+
+  it('橫向的線段：寬高比不影響垂足的位置', () => {
+    const across: Point[] = [[0, 5000], [1000, 5000]]
+    expect(segmentAt(across, [500, 5100], 2)).toBe(0)
+    expect(segmentAt(across, [900, 5100], 2)).toBe(0)
+    expect(segmentAt(across, [1100, 5100], 2)).toBe(-1)
+  })
+
+  it('點在線段中間：插進那一段；其他地方接在線尾', () => {
+    expect(addLinePoint({ a: { line } }, 'a', [3050, 7000], 1).a.line).toEqual([[3000, 9000], [3050, 7000], [3000, 5000], [3000, 1000]])
+    expect(addLinePoint({ a: { line } }, 'a', [6000, 500], 1).a.line).toEqual([...line, [6000, 500]])
+    expect(addLinePoint({}, 'a', [10, 20], 1)).toEqual({ a: { line: [[10, 20]] } })
+  })
+
+  it('保留 bolt；插入不改其他路線', () => {
+    const marks: Marks = { a: { line, bolts: { B01: [3000, 7000] } }, b: { line: [[6000, 9000], [6000, 1000]] } }
+    const next = addLinePoint(marks, 'a', [3050, 7000], 1)
+    expect(next.a.bolts).toEqual({ B01: [3000, 7000] })
+    expect(next.b).toEqual(marks.b)
+  })
+
+  it('插進共用的線段：分岔的路線一起插入，兩條線不會分開', () => {
+    const trunk: Point[] = [[5000, 9000], [4800, 6000], [5000, 3000]]
+    const branch: Point[] = [...forkLine(trunk, 1), [3000, 2000]]
+    const next = addLinePoint({ a: { line: trunk }, b: { line: branch } }, 'b', [4900, 7500], 1)
+    expect(next.b.line).toEqual([[5000, 9000], [4900, 7500], [4800, 6000], [3000, 2000]])
+    expect(next.a.line).toEqual([[5000, 9000], [4900, 7500], [4800, 6000], [5000, 3000]])
+    expect(drawnRuns([['a', next.a.line!], ['b', next.b.line!]]).get('b')).toEqual([[[4800, 6000], [3000, 2000]]])
+  })
+
+  it('方向相反的同一段也算共用', () => {
+    const marks: Marks = { a: { line: [[0, 0], [0, 1000]] }, b: { line: [[0, 1000], [0, 0]] } }
+    const next = addLinePoint(marks, 'a', [20, 500], 1)
+    expect(next.a.line).toEqual([[0, 0], [20, 500], [0, 1000]])
+    expect(next.b.line).toEqual([[0, 1000], [20, 500], [0, 0]])
   })
 })
 

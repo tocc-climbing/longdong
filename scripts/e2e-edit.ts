@@ -438,6 +438,13 @@ try {
   await editor.page.keyboard.press('z')
   await editor.page.keyboard.press('0')
   check('復原剛加的點：回到三個點', (await handles()) === 3)
+  // 點在線段中間：插進那一段（第二個把手落在點的位置），不是接在線尾
+  const midBox = (await editor.page.locator('.topo-frame svg').boundingBox())!
+  await editor.page.mouse.click(midBox.x + midBox.width * 0.31, midBox.y + midBox.height * 0.65)
+  const inserted = (await editor.page.locator('.topo-handles circle').nth(1).boundingBox())!
+  check('點在線段中間：插進那一段（四個點，新的點排第二個）', (await handles()) === 4 && Math.abs(inserted.y + inserted.height / 2 - (midBox.y + midBox.height * 0.65)) < 4, `${await handles()} 個點`)
+  await editor.page.keyboard.press('z')
+  check('復原插入的點：回到三個點', (await handles()) === 3)
   await editor.page.keyboard.press('ArrowDown')
   const next = topoSector.routes[topoSector.routes.findIndex((r) => r.id === topoRoutes[0].id) + 1]
   check('↓ 換到清單裡的下一條路線', (await editor.page.locator('.topo-route-row.on .topo-route-no').textContent()) === (next.number ?? '·'))

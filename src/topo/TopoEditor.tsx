@@ -14,7 +14,7 @@ import { href, navigate } from '../router'
 import { displayName, useSocial } from '../social/store'
 import { removeEdit, removeTopo, submitEdit } from './actions'
 import { CropBox } from './CropBox'
-import { fillShared, forkLine, moveSharedPoint, syncShared } from './lines'
+import { addLinePoint, fillShared, forkLine, moveSharedPoint, syncShared } from './lines'
 import { boltPositions, isFullCrop, SCALE, sameCrop, sameMarks, toCropPoint, type Crop, type Marks, type Point, type RouteMarks, type TopoEdit, type TopoPhoto } from './model'
 import { HistorySection } from '../edit/HistorySection'
 import { EditKeys } from '../edit/KeyList'
@@ -230,6 +230,12 @@ function Editor({
     next = syncShared(next, before, selected, routes)
     commit({ marks: next, crop: keep })
   }
+  /** 修改所有路線的標記（一次動到不只選取的路線時用） */
+  const editMarks = (change: (all: Marks) => Marks) => {
+    const { marks: before, crop: keep } = base()
+    record({ marks: before, crop: keep })
+    commit({ marks: change(before), crop: keep })
+  }
   /** 修改裁切；拖曳開始時記一次復原點（record），之後只更新草稿 */
   const setCrop = (next: Crop, recordUndo = false) => {
     const before = base()
@@ -287,7 +293,7 @@ function Editor({
   const onPhotoClick = (e: ReactMouseEvent<SVGSVGElement>) => {
     if (preview || mode === 'crop' || isForking || !selected || dragging.current) return
     const p = pointAt(e, e.currentTarget)
-    if (mode === 'line') edit((m) => ({ ...m, line: [...(m.line ?? []), p] }))
+    if (mode === 'line') editMarks((all) => addLinePoint(all, selected, p, photo.width / photo.height))
     else if (placing) {
       edit((m) => ({ ...m, bolts: { ...m.bolts, [placing]: p } }))
       setBoltPos(undefined)
