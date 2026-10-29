@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { relativeTime } from '../format'
 import { useLang, type MessageKey } from '../i18n'
 import { useCloud } from '../personal/sync'
-import { postComment, rate, removeComment, report } from '../social/actions'
-import { COMMENT_MAX, FEELS, routeKey, summarize, type Feel } from '../social/model'
+import { postComment, rate, removeComment, report, toggleLike } from '../social/actions'
+import { COMMENT_MAX, FEELS, routeKey, summarize, type Comment, type Feel } from '../social/model'
 import { displayName, useComments, useSocial } from '../social/store'
 import { StarPicker } from './Stars'
 
@@ -26,6 +26,17 @@ const Avatar = ({ uid, name }: { uid: string; name: string }) => (
 
 type ErrorKey = Extract<MessageKey, 'rating.saveError' | 'rating.deleteError' | 'comments.sendError' | 'comments.deleteError' | 'comments.reportError'>
 
+const Heart = ({ on }: { on: boolean }) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+    <path
+      d="M12 21s-7-4.4-9.5-9C.8 8.6 3 5 6.5 5c2 0 3.5 1.2 5.5 3 2-1.8 3.5-3 5.5-3C21 5 23.2 8.6 21.5 12 19 16.6 12 21 12 21z"
+      fill={on ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+    />
+  </svg>
+)
+
 /**
  * 評價與留言（社群 App 的做法）：上面是大字平均與分佈、體感難度；
  * 登入後在頭像旁邊直接打分、寫留言（一個輸入框）；留言按時間排，名字旁邊帶這個人給的星等與體感，
@@ -46,6 +57,10 @@ export function ReviewsSection({ routeId, rateable }: { routeId: string; rateabl
   const [error, setError] = useState<string>()
   const [all, setAll] = useState(false)
   const [menu, setMenu] = useState<string>()
+  /** 正在回覆哪一則、回覆的內容；展開了回覆的留言 */
+  const [replyTo, setReplyTo] = useState<string>()
+  const [replyText, setReplyText] = useState('')
+  const [open, setOpen] = useState<Set<string>>(new Set())
 
   // 點選單外面關閉
   useEffect(() => {
@@ -74,6 +89,16 @@ export function ReviewsSection({ routeId, rateable }: { routeId: string; rateabl
       setText('')
     }, 'comments.sendError')
   }
+  const sendReply = (parent: string) => {
+    if (!navigator.onLine) return setError(t('comments.offline'))
+    void run(async () => {
+      await postComment(routeId, replyText, parent)
+      setReplyText('')
+      setReplyTo(undefined)
+      setOpen((o) => new Set(o).add(parent))
+    }, 'comments.sendError')
+  }
+  const like = (id: string, on: boolean) => void run(() => toggleLike(routeId, id, on), 'comments.sendError')
   const onDelete = (id: string) => {
     setMenu(undefined)
     if (confirm(t('comments.confirmDelete'))) void run(() => removeComment(routeId, id), 'comments.deleteError')
@@ -88,15 +113,91 @@ export function ReviewsSection({ routeId, rateable }: { routeId: string; rateabl
     }, 'comments.reportError')
   }
 
+  /** 一則留言或回覆：頭像、名字（帶星等與體感）、時間、「⋯」選單、內容、讚與回覆 */
+  const commentBody = (c: Comment, isReply = false) => {
+    const who = displayName(social.profiles, c.uid)
+    const given = ratings?.[c.uid]
+    const likers = likes[c.id] ?? []
+    const liked = !!uid && likers.includes(uid)
+    return (
+      <div className="comment-item">
+        <Avatar uid={c.uid} name={who} />
+        <div>
+          <div className="comment-m-meta">
+            <strong>{who}</strong>
+            {given && (
+              <span className="comment-rated">
+                ★{given.stars}
+                {given.feel && ` · ${t(`feel.${given.feel}`)}`}
+              </span>
+            )}
+            <span>{relativeTime(new Date(c.createdAt).toISOString(), t)}</span>
+            {uid && (
+              <span className="comment-menu">
+                <button
+                  type="button"
+                  className="comment-menu-button"
+                  aria-label={t('comments.menu')}
+                  aria-haspopup="menu"
+                  aria-expanded={menu === c.id}
+                  onClick={() => setMenu(menu === c.id ? undefined : c.id)}
+                >
+                  ⋯
+                </button>
+                {menu === c.id && (
+                  <span className="comment-menu-list" role="menu">
+                    {uid === c.uid ? (
+                      <button type="button" role="menuitem" onClick={() => onDelete(c.id)}>
+                        {t('comments.delete')}
+                      </button>
+                    ) : (
+                      <button type="button" role="menuitem" onClick={() => onReport(c.id)}>
+                        {t('comments.report')}
+                      </button>
+                    )}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+          <p className="pre">{c.text}</p>
+          <div className="comment-actions">
+            {uid ? (
+              <button type="button" className="comment-like" aria-pressed={liked} aria-label={t('comments.like')} disabled={busy} onClick={() => like(c.id, !liked)}>
+                <Heart on={liked} />
+                {likers.length > 0 && <span>{likers.length}</span>}
+              </button>
+            ) : (
+              likers.length > 0 && (
+                <span className="comment-like static">
+                  <Heart on={false} />
+                  <span>{likers.length}</span>
+                </span>
+              )
+            )}
+            {uid && !isReply && (
+              <button type="button" className="comment-reply-button" onClick={() => (setReplyTo(replyTo === c.id ? undefined : c.id), setReplyText(''))}>
+                {t('comments.reply')}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const feelTotal = summary ? summary.feel.soft + summary.feel.fair + summary.feel.hard : 0
-  const shown = comments && !all ? comments.slice(0, SHOWN) : comments
+  const top = comments?.filter((c) => !c.parent)
+  const repliesOf = (id: string) => (comments ?? []).filter((c) => c.parent === id).sort((a, b) => a.createdAt - b.createdAt)
+  const likes = social.likes[routeKey(routeId)] ?? {}
+  const shown = top && !all ? top.slice(0, SHOWN) : top
   const me = uid ? displayName(social.profiles, uid) : ''
 
   return (
     <section className="reviews">
       <h2>
         {t('reviews.title')}
-        {comments && comments.length > 0 && <span className="muted"> {comments.length}</span>}
+        {top && top.length > 0 && <span className="muted"> {top.length}</span>}
       </h2>
 
       {rateable &&
@@ -189,59 +290,62 @@ export function ReviewsSection({ routeId, rateable }: { routeId: string; rateabl
       ) : (
         <ul className="comment-m-list">
           {shown.map((c) => {
-            const who = displayName(social.profiles, c.uid)
-            const given = ratings?.[c.uid]
+            const replies = repliesOf(c.id)
+            const expanded = open.has(c.id)
             return (
               <li key={c.id}>
-                <Avatar uid={c.uid} name={who} />
-                <div>
-                  <div className="comment-m-meta">
-                    <strong>{who}</strong>
-                    {given && (
-                      <span className="comment-rated">
-                        ★{given.stars}
-                        {given.feel && ` · ${t(`feel.${given.feel}`)}`}
-                      </span>
-                    )}
-                    <span>{relativeTime(new Date(c.createdAt).toISOString(), t)}</span>
-                    {uid && (
-                      <span className="comment-menu">
-                        <button
-                          type="button"
-                          className="comment-menu-button"
-                          aria-label={t('comments.menu')}
-                          aria-haspopup="menu"
-                          aria-expanded={menu === c.id}
-                          onClick={() => setMenu(menu === c.id ? undefined : c.id)}
-                        >
-                          ⋯
+                {commentBody(c)}
+                {replies.length > 0 && (
+                  <button
+                    type="button"
+                    className="comment-thread-toggle"
+                    aria-expanded={expanded}
+                    onClick={() => setOpen((o) => (o.has(c.id) ? new Set([...o].filter((x) => x !== c.id)) : new Set(o).add(c.id)))}
+                  >
+                    {expanded ? t('comments.hideReplies') : t('comments.viewReplies', { n: replies.length })}
+                  </button>
+                )}
+                {(expanded || replyTo === c.id) && (
+                  <div className="comment-replies">
+                    {expanded &&
+                      replies.map((r) => (
+                        <div key={r.id} className="comment-reply">
+                          {commentBody(r, true)}
+                        </div>
+                      ))}
+                    {replyTo === c.id && (
+                      <form
+                        className="comment-m-form reply-form"
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          sendReply(c.id)
+                        }}
+                      >
+                        <textarea
+                          rows={1}
+                          autoFocus
+                          maxLength={COMMENT_MAX}
+                          placeholder={t('comments.replyPlaceholder', { name: displayName(social.profiles, c.uid) })}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                        />
+                        <button type="submit" className="send" disabled={busy || !replyText.trim()} aria-label={t('comments.send')} title={t('comments.send')}>
+                          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                            <path d="M3 20l18-8L3 4v6l12 2-12 2z" fill="currentColor" />
+                          </svg>
                         </button>
-                        {menu === c.id && (
-                          <span className="comment-menu-list" role="menu">
-                            {uid === c.uid ? (
-                              <button type="button" role="menuitem" onClick={() => onDelete(c.id)}>
-                                {t('comments.delete')}
-                              </button>
-                            ) : (
-                              <button type="button" role="menuitem" onClick={() => onReport(c.id)}>
-                                {t('comments.report')}
-                              </button>
-                            )}
-                          </span>
-                        )}
-                      </span>
+                      </form>
                     )}
                   </div>
-                  <p className="pre">{c.text}</p>
-                </div>
+                )}
               </li>
             )
           })}
         </ul>
       )}
-      {comments && comments.length > SHOWN && !all && (
+      {top && top.length > SHOWN && !all && (
         <button type="button" className="comment-more" onClick={() => setAll(true)}>
-          {t('comments.all', { n: comments.length })}
+          {t('comments.all', { n: top.length })}
         </button>
       )}
     </section>

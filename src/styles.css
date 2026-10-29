@@ -4019,9 +4019,6 @@ main.map > div {
 }
 
 .comment-m-list > li {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 10px;
   padding: 8px 0;
 }
 
@@ -4095,6 +4092,74 @@ main.map > div {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* 一則留言：頭像在左；回覆縮排在下面 */
+.comment-m-list > li > .comment-item,
+.comment-reply > .comment-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.comment-like,
+.comment-reply-button,
+.comment-thread-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comment-like[aria-pressed='true'] {
+  color: var(--style-rp);
+}
+
+.comment-like.static {
+  cursor: default;
+}
+
+.comment-thread-toggle {
+  margin: 2px 0 0 44px;
+  color: var(--brand-dark);
+  font-size: 0.8rem;
+}
+
+.comment-replies {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0 44px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.comment-reply .avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.75rem;
+}
+
+.comment-reply > .comment-item {
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+
+.reply-form {
+  margin: 2px 0 4px;
 }
 
 .comment-more {

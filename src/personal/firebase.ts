@@ -189,8 +189,14 @@ export function saveRating(uid: string, routeId: string, rating: { stars: number
   return rating ? set(r, JSON.parse(JSON.stringify(rating))) : remove(r)
 }
 
-export async function addComment(uid: string, routeId: string, text: string): Promise<void> {
-  await push(ref(db, `v2/comments/${routeKey(routeId)}`), { uid, text, createdAt: serverTimestamp() })
+export async function addComment(uid: string, routeId: string, text: string, parent?: string): Promise<void> {
+  await push(ref(db, `v2/comments/${routeKey(routeId)}`), { uid, text, ...(parent ? { parent } : {}), createdAt: serverTimestamp() })
+}
+
+/** 對留言按讚（on）或取消 */
+export function setLike(uid: string, routeId: string, id: string, on: boolean): Promise<void> {
+  const r = ref(db, `v2/likes/${routeKey(routeId)}/${id}/${uid}`)
+  return on ? set(r, true) : remove(r)
 }
 
 export function deleteComment(routeId: string, id: string): Promise<void> {

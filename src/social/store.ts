@@ -13,12 +13,14 @@ interface SocialState {
   ratingsLoaded: boolean
   /** uid → 暱稱 */
   profiles: Record<string, Profile>
-  /** routeKey → 留言（新到舊）；undefined 表示尚未載入 */
+  /** routeKey → 留言（新到舊，回覆也在裡面，用 parent 分組）；undefined 表示尚未載入 */
   comments: Record<string, Comment[] | undefined>
+  /** routeKey → 留言 id → 按讚的人的 uid */
+  likes: Record<string, Record<string, string[]>>
   error?: string
 }
 
-let state: SocialState = { ratings: {}, ratingsLoaded: false, profiles: {}, comments: {} }
+let state: SocialState = { ratings: {}, ratingsLoaded: false, profiles: {}, comments: {}, likes: {} }
 const listeners = new Set<() => void>()
 function set(patch: Partial<SocialState>) {
   state = { ...state, ...patch }
@@ -66,7 +68,11 @@ export async function loadComments(routeId: string): Promise<void> {
       .map(([id, c]) => ({ id, ...c }))
       .filter((c) => !c.hidden)
       .sort((a, b) => b.createdAt - a.createdAt)
-    set({ comments: { ...state.comments, [key]: list } })
+    const likes = await get<Record<string, Record<string, true>>>(`v2/likes/${key}`).catch(() => null)
+    set({
+      comments: { ...state.comments, [key]: list },
+      likes: { ...state.likes, [key]: Object.fromEntries(Object.entries(likes ?? {}).map(([id, byUser]) => [id, Object.keys(byUser)])) },
+    })
   } catch (err) {
     set({ comments: { ...state.comments, [key]: state.comments[key] ?? [] }, error: (err as Error).message })
   }
@@ -79,6 +85,15 @@ export function useComments(routeId: string): Comment[] | undefined {
     void loadComments(routeId)
   }, [routeId])
   return social.comments[routeKey(routeId)]
+}
+
+/** 按讚、取消後更新本機的快取，不必重新下載 */
+export function setLocalLike(uid: string, routeId: string, id: string, on: boolean) {
+  const key = routeKey(routeId)
+  const forRoute = { ...(state.likes[key] ?? {}) }
+  const rest = (forRoute[id] ?? []).filter((u) => u !== uid)
+  forRoute[id] = on ? [...rest, uid] : rest
+  set({ likes: { ...state.likes, [key]: forRoute } })
 }
 
 /** 寫入後更新本機的評分快取，不必重新下載 */

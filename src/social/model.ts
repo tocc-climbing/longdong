@@ -2,7 +2,8 @@
  * 公開的社群資料（評分、留言、暱稱），存在 Firebase Realtime Database 的 /v2 底下：
  *   /v2/profiles/<uid>              { name, updatedAt }
  *   /v2/ratings/<routeKey>/<uid>     { stars, feel?, updatedAt }   每人每條路線一筆
- *   /v2/comments/<routeKey>/<id>     { uid, text, createdAt, hidden? }
+ *   /v2/comments/<routeKey>/<id>     { uid, text, createdAt, hidden?, parent? }   parent：回覆的是哪一則留言（只有一層）
+ *   /v2/likes/<routeKey>/<id>/<uid>  true     對留言按讚，每人每則一筆
  *   /v2/reports/<id>                 { path, uid, reason?, createdAt }   檢舉，只有管理員看得到
  */
 
@@ -38,6 +39,8 @@ export interface Comment {
   /** 伺服器時間（毫秒） */
   createdAt: number
   hidden?: boolean
+  /** 回覆的是哪一則留言（只有一層：回覆不能再被回覆） */
+  parent?: string
 }
 
 export interface Profile {

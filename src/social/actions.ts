@@ -1,7 +1,7 @@
 import { deleteAccount, withCloud } from '../personal/sync'
 import { COMMENT_MAX, NAME_MAX, nameKey, normalizeName, type Comment, type Feel, type Rating } from './model'
 import { t } from '../i18n'
-import { get, loadComments, loadRatings, setLocalProfile, setLocalRating } from './store'
+import { get, loadComments, loadRatings, setLocalLike, setLocalProfile, setLocalRating } from './store'
 import type { StoredEdit, TopoPhoto } from '../topo/model'
 
 /** 評分；rating 為 null 時刪除自己的評分 */
@@ -12,12 +12,20 @@ export async function rate(routeId: string, input: { stars: number; feel?: Feel 
   setLocalRating(uid, routeId, rating)
 }
 
-export async function postComment(routeId: string, text: string): Promise<void> {
+/** 對留言按讚（on）或取消 */
+export async function toggleLike(routeId: string, id: string, on: boolean): Promise<void> {
+  const { m, uid } = await withCloud()
+  await m.setLike(uid, routeId, id, on)
+  setLocalLike(uid, routeId, id, on)
+}
+
+/** parent：回覆哪一則留言（沒有就是新的留言） */
+export async function postComment(routeId: string, text: string, parent?: string): Promise<void> {
   const body = text.trim()
   if (!body) return
   if (body.length > COMMENT_MAX) throw new Error(t('comments.tooLong', { n: COMMENT_MAX }))
   const { m, uid } = await withCloud()
-  await m.addComment(uid, routeId, body)
+  await m.addComment(uid, routeId, body, parent)
   await loadComments(routeId)
 }
 
@@ -55,9 +63,10 @@ export async function deleteMyAccount(): Promise<void> {
   const { m, uid } = await withCloud()
   // 必須在任何網路讀寫之前：Safari 只在按下按鈕的當下允許開登入視窗
   await m.reauthenticateIfStale()
-  const [ratings, comments, profile, topos, topoEdits, mapEdits, textEdits] = await Promise.all([
+  const [ratings, comments, likes, profile, topos, topoEdits, mapEdits, textEdits] = await Promise.all([
     get<Record<string, Record<string, Rating>>>('v2/ratings'),
     get<Record<string, Record<string, Omit<Comment, 'id'>>>>('v2/comments'),
+    get<Record<string, Record<string, Record<string, true>>>>('v2/likes'),
     get<{ name: string }>(`v2/profiles/${uid}`),
     get<Record<string, Omit<TopoPhoto, 'id'>>>('v2/topos'),
     get<Record<string, Record<string, StoredEdit>>>('v2/topoEdits'),
@@ -80,6 +89,9 @@ export async function deleteMyAccount(): Promise<void> {
   }
   for (const [route, list] of Object.entries(comments ?? {})) {
     for (const [id, c] of Object.entries(list)) if (c.uid === uid) paths[`v2/comments/${route}/${id}`] = null
+  }
+  for (const [route, byComment] of Object.entries(likes ?? {})) {
+    for (const [id, byUser] of Object.entries(byComment)) if (byUser[uid]) paths[`v2/likes/${route}/${id}/${uid}`] = null
   }
   const myPhotos = Object.entries(topos ?? {}).filter(([, p]) => p.uid === uid)
   for (const [id] of myPhotos) {

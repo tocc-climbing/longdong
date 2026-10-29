@@ -273,6 +273,34 @@ describe('既有行為不變', () => {
     await assertSucceeds(remove(alice, `v2/comments/${ROUTE}/m1`))
   })
 
+  it('回覆：parent 要是同一條路線裡的一則留言；不能回覆回覆、不存在的留言', async () => {
+    const reply = (parent: unknown, uid = 'mallory', route = ROUTE) => push(mallory, `v2/comments/${route}`, { uid, text: '同意', parent, createdAt: serverTimestamp() })
+    await assertSucceeds(reply('m1'))
+    await assertFails(reply('nope'))
+    await assertFails(reply(1))
+    await assertFails(reply('m1', 'alice'))
+    // 回覆的回覆：只有一層
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref(`v2/comments/${ROUTE}/r1`).set({ uid: 'alice', text: '回', parent: 'm1', createdAt: 2 })
+    })
+    await assertFails(reply('r1'))
+    // 別條路線的留言 id 不算
+    await assertFails(reply('m1', 'mallory', 'longdong:2222ab'))
+  })
+
+  it('按讚：只能用自己的帳號、對存在的留言、值是 true；取消只能取消自己的；訪客可以讀', async () => {
+    const like = (db: Database, uid: string, value: unknown = true, id = 'm1') => set(db, `v2/likes/${ROUTE}/${id}/${uid}`, value)
+    await assertSucceeds(like(mallory, 'mallory'))
+    await assertFails(like(mallory, 'alice'))
+    await assertFails(like(mallory, 'mallory', 1))
+    await assertFails(like(mallory, 'mallory', true, 'gone'))
+    await assertFails(like(guest, 'mallory'))
+    await assertFails(set(mallory, `v2/likes/longdong:0000aa/m1/mallory`, true))
+    await assertSucceeds(get(guest, 'v2/likes'))
+    await assertFails(remove(alice, `v2/likes/${ROUTE}/m1/mallory`))
+    await assertSucceeds(remove(mallory, `v2/likes/${ROUTE}/m1/mallory`))
+  })
+
   it('檢舉：登入者可以新增', async () => {
     await assertSucceeds(
       push(alice, 'v2/reports', { path: `v2/comments/${ROUTE}/m1`, uid: 'alice', reason: 'spam', createdAt: serverTimestamp() }),
@@ -288,6 +316,7 @@ describe('既有行為不變', () => {
         'v2/names/alice': null,
         [`v2/ratings/${ROUTE}/alice`]: null,
         [`v2/comments/${ROUTE}/m1`]: null,
+        [`v2/likes/${ROUTE}/m1/alice`]: null,
       }),
     )
   })

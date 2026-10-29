@@ -63,8 +63,22 @@
             "hidden": {
               ".validate": "newData.isBoolean()"
             },
+            "parent": {
+              ".validate": "newData.isString() && root.child('v2').child('comments').child($route).child(newData.val()).exists() && !root.child('v2').child('comments').child($route).child(newData.val()).child('parent').exists()"
+            },
             "$other": {
               ".validate": false
+            }
+          }
+        }
+      },
+      "likes": {
+        ".read": true,
+        "$route": {
+          "$comment": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && (!newData.exists() || ($route.matches(/^longdong:[2-9a-hjkmnp-z]{6}$/) && root.child('v2').child('comments').child($route).child($comment).exists()))",
+              ".validate": "newData.val() === true"
             }
           }
         }
