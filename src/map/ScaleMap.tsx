@@ -5,6 +5,7 @@ import { BOUNDS, EXTENT, inBounds, located } from './bounds'
 import { project, unproject, type LineName, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
 import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitRectView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
 import { placeLineNames } from './lineLabels'
+import { useContourTiles } from './contourTiles'
 import { orthoLevel, orthoTiles } from './ortho'
 import { insideRing } from './reportOptions'
 import { STEP, useMapGestures, type MapGestures, type Point } from './useMapGestures'
@@ -275,7 +276,7 @@ interface Props {
   hideAreas?: boolean
   /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
   ortho?: boolean
-  /** 疊上國土測繪中心的 1/5000 基本地形圖（等高線、高程點；編輯器畫區域、岩壁時對照地形） */
+  /** 疊上國土測繪中心 1/5000 基本地形圖的等高線（編輯器畫區域、岩壁時對照地形） */
   topo?: boolean
 }
 
@@ -407,6 +408,9 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     const timer = setTimeout(() => setOrthoZ(wantLevel), ORTHO_SETTLE_MS)
     return () => clearTimeout(timer)
   }, [wantLevel])
+  // 地形圖只留等高線（contourTiles.ts）：處理好的圖磚才畫
+  const topoTiles = topo && frame && view ? orthoTiles(view, frame, window.devicePixelRatio, orthoZ ?? wantLevel, 'B5000') : []
+  const contourTiles = useContourTiles(topoTiles.map((tile) => tile.href))
 
   const me = here && project(here.coords)
 
@@ -488,9 +492,10 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           )}
           {topo && (
             <g className="sm-topo" clipPath={`url(#${nameId}-extent)`}>
-              {orthoTiles(view, frame, window.devicePixelRatio, orthoZ ?? wantLevel, 'B5000').map((tile) => (
-                <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" />
-              ))}
+              {topoTiles.map(
+                (tile) =>
+                  contourTiles[tile.href] && <image key={tile.key} href={contourTiles[tile.href]} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" />,
+              )}
             </g>
           )}
           {!hideAreas && map.areas.map((a) => (
