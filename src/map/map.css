@@ -244,6 +244,12 @@
   stroke: #356507;
   stroke-linecap: round;
 }
+.sm-cliff path {
+  fill: none;
+  stroke: #5f4b3b;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* 各區域：填色、外框與名稱的顏色 */
 .sm-area-school-gate { fill: #f2b4c6; stroke: #d40441; }

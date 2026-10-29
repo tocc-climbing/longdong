@@ -259,6 +259,8 @@ try {
   await editor.page.goto(base + `edit/map/wall:${wallSector.replace('/', ':')}`)
   await editor.page.waitForSelector('.edit-canvas svg[role=img]')
   check('網址是岩壁時，切到「岩壁」', (await editor.page.locator('.edit-toolbar [aria-pressed=true]', { hasText: '岩壁' }).count()) === 1)
+  const cliffPaths = await editor.page.locator('.sm-cliff path').evaluateAll((list) => list.map((p) => (p.getAttribute('d') ?? '').length))
+  check('底圖畫出 OpenStreetMap 的岩壁與刻線', cliffPaths.length === 2 && cliffPaths.every((n) => n > 0), JSON.stringify(cliffPaths))
   await editor.page.keyboard.press('n')
   await clickCanvas(editor.page, [[0.3, 0.4], [0.45, 0.5], [0.6, 0.45]])
   await editor.page.keyboard.press('Enter')

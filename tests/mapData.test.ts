@@ -4,7 +4,8 @@ import { hasUnuploaded, toGeoJSON, type Fix } from '../src/map/calibration'
 import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseLocation } from '../src/router'
-import { centroid, loadScaleMap, project, unproject } from '../src/map/mapData'
+import { centroid, cliffTicks, loadScaleMap, project, unproject } from '../src/map/mapData'
+import { EXTENT_LATLNG } from '../src/map/extent'
 
 const fix = (lat: number, lng: number, accuracy = 5, time = 0): Fix => ({ coords: [lat, lng], accuracy, time })
 
@@ -18,6 +19,23 @@ describe('上傳狀態', () => {
   })
 })
 
+describe('岩壁的刻線', () => {
+  const ticks = (d: string) => [...d.matchAll(/M(-?[\d.]+) (-?[\d.]+)l(-?[\d.]+) (-?[\d.]+)/g)].map((m) => m.slice(1).map(Number))
+
+  it('往東的岩壁（y 向南），刻線畫在右側（南邊），每 4 公尺一條', () => {
+    const t = ticks(cliffTicks([[[0, 0], [10, 0]]]))
+    expect(t.map(([x]) => x)).toEqual([2, 6, 10])
+    expect(t.every(([, y, dx, dy]) => y === 0 && dx === 0 && dy > 0)).toBe(true)
+  })
+
+  it('間距跨過轉折點時接著算，不從每一段重新開始', () => {
+    const t = ticks(cliffTicks([[[0, 0], [3, 0], [3, 10]]]))
+    expect(t.map(([x, y]) => [x, y])).toEqual([[2, 0], [3, 3], [3, 7]])
+    // 往南的那段，右側是西邊
+    expect(t.slice(1).every(([, , dx, dy]) => dx < 0 && dy === 0)).toBe(true)
+  })
+})
+
 describe('底圖的台二線與地名（scale-map.geojson）', () => {
   type Feature = { properties: { kind: string; zh?: string }; geometry: { type: string; coordinates: unknown } }
   const features = (JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as { features: Feature[] }).features
@@ -28,6 +46,15 @@ describe('底圖的台二線與地名（scale-map.geojson）', () => {
     const gaps = ends.flatMap((a, k) => ends.slice(k + 1).filter((b) => a.i !== b.i).map((b) => distanceM([a.p[1], a.p[0]], [b.p[1], b.p[0]])))
     // 端點相距不到 5 公尺是接上了；超過 100 公尺是各自的端點（頁框外、隧道兩端）；中間的是斷口
     expect(gaps.filter((m) => m > 5 && m < 100)).toEqual([])
+  })
+
+  it('OpenStreetMap 的岩壁都在資料範圍裡，岩場一帶有岩壁', () => {
+    const lines = features.filter((f) => f.properties.kind === 'cliff').flatMap((f) => f.geometry.coordinates as [number, number][][])
+    const points = lines.flat()
+    expect(lines.length).toBeGreaterThan(0)
+    expect(points.every(([lng, lat]) => lat >= EXTENT_LATLNG.south && lat <= EXTENT_LATLNG.north && lng >= EXTENT_LATLNG.west && lng <= EXTENT_LATLNG.east)).toBe(true)
+    // 沿著岩場海岸的岩壁（OSM way 973252966）
+    expect(points.some(([lng, lat]) => distanceM([lat, lng], [25.1073477, 121.9227197]) < 5)).toBe(true)
   })
 
   it('和美國小、西靈巖寺的位置在 OpenStreetMap 建物的 15 公尺內', () => {

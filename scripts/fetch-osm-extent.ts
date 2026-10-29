@@ -6,6 +6,7 @@
  *   road       其他道路（residential、unclassified、service、track）
  *   trail      步道（path、footway、steps）
  *   parking    停車場的範圍（amenity=parking）
+ *   cliff      岩壁（natural=cliff；低的一側在線的右側）
  * 座標是 [緯度, 經度]，小數 6 位。
  *
  *   npx tsx scripts/fetch-osm-extent.ts
@@ -25,7 +26,7 @@ const SERVERS = ['https://overpass-api.de/api/interpreter', 'https://overpass.ku
 const COAST_PAD = 0.02
 const bbox = `${E.south},${E.west},${E.north},${E.east}`
 const coastBox = `${E.south - COAST_PAD},${E.west - COAST_PAD},${E.north + COAST_PAD},${E.east + COAST_PAD}`
-const query = `[out:json][timeout:90];(way["natural"="coastline"](${coastBox});way["building"](${bbox});way["highway"](${bbox});way["amenity"="parking"](${bbox}););out geom tags;`
+const query = `[out:json][timeout:90];(way["natural"="coastline"](${coastBox});way["building"](${bbox});way["highway"](${bbox});way["amenity"="parking"](${bbox});way["natural"="cliff"](${bbox}););out geom tags;`
 
 async function download(): Promise<Way[]> {
   for (const server of SERVERS) {
@@ -53,6 +54,7 @@ const data = {
   road: pick((t) => ROADS.includes(t.highway) && !t.tunnel),
   trail: pick((t) => TRAILS.includes(t.highway) && !t.tunnel),
   parking: pick((t) => t.amenity === 'parking'),
+  cliff: pick((t) => t.natural === 'cliff'),
 }
 writeFileSync(new URL('./data/osm-extent.json', import.meta.url), JSON.stringify(data) + '\n')
 console.log(Object.entries(data).map(([k, v]) => `${k} ${Array.isArray(v) ? v.length : ''}`).join('，'))

@@ -831,7 +831,7 @@ const lines = (list: Shape[], transform = warp) => list.flatMap((s) => s.subpath
 /** [經度, 緯度] 在不在地圖資料範圍裡（src/map/extent.ts） */
 const inExtentBox = ([x, y]: Pt) => x >= EXTENT_LATLNG.west && x <= EXTENT_LATLNG.east && y >= EXTENT_LATLNG.south && y <= EXTENT_LATLNG.north
 /** 頁框外補上的 OpenStreetMap 資料（見下方 outerLand 等；停車場的範圍也用它） */
-const osmExtent = JSON.parse(readFileSync(new URL('./data/osm-extent.json', import.meta.url), 'utf8')) as Record<'coastline' | 'building' | 'highway' | 'road' | 'trail' | 'parking', Pt[][]>
+const osmExtent = JSON.parse(readFileSync(new URL('./data/osm-extent.json', import.meta.url), 'utf8')) as Record<'coastline' | 'building' | 'highway' | 'road' | 'trail' | 'parking' | 'cliff', Pt[][]>
 /**
  * 停車場：小的停車場（不超過 PARKING_RIGID_MAX_PT）逐點換算會把長方形扭成怪形狀，改成整塊只平移、旋轉、縮放（相似變換），保持原本的形狀；
  * 變換取 P 字中心附近的換算：中心點的位置，加上往右一點的方向決定旋轉與比例。
@@ -1057,6 +1057,23 @@ function splitByPage(line: Pt[], keepInside: boolean): Pt[][] {
   return out.map((l) => simplify(l, OUTER_SIMPLIFY_M).map(metersToLngLat))
 }
 const outerLines = (list: Pt[][]) => list.flatMap((l) => splitByPage(l.map(lngLat), false))
+/**
+ * OSM 的岩壁（natural=cliff）：救援資訊圖沒有畫岩壁，頁框裡外都用，只留資料範圍裡的部分。
+ * 不改變點的順序：OSM 岩壁低的一側在線的右側（畫面的刻線靠它，見 src/map/mapData.ts）。
+ */
+const cliffLines = osmExtent.cliff.flatMap((l) => {
+  const out: Pt[][] = []
+  let run: Pt[] = []
+  for (const p of densify(l.map(lngLat).map(lngLatToMeters), OUTER_STEP_M)) {
+    if (inExtentBox(metersToLngLat(p))) run.push(p)
+    else {
+      if (run.length > 1) out.push(run)
+      run = []
+    }
+  }
+  if (run.length > 1) out.push(run)
+  return out.map((r) => simplify(r, OUTER_SIMPLIFY_M).map(metersToLngLat))
+})
 const extentBox = { west: EXTENT_LATLNG.west, south: EXTENT_LATLNG.south, east: EXTENT_LATLNG.east, north: EXTENT_LATLNG.north }
 const outerLand = coastLand(osmExtent.coastline.map((l) => l.map(lngLat)), extentBox).map((r) => simplify(r.map(lngLatToMeters), OUTER_SIMPLIFY_M).map(metersToLngLat))
 /** 頁面外、範圍內的建物（以中心判斷） */
@@ -1078,6 +1095,7 @@ const scaleMap = {
     feature({ kind: 'outerHighway' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.highway) }),
     feature({ kind: 'outerRoad' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.road) }),
     feature({ kind: 'outerTrail' }, { type: 'MultiLineString', coordinates: outerLines(osmExtent.trail) }),
+    feature({ kind: 'cliff' }, { type: 'MultiLineString', coordinates: cliffLines }),
     feature({ kind: 'building' }, { type: 'MultiPolygon', coordinates: polygons(buildings) }),
     // 往鼻頭的延伸只留頁面內的部分，頁面外是 outerHighway（同樣是 OSM 的台二線）
     feature({ kind: 'highway' }, { type: 'MultiLineString', coordinates: [...highwayLines, ...bitouRoad] }),

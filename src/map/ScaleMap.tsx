@@ -54,6 +54,9 @@ const HAZARD_R = 7
 
 /** 道路、步道至少畫成實際的寬度（公尺）：放大後跟著變粗，和航照上的路一樣寬 */
 const ROAD_WIDTH_M = { highway: 8, road: 5, trail: 1.5 }
+/** 岩壁線至少畫成的寬度（公尺）；每像素超過 CLIFF_TICK_MAX_M_PER_PX 公尺（縮小到刻線擠在一起）時不畫刻線 */
+const CLIFF_WIDTH_M = 0.6
+const CLIFF_TICK_MAX_M_PER_PX = 1
 /** 放大到每像素不到 ICON_GROW_SCALE 公尺時，圖示跟著放大，最多 ICON_MAX_GROW 倍 */
 const ICON_GROW_SCALE = 0.5
 const ICON_MAX_GROW = 1.6
@@ -483,6 +486,11 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           {!hideAreas && map.sectors.map((s) => (
             <path key={s.id} className="sm-sector" d={s.path} />
           ))}
+          {/* OpenStreetMap 的岩壁（唯讀）：刻線在低的一側，縮小到刻線擠在一起時只畫線 */}
+          <g className="sm-cliff">
+            <path d={map.layers.cliff} strokeWidth={Math.max(1.5 * px, CLIFF_WIDTH_M)} />
+            {px <= CLIFF_TICK_MAX_M_PER_PX && <path d={map.layers.cliffTick} strokeWidth={Math.max(px, CLIFF_WIDTH_M / 2)} />}
+          </g>
           {/* 道路與停車場一組：航照下整組一起半透明，相接、重疊的地方不會疊深；頁框外的 OSM 道路接在同一條路徑裡 */}
           <g className="sm-roads">
             <path className="sm-highway" d={map.layers.highway + (map.layers.outerHighway ?? '')} strokeWidth={Math.max(5 * px, ROAD_WIDTH_M.highway)} />
