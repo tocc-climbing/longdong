@@ -271,7 +271,6 @@ try {
   check('分區只有岩壁：工具列沒有「範圍／岩壁」切換', (await editor.page.locator('.edit-toolbar button', { hasText: '範圍' }).count()) === 0)
   const sectorLink = editor.page.locator('.edit-catalog a', { hasText: gateSectorName }).first()
   check('目錄裡的分區連到岩壁的編輯', ((await sectorLink.getAttribute('href')) ?? '').endsWith(`edit/map/wall:${wallSector.replace('/', ':')}`), (await sectorLink.getAttribute('href')) ?? '')
-  const cliffPaths = () => editor.page.locator('.sm-cliff path').evaluateAll((list) => list.map((p) => `${p.getAttribute('class') ?? ''}:${(p.getAttribute('d') ?? '').length}`))
   const topoTiles = () => editor.page.locator('.sm-topo image').evaluateAll((list) => list.map((i) => i.getAttribute('href') ?? ''))
   // 地形圖只留等高線與海岸線：畫上去的圖裡只有這兩種顏色，沒有黑色的高程點、注記（等圖磚處理到兩種都出現）
   const tileColors = (hrefs: string[]) => editor.page.evaluate(async (hrefs) => {
@@ -301,12 +300,7 @@ try {
   await editor.page.keyboard.press('t')
   check('按 T 關掉地形圖', (await until(async () => (await topoTiles()).length === 0, 3000)) === true)
   await editor.page.keyboard.press('t')
-  const withOrtho = await cliffPaths()
-  check('航照下畫出 OpenStreetMap 的岩壁、刻線與淺色外框', withOrtho.length === 3 && withOrtho[0].startsWith('sm-cliff-casing:') && withOrtho.every((p) => !p.endsWith(':0')), JSON.stringify(withOrtho))
-  await editor.page.keyboard.press('a')
-  const plain = await cliffPaths()
-  check('關掉航照：岩壁與刻線沒有外框', plain.length === 2 && plain.every((p) => p.startsWith(':') && !p.endsWith(':0')), JSON.stringify(plain))
-  await editor.page.keyboard.press('a')
+  check('不畫 OpenStreetMap 的岩壁', (await editor.page.locator('.sm-cliff').count()) === 0)
   await editor.page.keyboard.press('n')
   await clickCanvas(editor.page, [[0.3, 0.4], [0.45, 0.5], [0.6, 0.45]])
   await editor.page.keyboard.press('Enter')

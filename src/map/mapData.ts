@@ -36,7 +36,7 @@ interface FeatureCollection {
 }
 
 export interface ScaleMapData {
-  /** kind → SVG path（land、building、highway、tunnel、road、trail；page 是救援資訊圖的頁框，outer… 是頁框外的 OpenStreetMap 資料；cliff 是 OpenStreetMap 的岩壁，cliffTick 是它的刻線） */
+  /** kind → SVG path（land、building、highway、tunnel、road、trail；page 是救援資訊圖的頁框，outer… 是頁框外的 OpenStreetMap 資料） */
   layers: Record<string, string>
   markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
@@ -123,31 +123,6 @@ function toPath(geometry: Exclude<Feature['geometry'], { type: 'Point' }>): stri
   return geometry.type === 'MultiPolygon' ? polygonPath(geometry.coordinates) : geometry.coordinates.map(linePath).join('')
 }
 
-/** 岩壁刻線的間距與長度（公尺） */
-const CLIFF_TICK_SPACING_M = 4
-const CLIFF_TICK_LENGTH_M = 2.5
-/** 岩壁（OSM natural=cliff，地圖座標）的刻線：沿線每 CLIFF_TICK_SPACING_M 一條，畫在低的一側（OSM 慣例：線的右側） */
-export function cliffTicks(lines: [number, number][][]): string {
-  const ticks: string[] = []
-  for (const line of lines) {
-    let next = CLIFF_TICK_SPACING_M / 2
-    let walked = 0
-    for (let i = 1; i < line.length; i++) {
-      const [[x0, y0], [x1, y1]] = [line[i - 1], line[i]]
-      const len = Math.hypot(x1 - x0, y1 - y0)
-      if (!len) continue
-      // y 向南：前進方向 (dx, dy) 的右側是 (-dy, dx)
-      const [ux, uy] = [(x1 - x0) / len, (y1 - y0) / len]
-      for (; next <= walked + len; next += CLIFF_TICK_SPACING_M) {
-        const [x, y] = [x0 + ux * (next - walked), y0 + uy * (next - walked)]
-        ticks.push(`M${x.toFixed(1)} ${y.toFixed(1)}l${(-uy * CLIFF_TICK_LENGTH_M).toFixed(1)} ${(ux * CLIFF_TICK_LENGTH_M).toFixed(1)}`)
-      }
-      walked += len
-    }
-  }
-  return ticks.join('')
-}
-
 function toMarker({ properties: p, geometry }: Feature): Marker {
   if (geometry.type !== 'Point') throw new Error('標示必須是 Point')
   const at = project([geometry.coordinates[1], geometry.coordinates[0]])
@@ -190,10 +165,7 @@ async function readScaleMap(): Promise<ScaleMapData> {
       f.properties.kind === kind && f.geometry.type === 'MultiLineString' ? f.geometry.coordinates.map((l) => l.map(([lng, lat]) => project([lat, lng]))) : [],
     )
   return {
-    layers: {
-      ...Object.fromEntries(base.features.flatMap((f) => (f.geometry.type === 'Point' ? [] : [[f.properties.kind!, toPath(f.geometry)]]))),
-      cliffTick: cliffTicks(linesOf('cliff')),
-    },
+    layers: Object.fromEntries(base.features.flatMap((f) => (f.geometry.type === 'Point' ? [] : [[f.properties.kind!, toPath(f.geometry)]]))),
     markers: base.features.filter((f) => f.geometry.type === 'Point' && f.properties.kind !== 'name').map(toMarker),
     names: base.features.flatMap((f) =>
       f.properties.kind === 'name' && f.geometry.type === 'Point' && f.properties.zh && f.properties.en && f.properties.line

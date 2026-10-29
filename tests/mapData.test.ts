@@ -4,8 +4,7 @@ import { hasUnuploaded, toGeoJSON, type Fix } from '../src/map/calibration'
 import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseLocation } from '../src/router'
-import { centroid, cliffTicks, loadScaleMap, project, unproject } from '../src/map/mapData'
-import { EXTENT_LATLNG } from '../src/map/extent'
+import { centroid, loadScaleMap, project, unproject } from '../src/map/mapData'
 
 const fix = (lat: number, lng: number, accuracy = 5, time = 0): Fix => ({ coords: [lat, lng], accuracy, time })
 
@@ -16,23 +15,6 @@ describe('上傳狀態', () => {
     expect(hasUnuploaded({ marks: [mark] })).toBe(true)
     expect(hasUnuploaded({ marks: [mark], uploaded: { time: 0, marks: 1 } })).toBe(false)
     expect(hasUnuploaded({ marks: [mark, mark], uploaded: { time: 0, marks: 1 } })).toBe(true)
-  })
-})
-
-describe('岩壁的刻線', () => {
-  const ticks = (d: string) => [...d.matchAll(/M(-?[\d.]+) (-?[\d.]+)l(-?[\d.]+) (-?[\d.]+)/g)].map((m) => m.slice(1).map(Number))
-
-  it('往東的岩壁（y 向南），刻線畫在右側（南邊），每 4 公尺一條', () => {
-    const t = ticks(cliffTicks([[[0, 0], [10, 0]]]))
-    expect(t.map(([x]) => x)).toEqual([2, 6, 10])
-    expect(t.every(([, y, dx, dy]) => y === 0 && dx === 0 && dy > 0)).toBe(true)
-  })
-
-  it('間距跨過轉折點時接著算，不從每一段重新開始', () => {
-    const t = ticks(cliffTicks([[[0, 0], [3, 0], [3, 10]]]))
-    expect(t.map(([x, y]) => [x, y])).toEqual([[2, 0], [3, 3], [3, 7]])
-    // 往南的那段，右側是西邊
-    expect(t.slice(1).every(([, , dx, dy]) => dx < 0 && dy === 0)).toBe(true)
   })
 })
 
@@ -48,13 +30,10 @@ describe('底圖的台二線與地名（scale-map.geojson）', () => {
     expect(gaps.filter((m) => m > 5 && m < 100)).toEqual([])
   })
 
-  it('OpenStreetMap 的岩壁都在資料範圍裡，岩場一帶有岩壁', () => {
-    const lines = features.filter((f) => f.properties.kind === 'cliff').flatMap((f) => f.geometry.coordinates as [number, number][][])
-    const points = lines.flat()
-    expect(lines.length).toBeGreaterThan(0)
-    expect(points.every(([lng, lat]) => lat >= EXTENT_LATLNG.south && lat <= EXTENT_LATLNG.north && lng >= EXTENT_LATLNG.west && lng <= EXTENT_LATLNG.east)).toBe(true)
-    // 沿著岩場海岸的岩壁（OSM way 973252966）
-    expect(points.some(([lng, lat]) => distanceM([lat, lng], [25.1073477, 121.9227197]) < 5)).toBe(true)
+  it('校門口急救器材 #1 在現場回報的位置（2 公尺內）', () => {
+    const ems = features.find((f) => f.properties.kind === 'ems' && (f.properties as { no?: number }).no === 1)!
+    const [lng, lat] = ems.geometry.coordinates as [number, number]
+    expect(distanceM([lat, lng], [25.11274, 121.92159])).toBeLessThan(2)
   })
 
   it('和美國小、西靈巖寺的位置在 OpenStreetMap 建物的 15 公尺內', () => {
