@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react'
 import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
-import { useRouteLink } from '../router'
+import { useLongPress } from '../edit/useLongPress'
+import { href, navigate, useRouteLink } from '../router'
 import { fillShared } from './lines'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
@@ -68,8 +69,11 @@ export function SectorTopos({ sector }: { sector: Sector }) {
   )
 }
 
-/** 路線頁：有標記這條路線的 Topo，這條用亮色並標出 bolt */
-export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: string }) {
+/**
+ * 路線頁：有標記這條路線的 Topo，這條用亮色並標出 bolt。
+ * 手機版（editable）：點照片開全螢幕，長按進入這張照片的編輯；沒有 Topo 時整段不顯示。
+ */
+export function RouteTopos({ sector, routeId, editable }: { sector: Sector; routeId: string; editable?: boolean }) {
   const { lang, t } = useLang()
   const topos = useSectorTopos(sector.id)?.filter((x) => x.latest?.marks[routeId])
   const [showBolts] = useShowBolts()
@@ -80,7 +84,7 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
     <section className="route-block topos">
       <h2>{t('topo.title')}</h2>
       {topos.map((topo) => (
-        <figure key={topo.photo.id} className="topo">
+        <EditableFigure key={topo.photo.id} to={editable ? href.topo(topo.photo.id) : undefined}>
           <Photo
             topo={topo}
             alt={t('topo.alt', { name: localName(sector.name, lang).main })}
@@ -89,9 +93,19 @@ export function RouteTopos({ sector, routeId }: { sector: Sector; routeId: strin
             )}
           />
           <FullscreenButton topo={topo} sector={sector} initial={routeId} />
-        </figure>
+        </EditableFigure>
       ))}
     </section>
+  )
+}
+
+/** 一張 Topo；to 有值時長按進入編輯 */
+function EditableFigure({ to, children }: { to?: string; children: ReactNode }) {
+  const press = useLongPress(() => to && navigate(to))
+  return (
+    <figure className="topo" {...(to ? press : {})}>
+      {children}
+    </figure>
   )
 }
 

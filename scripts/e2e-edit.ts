@@ -579,6 +579,36 @@ try {
     return versions.length === 1 ? versions[0] : undefined
   })
   check('Ctrl+Enter 提交：資料庫有一版說明', textEdit?.text === 'e2e 說明 ✓')
+  // 手機的路線頁：整頁是一張卡片；Topo 在最上面，長按進入 Topo 編輯；點路線資訊進入說明編輯；沒有 Topo 的路線不留位置
+  const viewer2 = await newContext(undefined, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  const vp = viewer2.page
+  await vp.goto(base + `route/${topoRoutes[0].id}`)
+  await vp.waitForSelector('.route-m .topo')
+  const cardBg = await vp.locator('.route-m').evaluate((el) => getComputedStyle(el).backgroundColor)
+  const pageBg = await vp.evaluate(`getComputedStyle(document.body).backgroundColor`)
+  check('手機路線頁：整頁是一張卡片（底色與頁面不同）', cardBg !== pageBg, `${cardBg} / ${pageBg}`)
+  const topoY = (await vp.locator('.route-m .topo').boundingBox())!.y
+  const titleY = (await vp.locator('.route-m h1').boundingBox())!.y
+  check('手機路線頁：有 Topo 時照片在卡片最上面（標題之前）', topoY < titleY, `${topoY} / ${titleY}`)
+  const textBox = (await vp.locator('.community-edit').boundingBox())!
+  await vp.touchscreen.tap(textBox.x + textBox.width / 2, textBox.y + textBox.height / 2)
+  check('手機路線頁：點路線資訊進入說明編輯', (await until(async () => (vp.url().includes('/edit/text/') ? true : undefined), 5000)) === true, vp.url())
+  await vp.goBack()
+  await vp.waitForSelector('.route-m .topo')
+  const phoneTopo = (await vp.locator('.route-m .topo').boundingBox())!
+  const holdAt = { x: phoneTopo.x + phoneTopo.width / 2, y: phoneTopo.y + phoneTopo.height / 2 }
+  const hold = await viewer2.ctx.newCDPSession(vp)
+  await hold.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...holdAt, id: 1 }] })
+  await vp.waitForTimeout(800)
+  await hold.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  check('手機路線頁：長按 Topo 進入這張照片的編輯', (await until(async () => (vp.url().endsWith(`/edit/topo/${photo}`) ? true : undefined), 5000)) === true, vp.url())
+  const noTopoRoute = data.areas.flatMap((a) => a.sectors).find((x) => x.id !== topoSector.id)!.routes.find((r) => r.number)!
+  await vp.goto(base + `route/${noTopoRoute.id}`)
+  await vp.waitForSelector('.route-m h1')
+  await vp.waitForTimeout(500)
+  check('手機路線頁：沒有 Topo 的路線不留位置', (await vp.locator('.route-m .topos').count()) === 0)
+  await viewer2.ctx.close()
+
   await editor.page.goto(base + 'edit')
   const stat = (label: string) => editor.page.locator('.edit-stat', { hasText: label }).locator('.edit-stat-value')
   const topoStat = await until(async () => {

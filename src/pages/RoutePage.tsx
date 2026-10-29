@@ -13,6 +13,7 @@ import { textTarget } from '../edit/textEdits'
 import { formatDate, typeText } from '../format'
 import { localName, useLang } from '../i18n'
 import { useState } from 'react'
+import { useWide } from '../layout'
 import { useCloud } from '../personal/sync'
 import { href, useRouteLink } from '../router'
 import { routeKey, summarize } from '../social/model'
@@ -23,6 +24,7 @@ import { NotFound } from './AreaPage'
 /**
  * 路線頁（手機版與電腦版的右側相同）：名稱、一行重點（難度、種類、高度、評分）、安全與狀態合併的一個色塊、
  * 記錄／收藏／分享、Topo、路線資訊；首攀、Bolt、Anchor 收在「更多資訊」；最後是評分與留言。
+ * 手機版整頁是一張卡片：有 Topo 時照片在最上面（沒有就不留位置）；點路線資訊進入說明編輯，長按 Topo 進入 Topo 編輯。
  */
 /**
  * topoInList：電腦版左邊的分區清單已經顯示這個分區的 Topo（選到的路線在上面亮色、可以切換 bolt），這裡不再重複顯示同一張。
@@ -35,6 +37,7 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
   const signedIn = cloudStatus === 'signed-in'
   const rating = summarize(useSocial().ratings[routeKey(id)])
   const [tickOpen, setTickOpen] = useState(false)
+  const wide = useWide()
   if (!ref) return <NotFound />
   const { route, sector, area } = ref
   const name = localName(route.name, lang)
@@ -81,9 +84,9 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
 
       {signedIn && !route.isFixture && <PersonalPanel route={route} open={tickOpen} onClose={() => setTickOpen(false)} />}
 
-      {!topoInList && <RouteTopos sector={sector} routeId={route.id} />}
+      {!topoInList && <RouteTopos sector={sector} routeId={route.id} editable={!wide} />}
 
-      <CommunityText target={textTarget.route(route.id)} original={route.description} title={t('route.info')} />
+      <CommunityText target={textTarget.route(route.id)} original={route.description} title={t('route.info')} editTo={wide ? undefined : href.edit('text', textTarget.route(route.id))} />
 
       {pitches.length > 1 && (
         <section className="route-block">
