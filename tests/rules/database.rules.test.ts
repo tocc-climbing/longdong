@@ -619,7 +619,6 @@ describe('岩壁標記（v2/walls）', () => {
 describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
   const RING = '25.112720,121.921450 25.112710,121.921600 25.112600,121.921500'
   const LINE = '25.112720,121.921450 25.112710,121.921600'
-  const SECTOR = 'sector:longdong:school-gate-a1151r'
   const WALL = 'wall:longdong:school-gate-a1151r'
   const rings = (uid: string, value = RING) => ({ uid, rings: value, createdAt: serverTimestamp() })
   const lines = (uid: string, value = LINE) => ({ uid, lines: value, createdAt: serverTimestamp() })
@@ -636,7 +635,6 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
 
   it('任何登入者都可以提交新版本；訪客不能，不能冒用別人的 uid', async () => {
     await assertSucceeds(push(mallory, 'v2/mapEdits/area:clocktower', rings('mallory')))
-    await assertSucceeds(push(mallory, `v2/mapEdits/${SECTOR}`, rings('mallory', `${RING}|${RING}`)))
     await assertSucceeds(push(mallory, 'v2/mapEdits/trails', lines('mallory', `${LINE}|${LINE}`)))
     await assertSucceeds(push(mallory, 'v2/mapEdits/highway', lines('mallory')))
     await assertSucceeds(push(mallory, 'v2/mapEdits/tunnel', lines('mallory')))
@@ -646,7 +644,7 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
     await assertFails(push(mallory, 'v2/mapEdits/area:clocktower', rings('alice')))
   })
 
-  it('對象只能是 9 個大區域、分區 ID（範圍、岩壁）、步道與道路；多邊形至少三點、線段至少兩點；步道、道路與岩壁用 lines、其他用 rings', async () => {
+  it('對象只能是 9 個大區域、分區的岩壁、步道與道路（沒有分區範圍）；多邊形至少三點、線段至少兩點；步道、道路與岩壁用 lines、其他用 rings', async () => {
     await assertSucceeds(push(alice, `v2/mapEdits/${WALL}`, lines('alice', '')))
     await assertFails(push(alice, 'v2/mapEdits/trails', lines('alice', '')))
     await assertFails(push(alice, `v2/mapEdits/${WALL}`, rings('alice')))
@@ -655,7 +653,8 @@ describe('地圖編輯（v2/mapEdits，版本同 Topo）', () => {
     await assertFails(push(alice, 'v2/mapEdits/sector:x', rings('alice')))
     await assertFails(push(alice, 'v2/mapEdits/area:clocktower', rings('alice', LINE)))
     await assertFails(push(alice, 'v2/mapEdits/area:clocktower', rings('alice', '')))
-    await assertSucceeds(push(alice, `v2/mapEdits/${SECTOR}`, rings('alice', '')))
+    await assertFails(push(alice, 'v2/mapEdits/sector:longdong:school-gate-a1151r', rings('alice')))
+    await assertFails(push(alice, 'v2/mapEdits/sector:longdong:school-gate-a1151r', rings('alice', '')))
     await assertFails(push(alice, 'v2/mapEdits/trails', lines('alice', '25.112720,121.921450')))
     await assertFails(push(alice, 'v2/mapEdits/trails', rings('alice')))
     await assertFails(push(alice, 'v2/mapEdits/road', rings('alice')))

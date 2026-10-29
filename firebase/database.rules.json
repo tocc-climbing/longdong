@@ -269,7 +269,7 @@
         ".read": true,
         "$target": {
           ".write": "auth != null && !newData.exists() && (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))))",
-          ".validate": "$target.matches(/^(area:(school-gate|clocktower|long-lane|music-hall|grand-auditorium|first-cave|second-cave|golden-valley|back-door)|(sector|wall):longdong:[a-z0-9-]{1,60}|trails|highway|tunnel|road)$/)",
+          ".validate": "$target.matches(/^(area:(school-gate|clocktower|long-lane|music-hall|grand-auditorium|first-cave|second-cave|golden-valley|back-door)|wall:longdong:[a-z0-9-]{1,60}|trails|highway|tunnel|road)$/)",
           "$version": {
             ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))))))",
             ".validate": "newData.hasChildren(['uid', 'createdAt']) && ($target.matches(/^(trails|highway|tunnel|road|wall:.*)$/) ? newData.hasChild('lines') && !newData.hasChild('rings') : newData.hasChild('rings') && !newData.hasChild('lines'))",
@@ -280,7 +280,7 @@
               ".validate": "newData.val() === now"
             },
             "rings": {
-              ".validate": "newData.isString() && newData.val().length <= 30000 && (newData.val().matches(/^25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6}){2,}(\\|25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6}){2,})*$/) || ($target.beginsWith('sector:') && newData.val() === ''))"
+              ".validate": "newData.isString() && newData.val().length <= 30000 && (newData.val().matches(/^25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6}){2,}(\\|25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6}){2,})*$/))"
             },
             "lines": {
               ".validate": "newData.isString() && newData.val().length <= 100000 && (newData.val().matches(/^25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6})+(\\|25\\.[0-9]{6},121\\.[0-9]{6}( 25\\.[0-9]{6},121\\.[0-9]{6})+)*$/) || ($target.beginsWith('wall:') && newData.val() === ''))"
