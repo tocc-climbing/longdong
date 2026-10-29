@@ -335,12 +335,13 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   }
   const isWall = target.startsWith('wall:')
   const sector = isWall ? sectorOf(target) : undefined
-  // 畫岩壁時，其他分區已有的岩壁也畫出來（名稱標在岩壁中間，點不到）
+  // 畫岩壁時，其他分區的岩壁也畫出來，包括還沒提交的修改（名稱標在岩壁中間，點不到）
   const { walls } = useSectorWalls()
-  const others = isWall ? walls.filter((w) => w.sector !== sector) : []
-  const otherWalls = others.map((w) => ({ key: w.key, points: w.points }))
-  const otherLabels = [...new Set(others.map((w) => w.sector))].flatMap((id) => {
-    const at = wallLabelAt(others.filter((w) => w.sector === id).map((w) => w.points))
+  const otherSectors = isWall ? [...new Set([...walls.map((w) => w.sector), ...Object.keys(overlay.walls)])].filter((s) => s !== sector) : []
+  const linesOf = (s: string) => overlay.walls[s] ?? walls.filter((w) => w.sector === s).map((w) => w.points)
+  const otherWalls = otherSectors.flatMap((s) => linesOf(s).map((points, i) => ({ key: `${s}#${i}`, points })))
+  const otherLabels = otherSectors.flatMap((id) => {
+    const at = wallLabelAt(linesOf(id))
     const found = data.sectorById.get(id)
     return at && found ? [{ id, text: localName(found.sector.name, lang).main, at }] : []
   })
