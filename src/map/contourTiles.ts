@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react'
 
 /**
- * 1/5000 基本地形圖（B5000 圖磚）只留等高線：圖磚的等高線是洋紅色（255, 0, 255），高程點、注記是黑色，水系藍色；
- * 洋紅色的像素換成 CONTOUR_RGB，其他全部透明。圖磚以 CORS 載入（伺服器允許）才讀得到像素。
+ * 1/5000 基本地形圖（B5000 圖磚）只留等高線與海岸線：圖磚的等高線是洋紅色（255, 0, 255）、海岸線（水涯線）是藍色（0, 0, 255），
+ * 高程點、注記是黑色；等高線換成 CONTOUR_RGB、海岸線換成 COAST_RGB，其他全部透明。圖磚以 CORS 載入（伺服器允許）才讀得到像素。
  */
 export const CONTOUR_RGB: readonly [number, number, number] = [255, 150, 40]
+export const COAST_RGB: readonly [number, number, number] = [60, 170, 255]
 
-/** 就地改寫 RGBA 像素：等高線換色，其他透明 */
-export function keepContours(px: Uint8ClampedArray, [r, g, b] = CONTOUR_RGB): void {
+/** 就地改寫 RGBA 像素：等高線、海岸線換色，其他透明 */
+export function keepContours(px: Uint8ClampedArray): void {
   for (let i = 0; i < px.length; i += 4) {
-    if (px[i] === 255 && px[i + 1] === 0 && px[i + 2] === 255) [px[i], px[i + 1], px[i + 2]] = [r, g, b]
+    const [r, g, b] = [px[i], px[i + 1], px[i + 2]]
+    const to = r === 255 && g === 0 && b === 255 ? CONTOUR_RGB : r === 0 && g === 0 && b === 255 ? COAST_RGB : undefined
+    if (to) [px[i], px[i + 1], px[i + 2]] = to
     else px[i + 3] = 0
   }
 }
 
-/** 圖磚網址 → 只有等高線的圖（object URL）；同一張只處理一次 */
+/** 圖磚網址 → 只有等高線與海岸線的圖（object URL）；同一張只處理一次 */
 const cache = new Map<string, Promise<string>>()
 
 function contourTile(href: string): Promise<string> {

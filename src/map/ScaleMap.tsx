@@ -276,7 +276,7 @@ interface Props {
   hideAreas?: boolean
   /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
   ortho?: boolean
-  /** 疊上國土測繪中心 1/5000 基本地形圖的等高線（編輯器畫區域、岩壁時對照地形） */
+  /** 疊上國土測繪中心 1/5000 基本地形圖的等高線與海岸線（編輯器畫區域、岩壁時對照地形） */
   topo?: boolean
 }
 
@@ -408,7 +408,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     const timer = setTimeout(() => setOrthoZ(wantLevel), ORTHO_SETTLE_MS)
     return () => clearTimeout(timer)
   }, [wantLevel])
-  // 地形圖只留等高線（contourTiles.ts）：處理好的圖磚才畫
+  // 地形圖只留等高線與海岸線（contourTiles.ts）：處理好的圖磚才畫
   const topoTiles = topo && frame && view ? orthoTiles(view, frame, window.devicePixelRatio, orthoZ ?? wantLevel, 'B5000') : []
   const contourTiles = useContourTiles(topoTiles.map((tile) => tile.href))
 

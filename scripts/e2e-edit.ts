@@ -264,12 +264,8 @@ try {
   check('目錄裡的分區連到岩壁的編輯', ((await sectorLink.getAttribute('href')) ?? '').endsWith(`edit/map/wall:${wallSector.replace('/', ':')}`), (await sectorLink.getAttribute('href')) ?? '')
   const cliffPaths = () => editor.page.locator('.sm-cliff path').evaluateAll((list) => list.map((p) => `${p.getAttribute('class') ?? ''}:${(p.getAttribute('d') ?? '').length}`))
   const topoTiles = () => editor.page.locator('.sm-topo image').evaluateAll((list) => list.map((i) => i.getAttribute('href') ?? ''))
-  const topo = (await until(async () => {
-    const list = await topoTiles()
-    return list.length ? list : undefined
-  })) ?? []
-  // 地形圖只留等高線：畫上去的圖裡只有等高線的顏色，沒有黑色的高程點、注記
-  const colors = await editor.page.evaluate(async (hrefs) => {
+  // 地形圖只留等高線與海岸線：畫上去的圖裡只有這兩種顏色，沒有黑色的高程點、注記（等圖磚處理到兩種都出現）
+  const tileColors = (hrefs: string[]) => editor.page.evaluate(async (hrefs) => {
     const seen = new Set<string>()
     for (const href of hrefs) {
       const img = new Image()
@@ -284,8 +280,15 @@ try {
       for (let i = 0; i < d.length; i += 4) if (d[i + 3] === 255) seen.add(`${d[i]},${d[i + 1]},${d[i + 2]}`)
     }
     return [...seen]
-  }, topo)
-  check('編輯器疊上 1/5000 地形圖，只有等高線', topo.length > 0 && colors.length === 1 && colors[0] === '255,150,40', `${topo.length} 張，顏色 ${colors.join(' ')}`)
+  }, hrefs)
+  let topo: string[] = []
+  const colors =
+    (await until(async () => {
+      topo = await topoTiles()
+      const seen = await tileColors(topo)
+      return seen.length >= 2 ? seen : undefined
+    })) ?? []
+  check('編輯器疊上 1/5000 地形圖，只有等高線與海岸線', topo.length > 0 && colors.length === 2 && colors.every((c) => c === '255,150,40' || c === '60,170,255'), `${topo.length} 張，顏色 ${colors.join(' ')}`)
   await editor.page.keyboard.press('t')
   check('按 T 關掉地形圖', (await until(async () => (await topoTiles()).length === 0, 3000)) === true)
   await editor.page.keyboard.press('t')
