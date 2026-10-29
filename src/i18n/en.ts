@@ -121,6 +121,7 @@ export const en: Messages = {
   'map.parking': 'Parking',
   'map.hazard': 'Hazardous terrain',
   'map.ortho': 'Aerial',
+  'map.topo': 'Terrain',
   'map.orthoNoThanks': 'No thanks',
   'map.orthoOffer': 'Need aerial photos offline?',
   'map.orthoDownload': 'Download ({mb} MB)',

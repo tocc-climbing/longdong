@@ -47,8 +47,7 @@ export default defineConfig({
         // App 和完整路線資料一起預先快取，沒有訊號也能使用
         globPatterns: ['**/*.{js,css,html,svg,png,webp,json,geojson}'],
         // 路線分享頁（route/）每條路線一頁、內容同 index.html，不必預先快取：離線時由 navigateFallback 回 index.html
-        // 等高線（rescue/contours.geojson）只有編輯器用，不預先快取
-        globIgnores: ['**/node_modules/**/*', 'version.json', 'route/**', 'og/**', 'map.html', 'checklist.html', 'edit.html', 'rescue/contours.geojson'],
+        globIgnores: ['**/node_modules/**/*', 'version.json', 'route/**', 'og/**', 'map.html', 'checklist.html', 'edit.html'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         // Firebase 的保留路徑（/__/auth/handler 等，登入用）交給網路

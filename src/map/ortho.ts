@@ -8,7 +8,9 @@ import { toMap, type MapView, type Size } from './mapView'
  * 圖磚以 CORS 載入（伺服器允許），Service Worker 存進 ORTHO_CACHE（vite.config.ts），看過的地方離線時照樣顯示；
  * 也可以一次下載整個地圖資料範圍（downloadOrtho）。
  */
-const TILE_URL = 'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}'
+const TILE_URL = 'https://wmts.nlsc.gov.tw/wmts/{layer}/default/GoogleMapsCompatible/{z}/{y}/{x}'
+/** 圖層：PHOTO2 航照；B5000 1/5000 基本地形圖（等高線、高程點，透明背景，編輯器畫區域與岩壁時對照地形） */
+export type TileLayer = 'PHOTO2' | 'B5000'
 /** 圖磚的縮放層級：z19 每像素約 0.27 公尺，再放大只是放大同一張照片 */
 const MIN_Z = 14
 const MAX_Z = 19
@@ -39,7 +41,7 @@ const tileY = (lat: number, n: number) => {
   const r = (lat * Math.PI) / 180
   return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n
 }
-const tileUrl = (z: number, x: number, y: number) => TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
+const tileUrl = (layer: TileLayer, z: number, x: number, y: number) => TILE_URL.replace('{layer}', layer).replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
 const tileLatLng = (x: number, y: number, n: number): LatLng => [(Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI, (x / n) * 360 - 180]
 
 /** 畫面上看得到的圖磚：一層清楚的（圖磚像素不大於螢幕像素），底下墊一層粗兩級的，最底下再墊固定的 BASE_Z，換層級時不會整片空白 */
@@ -56,7 +58,7 @@ export function orthoLevel(view: MapView, dpr = 1): number {
  * level：用這個層級（縮放中先沿用之前的層級，圖磚不換，不會一直重新載入而閃動）；
  * 圖磚太多（縮小很多）時往下降。沒有指定時用 orthoLevel。
  */
-export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLevel(view, dpr)): OrthoTile[] {
+export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLevel(view, dpr), tileLayer: TileLayer = 'PHOTO2'): OrthoTile[] {
   const corners = ([[0, 0], [frame.w, 0], [0, frame.h], [frame.w, frame.h]] as [number, number][]).map((p) => unproject(toMap(view, frame, p)))
   const lats = corners.map((c) => c[0])
   const lngs = corners.map((c) => c[1])
@@ -71,7 +73,7 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLev
       for (let y = y0; y <= y1; y++) {
         const [left, top] = project(tileLatLng(x, y, n))
         const [right, bottom] = project(tileLatLng(x + 1, y + 1, n))
-        tiles.push({ key: `${z}/${x}/${y}`, href: tileUrl(z, x, y), x: left, y: top, w: right - left, h: bottom - top })
+        tiles.push({ key: `${z}/${x}/${y}`, href: tileUrl(tileLayer, z, x, y), x: left, y: top, w: right - left, h: bottom - top })
       }
     }
     return tiles
@@ -80,6 +82,8 @@ export function orthoTiles(view: MapView, frame: Size, dpr = 1, level = orthoLev
   let z = level
   let fine = layer(z)
   while (!fine && z > MIN_Z) fine = layer(--z)
+  // 透明的圖層（地形圖）疊不同層級會出現好幾條線，只畫一層
+  if (tileLayer !== 'PHOTO2') return fine ?? []
   const coarse = z - 2 > BASE_Z ? layer(z - 2) : undefined
   const base = z > BASE_Z ? layer(BASE_Z) : undefined
   return [...(base ?? []), ...(coarse ?? []), ...(fine ?? [])]
@@ -120,7 +124,7 @@ export function orthoDownloadUrls(areas: { rings: [number, number][][] }[]): str
     for (let z = MIN_Z; z <= maxZ; z++) {
       const n = 2 ** z
       for (let x = Math.floor(tileX(nw[1], n)); x <= Math.floor(tileX(se[1], n)); x++) {
-        for (let y = Math.floor(tileY(nw[0], n)); y <= Math.floor(tileY(se[0], n)); y++) urls.add(tileUrl(z, x, y))
+        for (let y = Math.floor(tileY(nw[0], n)); y <= Math.floor(tileY(se[0], n)); y++) urls.add(tileUrl('PHOTO2', z, x, y))
       }
     }
   }
@@ -131,7 +135,7 @@ export function orthoDownloadUrls(areas: { rings: [number, number][][] }[]): str
     const [lat, lng] = unproject(p)
     const [x, y] = [Math.floor(tileX(lng, n)), Math.floor(tileY(lat, n))]
     for (let dx = -FINE_MARGIN_TILES; dx <= FINE_MARGIN_TILES; dx++) {
-      for (let dy = -FINE_MARGIN_TILES; dy <= FINE_MARGIN_TILES; dy++) urls.add(tileUrl(MAX_Z, x + dx, y + dy))
+      for (let dy = -FINE_MARGIN_TILES; dy <= FINE_MARGIN_TILES; dy++) urls.add(tileUrl('PHOTO2', MAX_Z, x + dx, y + dy))
     }
   }
   return [...urls]

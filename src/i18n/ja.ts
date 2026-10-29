@@ -125,6 +125,7 @@ export const ja: Messages = {
   'map.parking': '駐車場',
   'map.hazard': '危険地形',
   'map.ortho': '航空写真',
+  'map.topo': '地形図',
   'map.orthoNoThanks': '不要',
   'map.orthoOffer': 'オフラインでも航空写真を見ますか？',
   'map.orthoDownload': 'ダウンロード（{mb} MB）',

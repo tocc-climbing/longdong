@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import type { LatLng } from '../geo'
 import { useLang } from '../i18n'
 import { BOUNDS, EXTENT, inBounds, located } from './bounds'
-import { project, unproject, type Contours, type LineName, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
+import { project, unproject, type LineName, type Marker, type PlaceTone, type ScaleMapData } from './mapData'
 import { MIN_SCALE, centerPending, clampScale, clampView, dashLength, fitRectView, focusView, mapTransform, maxScale, rotateAt, toMap, toScreen, zoomAt, type CenterRequest, type MapView, type Rect, type Size } from './mapView'
 import { placeLineNames } from './lineLabels'
 import { orthoLevel, orthoTiles } from './ortho'
@@ -275,8 +275,8 @@ interface Props {
   hideAreas?: boolean
   /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
   ortho?: boolean
-  /** 等高線（編輯器畫區域、岩壁時對照地形） */
-  contours?: Contours
+  /** 疊上國土測繪中心的 1/5000 基本地形圖（等高線、高程點；編輯器畫區域、岩壁時對照地形） */
+  topo?: boolean
 }
 
 /**
@@ -286,7 +286,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorNames, edit, hideAreas, ortho, contours }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorNames, edit, hideAreas, ortho, topo }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -399,8 +399,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   /** 道路、步道名稱的 textPath、頁框與範圍的 clipPath 的 id（一頁可能有好幾個地圖；useId 可能含冒號，url(#…) 引用前去掉） */
   const nameId = useId().replace(/[^a-zA-Z0-9_-]/g, '')
 
-  // 航照的圖磚層級：縮放停下 ORTHO_SETTLE_MS 後才換（第一次直接用）
-  const wantLevel = ortho && view ? orthoLevel(view, window.devicePixelRatio) : undefined
+  // 航照、地形圖的圖磚層級：縮放停下 ORTHO_SETTLE_MS 後才換（第一次直接用）
+  const wantLevel = (ortho || topo) && view ? orthoLevel(view, window.devicePixelRatio) : undefined
   const [orthoZ, setOrthoZ] = useState<number>()
   useEffect(() => {
     if (wantLevel === undefined) return
@@ -486,10 +486,11 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             ))}
             </g>
           )}
-          {contours && (
-            <g className="sm-contour">
-              <path d={contours.lines} strokeWidth={px} />
-              <path className="index" d={contours.index} strokeWidth={2 * px} />
+          {topo && (
+            <g className="sm-topo" clipPath={`url(#${nameId}-extent)`}>
+              {orthoTiles(view, frame, window.devicePixelRatio, orthoZ ?? wantLevel, 'B5000').map((tile) => (
+                <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.w} height={tile.h} preserveAspectRatio="none" />
+              ))}
             </g>
           )}
           {!hideAreas && map.areas.map((a) => (

@@ -253,15 +253,6 @@
 .sm-cliff .sm-cliff-casing {
   stroke: rgba(255, 255, 255, 0.85);
 }
-.sm-contour path {
-  fill: none;
-  stroke: #b08850;
-  stroke-opacity: 0.7;
-  stroke-linejoin: round;
-}
-.sm-ortho .sm-contour path {
-  stroke: #ffd590;
-}
 
 /* 各區域：填色、外框與名稱的顏色 */
 .sm-area-school-gate { fill: #f2b4c6; stroke: #d40441; }

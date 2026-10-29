@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { project } from '../src/map/mapData'
-import { ORTHO_DOWNLOAD_MB, orthoDownloadUrls } from '../src/map/ortho'
+import { ORTHO_DOWNLOAD_MB, orthoDownloadUrls, orthoTiles } from '../src/map/ortho'
 
 /** 離線下載的圖磚：areas.geojson 的 9 個區域（地圖座標） */
 const areas = (JSON.parse(readFileSync('public/rescue/areas.geojson', 'utf8')) as { features: { geometry: { coordinates: number[][][][] } }[] }).features.map((f) => ({
@@ -18,6 +18,25 @@ const tileOf = (lat: number, lng: number, z: number) => {
   return `${Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) * (n / 2))}/${Math.floor(((lng + 180) / 360) * n)}`
 }
 const has = (lat: number, lng: number, z: number) => urls.some((u) => u.endsWith(`/${z}/${tileOf(lat, lng, z)}`))
+
+describe('畫面上的圖磚', () => {
+  // 校門口一帶，每像素 0.5 公尺：清楚的層級是 z18
+  const view = { cx: project([25.11272, 121.92216])[0], cy: project([25.11272, 121.92216])[1], s: 0.5, r: 0 }
+  const frame = { w: 800, h: 600 }
+  const zooms = (tiles: { href: string }[]) => [...new Set(tiles.map((t) => zoomOf(t.href)))].sort((a, b) => a - b)
+
+  it('航照墊好幾層（換層級時不會整片空白）', () => {
+    const tiles = orthoTiles(view, frame, 1, 18)
+    expect(zooms(tiles)).toEqual([16, 18])
+    expect(tiles.every((t) => t.href.includes('/PHOTO2/'))).toBe(true)
+  })
+
+  it('地形圖（透明背景）只畫一層，不會疊出好幾條等高線', () => {
+    const tiles = orthoTiles(view, frame, 1, 18, 'B5000')
+    expect(zooms(tiles)).toEqual([18])
+    expect(tiles.every((t) => t.href.includes('/B5000/'))).toBe(true)
+  })
+})
 
 describe('離線航照下載的圖磚', () => {
   it('最清楚的層級（z19）只在 9 個區域與救援點附近：比整個移動範圍少很多', () => {

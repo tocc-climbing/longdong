@@ -4,7 +4,7 @@ import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 import { useWide } from '../layout'
-import { useContours, useScaleMap, withShapes } from '../map/mapData'
+import { useScaleMap, withShapes } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
 import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useWalls } from '../map/walls'
@@ -336,7 +336,6 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
   const { t } = useLang()
   const cloud = useCloud()
   const map = useScaleMap()
-  const contours = useContours()
   const shapes = useMapShapes()
   const { walls: legacyWalls } = useWalls()
   const m = useMapItem({ target, map: map.status === 'ok' ? map.data : undefined })
@@ -346,6 +345,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
   const overlay = useMemo(() => applyDrafts(shapes, drafts), [shapes, drafts])
   const shown = useMemo(() => (map.status === 'ok' ? withShapes(map.data, overlay) : undefined), [map, overlay])
   const [ortho, setOrtho] = useState(true)
+  const [topo, setTopo] = useState(true)
   const signedIn = cloud.status === 'signed-in'
   const canSubmit = signedIn && !submitting && changed.length > 0 && changed.every((x) => canSubmitDraft(x, drafts[x]))
   const submit = async () => {
@@ -363,7 +363,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
   const referenceWalls =
     sector && !isWall ? (overlay.walls[sector] ?? legacyWalls.filter((w) => w.sector === sector).map((w) => w.points)).map((points, i) => ({ key: `wall-${i}`, points })) : []
 
-  // 快捷鍵都是單一按鍵（Windows、Mac 一樣）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、Z 復原、Y 重做、S 提交、A 航照
+  // 快捷鍵都是單一按鍵（Windows、Mac 一樣）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、Z 復原、Y 重做、S 提交、A 航照、T 地形圖
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing(e) || m.locked) return
@@ -384,6 +384,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
       if (key === 'escape') return run(m.actions.cancel)
       if ((key === 'delete' || key === 'backspace') && !m.drawing) return run(m.actions.removeSelected)
       if (key === 'a') return run(() => setOrtho((o) => !o))
+      if (key === 't') return run(() => setTopo((o) => !o))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -454,6 +455,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
           )}
           <span className="edit-spacer" />
           {tool(ortho, t('map.ortho'), 'A', () => setOrtho(!ortho))}
+          {tool(topo, t('map.topo'), 'T', () => setTopo(!topo))}
           {submitting && <span className="edit-status">{t('shape.submitting')}</span>}
           <button type="button" className="edit-btn primary" disabled={!canSubmit} onClick={() => void submit()} title="S">
             {changed.length ? t('shape.saveAll', { n: changed.length }) : t('shape.save')}
@@ -466,7 +468,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
               areaNames={{}}
               marks={pins.map((p) => ({ at: p.at, picked: p.picked, label: String(Number(p.id) + 1), selected: p.id === pinOn }))}
               ortho={ortho}
-              contours={contours}
+              topo={topo}
               hideAreas={isLineTarget(target)}
               edit={m.edit}
               pick={m.pick}
