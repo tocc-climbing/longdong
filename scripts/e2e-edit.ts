@@ -387,6 +387,12 @@ try {
   const sectorLabel = await until(async () => ((await editor.page.locator('.sm-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
   check('地圖放大後，分區名稱標在岩壁上', sectorLabel === true)
 
+  // 分區頁的標題卡：和區域頁同一個樣式，右側是放大到這個分區岩壁的地圖
+  await editor.page.goto(base + `sector/${wallSector}`)
+  await editor.page.waitForSelector('.area-hero')
+  check('分區頁：標題卡有分區名稱', ((await editor.page.locator('.area-hero h1').textContent()) ?? '').includes(gateSectorName))
+  check('分區頁：地圖放大畫出這個分區的岩壁（粗線）', (await until(async () => ((await editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="5"]').count()) > 0 ? true : undefined), 5000)) === true)
+
   // ── 5. Topo 標記：復原、重做、移除最後一點、提交 ─────────────────────
   const photo = 'e2ephoto'
   await put(`v2/topos/${photo}`, { sector: topoSector.id, width: 2000, height: 1200, image: `topos/seed/${photo}.jpg`, uid: 'seed', createdAt: Date.now() })

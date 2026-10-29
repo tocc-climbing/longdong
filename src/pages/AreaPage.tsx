@@ -1,7 +1,7 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { LoadedData } from '../data/dataset'
-import type { Area, LocalizedName, Route, Sector } from '../data/schema'
-import { AreaShape } from '../components/AreaShape'
+import type { Area, Route, Sector } from '../data/schema'
+import { AreaShape, SectorShape } from '../components/AreaShape'
 import { GradeDistribution } from '../components/Charts'
 import { RouteList } from '../components/RouteList'
 import { CommunityText } from '../edit/CommunityText'
@@ -22,13 +22,11 @@ import { href } from '../router'
  */
 export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
   const { lang, t } = useLang()
-  const wide = useWide()
   const area = data.areaById.get(id)
   if (!area) return <NotFound />
   const routes = area.sectors.flatMap((s) => s.routes).filter((r) => !r.isFixture)
   const routeCount = routes.length
   const name = localName(area.name, lang)
-  const range = gradeRange(routes)
   const areaKey = area.id.slice(area.id.indexOf('/') + 1)
   const areaScope: ToolScope = {
     areaId: area.id,
@@ -45,31 +43,16 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
 
   return (
     <>
-      <div className="area-hero-wrap">
-        <PageTools scope={areaScope} />
-        <div className="area-hero" style={{ '--area-color': area.color ?? 'var(--brand)' } as CSSProperties}>
-          <div className="area-hero-text">
-            <p className="area-hero-crag">{localName(data.dataset.crag.name, lang).main}</p>
-            <h1>
-              {name.main}
-              {wide && name.sub && <span className="en">{name.sub}</span>}
-            </h1>
-            {sub}
-            {wide && (
-              <p className="area-hero-facts">
-                {[range, area.summary?.bolts && t('count.bolts', { n: area.summary.bolts }), typeSummary(routes, t)].filter(Boolean).join(' · ')}
-                <Alerts routes={routes} />
-              </p>
-            )}
-          </div>
-          {wide && (
-            <div className="area-hero-chart">
-              <GradeDistribution bands={gradeDistribution(routes)} />
-            </div>
-          )}
-          <AreaShape area={area} className="area-hero-shape" />
-        </div>
-      </div>
+      <PageHero
+        scope={areaScope}
+        color={area.color}
+        crag={localName(data.dataset.crag.name, lang).main}
+        name={name}
+        sub={sub}
+        routes={routes}
+        bolts={area.summary?.bolts}
+        shape={<AreaShape area={area} className="area-hero-shape" />}
+      />
 
       <CommunityText target={textTarget.area(areaKey)} title={t('text.areaTitle')} />
 
@@ -85,6 +68,63 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
         </ul>
       )}
     </>
+  )
+}
+
+/**
+ * 區域頁與分區頁共用的標題卡：區域（分區）的顏色淡淡上色，名稱在左，地圖在右；
+ * 電腦版畫面寬，多放英文名、難度範圍、Bolt 數、路線種類、需要注意的路線數與難度分佈。
+ */
+function PageHero({
+  scope,
+  color,
+  crag,
+  name,
+  sub,
+  routes,
+  bolts,
+  shape,
+  compact,
+}: {
+  scope: ToolScope
+  color?: string
+  crag: ReactNode
+  name: { main: string; sub?: string }
+  sub: ReactNode
+  routes: Route[]
+  bolts?: number
+  shape: ReactNode
+  /** 分區頁在電腦版只佔清單那一欄：不放難度分佈與詳細資訊 */
+  compact?: boolean
+}) {
+  const { t } = useLang()
+  const wide = useWide() && !compact
+  return (
+    <div className="area-hero-wrap">
+      <PageTools scope={scope} />
+      <div className={compact ? 'area-hero compact' : 'area-hero'} style={{ '--area-color': color ?? 'var(--brand)' } as CSSProperties}>
+        <div className="area-hero-text">
+          <p className="area-hero-crag">{crag}</p>
+          <h1>
+            {name.main}
+            {wide && name.sub && <span className="en">{name.sub}</span>}
+          </h1>
+          {sub}
+          {wide && (
+            <p className="area-hero-facts">
+              {[gradeRange(routes), bolts && t('count.bolts', { n: bolts }), typeSummary(routes, t)].filter(Boolean).join(' · ')}
+              <Alerts routes={routes} />
+            </p>
+          )}
+        </div>
+        {wide && (
+          <div className="area-hero-chart">
+            <GradeDistribution bands={gradeDistribution(routes)} />
+          </div>
+        )}
+        {shape}
+      </div>
+    </div>
   )
 }
 
@@ -132,21 +172,6 @@ function Alerts({ routes }: { routes: Route[] }) {
   )
 }
 
-/** 分區頁的標題：識別色圓點＋依語言排列的名稱，右側是修改記錄、編輯、救援圖示 */
-function Title({ name, color, scope }: { name: LocalizedName; color?: string; scope: ToolScope }) {
-  const { lang } = useLang()
-  const n = localName(name, lang)
-  return (
-    <div className="page-title">
-      <h1>
-        {color && <span className="color-dot" style={{ background: color }} aria-hidden />}
-        {n.main} {n.sub && <span className="en">{n.sub}</span>}
-      </h1>
-      <PageTools scope={scope} />
-    </div>
-  )
-}
-
 export function areaSectorColor(area: Area, sector: Sector): string | undefined {
   return sectorColor(area.color, area.sectors.indexOf(sector), area.sectors.length)
 }
@@ -157,15 +182,20 @@ export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
   const found = data.sectorById.get(id)
   if (!found) return <NotFound />
   const { sector, area } = found
+  const routes = sector.routes.filter((r) => !r.isFixture)
+  const color = areaSectorColor(area, sector)
+  const name = localName(sector.name, lang)
   return (
     <>
-      <nav className="crumbs">
-        <a href={href.area(area.id)}>{localName(area.name, lang).main}</a>
-      </nav>
-      <Title
-        name={sector.name}
-        color={areaSectorColor(area, sector)}
+      <PageHero
         scope={{ areaId: area.id, map: { target: wallTarget(sector.id), label: t('edit.sectorShapes') }, sectors: [sector], topoEdit: true }}
+        color={color}
+        crag={<a href={href.area(area.id)}>{localName(area.name, lang).main}</a>}
+        name={name}
+        sub={<p className="muted small page-sub">{t('count.routes', { n: routes.length })}</p>}
+        routes={routes}
+        shape={<SectorShape area={area} sector={sector} color={color} className="area-hero-shape" />}
+        compact
       />
       <SectorRoutes data={data} sector={sector} />
     </>

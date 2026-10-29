@@ -1,8 +1,8 @@
 import type { KeyboardEvent } from 'react'
 import type { LoadedData } from '../data/dataset'
-import type { Area } from '../data/schema'
+import type { Area, Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
-import { useScaleMap } from '../map/mapData'
+import { project, useScaleMap } from '../map/mapData'
 import { useHorizontalSwipe } from '../swipeGesture'
 
 /**
@@ -37,6 +37,33 @@ export function AreaShape({ area, className }: { area: Area; className?: string 
   return (
     <svg className={className} viewBox={`${b.x - pad} ${b.y - pad} ${b.w + 2 * pad} ${b.h + 2 * pad}`} aria-hidden>
       <path d={shape.path} fill={area.color ?? 'var(--brand)'} />
+    </svg>
+  )
+}
+
+/** 放大的範圍至少這麼寬（公尺）：很短的一段岩壁不會放大到只剩一條線 */
+const MIN_VIEW_M = 40
+
+/**
+ * 一個分區的地圖：放大到這個分區的岩壁（粗線，分區的顏色），底下是大區域的形狀，同一個大區域的其他分區岩壁淡淡畫出。
+ * 這個分區還沒有岩壁資料時，畫整個大區域的形狀。
+ */
+export function SectorShape({ area, sector, color, className }: { area: Area; sector: Sector; color?: string; className?: string }) {
+  const map = useScaleMap()
+  if (map.status !== 'ok') return <div className={className} aria-hidden />
+  const own = (map.data.walls[sector.id] ?? []).map((line) => line.map(project))
+  if (own.length === 0) return <AreaShape area={area} className={className} />
+  const b = bounds(own.flat())
+  const side = Math.max(b.w, b.h, MIN_VIEW_M) * 1.8
+  const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2]
+  const shape = map.data.areas.find((a) => a.id === areaKey(area))
+  const others = area.sectors.filter((s) => s.id !== sector.id).flatMap((s) => (map.data.walls[s.id] ?? []).map((line) => line.map(project)))
+  const line = (pts: [number, number][]) => `M${pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join('L')}`
+  return (
+    <svg className={className} viewBox={`${cx - side / 2} ${cy - side / 2} ${side} ${side}`} aria-hidden>
+      {shape && <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.28} />}
+      <path d={others.map(line).join('')} fill="none" stroke="var(--muted)" strokeOpacity={0.55} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <path d={own.map(line).join('')} fill="none" stroke={color ?? area.color ?? 'var(--brand)'} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }

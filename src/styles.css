@@ -4529,6 +4529,10 @@ main.map > div {
   background: var(--area-color);
 }
 
+.area-hero-crag a {
+  color: inherit;
+}
+
 .area-hero-crag {
   margin: 0;
   color: color-mix(in srgb, var(--area-color) 55%, var(--text));
@@ -5788,4 +5792,18 @@ button.key-row:disabled {
   text-decoration: none;
   -webkit-touch-callout: none;
   user-select: none;
+
+/* 分區頁的標題卡在電腦版只佔清單那一欄：和手機版一樣名稱在左、地圖在右 */
+[data-layout='wide'] .area-hero.compact {
+  grid-template-columns: minmax(0, 1fr) 42%;
+  gap: 8px;
+  padding: 18px 16px 18px 20px;
+}
+
+[data-layout='wide'] .area-hero.compact h1 {
+  font-size: 1.8rem;
+}
+
+[data-layout='wide'] .area-hero.compact .area-hero-shape {
+  height: 140px;
 }
