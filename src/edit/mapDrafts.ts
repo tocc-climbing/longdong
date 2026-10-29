@@ -91,18 +91,15 @@ export function discardDrafts(): void {
 /** 有改過（復原到原樣的草稿不算，不提交一模一樣的新版本） */
 export const isChanged = (d: Draft) => d.past.length > 0
 
-/** 可以提交嗎：分區範圍、岩壁可以全部刪掉（空）；大區域、步道、道路至少要有一塊 */
-export const canSubmitDraft = (target: EditTarget, d: Draft) => target.startsWith('sector:') || target.startsWith('wall:') || d.rings.length > 0
+/** 可以提交嗎：岩壁可以全部刪掉（空）；大區域、步道、道路至少要有一塊 */
+export const canSubmitDraft = (target: EditTarget, d: Draft) => target.startsWith('wall:') || d.rings.length > 0
 
 /** 把草稿套在資料庫讀到的形狀上（地圖上顯示的就是這個：沒提交的修改也看得到） */
 export function applyDrafts(shapes: MapShapes, drafts: DraftState['drafts']): MapShapes {
   const out: MapShapes = { ...shapes, areas: { ...shapes.areas }, walls: { ...shapes.walls }, lines: { ...shapes.lines } }
   for (const [target, { rings }] of Object.entries(drafts).filter(([, d]) => isChanged(d))) {
     if (target.startsWith('area:')) out.areas[target.slice('area:'.length)] = rings
-    else if (target.startsWith('sector:')) {
-      const sector = sectorOf(target)
-      out.sectors = [...out.sectors.filter((s) => s.sector !== sector), ...rings.map((ring, i) => ({ id: `${target}#draft${i}`, sector, ring }))]
-    } else if (target.startsWith('wall:')) out.walls[sectorOf(target)] = rings
+    else if (target.startsWith('wall:')) out.walls[sectorOf(target)] = rings
     else if (isLineTarget(target)) out.lines[target] = rings
   }
   return out

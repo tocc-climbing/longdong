@@ -41,8 +41,6 @@ export interface ScaleMapData {
   markers: Marker[]
   /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
   areas: AreaShape[]
-  /** 分區的範圍（使用者畫的，見 shapes.ts）：分區 ID 可能重複（一個分區多塊） */
-  sectors: (AreaShape & { sector: string })[]
   /** 步道、道路的線段（地圖座標，圖層 → 線段）：編輯時的起點；畫面用 layers */
   lineLayers: Record<LineLayer, [number, number][][]>
   /** 道路、步道的名稱：沿著 line 圖層裡離錨點最近的那條線排字（位置不固定，見 ScaleMap） */
@@ -78,7 +76,7 @@ function areaShape(id: string, rings: [number, number][][]): AreaShape {
   return { id, path, label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0), rings }
 }
 
-/** 套上使用者編輯的最新版本：大區域、步道取代自動產生的；加上分區的範圍 */
+/** 套上使用者編輯的最新版本：大區域、步道取代自動產生的 */
 export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData {
   const toRings = (rings: LatLng[][]) => rings.map((r) => r.map(project))
   const edited = (Object.entries(LINE_TARGETS) as [LineTarget, LineLayer][]).filter(([target]) => shapes.lines[target])
@@ -89,7 +87,6 @@ export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData 
     layers: edited.length ? { ...base.layers, ...Object.fromEntries(edited.map(([, layer]) => [layer, linePath(lineLayers[layer])])) } : base.layers,
     // 範圍全刪掉的區域（修改中還沒提交的草稿）不畫，不留下舊的形狀
     areas: base.areas.flatMap((a) => (shapes.areas[a.id] ? (shapes.areas[a.id].length ? [areaShape(a.id, toRings(shapes.areas[a.id]))] : []) : [a])),
-    sectors: shapes.sectors.map((s) => ({ ...areaShape(s.id, toRings([s.ring])), sector: s.sector })),
     lineLayers: edited.length ? lineLayers : base.lineLayers,
   }
 }
@@ -215,7 +212,6 @@ async function readScaleMap(): Promise<ScaleMapData> {
         rings,
       }
     }),
-    sectors: [],
     lineLayers: Object.fromEntries(
       Object.values(LINE_TARGETS).map((layer) => [layer, linesOf(layer)]),
     ) as Record<LineLayer, [number, number][][]>,

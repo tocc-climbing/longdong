@@ -4,7 +4,7 @@ import type { MapShapes } from '../src/map/shapes'
 
 const A: LatLng[] = [[25.1127, 121.9214], [25.1128, 121.9216], [25.1126, 121.9215]]
 const B: LatLng[] = [[25.11, 121.92], [25.111, 121.921], [25.112, 121.92]]
-const BASE: MapShapes = { areas: { 'school-gate': [A] }, sectors: [{ id: 'sector:longdong:s1#0', sector: 'longdong/s1', ring: A }], walls: {}, lines: {}, versions: {} }
+const BASE: MapShapes = { areas: { 'school-gate': [A] }, walls: { 'longdong/s1': [[A[0], A[1]]] }, lines: {}, versions: {} }
 
 // 提交要登入、寫資料庫：以假的 addMapEdit 與 REST 讀取代替，檢查的是「寫了什麼、讀回什麼、草稿剩什麼」
 const added: [string, string][] = []
@@ -39,10 +39,9 @@ afterEach(async () => {
 })
 
 describe('地圖草稿', () => {
-  it('套用：大區域、分區範圍、岩壁、步道各取代對應的形狀；沒改過的草稿不套', async () => {
+  it('套用：大區域、岩壁、步道各取代對應的形狀；沒改過的草稿不套', async () => {
     const { applyDrafts, changeDraft, undoDraft } = await drafts()
     changeDraft('area:school-gate', [A], () => [B])
-    changeDraft('sector:longdong:s1', [A], () => [B, B])
     changeDraft('wall:longdong:s1', [], () => [[B[0], B[1]]])
     changeDraft('trails', [], () => [[B[0], B[1]]])
     changeDraft('area:clocktower', [A], () => [B])
@@ -50,15 +49,14 @@ describe('地圖草稿', () => {
     const out = applyDrafts(BASE, getState(await drafts()).drafts)
     expect(out.areas['school-gate']).toEqual([B])
     expect(out.areas.clocktower).toBeUndefined()
-    expect(out.sectors.filter((s) => s.sector === 'longdong/s1').map((s) => s.ring)).toEqual([B, B])
     expect(out.walls['longdong/s1']).toEqual([[B[0], B[1]]])
     expect(out.lines.trails).toEqual([[B[0], B[1]]])
   })
 
-  it('刪光的形狀不會留下舊的：分區範圍的草稿是空的時，地圖上沒有這個分區的範圍', async () => {
+  it('刪光的形狀不會留下舊的：岩壁的草稿是空的時，地圖上沒有這個分區的岩壁', async () => {
     const { applyDrafts, changeDraft } = await drafts()
-    changeDraft('sector:longdong:s1', [A], () => [])
-    expect(applyDrafts(BASE, getState(await drafts()).drafts).sectors).toEqual([])
+    changeDraft('wall:longdong:s1', [[A[0], A[1]]], () => [])
+    expect(applyDrafts(BASE, getState(await drafts()).drafts).walls['longdong/s1']).toEqual([])
   })
 
   it('復原到原樣：不算有修改', async () => {
@@ -116,7 +114,7 @@ describe('地圖草稿', () => {
     changeDraft('area:school-gate', [A], () => [])
     const d = getState(await drafts()).drafts['area:school-gate']
     expect(canSubmitDraft('area:school-gate', d)).toBe(false)
-    expect(canSubmitDraft('sector:longdong:s1', d)).toBe(true)
+    expect(canSubmitDraft('wall:longdong:s1', d)).toBe(true)
   })
 })
 

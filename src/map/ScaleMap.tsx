@@ -267,11 +267,11 @@ interface Props {
   lines?: MapLine[]
   /** 點到折線時（不在點位置的模式） */
   onLineTap?: (key: string) => void
-  /** 分區 ID → 名稱：有傳才顯示分區範圍的標籤 */
-  sectorNames?: Record<string, string>
+  /** 分區名稱與位置（岩壁的中間，見 shapes.ts 的 wallLabelAt）：放大後顯示 */
+  sectorLabels?: { id: string; text: string; at: LatLng }[]
   /** 編輯多邊形（管理員） */
   edit?: MapEdit
-  /** 不畫大區域與分區範圍（編輯步道、道路時看得比較清楚） */
+  /** 不畫大區域（編輯步道、道路時看得比較清楚） */
   hideAreas?: boolean
   /** 底圖換成國土測繪中心的航照（區域只畫邊框） */
   ortho?: boolean
@@ -286,7 +286,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorNames, edit, hideAreas, ortho, topo }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorLabels: sectorPlaces, edit, hideAreas, ortho, topo }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -453,7 +453,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   const showCliffTicks = px <= CLIFF_TICK_MAX_M_PER_PX
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
   const sectorTexts =
-    sectorNames && view.s < SECTOR_LABEL_SCALE ? map.sectors.map((s) => ({ id: s.id, text: sectorNames[s.sector] ?? s.sector, at: screen(s.label) })) : []
+    sectorPlaces && view.s < SECTOR_LABEL_SCALE ? sectorPlaces.map((s) => ({ id: s.id, text: s.text, at: screen(project(s.at)) })) : []
   const { shown, labels, sectorLabels, nudged, occupied } = declutter(map.markers, hideAreas ? [] : map.areas, areaNames, hideAreas ? [] : sectorTexts, screen, lang, t('map.hazard'))
   emsAt.current = nudged
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
@@ -495,9 +495,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           )}
           {!hideAreas && map.areas.map((a) => (
             <path key={a.id} className={`sm-area sm-area-${a.id}${focus?.area && a.id !== focus.area ? ' sm-dim' : ''}`} d={a.path} strokeWidth={px} />
-          ))}
-          {!hideAreas && map.sectors.map((s) => (
-            <path key={s.id} className="sm-sector" d={s.path} />
           ))}
           {/* OpenStreetMap 的岩壁（唯讀）：刻線在低的一側，縮小到刻線擠在一起時只畫線；航照下墊一圈淺色外框，和岩石分得開 */}
           <g className="sm-cliff">

@@ -724,15 +724,7 @@
   padding: 0;
 }
 
-/* 分區的範圍（管理員畫的）：細虛線，放大後顯示名稱 */
-.sm-sector {
-  fill: none;
-  stroke: #3c4043;
-  stroke-width: 1.5px;
-  stroke-dasharray: 4 3;
-  vector-effect: non-scaling-stroke;
-}
-
+/* 分區名稱：放大後標在岩壁中間 */
 .sm-sector-label {
   fill: #3c4043;
   font-weight: 700;

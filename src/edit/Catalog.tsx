@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { localName, useLang, type Lang, type Translate } from '../i18n'
 import { areaNames } from '../map/mapData'
-import { sectorTarget, useMapShapes } from '../map/shapes'
+import { useMapShapes, wallTarget } from '../map/shapes'
 import { useWide } from '../layout'
 import { useCloud } from '../personal/sync'
 import { href, type EditKind } from '../router'
@@ -33,7 +33,7 @@ interface Group {
 const group = (key: string, label: string, items: EditItem[] = [], groups: Group[] = [], uploadSector?: string): Group => ({ key, label, items, groups, uploadSector })
 const allItems = (g: Group): EditItem[] => [...g.items, ...g.groups.flatMap(allItems)]
 
-/** 目錄：地圖（步道、大區域、分區範圍與岩壁；道路不開放修改）、Topo（各分區的照片）、說明（區域、路線） */
+/** 目錄：地圖（步道、大區域、分區的岩壁；道路不開放修改）、Topo（各分區的照片）、說明（區域、路線） */
 function buildCatalog(data: LoadedData, lang: Lang, t: Translate, edited: (kind: EditKind, id: string) => boolean, photos: { id: string; sector: string }[]): Group[] {
   const names = areaNames(data, lang)
   const areaKey = (id: string) => id.slice(id.indexOf('/') + 1)
@@ -48,7 +48,7 @@ function buildCatalog(data: LoadedData, lang: Lang, t: Translate, edited: (kind:
         'map-sectors',
         t('edit.sectorShapes'),
         [],
-        data.dataset.areas.map((a) => group(`map-sectors-${a.id}`, L(a.name), a.sectors.map((s) => item('map', sectorTarget(s.id), L(s.name), [mapLabel, L(a.name)])))),
+        data.dataset.areas.map((a) => group(`map-sectors-${a.id}`, L(a.name), a.sectors.map((s) => item('map', wallTarget(s.id), L(s.name), [mapLabel, L(a.name)])))),
       ),
     ]),
     group(
@@ -106,9 +106,7 @@ export function useCatalog(data: LoadedData): { groups: Group[]; items: EditItem
   useEffect(() => {
     void loadPhotos()
   }, [])
-  // 分區的項目包含範圍與岩壁，任一個有版本就算修改過
-  const mapEdited = (id: string) => !!shapes.versions[id]?.length || (id.startsWith('sector:') && !!shapes.versions[`wall:${id.slice('sector:'.length)}`]?.length)
-  const edited = (kind: EditKind, id: string) => (kind === 'map' ? mapEdited(id) : kind === 'text' ? !!texts[id]?.length : false)
+  const edited = (kind: EditKind, id: string) => (kind === 'map' ? !!shapes.versions[id]?.length : kind === 'text' ? !!texts[id]?.length : false)
   const groups = buildCatalog(data, lang, t, edited, Object.values(topo.photos ?? {}).sort((a, b) => a.createdAt - b.createdAt))
   return { groups, items: groups.flatMap(allItems) }
 }

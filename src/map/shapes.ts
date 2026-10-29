@@ -7,7 +7,6 @@ import { decodeLine, encodeLine, useWalls } from './walls'
  * 地圖編輯（所有登入者，版本同 Topo）：每次提交都是一個新版本（完整的形狀，不是差異），保留所有版本；
  * 每個對象顯示最新的版本，刪掉它就回到前一版；沒有任何版本時用自動產生的（scripts/gen-scale-map.ts）。
  *   /v2/mapEdits/area:<大區域>/<版本>        { uid, createdAt, rings }   大區域的形狀
- *   /v2/mapEdits/sector:<分區 key>/<版本>    { uid, createdAt, rings }   分區的範圍（可以多塊；空字串表示沒有範圍）
  *   /v2/mapEdits/wall:<分區 key>/<版本>      { uid, createdAt, lines }   分區的岩壁（沿著牆底的折線，可以多條；空字串表示沒有）
  *   /v2/mapEdits/<trails|highway|tunnel|road>/<版本>   { uid, createdAt, lines }   步道與攀岩者路徑、台二線、隧道、其他道路（各自整個路網）
  * 座標格式同岩壁標記（「緯度,經度」以空格分隔，小數 6 位）；多塊（多條）以「|」分隔。
@@ -19,7 +18,7 @@ export const LINE_TARGETS = { trails: 'trail', highway: 'highway', tunnel: 'tunn
 export type LineTarget = keyof typeof LINE_TARGETS
 export const isLineTarget = (target: string): target is LineTarget => target in LINE_TARGETS
 
-export type EditTarget = `area:${string}` | `sector:${string}` | `wall:${string}` | LineTarget
+export type EditTarget = `area:${string}` | `wall:${string}` | LineTarget
 /** 線段（不封閉）的對象：步道、道路、岩壁 */
 export const isOpenTarget = (target: string) => isLineTarget(target) || target.startsWith('wall:')
 
@@ -34,8 +33,6 @@ export interface MapEditVersion {
 export interface MapShapes {
   /** 大區域 key → 多塊多邊形（最新版本） */
   areas: Record<string, LatLng[][]>
-  /** 分區的範圍（最新版本，每塊一筆） */
-  sectors: { id: string; sector: string; ring: LatLng[] }[]
   /** 有版本的分區 → 岩壁（最新版本）；沒有版本的分區用舊的岩壁標記（map/walls.ts） */
   walls: Record<string, LatLng[][]>
   /** 步道、道路（最新版本）；沒有版本的不在裡面，用自動產生的 */
@@ -45,9 +42,8 @@ export interface MapShapes {
 }
 
 /** 分區 ID（longdong/xxx）↔ 資料庫的 key（longdong:xxx，key 不能有 /） */
-export const sectorTarget = (sectorId: string): EditTarget => `sector:${sectorId.replace('/', ':')}`
 export const wallTarget = (sectorId: string): EditTarget => `wall:${sectorId.replace('/', ':')}`
-/** sector:／wall: 對象 → 分區 ID */
+/** wall: 對象 → 分區 ID */
 export const sectorOf = (target: string) => target.slice(target.indexOf(':') + 1).replace(':', '/')
 
 export const encodeShapes = (shapes: LatLng[][]) => shapes.map(encodeLine).join('|')
@@ -68,16 +64,13 @@ export function decodeMapEdits(raw: Stored | null): MapShapes {
   const targets = Object.keys(versions)
   return {
     areas: Object.fromEntries(targets.filter((t) => t.startsWith('area:') && latest(t)?.length).map((t) => [t.slice('area:'.length), latest(t)!])),
-    sectors: targets
-      .filter((t) => t.startsWith('sector:'))
-      .flatMap((t) => (latest(t) ?? []).map((ring, i) => ({ id: `${t}#${i}`, sector: sectorOf(t), ring }))),
     lines: Object.fromEntries(targets.filter(isLineTarget).map((t) => [t, latest(t)!])),
     walls: Object.fromEntries(targets.filter((t) => t.startsWith('wall:') && latest(t)).map((t) => [sectorOf(t), latest(t)!])),
     versions,
   }
 }
 
-const EMPTY: MapShapes = { areas: {}, sectors: [], walls: {}, lines: {}, versions: {} }
+const EMPTY: MapShapes = { areas: {}, walls: {}, lines: {}, versions: {} }
 let state: MapShapes = EMPTY
 let loading: Promise<boolean> | undefined
 let requestSeq = 0
@@ -146,6 +139,26 @@ export function simplifyRing(ring: [number, number][], tolerance: number): [numb
   const first = simplifyLine(open.slice(0, far + 1), tolerance)
   const second = simplifyLine([...open.slice(far), open[0]], tolerance)
   return [...first.slice(0, -1), ...second.slice(0, -1)]
+}
+
+/** 兩點的距離（相對值：經度依緯度縮放，只用來比長短、找中點） */
+const span = ([lat1, lng1]: LatLng, [lat2, lng2]: LatLng) => Math.hypot(lat2 - lat1, (lng2 - lng1) * Math.cos((lat1 * Math.PI) / 180))
+
+/** 分區名稱在地圖上的位置：最長的一段岩壁沿線走到一半的那一點；沒有岩壁時沒有位置 */
+export function wallLabelAt(lines: LatLng[][]): LatLng | undefined {
+  const length = (l: LatLng[]) => l.slice(1).reduce((sum, p, i) => sum + span(l[i], p), 0)
+  const longest = lines.filter((l) => l.length > 0).reduce<LatLng[] | undefined>((best, l) => (!best || length(l) > length(best) ? l : best), undefined)
+  if (!longest) return undefined
+  let rest = length(longest) / 2
+  for (let i = 1; i < longest.length; i++) {
+    const d = span(longest[i - 1], longest[i])
+    if (d >= rest && d > 0) {
+      const t = rest / d
+      return [longest[i - 1][0] + (longest[i][0] - longest[i - 1][0]) * t, longest[i - 1][1] + (longest[i][1] - longest[i - 1][1]) * t]
+    }
+    rest -= d
+  }
+  return longest[0]
 }
 
 /** 地圖上的一段岩壁（分區目前的版本） */

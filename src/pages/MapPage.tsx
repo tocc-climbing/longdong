@@ -16,7 +16,7 @@ import { href, navigate } from '../router'
 import { areaNames, project, useScaleMap } from '../map/mapData'
 import { ORTHO_DOWNLOAD_MB, cachedOrthoCount, downloadOrtho, orthoDownloadUrls } from '../map/ortho'
 import { insideRing } from '../map/reportOptions'
-import { useSectorWalls } from '../map/shapes'
+import { useSectorWalls, wallLabelAt } from '../map/shapes'
 import { setSimulation, useSimulation } from '../simulate'
 import { displayName, useSocial } from '../social/store'
 import { ManualReportForm, WallDetails, sectorLabel } from './MapTools'
@@ -76,7 +76,11 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const { walls, error: wallsError } = useSectorWalls()
   const { profiles } = useSocial()
   const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
-  const sectorNames = Object.fromEntries([...data.sectorById].map(([id, { sector }]) => [id, localName(sector.name, lang).main]))
+  // 分區名稱標在岩壁中間（沒有岩壁的分區不標）
+  const sectorLabels = [...data.sectorById].flatMap(([id, { sector }]) => {
+    const at = wallLabelAt(walls.filter((w) => w.sector === id).map((w) => w.points))
+    return at ? [{ id, text: localName(sector.name, lang).main, at }] : []
+  })
 
   const names = areaNames(data, lang)
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
@@ -200,7 +204,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
             ...walls.map((w) => ({ key: w.key, points: w.points, label: sectorLabel(data, w.sector, lang), selected: w.key === selectedWall })),
           ]}
           onLineTap={setSelectedWall}
-          sectorNames={sectorNames}
+          sectorLabels={sectorLabels}
           onAreaPress={(key) => navigate(href.area(`${data.dataset.crag.id}/${key}`))}
           onLocate={() => {
             if (outside !== undefined) setToast(t('map.outside', { dist: distance(outside) }))

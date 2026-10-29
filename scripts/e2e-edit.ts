@@ -1,5 +1,5 @@
 /**
- * 端對端測試（編輯模式）：登入 → 回報 → 去識別副本 → 編輯區域範圍時看到該區的回報 → 地圖編輯（範圍、岩壁、刪除版本）→
+ * 端對端測試（編輯模式）：登入 → 回報 → 去識別副本 → 編輯區域範圍時看到該區的回報 → 地圖編輯（大區域範圍、分區岩壁、刪除版本）→
  * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁的所有輸入、搜尋、處理檢舉（電腦版、手機版）。
  * 用 Firebase 模擬器（firebase.e2e.json），不碰正式資料；模擬器載入真正的資料庫規則，一併驗證規則允許這些寫入。
  * 每一項檢查的是「資料庫裡真的有什麼」與「畫面上真的出現什麼」，不是程式內部狀態。
@@ -34,6 +34,7 @@ const topoSector = data.areas
 const topoRoutes = topoSector.routes.filter((r) => r.number).slice(0, 3)
 const gate = data.areas.find((a) => a.id.endsWith('/school-gate'))!
 const wallSector = gate.sectors[0].id
+const gateSectorName = (gate.sectors[0] as unknown as { name: { zh: string } }).name.zh
 /** 校門口範圍裡的一個位置（areas.geojson 的一塊的中間） */
 const AT = { lat: 25.11272, lng: 121.92216 }
 
@@ -258,7 +259,9 @@ try {
   // ── 4. 岩壁：分區的「岩壁」可以畫、提交 ──────────────────────────────
   await editor.page.goto(base + `edit/map/wall:${wallSector.replace('/', ':')}`)
   await editor.page.waitForSelector('.edit-canvas svg[role=img]')
-  check('網址是岩壁時，切到「岩壁」', (await editor.page.locator('.edit-toolbar [aria-pressed=true]', { hasText: '岩壁' }).count()) === 1)
+  check('分區只有岩壁：工具列沒有「範圍／岩壁」切換', (await editor.page.locator('.edit-toolbar button', { hasText: '範圍' }).count()) === 0)
+  const sectorLink = editor.page.locator('.edit-catalog a', { hasText: gateSectorName }).first()
+  check('目錄裡的分區連到岩壁的編輯', ((await sectorLink.getAttribute('href')) ?? '').endsWith(`edit/map/wall:${wallSector.replace('/', ':')}`), (await sectorLink.getAttribute('href')) ?? '')
   const cliffPaths = () => editor.page.locator('.sm-cliff path').evaluateAll((list) => list.map((p) => `${p.getAttribute('class') ?? ''}:${(p.getAttribute('d') ?? '').length}`))
   const topoTiles = () => editor.page.locator('.sm-topo image').evaluateAll((list) => list.map((i) => i.getAttribute('href') ?? ''))
   const topo = await topoTiles()
@@ -282,6 +285,17 @@ try {
     return v && Object.keys(v).length === 1 ? v : undefined
   })
   check('提交岩壁：資料庫有一版、一條三點的線', !!wall && Object.values(wall)[0].lines.split('|').length === 1 && Object.values(wall)[0].lines.split(' ').length === 3)
+  // 地圖頁：放大到校門口，分區名稱標在岩壁中間
+  await editor.page.goto(base + 'map')
+  const gateLabel = await editor.page.waitForSelector('.sm-label-school-gate', { timeout: 20000 })
+  const gateBox = (await gateLabel.boundingBox())!
+  await editor.page.mouse.move(gateBox.x + gateBox.width / 2, gateBox.y + gateBox.height / 2)
+  for (let i = 0; i < 8; i++) {
+    await editor.page.mouse.wheel(0, -300)
+    await editor.page.waitForTimeout(150)
+  }
+  const sectorLabel = await until(async () => ((await editor.page.locator('.sm-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
+  check('地圖放大後，分區名稱標在岩壁上', sectorLabel === true)
 
   // ── 5. Topo 標記：復原、重做、移除最後一點、提交 ─────────────────────
   const photo = 'e2ephoto'

@@ -74,7 +74,6 @@ export function useAdminModel(data: LoadedData, enabled: boolean, initialSection
       mapTarget: (target) => {
         const [kind, ...rest] = target.split(':')
         if (kind === 'area') return `${t('shape.areas')} · ${areas[rest.join(':')] ?? rest.join(':')}`
-        if (kind === 'sector') return `${t('edit.sectorShapes')} · ${sector(rest.join(':').replace(':', '/'))}`
         if (kind === 'wall') return `${t('admin.type.wall')} · ${sector(rest.join(':').replace(':', '/'))}`
         return target === 'trails' ? t('shape.trails') : target
       },

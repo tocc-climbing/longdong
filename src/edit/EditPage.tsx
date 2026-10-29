@@ -6,8 +6,7 @@ import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 import { useWide } from '../layout'
 import { useScaleMap, withShapes } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
-import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
-import { useWalls } from '../map/walls'
+import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useReportPins } from './useReportPins'
 import { useCloud, withCloud } from '../personal/sync'
 import { TOPO_ADD_PREFIX, href, navigate, type EditKind } from '../router'
@@ -41,7 +40,7 @@ function readLayout(): { catalog: boolean; panel: boolean } {
 }
 
 /**
- * 編輯模式（/edit/<種類>/<項目>）：地圖（步道、大區域、分區範圍與岩壁）、Topo、區域與路線說明，所有登入者都能修改，每次提交是一個新版本。
+ * 編輯模式（/edit/<種類>/<項目>）：地圖（步道、大區域、分區的岩壁）、Topo、區域與路線說明，所有登入者都能修改，每次提交是一個新版本。
  * 電腦版三欄：左側目錄、中間編輯、右側資訊（說明、修改紀錄、快捷鍵）；上方工具列。
  * 目錄與資訊面板可以收起，讓中間的編輯區最大（[、]）。
  * 手機版只能看目錄與修改說明；地圖與 Topo 提示用電腦開啟。每個項目有自己的網址，可以分享給岩友一起修改。
@@ -50,9 +49,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
   const { t } = useLang()
   const wide = useWide()
   const { items } = useCatalog(data)
-  // 分區的岩壁（/edit/map/wall:…）是分區項目的一部分：打開分區、切到岩壁
-  const wallPart = kind === 'map' && !!id?.startsWith('wall:')
-  const itemId = wallPart ? `sector:${id!.slice('wall:'.length)}` : id
+  const itemId = id
   const { lang } = useLang()
   const addSector = kind === 'topo' && itemId?.startsWith(TOPO_ADD_PREFIX) ? data.sectorById.get(itemId.slice(TOPO_ADD_PREFIX.length)) : undefined
   const addName = (n: { zh: string; en?: string }) => localName(n, lang).main
@@ -133,7 +130,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
       <p>{t('edit.desktopOnly')}</p>
     </section>
   ) : item.kind === 'map' ? (
-    <MapItemView key={item.id} item={item} {...props} initialPart={wallPart ? 'walls' : 'range'} />
+    <MapEditor key={item.id} item={item} {...props} target={item.id as EditTarget} />
   ) : addSector ? (
     <TopoAddView key={item.id} item={item} sectorId={addSector.sector.id} />
   ) : (
@@ -310,34 +307,12 @@ const typing = (e: KeyboardEvent) => {
   return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
 }
 
-/**
- * 地圖項目。分區有兩部分：範圍（多邊形）與岩壁（沿著牆底的折線），工具列左邊切換，各自有修改紀錄；
- * 改範圍時岩壁畫在地圖上當參考，改岩壁時範圍照常顯示。
- */
-function MapItemView({ initialPart, ...props }: ItemProps & { initialPart: 'range' | 'walls' }) {
-  const { t } = useLang()
-  const target = props.item.id as EditTarget
-  const [part, setPart] = useState(initialPart)
-  if (!target.startsWith('sector:')) return <MapEditor {...props} target={target} />
-  const parts = (
-    <div className="edit-segment">
-      {(['range', 'walls'] as const).map((p) => (
-        <button key={p} type="button" className={`edit-tool${part === p ? ' on' : ''}`} aria-pressed={part === p} onClick={() => setPart(p)}>
-          {t(p === 'range' ? 'edit.partRange' : 'edit.partWalls')}
-        </button>
-      ))}
-    </div>
-  )
-  return <MapEditor key={part} {...props} target={part === 'range' ? target : wallTarget(sectorOf(target))} parts={parts} />
-}
-
 /** 地圖的編輯畫面：工具列（選取、新增、刪除、復原、重做、航照、提交）、地圖、右側面板（說明、修改紀錄、快捷鍵） */
-function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target: EditTarget; parts?: ReactNode }) {
+function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTarget }) {
   const { t } = useLang()
   const cloud = useCloud()
   const map = useScaleMap()
   const shapes = useMapShapes()
-  const { walls: legacyWalls } = useWalls()
   const m = useMapItem({ target, map: map.status === 'ok' ? map.data : undefined })
   const { drafts, submitting, errors } = useDrafts()
   const changed = changedTargets(drafts)
@@ -355,13 +330,10 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
     else onToast(t('shape.submittedAll', { n: r.submitted }))
   }
   const isWall = target.startsWith('wall:')
-  const sector = target.startsWith('sector:') || isWall ? sectorOf(target) : undefined
+  const sector = isWall ? sectorOf(target) : undefined
   // 範圍、岩壁（不含步道）：這個區域的回報位置與說明畫在地圖上當參考（不顯示是誰、什麼時候）
   const pins = useReportPins(m.closed || isWall ? { target, data, map: map.status === 'ok' ? map.data : undefined } : undefined)
   const [pinOn, setPinOn] = useState<string>()
-  /** 改分區範圍時，這個分區的岩壁畫在地圖上當參考 */
-  const referenceWalls =
-    sector && !isWall ? (overlay.walls[sector] ?? legacyWalls.filter((w) => w.sector === sector).map((w) => w.points)).map((points, i) => ({ key: `wall-${i}`, points })) : []
 
   // 快捷鍵都是單一按鍵（Windows、Mac 一樣）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、Z 復原、Y 重做、S 提交、A 航照、T 地形圖
   useEffect(() => {
@@ -390,16 +362,13 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // 打開時放大到這個項目；分區還沒有範圍（岩壁）時放大到分區範圍或所在的大區域；步道看整個地圖
+  // 打開時放大到這個項目；分區還沒有岩壁時放大到所在的大區域；步道看整個地圖
   const focusArea = sector ? data.sectorById.get(sector)?.area.id.split('/').pop() : undefined
-  const sectorRings = sector ? overlay.sectors.filter((s) => s.sector === sector).flatMap((s) => s.ring) : []
   const focus =
     m.ready && !isLineTarget(target)
       ? m.rings.length
         ? { key: target, coords: m.rings.flat() }
-        : sectorRings.length
-          ? { key: target, coords: sectorRings }
-          : focusArea && { key: target, area: focusArea }
+        : focusArea && { key: target, area: focusArea }
       : undefined
 
   const deleteVersion = async (version: string) => {
@@ -434,7 +403,6 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
     <>
       <section className="edit-center">
         <div className="edit-toolbar">
-          {parts}
           <div className="edit-segment">
             {tool(!m.drawing, t('edit.select'), 'V', m.actions.cancel)}
             {tool(!!m.drawing, addLabel, 'N', m.actions.draw)}
@@ -472,7 +440,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
               hideAreas={isLineTarget(target)}
               edit={m.edit}
               pick={m.pick}
-              lines={[...referenceWalls, ...(m.draftLine ? [m.draftLine] : [])]}
+              lines={m.draftLine ? [m.draftLine] : []}
               focus={focus || undefined}
             />
           ) : (

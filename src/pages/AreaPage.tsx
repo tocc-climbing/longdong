@@ -7,7 +7,7 @@ import { RouteList } from '../components/RouteList'
 import { CommunityText } from '../edit/CommunityText'
 import { PageTools, type ToolScope } from '../edit/PageTools'
 import { textTarget } from '../edit/textEdits'
-import { sectorTarget } from '../map/shapes'
+import { wallTarget } from '../map/shapes'
 import { SectorTopos } from '../topo/TopoSection'
 import { gradeDistribution, sectorColor, typeSummary } from '../format'
 import { localName, useLang } from '../i18n'
@@ -165,7 +165,7 @@ export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
       <Title
         name={sector.name}
         color={areaSectorColor(area, sector)}
-        scope={{ areaId: area.id, map: { target: sectorTarget(sector.id), label: t('edit.sectorShapes') }, sectors: [sector], topoEdit: true }}
+        scope={{ areaId: area.id, map: { target: wallTarget(sector.id), label: t('edit.sectorShapes') }, sectors: [sector], topoEdit: true }}
       />
       <SectorRoutes data={data} sector={sector} />
     </>

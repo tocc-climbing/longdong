@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { withShapes, type ScaleMapData } from '../src/map/mapData'
-import { decodeMapEdits, encodeShapes, isOpenTarget, sectorOf, sectorTarget, simplifyRing, wallTarget } from '../src/map/shapes'
+import { decodeMapEdits, encodeShapes, isOpenTarget, sectorOf, simplifyRing, wallLabelAt, wallTarget } from '../src/map/shapes'
 
 const RING: [number, number][] = [
   [25.11272, 121.92145],
@@ -25,24 +25,13 @@ describe('地圖編輯的版本', () => {
     expect(shapes.versions['area:school-gate'].map((v) => v.uid)).toEqual(['alice', 'bob'])
   })
 
-  it('分區：最新版本的每一塊各一筆；最新版本是空的表示沒有範圍', () => {
-    const target = sectorTarget('longdong/school-gate-a1151r')
-    expect(target).toBe('sector:longdong:school-gate-a1151r')
-    const two = decodeMapEdits({ [target]: { a: { uid: 'a', createdAt: 1, rings: encodeShapes([RING, OTHER]) } } })
-    expect(two.sectors.map((s) => s.sector)).toEqual(['longdong/school-gate-a1151r', 'longdong/school-gate-a1151r'])
-    const cleared = decodeMapEdits({ [target]: { a: { uid: 'a', createdAt: 1, rings: encodeShapes([RING]) }, b: { uid: 'b', createdAt: 2, rings: '' } } })
-    expect(cleared.sectors).toEqual([])
-  })
-
-  it('岩壁：分區的最新版本（線段，可以清空）；和分區範圍是不同的對象', () => {
+  it('岩壁：分區的最新版本（線段，可以清空）', () => {
     const target = wallTarget('longdong/school-gate-a1151r')
     expect(target).toBe('wall:longdong:school-gate-a1151r')
     expect(sectorOf(target)).toBe('longdong/school-gate-a1151r')
     expect(isOpenTarget(target)).toBe(true)
-    expect(isOpenTarget(sectorTarget('longdong/school-gate-a1151r'))).toBe(false)
     const shapes = decodeMapEdits({ [target]: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([RING.slice(0, 2), OTHER.slice(0, 2)]) } } })
     expect(shapes.walls['longdong/school-gate-a1151r']).toEqual([RING.slice(0, 2), OTHER.slice(0, 2)])
-    expect(shapes.sectors).toEqual([])
     const cleared = decodeMapEdits({ [target]: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([RING.slice(0, 2)]) }, b: { uid: 'b', createdAt: 2, lines: '' } } })
     expect(cleared.walls['longdong/school-gate-a1151r']).toEqual([])
   })
@@ -59,6 +48,22 @@ describe('地圖編輯的版本', () => {
   })
 })
 
+describe('分區名稱的位置', () => {
+  it('最長的一段岩壁沿線走到一半的那一點（不是端點的平均）', () => {
+    // L 形：往東 0.002 度、再往北 0.0002 度；一半在第一段上
+    const wall: [number, number][] = [[25.11, 121.92], [25.11, 121.922], [25.1102, 121.922]]
+    const short: [number, number][] = [[25.1, 121.9], [25.1, 121.9001]]
+    const [lat, lng] = wallLabelAt([short, wall])!
+    expect(lat).toBeCloseTo(25.11, 9)
+    expect(lng).toBeGreaterThan(121.9205)
+    expect(lng).toBeLessThan(121.9215)
+  })
+
+  it('沒有岩壁時沒有位置', () => {
+    expect(wallLabelAt([])).toBeUndefined()
+  })
+})
+
 describe('簡化自動產生的形狀', () => {
   it('邊上多餘的點去掉，轉角留下（封閉多邊形不重複終點）', () => {
     // 10×10 公尺的正方形，每邊中間多一個點，最後重複起點
@@ -72,20 +77,17 @@ describe('套上編輯的最新版本', () => {
     layers: { trail: 'M0 0L1 1', road: 'M0 0L2 2' },
     markers: [],
     areas: [{ id: 'school-gate', path: 'M0 0Z', label: [0, 0], size: 1, rings: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, { id: 'clocktower', path: 'M0 0Z', label: [0, 0], size: 1, rings: [] }],
-    sectors: [],
     lineLayers: { trail: [[[0, 0], [1, 1]]], highway: [], tunnel: [], road: [[[0, 0], [2, 2]]] },
     names: [],
   }
 
-  it('有版本的大區域、步道換成新的，沒有的（其他道路）不變；加上分區範圍', () => {
+  it('有版本的大區域、步道換成新的，沒有的（其他道路）不變', () => {
     const out = withShapes(base, decodeMapEdits({
       'area:school-gate': { a: { uid: 'a', createdAt: 1, rings: encodeShapes([RING]) } },
-      [sectorTarget('longdong/x')]: { a: { uid: 'a', createdAt: 1, rings: encodeShapes([RING]) } },
       trails: { a: { uid: 'a', createdAt: 1, lines: encodeShapes([RING]) } },
     }))
     expect(out.areas[0].rings[0]).toHaveLength(3)
     expect(out.areas[1]).toBe(base.areas[1])
-    expect(out.sectors.map((s) => s.sector)).toEqual(['longdong/x'])
     expect(out.lineLayers.trail[0]).toHaveLength(3)
     expect(out.layers.trail).not.toBe(base.layers.trail)
     expect(out.layers.road).toBe(base.layers.road)
