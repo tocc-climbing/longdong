@@ -37,7 +37,8 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
     name: '路線（分享選單）',
     path: '/route/longdong/u4r3sk',
     prepare: async (page) => {
-      await page.click('.share-button')
+      await page.click('article.route .page-tools button[aria-haspopup=menu]')
+      await page.click('article.route .page-tools [role=menuitem][aria-expanded]')
     },
   },
   { name: '搜尋', path: '/search?q=5.10' },
