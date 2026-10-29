@@ -19,6 +19,19 @@ export function useWide(): boolean {
   )
 }
 
+const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)') : null
+
+/** 主要的指標是手指：點、把手要比滑鼠的大 */
+export function useCoarse(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      coarse?.addEventListener('change', cb)
+      return () => coarse?.removeEventListener('change', cb)
+    },
+    () => !!coarse?.matches,
+  )
+}
+
 // <html data-layout="mobile|wide">：手機版的視覺（styles.css 的「手機版」一節）只套用在手機版，電腦版不受影響。
 // 在載入時就設定（畫面出現前），之後跟著視窗寬度更新
 if (typeof document !== 'undefined') {

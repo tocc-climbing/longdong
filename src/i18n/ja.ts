@@ -178,7 +178,7 @@ export const ja: Messages = {
   'edit.shareTitle': '龍洞を一緒に編集：{item}',
   'edit.shareSite': '龍洞、あなたの編集を待っています：クライミングデータベース',
   'edit.linkCopied': 'リンクをコピーしました',
-  'edit.desktopOnly': '地図と Topo はパソコンでこのリンクを開いて編集してください。',
+  'edit.desktopOnly': '地図はパソコンでこのリンクを開いて編集してください。',
   'edit.welcome': '龍洞、あなたの*編集*を待っています',
   'edit.welcomeTags': '地図 · Topo · 説明 · すべての版を保存',
   'edit.latest': '最新の更新',
@@ -661,7 +661,6 @@ export const ja: Messages = {
   'topo.empty': 'まだルートが記入されていません',
   'topo.edit': '編集',
   'topo.editTitle': 'トポを編集',
-  'topo.desktopOnly': '編集はパソコンでこのページを開いてください。',
   'topo.signIn': 'ログインするとトポを編集できます',
   'topo.toolbar': 'マーク用ツール',
   'topo.tools': 'ツール',
@@ -706,5 +705,6 @@ export const ja: Messages = {
   'topo.noHistory': 'まだ記入がありません',
   'topo.current': '現在の版',
   'topo.delete': '削除',
+  'topo.deletePoint': 'ポイントを削除',
   'topo.deletePhoto': '写真を削除',
 }

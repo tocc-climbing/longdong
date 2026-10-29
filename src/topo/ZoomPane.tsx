@@ -17,6 +17,7 @@ const CLICK_GUARD_MS = 80
  * 左鍵平常留給標記；平移（或拖曳超過幾個像素）結束放開時，不會當作點了一下而多出一個點。
  * children 收到目前倍率，點、線、把手依此反向調整，放大後仍維持相同的螢幕大小；
  * 位置換算用 getBoundingClientRect，已經包含縮放與平移。
+ * 手指（編輯）：單指點一下標記；放大後單指在空白處拖曳平移，雙指捏合縮放、同時平移（照片上的把手自己要能拖）。
  * 觀看用（viewing）：照片上沒有要標記的東西，放大後直接按住左鍵拖曳平移（沒拖動就是點路線）；
  * 頁面要能捲動，所以滾輪要按住 Ctrl（⌘、觸控板的雙指縮放）才縮放，+／-／0 只在游標停在照片上時有效。
  */
@@ -36,6 +37,10 @@ export function ZoomPane({ children, viewing }: { children: (zoom: number) => Re
   const longTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [long, setLong] = useState(false)
   const armed = useRef(false)
+  /** 按在點、把手、裁切框上：手指拖曳是移動它們，不是平移 */
+  const onHandle = useRef(false)
+  /** 螢幕上的手指（只在編輯時追蹤）；兩根以上就是捏合 */
+  const touches = useRef(new Map<number, Pt>())
 
   useLayoutEffect(() => {
     const el = box.current!
@@ -103,6 +108,21 @@ export function ZoomPane({ children, viewing }: { children: (zoom: number) => Re
   const startPan = (e: ReactPointerEvent) => {
     // 控制按鈕自己要能按（包括關掉「移動」）
     if ((e.target as Element).closest('.topo-zoom-controls')) return
+    onHandle.current = !!(e.target as Element).closest('.topo-handles, .topo-fork, .topo-crop')
+    if (e.pointerType === 'touch' && !viewing) {
+      touches.current.set(e.pointerId, rel(e))
+      if (touches.current.size >= 2) {
+        // 第二根手指放下：改成捏合。正在拖的把手、長按的計時都取消，放開時不當作點了一下
+        e.stopPropagation()
+        clearTimeout(longTimer.current)
+        press.current = null
+        pan.current = null
+        armed.current = false
+        dragged.current = true
+        for (const id of touches.current.keys()) box.current!.setPointerCapture(id)
+        return
+      }
+    }
     if (e.button === 0) {
       press.current = rel(e)
       dragged.current = false
@@ -125,6 +145,18 @@ export function ZoomPane({ children, viewing }: { children: (zoom: number) => Re
     startPanAt(e)
   }
   const movePan = (e: ReactPointerEvent) => {
+    const finger = touches.current.get(e.pointerId)
+    if (finger && touches.current.size >= 2) {
+      const now = rel(e)
+      const other = [...touches.current.entries()].find(([id]) => id !== e.pointerId)![1]
+      touches.current.set(e.pointerId, now)
+      const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y)
+      const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+      const ratio = dist(now, other) / (dist(finger, other) || 1)
+      setView((v) => moveView(v, mid(finger, other), mid(now, other), ratio, stage, stage))
+      return
+    }
+    if (finger) touches.current.set(e.pointerId, rel(e))
     if (press.current && !pan.current) {
       const far = Math.hypot(rel(e).x - press.current.x, rel(e).y - press.current.y) > DRAG_PX
       if (far && !armed.current) {
@@ -132,7 +164,8 @@ export function ZoomPane({ children, viewing }: { children: (zoom: number) => Re
         clearTimeout(longTimer.current)
         dragged.current = true
       }
-      if (viewing ? far && view.scale > 1 : armed.current) startPanAt(e)
+      const fingerPan = e.pointerType === 'touch' && far && view.scale > 1 && !onHandle.current
+      if (viewing ? far && view.scale > 1 : armed.current || fingerPan) startPanAt(e)
     }
     const from = pan.current
     if (!from) return
@@ -140,7 +173,8 @@ export function ZoomPane({ children, viewing }: { children: (zoom: number) => Re
     pan.current = to
     setView((v) => moveView(v, from, to, 1, stage, stage))
   }
-  const endPan = () => {
+  const endPan = (e: ReactPointerEvent) => {
+    touches.current.delete(e.pointerId)
     pan.current = null
     press.current = null
     clearTimeout(longTimer.current)
@@ -161,7 +195,7 @@ export function ZoomPane({ children, viewing }: { children: (zoom: number) => Re
   return (
     <div
       ref={box}
-      className={`topo-zoom${space || hand || long ? ' panning' : ''}${viewing && view.scale > 1 ? ' draggable' : ''}`}
+      className={`topo-zoom${space || hand || long ? ' panning' : ''}${viewing && view.scale > 1 ? ' draggable' : ''}${viewing ? '' : ' pinchable'}`}
       onPointerDownCapture={startPan}
       onClickCapture={stopClick}
       onPointerEnter={() => (hover.current = true)}

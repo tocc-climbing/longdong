@@ -174,7 +174,7 @@ export const en: Messages = {
   'edit.shareTitle': 'Help improve Long Dong: {item}',
   'edit.shareSite': 'Long Dong is waiting for your edits: the climbing database',
   'edit.linkCopied': 'Link copied',
-  'edit.desktopOnly': 'Open this link on a computer to edit the map and topos.',
+  'edit.desktopOnly': 'Open this link on a computer to edit the map.',
   'edit.welcome': 'Long Dong is waiting for your *edits*',
   'edit.welcomeTags': 'Map · Topo · Descriptions · every version kept',
   'edit.latest': 'Latest updates',
@@ -658,7 +658,6 @@ export const en: Messages = {
   'topo.empty': 'No routes marked yet',
   'topo.edit': 'Edit',
   'topo.editTitle': 'Edit topo',
-  'topo.desktopOnly': 'Open this page on a computer to edit.',
   'topo.signIn': 'Sign in to edit topos',
   'topo.toolbar': 'Marking tools',
   'topo.tools': 'Tools',
@@ -703,5 +702,6 @@ export const en: Messages = {
   'topo.noHistory': 'Not marked yet',
   'topo.current': 'current',
   'topo.delete': 'Delete',
+  'topo.deletePoint': 'Delete point',
   'topo.deletePhoto': 'Delete photo',
 }

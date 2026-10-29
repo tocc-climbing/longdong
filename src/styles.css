@@ -5709,3 +5709,40 @@ button.key-row:disabled {
 .community-text h2 {
   margin-bottom: 4px;
 }
+
+/* ---------- 編輯：手指（src/topo/ZoomPane.tsx） ---------- */
+
+/* 單指、雙指的手勢由 ZoomPane 處理：瀏覽器不要拿去捲動頁面、縮放，長按也不要出現選取、選單 */
+.topo-zoom.pinchable {
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.topo-handles circle.picked,
+.topo-handles rect.bolt.picked {
+  fill: var(--brand);
+  stroke: #fff;
+}
+
+.topo-handles rect.bolt.picked {
+  fill: rgba(255, 90, 54, 0.35);
+  stroke: #ff5a36;
+}
+
+@media (hover: none) {
+  /* 沒有鍵盤、滑鼠：快捷鍵提示、右鍵說明用不到；按鈕要夠大，手指才按得到 */
+  .topo-tool kbd,
+  .topo-edit-side .edit-keys {
+    display: none;
+  }
+
+  .topo-tool,
+  .topo-zoom-controls button {
+    min-height: 44px;
+  }
+
+  .topo-zoom-controls button {
+    min-width: 44px;
+  }
+}

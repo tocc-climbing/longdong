@@ -7,7 +7,7 @@ import type { LoadedData } from '../data/dataset'
 import type { Route } from '../data/schema'
 import { relativeTime } from '../format'
 import { localName, useLang } from '../i18n'
-import { useWide } from '../layout'
+import { useCoarse } from '../layout'
 import { NotFound } from '../pages/AreaPage'
 import { useCloud } from '../personal/sync'
 import { href, navigate } from '../router'
@@ -24,12 +24,11 @@ import { px, routeInfo, TopoFrame, TopoLines } from './TopoView'
 import { ZoomPane } from './ZoomPane'
 
 /**
- * Topo 編輯（電腦版）：左邊是照片，右邊選路線，在照片上標記線段（由起攀點往上）與 bolt。
+ * Topo 編輯（電腦、手機）：照片上標記線段（由起攀點往上）與 bolt，另外選路線；手機的單指、雙指手勢在 ZoomPane。
  * 修改先存在這台裝置的草稿，按「提交」才上傳成新的版本；所有版本都保留，可以預覽、從舊版本繼續修改。
  */
 export function TopoEditor({ data, id, embedded, side }: { data: LoadedData; id: string; embedded?: boolean; side: HTMLElement | null }) {
   const { lang, t } = useLang()
-  const wide = useWide()
   const cloud = useCloud()
   const state = useTopoState()
   useEffect(() => {
@@ -56,9 +55,7 @@ export function TopoEditor({ data, id, embedded, side }: { data: LoadedData; id:
           <h1>{t('topo.editTitle')}</h1>
         </>
       )}
-      {!wide ? (
-        <p className="muted">{t('topo.desktopOnly')}</p>
-      ) : cloud.status !== 'signed-in' ? (
+      {cloud.status !== 'signed-in' ? (
         cloud.status !== 'loading' && <SignInPrompt message={t('topo.signIn')} />
       ) : (
         <Editor photo={photo} edits={edits} routes={sector.routes} labels={routeLabels(sector)} uid={cloud.user!.uid} side={side} />
@@ -131,6 +128,7 @@ function Editor({
 }) {
   const { lang, t } = useLang()
   const isAdmin = useIsAdmin()
+  const coarse = useCoarse()
   const profiles = useSocial().profiles
   const info = useMemo(() => routeInfo(routes, (r) => localName(r.name, lang).main), [routes, lang])
   const latest = edits.at(-1)
@@ -140,6 +138,8 @@ function Editor({
   const [mode, setMode] = useState<Mode>('line')
   const [boltPos, setBoltPos] = useState<string>()
   const [forking, setForking] = useState(false)
+  /** 按住的點或 bolt：手指沒有右鍵，用工具列的「刪除這個點」刪除 */
+  const [picked, setPicked] = useState<NonNullable<typeof dragging.current>>()
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
@@ -218,6 +218,7 @@ function Editor({
     setSelected(id)
     setBoltPos(undefined)
     setForking(false)
+    setPicked(undefined)
   }
   /** 修改選取的路線；第一次修改時以最新版本為基礎建立草稿 */
   const edit = (change: (m: RouteMarks) => RouteMarks) => {
@@ -265,6 +266,8 @@ function Editor({
       } else if (key === 'y') {
         e.preventDefault()
         redoOnce()
+      } else if (key === 'delete') {
+        removePicked()
       } else if (key === 'escape') {
         setForking(false)
       } else if (key === 'enter' && mode === 'crop' && !el.closest('button, a')) {
@@ -293,6 +296,7 @@ function Editor({
   const onPhotoClick = (e: ReactMouseEvent<SVGSVGElement>) => {
     if (preview || mode === 'crop' || isForking || !selected || dragging.current) return
     const p = pointAt(e, e.currentTarget)
+    setPicked(undefined)
     if (mode === 'line') editMarks((all) => addLinePoint(all, selected, p, photo.width / photo.height))
     else if (placing) {
       edit((m) => ({ ...m, bolts: { ...m.bolts, [placing]: p } }))
@@ -307,6 +311,7 @@ function Editor({
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     dragging.current = target
+    setPicked(target)
     edit((m) => m)
   }
   const onDrag = (e: ReactPointerEvent<SVGElement>) => {
@@ -327,6 +332,19 @@ function Editor({
   const endDrag = () => {
     // click 事件在 pointerup 之後才觸發：等它過去再清除，拖曳結束時不會多加一點
     setTimeout(() => (dragging.current = null))
+  }
+
+  const pickedLive = !preview && mode !== 'crop' && picked && (picked.kind === 'line' ? !!current.line?.[picked.index] : !!current.bolts?.[picked.pos]) ? picked : undefined
+  const removePicked = () => {
+    const target = pickedLive
+    if (!target) return
+    setPicked(undefined)
+    edit((m) => {
+      if (target.kind === 'line') return { ...m, line: m.line!.filter((_, j) => j !== target.index) }
+      const bolts = { ...m.bolts }
+      delete bolts[target.pos]
+      return { ...m, bolts }
+    })
   }
 
   const submit = async () => {
@@ -409,14 +427,15 @@ function Editor({
           return (
             <circle
               key={`l${i}`}
-              className={i === 0 ? 'start' : undefined}
+              className={[i === 0 && 'start', pickedLive?.kind === 'line' && pickedLive.index === i && 'picked'].filter(Boolean).join(' ') || undefined}
               cx={x}
               cy={y}
-              r={6 * k}
+              r={(coarse ? 13 : 6) * k}
               strokeWidth={2 * k}
               onPointerDown={(e) => startDrag(e, { kind: 'line', index: i, at: p })}
               onPointerMove={onDrag}
               onPointerUp={endDrag}
+              onLostPointerCapture={endDrag}
               onClick={(e) => e.stopPropagation()}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -430,16 +449,17 @@ function Editor({
           return (
             <rect
               key={pos}
-              className="bolt"
+              className={pickedLive?.kind === 'bolt' && pickedLive.pos === pos ? 'bolt picked' : 'bolt'}
               x={x - 32 * k}
-              y={y - 14 * k}
+              y={y - (coarse ? 22 : 14) * k}
               width={64 * k}
-              height={28 * k}
-              rx={14 * k}
+              height={(coarse ? 44 : 28) * k}
+              rx={(coarse ? 22 : 14) * k}
               strokeWidth={2 * k}
               onPointerDown={(e) => startDrag(e, { kind: 'bolt', pos })}
               onPointerMove={onDrag}
               onPointerUp={endDrag}
+              onLostPointerCapture={endDrag}
               onClick={(e) => e.stopPropagation()}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -513,6 +533,7 @@ function Editor({
               </span>
             )}
           </div>
+          {tool(t('topo.deletePoint'), 'Delete', removePicked, { disabled: !pickedLive })}
           {tool(t('topo.clearRoute'), undefined, () => edit(() => ({})), { disabled: !route || !marks[route.id] })}
           <span className="edit-spacer" />
           <span className={needRoute ? 'edit-status warn-text' : 'edit-status'} role="status">
@@ -525,9 +546,11 @@ function Editor({
         </div>
       )}
       <div className="topo-edit-photo" style={{ '--fit-aspect': fitAspect } as CSSProperties}>
+        {'requestFullscreen' in document.documentElement && (
         <button type="button" className="topo-full-btn" aria-pressed={full} aria-label={t('topo.fullscreen')} title={t('topo.fullscreen')} onClick={toggleFull}>
           <Icon d={full ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'} />
         </button>
+        )}
         <ZoomPane>
           {(zoom) => (
             <TopoFrame

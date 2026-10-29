@@ -44,7 +44,7 @@ function readLayout(): { catalog: boolean; panel: boolean } {
  * 編輯模式（/edit/<種類>/<項目>）：地圖（步道、大區域、分區的岩壁）、Topo、區域與路線說明，所有登入者都能修改，每次提交是一個新版本。
  * 電腦版三欄：左側目錄、中間編輯、右側資訊（說明、修改紀錄、快捷鍵）；上方工具列。
  * 目錄與資訊面板可以收起，讓中間的編輯區最大（[、]）。
- * 手機版只能看目錄與修改說明；地圖與 Topo 提示用電腦開啟。每個項目有自己的網址，可以分享給岩友一起修改。
+ * 手機版一欄：目錄、文字說明與 Topo 都能編輯（Topo 用手指標記）；地圖提示用電腦開啟。每個項目有自己的網址，可以分享給岩友一起修改。
  */
 export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind; id?: string }) {
   const { t } = useLang()
@@ -126,7 +126,7 @@ export function EditPage({ data, kind, id }: { data: LoadedData; kind?: EditKind
     <Welcome data={data} items={items} />
   ) : item.kind === 'text' ? (
     <TextItemView key={item.id} item={item} {...props} />
-  ) : !wide ? (
+  ) : !wide && item.kind === 'map' ? (
     <section className="edit-center edit-message">
       <p>{t('edit.desktopOnly')}</p>
     </section>

@@ -7,7 +7,7 @@
  *   npm run test:e2e        （先跑 scripts/e2e-report.ts，再跑這個）
  */
 import { readFileSync } from 'node:fs'
-import { chromium, type BrowserContext, type Page } from 'playwright-core'
+import { chromium, type BrowserContext, type BrowserContextOptions, type Page } from 'playwright-core'
 import { preview } from 'vite'
 
 const DB = 'http://127.0.0.1:9000'
@@ -66,8 +66,8 @@ async function until<T>(fn: () => Promise<T | undefined | false | null> | T | un
   }
 }
 
-async function newContext(location?: { lat: number; lng: number }): Promise<{ ctx: BrowserContext; page: Page }> {
-  const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, locale: 'zh-TW', serviceWorkers: 'block' })
+async function newContext(location?: { lat: number; lng: number }, device: BrowserContextOptions = {}): Promise<{ ctx: BrowserContext; page: Page }> {
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, locale: 'zh-TW', serviceWorkers: 'block', ...device })
   // 用字串注入：tsx 編譯函式時會加上瀏覽器裡沒有的 __name
   await ctx.addInitScript(`
     localStorage.setItem('longdong.map.intro', '1')
@@ -445,6 +445,73 @@ try {
   check('點在線段中間：插進那一段（四個點，新的點排第二個）', (await handles()) === 4 && Math.abs(inserted.y + inserted.height / 2 - (midBox.y + midBox.height * 0.65)) < 4, `${await handles()} 個點`)
   await editor.page.keyboard.press('z')
   check('復原插入的點：回到三個點', (await handles()) === 3)
+
+  // ── 手機（觸控）：單指點、拖、刪除點，雙指捏合縮放，放大後單指平移 ──
+  const phone = await newContext(undefined, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 })
+  await signIn(phone.page, 'phone@example.com')
+  await put('v2/topos/e2ephone', { sector: topoSector.id, width: 2000, height: 1200, image: 'topos/seed/e2ephone.jpg', uid: 'seed', createdAt: Date.now() })
+  await phone.page.goto(base + 'edit/topo/e2ephone')
+  await phone.page.waitForSelector('.topo-route-row')
+  check('手機寬度也能編輯 Topo（不是「請用電腦」）', (await phone.page.locator('.topo-zoom').count()) === 1 && (await phone.page.locator('.edit-message').count()) === 0)
+  check('手機：工具列沒有快捷鍵提示', !(await phone.page.locator('.topo-tool kbd').first().isVisible()))
+  await phone.page.locator('.topo-route-row', { has: phone.page.locator('.topo-route-no', { hasText: new RegExp(`^${topoRoutes[0].number}$`) }) }).click()
+  await phone.page.locator('.topo-zoom').scrollIntoViewIfNeeded()
+  const cdp = await phone.ctx.newCDPSession(phone.page)
+  type Finger = { x: number; y: number; id: number }
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', fingers: Finger[]) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : fingers })
+  const phoneHandles = () => phone.page.locator('.topo-handles circle')
+  const phoneFrame = async () => (await phone.page.locator('.topo-frame svg').boundingBox())!
+  const centerOf = async (i: number) => {
+    const b = (await phoneHandles().nth(i).boundingBox())!
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+  }
+  let pb = await phoneFrame()
+  for (const [fx, fy] of [[0.3, 0.8], [0.35, 0.5], [0.3, 0.2]]) await phone.page.touchscreen.tap(pb.x + pb.width * fx, pb.y + pb.height * fy)
+  check('手機：用手指點三下，標了三個點', (await phoneHandles().count()) === 3)
+  check('手機：點的把手夠大（手指按得到）', ((await phoneHandles().first().boundingBox())!.width) >= 24)
+  // 單指拖曳把手：移動把手，不是捲動頁面、平移照片
+  const before = await centerOf(1)
+  await touch('touchStart', [{ ...before, id: 1 }])
+  for (let step = 1; step <= 5; step++) await touch('touchMove', [{ x: before.x + 6 * step, y: before.y + 4 * step, id: 1 }])
+  await touch('touchEnd', [])
+  // 緊接著的下一次點擊，Chrome 的手勢辨識（雙擊的時間窗）不會產生 click：真人的兩次操作之間不會這麼快
+  await phone.page.waitForTimeout(400)
+  const after = await centerOf(1)
+  check('手機：單指拖曳把手，點跟著手指移動', Math.abs(after.x - before.x - 30) < 3 && Math.abs(after.y - before.y - 20) < 3 && (await phoneHandles().count()) === 3, `${after.x - before.x},${after.y - before.y}`)
+  // 按住的點可以刪除（手指沒有右鍵）
+  const deleteTool = phone.page.locator('.topo-tool', { hasText: '刪除這個點' })
+  pb = await phoneFrame()
+  await phone.page.touchscreen.tap(pb.x + pb.width * 0.75, pb.y + pb.height * 0.35)
+  check('手機：點了照片的空白處，原本按住的點取消選取，不能刪除', (await deleteTool.isDisabled()) && (await phoneHandles().count()) === 4, `${await deleteTool.isDisabled()} ${await phoneHandles().count()}`)
+  await phone.page.keyboard.press('z')
+  const target = await centerOf(1)
+  await phone.page.touchscreen.tap(target.x, target.y)
+  check('手機：點一下把手就選取它（不會多一個點）', (await phone.page.locator('.topo-handles circle.picked').count()) === 1 && (await phoneHandles().count()) === 3 && !(await deleteTool.isDisabled()))
+  await deleteTool.click()
+  check('手機：「刪除這個點」刪掉選取的點', (await phoneHandles().count()) === 2 && (await deleteTool.isDisabled()))
+  // 雙指捏合：縮放，不多出一個點
+  const zoomText = () => phone.page.locator('.topo-zoom-fit').textContent()
+  pb = await phoneFrame()
+  const mid = { x: pb.x + pb.width / 2, y: pb.y + pb.height / 2 }
+  await touch('touchStart', [{ x: mid.x - 20, y: mid.y, id: 1 }, { x: mid.x + 20, y: mid.y, id: 2 }])
+  for (let step = 1; step <= 6; step++) await touch('touchMove', [{ x: mid.x - 20 - 8 * step, y: mid.y, id: 1 }, { x: mid.x + 20 + 8 * step, y: mid.y, id: 2 }])
+  await touch('touchEnd', [])
+  await phone.page.waitForTimeout(200)
+  const zoomedTo = Number.parseInt((await zoomText()) ?? '100')
+  check('手機：雙指張開，照片放大；放開時不多出一個點', zoomedTo > 150 && (await phoneHandles().count()) === 2, `${zoomedTo}%`)
+  // 放大後單指在空白處拖曳：平移照片，不多出一個點
+  const innerNow = () => phone.page.locator('.topo-zoom-inner').getAttribute('style')
+  const panBefore = await innerNow()
+  const pa = { x: mid.x, y: mid.y }
+  await touch('touchStart', [{ ...pa, id: 1 }])
+  for (let step = 1; step <= 5; step++) await touch('touchMove', [{ x: pa.x + 8 * step, y: pa.y + 4 * step, id: 1 }])
+  await touch('touchEnd', [])
+  await phone.page.waitForTimeout(200)
+  check('手機：放大後單指拖曳空白處，照片平移，不多出一個點', (await innerNow()) !== panBefore && (await phoneHandles().count()) === 2)
+  await phone.page.screenshot({ path: process.env.PHONE_SHOT ?? 'dist-e2e/phone.png' })
+  await phone.ctx.close()
+  // 這張照片只給手機測試用：後面的測試以「分區只有一張照片」為前提
+  await fetch(url('v2/topos/e2ephone'), { method: 'DELETE', ...asOwner })
   await editor.page.keyboard.press('ArrowDown')
   const next = topoSector.routes[topoSector.routes.findIndex((r) => r.id === topoRoutes[0].id) + 1]
   check('↓ 換到清單裡的下一條路線', (await editor.page.locator('.topo-route-row.on .topo-route-no').textContent()) === (next.number ?? '·'))

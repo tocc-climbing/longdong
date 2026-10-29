@@ -172,7 +172,7 @@ export const zh = {
   'edit.shareTitle': '一起修改龍洞：{item}',
   'edit.shareSite': '龍洞，等你來修改：龍洞攀岩資料庫',
   'edit.linkCopied': '已複製連結',
-  'edit.desktopOnly': '地圖與 Topo 請用電腦開啟這個連結修改。',
+  'edit.desktopOnly': '地圖請用電腦開啟這個連結修改。',
   'edit.welcome': '龍洞，等你來*修改*',
   'edit.welcomeTags': '地圖 · Topo · 說明 · 保留每個版本',
   'edit.latest': '最新更新',
@@ -655,7 +655,6 @@ export const zh = {
   'topo.empty': '還沒有標記任何路線',
   'topo.edit': '編輯',
   'topo.editTitle': '編輯 Topo',
-  'topo.desktopOnly': '用電腦開啟這一頁才能編輯。',
   'topo.signIn': '登入後才能編輯 Topo',
   'topo.toolbar': '標記工具',
   'topo.tools': '工具',
@@ -700,5 +699,6 @@ export const zh = {
   'topo.noHistory': '還沒有人標記',
   'topo.current': '目前版本',
   'topo.delete': '刪除',
+  'topo.deletePoint': '刪除這個點',
   'topo.deletePhoto': '刪除照片',
 }
