@@ -596,11 +596,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
               {l.text}
             </text>
           ))}
-          {sectorLabels.map((l) => (
-            <text key={l.id} className="sm-sector-label" x={l.at[0]} y={l.at[1]} fontSize={SECTOR_LABEL_PX} textAnchor="middle" dominantBaseline="central">
-              {l.text}
-            </text>
-          ))}
           {lines?.map((l) => {
             const pts = l.points.map((q) => screen(project(q)))
             const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')
@@ -666,6 +661,12 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L') + (edit.closed ? 'Z' : '')
             return <path key={i} className={`sm-edit-ring${edit.closed ? '' : ' open'}${i === edit.selected ? ' selected' : ''}`} d={d} />
           })}
+          {/* 分區名稱畫在岩壁線條上面，不被蓋住 */}
+          {sectorLabels.map((l) => (
+            <text key={l.id} className="sm-sector-label" x={l.at[0]} y={l.at[1]} fontSize={SECTOR_LABEL_PX} textAnchor="middle" dominantBaseline="central">
+              {l.text}
+            </text>
+          ))}
           {edit?.selected !== undefined && edit.rings[edit.selected] && (
             <EditHandles
               ring={edit.rings[edit.selected]}

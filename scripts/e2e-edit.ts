@@ -329,6 +329,12 @@ try {
   check('換到別的分區畫岩壁：地圖範圍不變', !!viewBefore && (await mapTransform()) === viewBefore, `${viewBefore} → ${await mapTransform()}`)
   const shownWall = await until(async () => ((await editor.page.locator('.edit-canvas .sm-line').count()) > 0 && (await editor.page.locator('.edit-canvas .sm-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
   check('畫岩壁時，其他分區已有的岩壁也畫出來', shownWall === true)
+  const labelOnTop = await editor.page.evaluate(() => {
+    const label = document.querySelector('.edit-canvas .sm-sector-label')
+    const lines = [...document.querySelectorAll('.edit-canvas .sm-line, .edit-canvas .sm-edit-ring')]
+    return !!label && lines.length > 0 && lines.every((l) => l.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+  check('分區名稱畫在岩壁線條上面', labelOnTop)
   // 在這個分區畫一段（不提交），換回原來的分區：還沒提交的也畫出來
   await editor.page.keyboard.press('n')
   await clickCanvas(editor.page, [[0.5, 0.6], [0.6, 0.65]])
