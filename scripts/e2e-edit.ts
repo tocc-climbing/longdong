@@ -260,6 +260,8 @@ try {
   await editor.page.waitForSelector('.edit-canvas svg[role=img]')
   check('網址是岩壁時，切到「岩壁」', (await editor.page.locator('.edit-toolbar [aria-pressed=true]', { hasText: '岩壁' }).count()) === 1)
   const cliffPaths = () => editor.page.locator('.sm-cliff path').evaluateAll((list) => list.map((p) => `${p.getAttribute('class') ?? ''}:${(p.getAttribute('d') ?? '').length}`))
+  const contourPaths = await editor.page.locator('.sm-contour path').evaluateAll((list) => list.map((p) => (p.getAttribute('d') ?? '').length))
+  check('編輯器畫出等高線與計曲線', contourPaths.length === 2 && contourPaths.every((n) => n > 0), JSON.stringify(contourPaths))
   const withOrtho = await cliffPaths()
   check('航照下畫出 OpenStreetMap 的岩壁、刻線與淺色外框', withOrtho.length === 3 && withOrtho[0].startsWith('sm-cliff-casing:') && withOrtho.every((p) => !p.endsWith(':0')), JSON.stringify(withOrtho))
   await editor.page.keyboard.press('a')

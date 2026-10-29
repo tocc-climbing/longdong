@@ -256,3 +256,45 @@ function useBaseScaleMap(): ScaleMapState {
   }, [])
   return state
 }
+
+/** 等高線（scripts/gen-contours.ts，只有編輯器用）：SVG path，計曲線（index）另外一條 */
+export interface Contours {
+  lines: string
+  index: string
+}
+
+let contourCache: Promise<Contours> | undefined
+
+function loadContours(): Promise<Contours> {
+  contourCache ??= fetchJSON(`${import.meta.env.BASE_URL}rescue/contours.geojson`).then(
+    (c) => {
+      const path = (index: boolean) =>
+        c.features
+          .filter((f) => !!(f.properties as { index?: boolean }).index === index)
+          .map((f) => toPath(f.geometry as Exclude<Feature['geometry'], { type: 'Point' }>))
+          .join('')
+      return { lines: path(false), index: path(true) }
+    },
+    (err: unknown) => {
+      contourCache = undefined
+      throw err
+    },
+  )
+  return contourCache
+}
+
+/** 等高線；載入失敗時不畫（只是參考），錯誤記在 console */
+export function useContours(): Contours | undefined {
+  const [contours, setContours] = useState<Contours>()
+  useEffect(() => {
+    let alive = true
+    loadContours().then(
+      (c) => alive && setContours(c),
+      (err: unknown) => console.error('等高線載入失敗', err),
+    )
+    return () => {
+      alive = false
+    }
+  }, [])
+  return contours
+}

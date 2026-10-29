@@ -15,6 +15,7 @@
     "import": "tsx scripts/import-sheet.ts",
     "scale-map": "tsx scripts/gen-scale-map.ts",
     "crag-edges": "tsx scripts/gen-crag-edges.ts",
+    "contours": "tsx scripts/gen-contours.ts",
     "test": "vitest run",
     "check:text": "tsx scripts/check-text-overflow.ts",
     "shots": "tsx scripts/shots.ts",

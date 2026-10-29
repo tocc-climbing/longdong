@@ -4,7 +4,7 @@ import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 import { useWide } from '../layout'
-import { useScaleMap, withShapes } from '../map/mapData'
+import { useContours, useScaleMap, withShapes } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
 import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useWalls } from '../map/walls'
@@ -336,6 +336,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
   const { t } = useLang()
   const cloud = useCloud()
   const map = useScaleMap()
+  const contours = useContours()
   const shapes = useMapShapes()
   const { walls: legacyWalls } = useWalls()
   const m = useMapItem({ target, map: map.status === 'ok' ? map.data : undefined })
@@ -465,6 +466,7 @@ function MapEditor({ item, data, onToast, target, parts }: ItemProps & { target:
               areaNames={{}}
               marks={pins.map((p) => ({ at: p.at, picked: p.picked, label: String(Number(p.id) + 1), selected: p.id === pinOn }))}
               ortho={ortho}
+              contours={contours}
               hideAreas={isLineTarget(target)}
               edit={m.edit}
               pick={m.pick}
