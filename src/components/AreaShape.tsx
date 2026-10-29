@@ -41,8 +41,8 @@ export function AreaShape({ area, className }: { area: Area; className?: string 
   )
 }
 
-/** 放大的範圍至少這麼寬（公尺）：很短的一段岩壁不會放大到只剩一條線 */
-const MIN_VIEW_M = 40
+/** 放大的範圍至少這麼寬（公尺，再乘上留白倍率）：岩壁很短的分區也看得到旁邊的岩壁，分辨得出位置 */
+const MIN_VIEW_M = 100
 
 /**
  * 一個分區的地圖：放大到這個分區的岩壁（粗線，分區的顏色），底下是大區域的形狀，同一個大區域的其他分區岩壁淡淡畫出。
@@ -54,7 +54,7 @@ export function SectorShape({ area, sector, color, className }: { area: Area; se
   const own = (map.data.walls[sector.id] ?? []).map((line) => line.map(project))
   if (own.length === 0) return <AreaShape area={area} className={className} />
   const b = bounds(own.flat())
-  const side = Math.max(b.w, b.h, MIN_VIEW_M) * 1.8
+  const side = Math.max(b.w, b.h, MIN_VIEW_M) * 2.2
   const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2]
   const shape = map.data.areas.find((a) => a.id === areaKey(area))
   const others = area.sectors.filter((s) => s.id !== sector.id).flatMap((s) => (map.data.walls[s.id] ?? []).map((line) => line.map(project)))

@@ -391,6 +391,8 @@ try {
   await editor.page.goto(base + `sector/${wallSector}`)
   await editor.page.waitForSelector('.area-hero')
   check('分區頁：標題卡有分區名稱', ((await editor.page.locator('.area-hero h1').textContent()) ?? '').includes(gateSectorName))
+  const viewWidth = Number(((await editor.page.locator('.area-hero svg.area-hero-shape').getAttribute('viewBox')) ?? '').split(' ')[2])
+  check('分區頁：地圖範圍不會太小（至少 200 公尺寬，看得到旁邊的岩壁）', viewWidth >= 200, `${viewWidth.toFixed(0)} m`)
   check('分區頁：地圖放大畫出這個分區的岩壁（粗線）', (await until(async () => ((await editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="5"]').count()) > 0 ? true : undefined), 5000)) === true)
 
   // ── 5. Topo 標記：復原、重做、移除最後一點、提交 ─────────────────────
