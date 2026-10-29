@@ -250,6 +250,9 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.sm-cliff .sm-cliff-casing {
+  stroke: rgba(255, 255, 255, 0.85);
+}
 
 /* 各區域：填色、外框與名稱的顏色 */
 .sm-area-school-gate { fill: #f2b4c6; stroke: #d40441; }

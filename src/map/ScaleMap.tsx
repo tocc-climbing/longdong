@@ -57,6 +57,8 @@ const ROAD_WIDTH_M = { highway: 8, road: 5, trail: 1.5 }
 /** 岩壁線至少畫成的寬度（公尺）；每像素超過 CLIFF_TICK_MAX_M_PER_PX 公尺（縮小到刻線擠在一起）時不畫刻線 */
 const CLIFF_WIDTH_M = 0.6
 const CLIFF_TICK_MAX_M_PER_PX = 1
+/** 航照下岩壁外框每側的寬度（畫面像素） */
+const CLIFF_CASING_PX = 1.5
 /** 放大到每像素不到 ICON_GROW_SCALE 公尺時，圖示跟著放大，最多 ICON_MAX_GROW 倍 */
 const ICON_GROW_SCALE = 0.5
 const ICON_MAX_GROW = 1.6
@@ -445,6 +447,8 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   const grown = (x: number, y: number) => (grow === 1 ? undefined : `translate(${x} ${y}) scale(${grow}) translate(${-x} ${-y})`)
   // 隧道畫成實際寬度後，虛線間距跟著路寬放大（否則變成一顆顆圓點）
   const tunnelDash = Math.max(dashLength(6, px), 3 * ROAD_WIDTH_M.highway)
+  const cliffWidth = Math.max(1.5 * px, CLIFF_WIDTH_M)
+  const showCliffTicks = px <= CLIFF_TICK_MAX_M_PER_PX
   const bar = SCALE_BARS.filter((m) => m / px <= SCALE_BAR_PX).pop() ?? SCALE_BARS[0]
   const sectorTexts =
     sectorNames && view.s < SECTOR_LABEL_SCALE ? map.sectors.map((s) => ({ id: s.id, text: sectorNames[s.sector] ?? s.sector, at: screen(s.label) })) : []
@@ -486,10 +490,11 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           {!hideAreas && map.sectors.map((s) => (
             <path key={s.id} className="sm-sector" d={s.path} />
           ))}
-          {/* OpenStreetMap 的岩壁（唯讀）：刻線在低的一側，縮小到刻線擠在一起時只畫線 */}
+          {/* OpenStreetMap 的岩壁（唯讀）：刻線在低的一側，縮小到刻線擠在一起時只畫線；航照下墊一圈淺色外框，和岩石分得開 */}
           <g className="sm-cliff">
-            <path d={map.layers.cliff} strokeWidth={Math.max(1.5 * px, CLIFF_WIDTH_M)} />
-            {px <= CLIFF_TICK_MAX_M_PER_PX && <path d={map.layers.cliffTick} strokeWidth={Math.max(px, CLIFF_WIDTH_M / 2)} />}
+            {ortho && <path className="sm-cliff-casing" d={map.layers.cliff + (showCliffTicks ? map.layers.cliffTick : '')} strokeWidth={cliffWidth + 2 * CLIFF_CASING_PX * px} />}
+            <path d={map.layers.cliff} strokeWidth={cliffWidth} />
+            {showCliffTicks && <path d={map.layers.cliffTick} strokeWidth={Math.max(px, CLIFF_WIDTH_M / 2)} />}
           </g>
           {/* 道路與停車場一組：航照下整組一起半透明，相接、重疊的地方不會疊深；頁框外的 OSM 道路接在同一條路徑裡 */}
           <g className="sm-roads">
