@@ -1,15 +1,17 @@
-import type { KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Area, Sector } from '../data/schema'
 import { sectorColor } from '../format'
 import { localName, useLang } from '../i18n'
+import { heroFit, type Pt } from '../map/heroFit'
 import { project, useScaleMap } from '../map/mapData'
 import { useHorizontalSwipe } from '../swipeGesture'
 
 /**
  * 用大區域的地圖形狀（public/rescue/areas.geojson，與地圖頁相同）畫的圖：
  * - CragShape：整個龍洞，各區域用自己的顏色（首頁上方）
- * - AreaShape：一個大區域的形狀（區域頁上方）
+ * - AreaShape：一個大區域的所有岩壁與形狀（區域頁上方）
+ * - SectorShape：一個分區的岩壁（分區頁、路線頁上方）
  * - AreaStrip：龍洞橫放的一條，放大到選到的區域（路線清單選區域）
  * 地圖資料還沒載入或載入失敗時不畫（版面不跳動：外框的高度固定）。
  */
@@ -50,59 +52,91 @@ export function CragShape({ data, className }: { data: LoadedData; className?: s
   )
 }
 
-/** 一個大區域的形狀（區域的顏色，淡色）與裡面所有分區的岩壁（分區的顏色，與清單的色點相同），看得出岩壁的相對位置 */
-export function AreaShape({ area, className }: { area: Area; className?: string }) {
-  const map = useScaleMap()
-  const shape = map.status === 'ok' ? map.data.areas.find((a) => a.id === areaKey(area)) : undefined
-  if (map.status !== 'ok' || !shape) return <div className={className} aria-hidden />
-  const b = bounds(shape.rings.flat())
-  const pad = Math.max(b.w, b.h) * 0.03
+/** 標題卡地圖四邊留的空白（px）：上方留給工具列的圖示 */
+const HERO_INSET = { top: 48, right: 12, bottom: 12, left: 12 }
+
+/** 元素的大小（px），變動時更新；還沒量到時 undefined */
+function useSize(ref: RefObject<Element | null>): { w: number; h: number } | undefined {
+  const [size, setSize] = useState<{ w: number; h: number }>()
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // 用畫面上的大小：SVG 元素的 contentRect 可能是裡面圖形的範圍，不是元素本身
+    const observer = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect()
+      setSize((old) => (old && old.w === r.width && old.h === r.height ? old : { w: r.width, h: r.height }))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [ref])
+  return size
+}
+
+/**
+ * 標題卡右邊的地圖（佔滿卡片的高度）：fit 的點（岩壁）整個看得到、轉到放得最大的方向（heroFit）；
+ * 其他的圖形（區域的形狀）可以超出去，被卡片的邊切掉。
+ */
+function HeroMap({ fit, spread, minSpan, className, children }: { fit: Pt[]; spread?: number; minSpan?: number; className?: string; children: ReactNode }) {
+  const ref = useRef<SVGSVGElement>(null)
+  const size = useSize(ref)
+  const placed = size && heroFit(fit, { ...size, ...HERO_INSET }, { spread, minSpan })
   return (
-    <svg className={className} viewBox={`${b.x - pad} ${b.y - pad} ${b.w + 2 * pad} ${b.h + 2 * pad}`} aria-hidden>
-      <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.3} />
-      {area.sectors.map((sector, i) => {
-        const walls = (map.data.walls[sector.id] ?? []).map((line) => line.map(project))
-        return (
-          <path
-            key={sector.id}
-            d={walls.map(wallPath).join('')}
-            fill="none"
-            stroke={sectorColor(area.color, i, area.sectors.length) ?? 'var(--brand)'}
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        )
-      })}
+    <svg ref={ref} className={`${className ?? ''} hero-map`} viewBox={placed?.viewBox.join(' ')} preserveAspectRatio="xMidYMid slice" aria-hidden>
+      {placed && <g transform={`rotate(${placed.angle})`}>{children}</g>}
     </svg>
   )
 }
 
-/** 放大的範圍至少這麼寬（公尺）：岩壁很短的分區也看得到旁邊的岩壁 */
-const MIN_VIEW_M = 15
+/** 一個大區域：所有分區的岩壁（分區的顏色，與清單的色點相同）整個看得到、越大越好，底下是區域的形狀（淡色，可以被切掉） */
+export function AreaShape({ area, className }: { area: Area; className?: string }) {
+  const map = useScaleMap()
+  const shape = map.status === 'ok' ? map.data.areas.find((a) => a.id === areaKey(area)) : undefined
+  if (map.status !== 'ok' || !shape) return <div className={className} aria-hidden />
+  const walls = area.sectors.map((sector) => (map.data.walls[sector.id] ?? []).map((line) => line.map(project)))
+  const fit = walls.flat(2)
+  return (
+    <HeroMap fit={fit.length ? fit : shape.rings.flat()} className={className}>
+      <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.3} />
+      {area.sectors.map((sector, i) => (
+        <path
+          key={sector.id}
+          d={walls[i].map(wallPath).join('')}
+          fill="none"
+          stroke={sectorColor(area.color, i, area.sectors.length) ?? 'var(--brand)'}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </HeroMap>
+  )
+}
+
+/** 分區頁的範圍是這個分區岩壁的幾倍（看得到附近其他的牆）；至少這麼寬（公尺） */
+const NEARBY_SPREAD = 2.4
+const NEARBY_MIN_M = 60
+/** 路線頁只畫這個分區的岩壁：至少這麼寬（公尺） */
+const SINGLE_MIN_M = 15
 
 /**
- * 一個分區的地圖：放大到這個分區的岩壁（照實際比例，分區的顏色加粗），旁邊其他分區的岩壁淡淡畫出，
- * 大區域的形狀只畫到這個範圍。這個分區還沒有岩壁資料時，畫整個大區域的形狀。
+ * 一個分區的地圖：這個分區的岩壁（照實際比例，分區的顏色加粗）。分區頁的範圍大一點，附近其他分區的岩壁淡淡畫出；
+ * single（路線頁）只畫這個分區的岩壁、放到最大。這個分區還沒有岩壁資料時，畫整個大區域。
  */
-export function SectorShape({ area, sector, color, className }: { area: Area; sector: Sector; color?: string; className?: string }) {
+export function SectorShape({ area, sector, color, single, className }: { area: Area; sector: Sector; color?: string; single?: boolean; className?: string }) {
   const map = useScaleMap()
   if (map.status !== 'ok') return <div className={className} aria-hidden />
   const wallsOf = (s: Sector) => (map.data.walls[s.id] ?? []).map((line) => line.map(project))
   const own = wallsOf(sector)
   if (own.length === 0) return <AreaShape area={area} className={className} />
-  const others = area.sectors.filter((s) => s.id !== sector.id).flatMap(wallsOf)
-  const b = bounds(own.flat())
-  const side = Math.max(b.w, b.h, MIN_VIEW_M) * 1.4
-  const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2]
+  const others = single ? [] : area.sectors.filter((s) => s.id !== sector.id).flatMap(wallsOf)
   const shape = map.data.areas.find((a) => a.id === areaKey(area))
   return (
-    <svg className={className} viewBox={`${cx - side / 2} ${cy - side / 2} ${side} ${side}`} aria-hidden>
+    <HeroMap fit={own.flat()} spread={single ? 1 : NEARBY_SPREAD} minSpan={single ? SINGLE_MIN_M : NEARBY_MIN_M} className={className}>
       {shape && <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.28} />}
       <path d={others.map(wallPath).join('')} fill="none" stroke="var(--muted)" strokeOpacity={0.55} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
       <path d={own.map(wallPath).join('')} fill="none" stroke={color ?? area.color ?? 'var(--brand)'} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-    </svg>
+    </HeroMap>
   )
 }
 

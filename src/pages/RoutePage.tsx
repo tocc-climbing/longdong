@@ -76,7 +76,7 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
             onTick={route.isFixture ? undefined : () => setTickOpen(true)}
           />
         }
-        shape={<SectorShape area={area} sector={sector} color={areaSectorColor(area, sector)} className="area-hero-shape" />}
+        shape={<SectorShape area={area} sector={sector} color={areaSectorColor(area, sector)} single className="area-hero-shape" />}
         compact
       />
 

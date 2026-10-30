@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, 
 import { HoldMark } from './components/HoldMark'
 import { useAppUpdate } from './appUpdate'
 import { DevBadge } from './components/DevBadge'
-import { Pager, neighborLabel } from './components/Pager'
+import { Pager, neighborLabel, neighborStyle } from './components/Pager'
 import { DetailPane, desktopView, useDesktopKeys } from './desktop'
 import { BottomNav } from './components/BottomNav'
 import { RescueButton } from './components/RescueButton'
@@ -157,7 +157,7 @@ export function App() {
       </main>
       {dragDir && dragTarget && (
         // 上一個／下一個的卡片跟著手指從畫面邊緣滑進來（位置由 useSwipe 寫在 --swipe-dx）；拖到放開就會切換時變色
-        <div className={`swipe-hint ${dragDir}${armed ? ' armed' : ''}`} aria-hidden>
+        <div className={`swipe-hint ${dragDir}${armed ? ' armed' : ''}${dragTarget.color ? ' colored' : ''}`} style={neighborStyle(dragTarget)} aria-hidden>
           <span className="swipe-hint-caption">
             {t(near?.kind === 'route' ? (dragDir === 'prev' ? 'swipe.prevRoute' : 'swipe.nextRoute') : dragDir === 'prev' ? 'swipe.prev' : 'swipe.next')}
           </span>

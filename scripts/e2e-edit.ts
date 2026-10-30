@@ -393,19 +393,49 @@ try {
   await editor.page.waitForSelector('.area-hero')
   const wallPaths = () => editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="3"]').count()
   check('區域頁：標題卡畫出每個分區的岩壁', (await until(async () => ((await wallPaths()) === gate.sectors.length ? true : undefined), 5000)) === true, `${await wallPaths()} / ${gate.sectors.length}`)
+  type Box = { x: number; y: number; width: number; height: number }
+  const inside = (a: Box, b: Box) => a.x >= b.x - 1 && a.y >= b.y - 1 && a.x + a.width <= b.x + b.width + 1 && a.y + a.height <= b.y + b.height + 1
+  // 線在畫面上的範圍：沿著線取點換成螢幕座標（地圖轉過方向時，getBoundingClientRect 是轉過的外框，比線大）
+  const boxes = (selector: string) =>
+    editor.page.locator(selector).evaluateAll((els) =>
+      (els as SVGPathElement[]).flatMap((el) => {
+        const length = el.getTotalLength()
+        const m = el.getScreenCTM()
+        if (!length || !m) return []
+        const pts = Array.from({ length: 201 }, (_, i) => el.getPointAtLength((length * i) / 200).matrixTransform(m))
+        const xs = pts.map((p) => p.x)
+        const ys = pts.map((p) => p.y)
+        return [{ x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) }]
+      }),
+    )
+  const toolsBottom = async () => {
+    const b = (await editor.page.locator('.area-hero-wrap > .page-tools').boundingBox())!
+    return b.y + b.height
+  }
+  // 卡片的大小在載入後還會變（字型、說明），地圖跟著重新擺：等擺好
+  const wallsPlaced = async () => {
+    const card = (await editor.page.locator('.area-hero').boundingBox())!
+    const walls = await boxes('.area-hero svg.area-hero-shape path[stroke-width="3"]')
+    const top = await toolsBottom()
+    const ok = walls.length > 0 && walls.every((r) => inside(r, card)) && Math.min(...walls.map((r) => r.y)) >= top - 1
+    return { ok, detail: JSON.stringify({ card, tools: top, walls: walls.map((r) => [r.x, r.y, r.width, r.height].map(Math.round)) }) }
+  }
+  const placed = (await until(async () => ((await wallsPlaced()).ok ? true : undefined), 5000)) === true
+  check('區域頁：岩壁整個在卡片裡、不在右上的圖示底下', placed, placed ? '' : (await wallsPlaced()).detail)
+  const heroCard = (await editor.page.locator('.area-hero').boundingBox())!
+  const heroSvg = (await editor.page.locator('.area-hero svg.area-hero-shape').boundingBox())!
+  check('區域頁：地圖佔滿卡片的高度（區域的形狀跨到上下緣）', Math.abs(heroSvg.height - heroCard.height) < 2, `${heroSvg.height} / ${heroCard.height}`)
   await editor.page.goto(base + `sector/${wallSector}`)
   await editor.page.waitForSelector('.area-hero')
   check('分區頁：標題卡有分區名稱', ((await editor.page.locator('.area-hero h1').textContent()) ?? '').includes(gateSectorName))
   check('分區頁：地圖放大畫出這個分區的岩壁（粗線）', (await until(async () => ((await editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="5"]').count()) > 0 ? true : undefined), 5000)) === true)
-  // 放大到看得清楚：這個分區的岩壁至少佔地圖的一半（長的那一邊）
-  const ownBox = (await editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="5"]').boundingBox())!
-  const mapBox = (await editor.page.locator('.area-hero svg.area-hero-shape').boundingBox())!
-  // 地圖是正方形，置中放在框裡：用框的短邊比
-  const fill = Math.max(ownBox.width, ownBox.height) / Math.min(mapBox.width, mapBox.height)
-  check('分區頁：地圖放大到這個分區的岩壁', fill >= 0.5, `${(fill * 100).toFixed(0)}%`)
-  // 編輯的圖示不蓋住地圖
-  const editBox = await editor.page.locator('.area-hero-wrap > .page-tools').boundingBox()
-  check('分區頁：圖示不蓋住地圖', !editBox || editBox.y + editBox.height <= mapBox.y, `${editBox?.y}+${editBox?.height} / ${mapBox.y}`)
+  // 這個分區的岩壁整個看得到、不在圖示底下；範圍大一點，看得到附近其他的牆
+  const [ownBox] = await boxes('.area-hero svg.area-hero-shape path[stroke-width="5"]')
+  const sectorCard = (await editor.page.locator('.area-hero').boundingBox())!
+  check('分區頁：這個分區的岩壁整個在卡片裡、不在圖示底下', inside(ownBox, sectorCard) && ownBox.y >= (await toolsBottom()) - 1)
+  const nearbyWalls = await boxes('.area-hero svg.area-hero-shape path[stroke-width="2"]')
+  const overlaps = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+  check('分區頁：看得到附近其他分區的岩壁', nearbyWalls.some((r) => overlaps(r, sectorCard)))
 
   // ── 5. Topo 標記：復原、重做、移除最後一點、提交 ─────────────────────
   const photo = 'e2ephoto'
@@ -617,6 +647,21 @@ try {
   const crumbs = (await vp.locator('.route-m .area-hero-crag a').allTextContents()).length
   check('手機路線頁：標題卡上方是所在位置（龍洞 › 區域 › 分區，可以點）', crumbs >= 2, `${crumbs} 層`)
   check('手機路線頁：標題卡有這個分區的地圖', (await vp.locator('.route-m .area-hero svg.area-hero-shape').count()) === 1)
+  // 路線頁只畫這面牆（不畫附近的），放到最大
+  await vp.waitForSelector('.route-m .area-hero svg.area-hero-shape path[stroke-width="5"]')
+  check('手機路線頁：地圖只畫這個分區的岩壁', ((await vp.locator('.route-m .area-hero svg.area-hero-shape path[stroke-width="2"]').getAttribute('d')) ?? '') === '')
+  // 沿著線取點換成螢幕座標（getBoundingClientRect 是轉過方向的外框，比線大）
+  const routeWall = await vp.locator('.route-m .area-hero svg.area-hero-shape path[stroke-width="5"]').evaluate((el: SVGPathElement) => {
+    const length = el.getTotalLength()
+    const m = el.getScreenCTM()!
+    const pts = Array.from({ length: 201 }, (_, i) => el.getPointAtLength((length * i) / 200).matrixTransform(m))
+    const xs = pts.map((p) => p.x)
+    const ys = pts.map((p) => p.y)
+    return { width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) }
+  })
+  const routeMap = (await vp.locator('.route-m .area-hero svg.area-hero-shape').boundingBox())!
+  const routeFill = Math.max(routeWall.width / routeMap.width, routeWall.height / routeMap.height)
+  check('手機路線頁：岩壁放到最大（至少佔地圖的六成）', routeFill >= 0.6, `${(routeFill * 100).toFixed(0)}%`)
   const topoY = (await vp.locator('.route-m .topo').boundingBox())!.y
   const heroBottom = await vp.locator('.route-m .area-hero').evaluate((el) => el.getBoundingClientRect().bottom)
   check('手機路線頁：Topo 在標題卡下面', topoY > heroBottom, `${topoY} / ${heroBottom}`)
@@ -950,6 +995,7 @@ try {
   const favArea = data.areas[2]
   await rp.goto(base + `area/${favArea.id}`)
   await rp.waitForSelector('.page-tools .tool-button.fav')
+  check('上一區／下一區用那一區的顏色', (await rp.locator('.pager a.colored').count()) === 2)
   check('區域頁右上：收藏、回報位置、更多', (await tool('收藏').count()) === 1 && (await tool('回報位置').count()) === 1 && (await tool('更多').count()) === 1)
   const toolBoxes = await rp.locator('.area-hero-wrap > .page-tools .tool-button').evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => [r.left, r.right]))
   const gaps = toolBoxes.slice(1).map((b, i) => b[0] - toolBoxes[i][1])
@@ -960,6 +1006,10 @@ try {
   await rp.keyboard.press('Escape')
   await tool('回報位置').click()
   check('區域頁回報位置：先選分區（每個分區一個選項）', (await rp.locator('.place-report .chip').count()) === favArea.sectors.length)
+  await rp.waitForSelector('.place-report .sm-line')
+  check('回報位置的地圖畫出岩壁', (await rp.locator('.place-report .sm-line').count()) > 0)
+  await rp.locator('.place-report .chip').first().click()
+  check('選了分區：地圖上那個分區的岩壁標成選取', (await rp.locator('.place-report .sm-line.selected').count()) > 0)
   await rp.keyboard.press('Escape')
   // 收藏區域：首頁排在最前面、名稱旁有愛心；「我的」的收藏只列路線
   await tool('收藏').click()

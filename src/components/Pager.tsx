@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { localName, useLang, type Lang } from '../i18n'
 import type { Dir, Neighbor, Neighbors } from '../swipe'
 
@@ -6,7 +7,10 @@ export function neighborLabel(n: Neighbor, lang: Lang): string {
   return `${n.number ? `#${n.number} ` : ''}${localName(n.name, lang).main}`
 }
 
-/** 手機版區域頁、路線頁底部的上一個／下一個；也提示可以左右滑動 */
+/** 上一區／下一區的卡片用那一區的顏色（路線沒有顏色） */
+export const neighborStyle = (n: Neighbor) => (n.color ? ({ '--area-color': n.color } as CSSProperties) : undefined)
+
+/** 手機版區域頁、路線頁底部的上一個／下一個（區域、分區用那一區的顏色）；也提示可以左右滑動 */
 export function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: Dir) => void }) {
   const { lang, t } = useLang()
   const route = near.kind === 'route'
@@ -19,7 +23,7 @@ export function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: Dir) => voi
   return (
     <nav className="pager" aria-label={t(route ? 'swipe.ariaRoute' : 'swipe.aria')}>
       {near.prev ? (
-        <a href={near.prev.hash} onClick={() => onGo('prev')}>
+        <a href={near.prev.hash} className={near.prev.color ? 'colored' : undefined} style={neighborStyle(near.prev)} onClick={() => onGo('prev')}>
           <span className="pager-name muted small">{caption('prev', near.prev)}</span>
           <span className="pager-name">{label(near.prev)}</span>
         </a>
@@ -27,7 +31,7 @@ export function Pager({ near, onGo }: { near: Neighbors; onGo: (dir: Dir) => voi
         <span />
       )}
       {near.next ? (
-        <a href={near.next.hash} className="next" onClick={() => onGo('next')}>
+        <a href={near.next.hash} className={near.next.color ? 'next colored' : 'next'} style={neighborStyle(near.next)} onClick={() => onGo('next')}>
           <span className="pager-name muted small">{caption('next', near.next)}</span>
           <span className="pager-name">{label(near.next)}</span>
         </a>

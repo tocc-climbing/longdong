@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { LoadedData } from './data/dataset'
 import type { LocalizedName } from './data/schema'
+import { sectorColor } from './format'
 import { applyView, filterCount, type ListView } from './listView'
 import { href, type Page } from './router'
 
@@ -19,6 +20,8 @@ export interface Neighbor {
   number?: string
   /** 跨到另一個區域時，那個區域的名稱 */
   sector?: LocalizedName
+  /** 區域（分區）的顏色：上一區／下一區的卡片用這個顏色 */
+  color?: string
 }
 
 export interface Neighbors {
@@ -77,14 +80,14 @@ export function neighbors(page: Page, data: NavData, order?: RouteOrder): Neighb
   const area = page.name === 'area' ? data.areaById.get(page.id) : undefined
 
   if (area && area.sectors.length > 1) {
-    list = data.dataset.areas.map((a) => ({ id: a.id, hash: href.area(a.id), name: a.name }))
+    list = data.dataset.areas.map((a) => ({ id: a.id, hash: href.area(a.id), name: a.name, color: a.color }))
     current = area.id
   } else if (area || page.name === 'sector') {
     // 只有一個區域的大區域用大區域頁當作那一區
     list = data.dataset.areas.flatMap((a) =>
       a.sectors.length === 1
-        ? [{ id: a.id, hash: href.area(a.id), name: a.name }]
-        : a.sectors.map((s) => ({ id: s.id, hash: href.sector(s.id), name: s.name })),
+        ? [{ id: a.id, hash: href.area(a.id), name: a.name, color: a.color }]
+        : a.sectors.map((s, i) => ({ id: s.id, hash: href.sector(s.id), name: s.name, color: sectorColor(a.color, i, a.sectors.length) })),
     )
     current = area ? area.id : (page as { id: string }).id
   } else {
@@ -93,7 +96,7 @@ export function neighbors(page: Page, data: NavData, order?: RouteOrder): Neighb
 
   const at = list.findIndex((x) => x.id === current)
   if (at < 0) return undefined
-  const pick = (i: number) => (list[i] ? { hash: list[i].hash, name: list[i].name } : undefined)
+  const pick = (i: number) => (list[i] ? { hash: list[i].hash, name: list[i].name, color: list[i].color } : undefined)
   return { kind: 'area', prev: pick(at - 1), next: pick(at + 1) }
 }
 

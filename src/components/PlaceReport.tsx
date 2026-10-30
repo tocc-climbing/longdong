@@ -24,7 +24,7 @@ const KINDS: Kind[] = ['start', 'rest', 'top', 'base']
 /**
  * 「回報位置」：路線頁回報這條路線的起攀點、休息點、頂端或這面牆的牆底；分區頁回報這個分區的牆底；
  * 區域頁先選分區，再回報那個分區的牆底。區域、分區、路線從頁面帶入，不必再選；
- * 地圖放大到這個區域，點一下標出自己的位置（岩壁下 GPS 常偏）。
+ * 地圖放大到這個區域、畫出岩壁（回報的分區標成選取），點一下標出自己的位置（岩壁下 GPS 常偏）。
  * 和地圖頁的回報存在同一份記錄裡（src/map/calibration.ts），在背景自動上傳；多了 target 記下回報的是哪裡。
  */
 export function PlaceReport({ data, area, sector, route }: { data: LoadedData; area: Area; sector?: Sector; route?: Route }) {
@@ -146,6 +146,9 @@ export function PlaceReport({ data, area, sector, route }: { data: LoadedData; a
                 here={fix}
                 marks={[]}
                 focus={{ key: area.id, area: area.id.split('/').pop() }}
+                lines={Object.entries(map.data.walls).flatMap(([id, walls]) =>
+                  walls.map((points, i) => ({ key: `${id}#${i}`, points, area: data.sectorById.get(id)?.area.id.split('/').pop(), selected: id === target?.id })),
+                )}
                 pick={{ at: picked, onPick: setPicked }}
               />
             )}

@@ -5,7 +5,7 @@ import { commitDistance, dragOffset, lockAxis, neighbors, shouldCommit } from '.
 // 大區域 A 有兩個區域（a1、a2），B 只有一個區域，C 有兩個區域（c1、c2）
 const sector = (id: string) => ({ id, name: { zh: id }, routes: [] })
 const A = { id: 'A', name: { zh: 'A' }, sectors: [sector('a1'), sector('a2')] }
-const B = { id: 'B', name: { zh: 'B' }, sectors: [sector('b1')] }
+const B = { id: 'B', name: { zh: 'B' }, color: '#cc0000', sectors: [sector('b1')] }
 const C = { id: 'C', name: { zh: 'C' }, sectors: [sector('c1'), sector('c2')] }
 // 路線：a2 有 r1、r2，b1 有 r3
 // r1 5.9 運攀、r2 5.10 傳攀、r3 5.10 運攀
@@ -31,6 +31,11 @@ describe('左右滑動的上一區／下一區', () => {
     expect(hashes(neighbors({ name: 'sector', id: 'a2' }, data))).toEqual(['/sector/a1', '/area/B'])
     expect(hashes(neighbors({ name: 'area', id: 'B' }, data))).toEqual(['/sector/a2', '/sector/c1'])
     expect(hashes(neighbors({ name: 'sector', id: 'c2' }, data))).toEqual(['/sector/c1', undefined])
+  })
+
+  it('上一區／下一區帶著那一區的顏色（大區域的顏色）', () => {
+    expect(neighbors({ name: 'sector', id: 'a2' }, data)?.next?.color).toBe('#cc0000')
+    expect(neighbors({ name: 'area', id: 'A' }, data)?.next?.color).toBe('#cc0000')
   })
 
   it('有多個區域的大區域頁：切換大區域', () => {

@@ -2532,6 +2532,27 @@ a.action {
   opacity: 0.85;
 }
 
+/* 上一區／下一區：用那一區的顏色（和標題卡相同：淡淡上色、左邊一條區域色）；拖到會切換時整張變成區域色 */
+:is(.pager a, .swipe-hint).colored {
+  border-left: 6px solid var(--area-color);
+  background: color-mix(in srgb, var(--area-color) 14%, var(--surface));
+}
+
+[data-layout='mobile'] .pager a.colored:is(:hover, :active) {
+  background: color-mix(in srgb, var(--area-color) 14%, var(--surface));
+}
+
+/* 下一區在右邊：色條也在右邊 */
+:is(.pager a.next, .swipe-hint.prev).colored {
+  border-left: 0;
+  border-right: 6px solid var(--area-color);
+}
+
+.swipe-hint.colored.armed {
+  background: var(--area-color);
+  color: #fff;
+}
+
 /* 觸控按下的效果（取代瀏覽器預設的直角反白），背景跟著元素本身的圓角 */
 .pager a:active,
 .area-row:active,
@@ -2707,7 +2728,7 @@ a.action {
   gap: 0;
 }
 
-/* 標題卡上的圖示不用底色、等距排列；地圖往下讓出圖示的位置，不被蓋住 */
+/* 標題卡上的圖示不用底色、等距排列（地圖的岩壁不放在圖示底下，見 AreaShape.tsx 的 HERO_INSET） */
 .area-hero-wrap > .page-tools .tool-button {
   width: 40px;
   height: 40px;
@@ -2717,10 +2738,6 @@ a.action {
 
 .area-hero-wrap > .page-tools .tool-button:is(:hover, :active, [aria-expanded='true']) {
   background: color-mix(in srgb, var(--text) 10%, transparent);
-}
-
-.area-hero-wrap:has(> .page-tools > *) .area-hero-shape {
-  margin-top: 30px;
 }
 
 /* 每一層的標題卡一樣高（有沒有工具列、地圖橫的或直的） */
@@ -5390,3 +5407,27 @@ button.key-row:disabled {
 .edit-app.narrow.focus .topo-edit-photo {
   padding: 4px;
 }
+
+/* 區域、分區、路線頁標題卡的地圖：佔滿卡片右邊的高度，區域的形狀可以跨到卡片的上下緣；左邊淡出，和名稱自然接在一起 */
+[data-layout] .area-hero > .area-hero-shape.hero-map {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 48%;
+  height: 100%;
+  margin: 0;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%);
+  mask-image: linear-gradient(to right, transparent, #000 22%);
+}
+
+[data-layout] .area-hero > .area-hero-text {
+  position: relative;
+  z-index: 1;
+}
+
+/* 電腦版區域頁：地圖在難度分佈右邊那一欄 */
+[data-layout='wide'] .area-hero:not(.compact) > .area-hero-shape.hero-map {
+  width: 14rem;
+}
+
