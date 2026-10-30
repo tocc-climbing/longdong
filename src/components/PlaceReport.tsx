@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { LoadedData, RouteRef } from '../data/dataset'
+import type { LoadedData } from '../data/dataset'
+import type { Area, Route, Sector } from '../data/schema'
 import { RESCUE_POINTS } from '../data/rescue'
 import { distanceM, nearestPoints, type LatLng } from '../geo'
 import { localName, useLang } from '../i18n'
@@ -21,18 +22,22 @@ type Kind = ReportTarget['kind']
 const KINDS: Kind[] = ['start', 'rest', 'top', 'base']
 
 /**
- * 路線頁的「回報位置」：站在路線底下時回報起攀點、休息點、頂端或這面牆的牆底。
- * 區域、分區、路線從頁面帶入，不必再選；地圖放大到這個區域，點一下標出自己的位置（岩壁下 GPS 常偏）。
+ * 「回報位置」：路線頁回報這條路線的起攀點、休息點、頂端或這面牆的牆底；分區頁回報這個分區的牆底；
+ * 區域頁先選分區，再回報那個分區的牆底。區域、分區、路線從頁面帶入，不必再選；
+ * 地圖放大到這個區域，點一下標出自己的位置（岩壁下 GPS 常偏）。
  * 和地圖頁的回報存在同一份記錄裡（src/map/calibration.ts），在背景自動上傳；多了 target 記下回報的是哪裡。
  */
-export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }) {
+export function PlaceReport({ data, area, sector, route }: { data: LoadedData; area: Area; sector?: Sector; route?: Route }) {
   const { lang, t } = useLang()
-  const { route, sector, area } = item
   const map = useScaleMap()
   const [geo, start] = useGeolocation()
   const simulated = useSimulation()
   const [open, setOpen] = useState(false)
-  const [kind, setKind] = useState<Kind>()
+  const [chosenKind, setKind] = useState<Kind>()
+  const [chosenSector, setSector] = useState<Sector>()
+  // 沒有路線時只能回報牆底；沒有分區時（區域頁）要先選分區
+  const kind = route ? chosenKind : 'base'
+  const target = sector ?? chosenSector
   const [picked, setPicked] = useState<LatLng>()
   const [extra, setExtra] = useState('')
   const [sent, setSent] = useState(false)
@@ -47,10 +52,11 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
   /** 不在龍洞地圖範圍內（例如在家裡打開）：不能回報，說明離最近的救援點多遠 */
   const outside = fix && !simulated && !inMapBounds(fix.coords) ? nearestPoints(fix.coords, RESCUE_POINTS, 1)[0]?.distance : undefined
   const distance = (m: number) => (m < 1000 ? t('myloc.m', { n: Math.round(m) }) : t('myloc.km', { n: (m / 1000).toFixed(1) }))
-  const routeName = `${route.number ? `#${route.number} ` : ''}${localName(route.name, lang).main}`
+  const routeName = route && `${route.number ? `#${route.number} ` : ''}${localName(route.name, lang).main}`
 
   const openSheet = () => {
     setKind(undefined)
+    setSector(undefined)
     setPicked(undefined)
     setExtra('')
     setOpen(true)
@@ -58,15 +64,15 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
   }
 
   const submit = () => {
-    if (!kind || !fix || outside !== undefined) return
+    if (!kind || !target || !fix || outside !== undefined) return
     // 說明：管理頁的清單直接看得懂（「#62 火龍 · 起攀點」「地下二樓 · 牆底」）
-    const what = kind === 'base' ? localName(sector.name, lang).main : routeName
+    const what = kind === 'base' || !routeName ? localName(target.name, lang).main : routeName
     const note = [`${what} · ${t(`place.kind.${kind}`)}`, extra.trim()].filter(Boolean).join(' · ')
     addMark({
       ...fix,
       note,
       ...(picked ? { picked } : {}),
-      target: { kind, areaId: area.id, sectorId: sector.id, ...(kind === 'base' ? {} : { routeId: route.id }) },
+      target: { kind, areaId: area.id, sectorId: target.id, ...(kind === 'base' || !route ? {} : { routeId: route.id }) },
     })
     setOpen(false)
     setSent(true)
@@ -74,7 +80,7 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
 
   return (
     <>
-      {/* 路線頁右上的圖示（定位圖釘）；送出後圖示短暫換成打勾，提示改成已記錄 */}
+      {/* 標題卡右上的圖示（定位圖釘）；送出後圖示短暫換成打勾，提示改成已記錄 */}
       <button
         type="button"
         className={`tool-button place-report-button${sent ? ' on' : ''}`}
@@ -101,14 +107,33 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
             submit()
           }}
         >
-          <p className="map-question">{t('place.which')}</p>
-          <div className="chips">
-            {KINDS.map((k) => (
-              <button key={k} type="button" className="chip" aria-pressed={kind === k} onClick={() => setKind(kind === k ? undefined : k)}>
-                {t(`place.kind.${k}`)}
-              </button>
-            ))}
-          </div>
+          {route ? (
+            <>
+              <p className="map-question">{t('place.which')}</p>
+              <div className="chips">
+                {KINDS.map((k) => (
+                  <button key={k} type="button" className="chip" aria-pressed={kind === k} onClick={() => setKind(kind === k ? undefined : k)}>
+                    {t(`place.kind.${k}`)}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : sector ? (
+            <p className="map-question">
+              {localName(sector.name, lang).main} · {t('place.kind.base')}
+            </p>
+          ) : (
+            <>
+              <p className="map-question">{t('place.whichSector')}</p>
+              <div className="chips">
+                {area.sectors.map((x) => (
+                  <button key={x.id} type="button" className="chip" aria-pressed={chosenSector === x} onClick={() => setSector(chosenSector === x ? undefined : x)}>
+                    {localName(x.name, lang).main}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           <p className="map-question">
             {t('place.pick')}
@@ -145,7 +170,7 @@ export function PlaceReport({ data, item }: { data: LoadedData; item: RouteRef }
 
           <input className="map-extra" type="text" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={t('map.extra')} aria-label={t('map.extra')} />
           <div className="actions">
-            <button type="submit" className="action primary" disabled={!kind || !fix || outside !== undefined}>
+            <button type="submit" className="action primary" disabled={!kind || !target || !fix || outside !== undefined}>
               {t('map.send')}
             </button>
             <button type="button" className="action" onClick={() => setOpen(false)}>

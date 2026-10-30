@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { bestStyle, daysAgo, mergeRecords, NOTE_MAX, sentRouteIds, today, type Tick } from '../src/personal/model'
+import { bestStyle, daysAgo, favoritesFirst, mergeRecords, NOTE_MAX, sentRouteIds, today, type Tick } from '../src/personal/model'
 import { addTick, applyRecords, clearAll, deleteTick, exportAll, setBest, setFavorite } from '../src/personal/store'
 
 const tick = (id: string, updatedAt: string, over: Partial<Tick> = {}): Tick => ({
@@ -108,5 +108,13 @@ describe('daysAgo', () => {
     const now = new Date(2026, 9, 25, 13, 30)
     daysAgo(3, now)
     expect(now.getDate()).toBe(25)
+  })
+})
+
+describe('收藏的排在前面', () => {
+  it('收藏的照原本順序排在前面，其他也照原本順序', () => {
+    const items = ['a', 'b', 'c', 'd'].map((id) => ({ id }))
+    expect(favoritesFirst(items, new Set(['c', 'a'])).map((x) => x.id)).toEqual(['a', 'c', 'b', 'd'])
+    expect(favoritesFirst(items, new Set()).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 })

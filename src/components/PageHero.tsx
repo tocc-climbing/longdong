@@ -9,7 +9,8 @@ export interface Crumb {
 /**
  * 首頁、區域、分區、路線頁共用的標題卡：上方一行是所在的位置（龍洞 › 黃金谷 › 貓屋，可以點），中間是名稱，
  * 下面一行是數字；右邊是地圖，右上是這一頁的工具。顏色：首頁是品牌色，以下各層是區域（分區）的顏色。
- * wide：電腦版畫面寬時多放的資訊與圖表（只有區域頁）；compact：只佔清單那一欄（分區頁、路線頁在電腦版）。
+ * wide：電腦版畫面寬時多放的資訊與圖表（只有區域頁）；compact：只佔清單那一欄（分區頁、路線頁在電腦版）；
+ * strip：橫的地圖放在名稱下面、滿版（首頁的整個龍洞）。
  */
 export function PageHero({
   crumbs,
@@ -21,6 +22,7 @@ export function PageHero({
   shape,
   wide,
   compact,
+  strip,
 }: {
   crumbs: Crumb[]
   color?: string
@@ -32,11 +34,12 @@ export function PageHero({
   shape: ReactNode
   wide?: { facts: ReactNode; chart: ReactNode }
   compact?: boolean
+  strip?: boolean
 }) {
   return (
     <div className="area-hero-wrap">
       {tools}
-      <div className={compact ? 'area-hero compact' : 'area-hero'} style={{ '--area-color': color ?? 'var(--brand)' } as CSSProperties}>
+      <div className={['area-hero', compact && 'compact', strip && 'strip'].filter(Boolean).join(' ')} style={{ '--area-color': color ?? 'var(--brand)' } as CSSProperties}>
         <div className="area-hero-text">
           <p className="area-hero-crag">
             {crumbs.map((c, i) => (

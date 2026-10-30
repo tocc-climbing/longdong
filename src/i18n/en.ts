@@ -224,6 +224,7 @@ export const en: Messages = {
   'place.button': 'Report spot',
   'place.title': 'Report your spot',
   'place.which': 'Where are you on this route?',
+  'place.whichSector': 'Which sector’s wall base are you at?',
   'place.kind.start': 'Start',
   'place.kind.rest': 'Rest',
   'place.kind.top': 'Top',

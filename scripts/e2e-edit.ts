@@ -22,7 +22,7 @@ const put = async (path: string, body: unknown) => {
 
 /** 龍洞的資料：找一個有至少三條編號路線的分區放 Topo，校門口所在的分區放岩壁 */
 const data = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as {
-  areas: { id: string; sectors: { id: string; routes: { id: string; number?: string; bolts?: unknown[]; anchors?: unknown[] }[] }[] }[]
+  areas: { id: string; name: { zh: string }; sectors: { id: string; name: { zh: string }; routes: { id: string; number?: string; bolts?: unknown[]; anchors?: unknown[] }[] }[] }[]
 }
 // 有至少三條編號路線、而且前三條都有 bolt／anchor 位置的分區（測試 bolt 位置的按鈕要用）
 const topoSector = data.areas
@@ -925,12 +925,16 @@ try {
   await rp.keyboard.press('Escape')
   await rp.goto(base + `sector/${topoSector.id}`)
   await rp.waitForSelector('.area-hero-wrap')
-  check('手機版分區頁：沒有修改記錄的圖示', (await rp.locator('.area-hero-wrap .page-tools').getByRole('button', { name: '修改記錄' }).count()) === 0)
+  await tool('更多').click()
+  check('手機版分區頁：「更多」沒有修改記錄', !(await menuItems()).includes('修改記錄') && (await menuItems()).includes('分享'), (await menuItems()).join('|'))
+  await rp.keyboard.press('Escape')
   // 修改記錄只在電腦版：這個分區有修改，「更多」選單有修改記錄
   await rp.setViewportSize({ width: 1366, height: 900 })
   await rp.goto(base + `route/${topoRoutes[0].id}`)
   await rp.waitForSelector('.page-tools .tool-button.fav')
-  await tool('更多').click()
+  // 電腦版：左邊分區清單的標題卡也有一組工具，用右邊路線的
+  const detailTool = (label: string) => rp.locator('.detail-pane .page-tools').getByRole('button', { name: label, exact: true })
+  await detailTool('更多').click()
   await rp.getByRole('menuitem', { name: '修改記錄' }).click()
   check('電腦版修改記錄：展開清單', (await rp.locator('.page-tools .tool-history li').count()) > 0)
   await rp.keyboard.press('Escape')
@@ -938,10 +942,51 @@ try {
   const quiet = data.areas.flatMap((a) => a.sectors).find((x) => x.id !== topoSector.id && x.id !== sharedSector.id && x.routes.some((r) => r.number))!
   await rp.goto(base + `route/${quiet.routes.find((r) => r.number)!.id}`)
   await rp.waitForSelector('.page-tools .tool-button.fav')
-  await tool('更多').click()
+  await detailTool('更多').click()
   check('沒有修改記錄的路線：選單沒有「修改記錄」', !(await menuItems()).includes('修改記錄') && (await menuItems()).includes('分享'), (await menuItems()).join('|'))
   await rp.keyboard.press('Escape')
   await rp.setViewportSize({ width: 390, height: 844 })
+  // 區域、分區頁的標題卡：和路線頁同一組工具（收藏、回報位置、更多：分享、編輯），圖示等距
+  const favArea = data.areas[2]
+  await rp.goto(base + `area/${favArea.id}`)
+  await rp.waitForSelector('.page-tools .tool-button.fav')
+  check('區域頁右上：收藏、回報位置、更多', (await tool('收藏').count()) === 1 && (await tool('回報位置').count()) === 1 && (await tool('更多').count()) === 1)
+  const toolBoxes = await rp.locator('.area-hero-wrap > .page-tools .tool-button').evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => [r.left, r.right]))
+  const gaps = toolBoxes.slice(1).map((b, i) => b[0] - toolBoxes[i][1])
+  check('標題卡的圖示等距排列', gaps.length === 2 && gaps.every((g) => Math.abs(g - gaps[0]) < 1), gaps.join(' / '))
+  await tool('更多').click()
+  const areaMenu = await menuItems()
+  check('區域頁「更多」：分享、編輯', areaMenu.includes('分享') && areaMenu.some((x) => x.startsWith('編輯')), areaMenu.join('|'))
+  await rp.keyboard.press('Escape')
+  await tool('回報位置').click()
+  check('區域頁回報位置：先選分區（每個分區一個選項）', (await rp.locator('.place-report .chip').count()) === favArea.sectors.length)
+  await rp.keyboard.press('Escape')
+  // 收藏區域：首頁排在最前面、名稱旁有愛心；「我的」的收藏只列路線
+  await tool('收藏').click()
+  // 收藏寫進本機資料庫後按鈕才變成已收藏；之前換頁會沒存到
+  await rp.waitForSelector('.page-tools .tool-button.fav.on')
+  await rp.goto(base)
+  await rp.waitForSelector('.area-row')
+  const firstRow = rp.locator('.area-row').first()
+  check('收藏的區域在首頁排最前面、有愛心', ((await firstRow.locator('.area-name').textContent()) ?? '').includes(favArea.name.zh) && (await firstRow.locator('.fav-mark').count()) === 1)
+  const heroH = async () => (await rp.locator('.area-hero').boundingBox())!.height
+  const homeHero = await heroH()
+  await rp.goto(base + `area/${favArea.id}`)
+  await rp.waitForSelector('.page-tools .tool-button.fav')
+  check('首頁與區域頁的標題卡一樣高', Math.abs(homeHero - (await heroH())) < 1, `${homeHero} / ${await heroH()}`)
+  await rp.goto(base + 'me')
+  await rp.getByRole('tab', { name: /收藏/ }).click()
+  check('「我的」收藏只列路線（不列區域）', (await rp.locator('.list-card .timeline-body.muted').count()) === 0)
+  await rp.goto(base + `area/${favArea.id}`)
+  await rp.waitForSelector('.page-tools .tool-button.fav.on')
+  await tool('已收藏').click()
+  // 分區頁回報位置：直接回報這個分區的牆底
+  const wallSectorItem = favArea.sectors[0]
+  await rp.goto(base + `sector/${wallSectorItem.id}`)
+  await rp.waitForSelector('.page-tools .tool-button.fav')
+  await tool('回報位置').click()
+  check('分區頁回報位置：這個分區的牆底（不必選）', ((await rp.locator('.place-report .map-question').first().textContent()) ?? '').includes(`${wallSectorItem.name.zh} · 牆底`) && (await rp.locator('.place-report .chip').count()) === 0)
+  await rp.keyboard.press('Escape')
   // 返回一律回到上一層：換到下一個分區後返回是區域；直接打開的路線返回是分區
   const backSector = data.areas.flatMap((a) => a.sectors).find((x) => x.routes.length > 0)!
   const backArea = data.areas.find((a) => a.sectors.some((x) => x.id === backSector.id))!

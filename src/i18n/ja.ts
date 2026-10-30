@@ -228,6 +228,7 @@ export const ja: Messages = {
   'place.button': '位置を報告',
   'place.title': '位置を報告',
   'place.which': 'このルートのどこにいますか？',
+  'place.whichSector': 'どのセクターの壁の下にいますか？',
   'place.kind.start': '取り付き',
   'place.kind.rest': 'レスト',
   'place.kind.top': '終了点',

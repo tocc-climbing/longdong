@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import type { LoadedData, RouteRef } from '../data/dataset'
+import type { LoadedData } from '../data/dataset'
+import type { Area, Route, Sector } from '../data/schema'
 import { HistoryView, useDismiss, useEditOptions, useHistory, type ToolScope } from '../edit/PageTools'
 import { useLang } from '../i18n'
 import { useWide } from '../layout'
@@ -8,17 +9,35 @@ import { PlaceReport } from './PlaceReport'
 import { ShareItems } from './ShareItems'
 
 /**
- * 路線頁右上的工具：收藏、回報位置（都是圖示），「更多」選單：分享、記錄攀登、修改路線、修改記錄（電腦版、有修改記錄才顯示）。
- * 收藏與記錄攀登要登入（固定點沒有）。onTick：打開記錄攀登的視窗。
+ * 區域、分區、路線頁標題卡右上的工具：收藏、回報位置（都是圖示），「更多」選單：分享、記錄攀登（路線）、編輯、
+ * 修改記錄（電腦版、有修改記錄才顯示）。收藏與記錄攀登要登入。
+ * favoriteId：收藏的對象（路線、區域或分區的 ID；固定點不能收藏時 undefined）；report：回報位置的對象；
+ * onTick：打開記錄攀登的視窗（只有路線）。
  */
-export function RouteTools({ data, item, signedIn, scope, onTick }: { data: LoadedData; item: RouteRef; signedIn: boolean; scope: ToolScope; onTick: () => void }) {
+export function TitleTools({
+  data,
+  favoriteId,
+  report,
+  share,
+  signedIn,
+  scope,
+  onTick,
+}: {
+  data: LoadedData
+  favoriteId?: string
+  report: { area: Area; sector?: Sector; route?: Route }
+  share: { url: string; text: string }
+  signedIn: boolean
+  scope: ToolScope
+  onTick?: () => void
+}) {
   const { t } = useLang()
   const personal = usePersonal()
-  const mine = signedIn && !item.route.isFixture && !personal.error
-  const favorite = personal.favorites.has(item.route.id)
+  const wide = useWide()
+  const mine = signedIn && !!favoriteId && !personal.error
+  const favorite = !!favoriteId && personal.favorites.has(favoriteId)
   const edits = useEditOptions(scope)
   const history = useHistory(scope)
-  const wide = useWide()
   const [menu, setMenu] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -36,7 +55,7 @@ export function RouteTools({ data, item, signedIn, scope, onTick }: { data: Load
           aria-label={favorite ? t('fav.on') : t('fav.off')}
           title={favorite ? t('fav.on') : t('fav.off')}
           disabled={!personal.ready}
-          onClick={() => setFavorite(item.route.id, !favorite)}
+          onClick={() => setFavorite(favoriteId!, !favorite)}
         >
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
             <path
@@ -48,7 +67,7 @@ export function RouteTools({ data, item, signedIn, scope, onTick }: { data: Load
           </svg>
         </button>
       )}
-      <PlaceReport data={data} item={item} />
+      <PlaceReport data={data} {...report} />
       <div className="tool-wrap" ref={box}>
         <button
           type="button"
@@ -72,10 +91,10 @@ export function RouteTools({ data, item, signedIn, scope, onTick }: { data: Load
             </button>
             {sharing && (
               <div className="share-list">
-                <ShareItems item={item} onDone={close} />
+                <ShareItems url={share.url} text={share.text} onDone={close} />
               </div>
             )}
-            {mine && (
+            {mine && onTick && (
               <button
                 type="button"
                 role="menuitem"

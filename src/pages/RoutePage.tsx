@@ -5,7 +5,7 @@ import { PageHero } from '../components/PageHero'
 import { PersonalPanel } from '../components/PersonalPanel'
 import { ReviewsSection } from '../components/ReviewsSection'
 import { SafetyLight } from '../components/SafetyLight'
-import { RouteTools } from '../components/RouteTools'
+import { TitleTools } from '../components/TitleTools'
 import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route } from '../data/schema'
@@ -18,6 +18,7 @@ import { useState } from 'react'
 import { useWide } from '../layout'
 import { useCloud } from '../personal/sync'
 import { href, useRouteLink } from '../router'
+import { currentRouteUrl, shareText } from '../share'
 import { routeKey, summarize } from '../social/model'
 import { RouteTopos } from '../topo/TopoSection'
 import { useSocial } from '../social/store'
@@ -64,7 +65,17 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
         color={areaSectorColor(area, sector)}
         name={name.main}
         sub={[route.number && `#${route.number}`, name.sub].filter(Boolean).join(' · ')}
-        tools={<RouteTools data={data} item={ref} signedIn={signedIn} scope={scope} onTick={() => setTickOpen(true)} />}
+        tools={
+          <TitleTools
+            data={data}
+            favoriteId={route.isFixture ? undefined : route.id}
+            report={{ area, sector, route }}
+            share={{ url: currentRouteUrl(route.id), text: shareText(ref, lang, t) }}
+            signedIn={signedIn}
+            scope={scope}
+            onTick={route.isFixture ? undefined : () => setTickOpen(true)}
+          />
+        }
         shape={<SectorShape area={area} sector={sector} color={areaSectorColor(area, sector)} className="area-hero-shape" />}
         compact
       />

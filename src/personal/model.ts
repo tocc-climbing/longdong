@@ -50,6 +50,7 @@ interface Syncable {
 }
 
 export interface Favorite extends Syncable {
+  /** 收藏的路線、區域或分區的 ID（欄位名稱沿用，雲端的資料不用改） */
   routeId: string
 }
 
@@ -121,4 +122,9 @@ export function daysAgo(n: number, now = new Date()): string {
 export function today(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`
+}
+
+/** 收藏的排在前面，其他照原本的順序（首頁的區域、區域頁的分區） */
+export function favoritesFirst<T extends { id: string }>(items: T[], favorites: Set<string>): T[] {
+  return [...items.filter((x) => favorites.has(x.id)), ...items.filter((x) => !favorites.has(x.id))]
 }

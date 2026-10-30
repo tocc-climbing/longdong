@@ -2701,13 +2701,16 @@ a.action {
 
 .area-hero-wrap > .page-tools {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 6px;
+  right: 6px;
   z-index: 4;
+  gap: 0;
 }
 
-/* 標題卡上的圖示不用底色；地圖往下讓出圖示的位置，不被蓋住 */
+/* 標題卡上的圖示不用底色、等距排列；地圖往下讓出圖示的位置，不被蓋住 */
 .area-hero-wrap > .page-tools .tool-button {
+  width: 40px;
+  height: 40px;
   border-color: transparent;
   background: transparent;
 }
@@ -2718,6 +2721,28 @@ a.action {
 
 .area-hero-wrap:has(> .page-tools > *) .area-hero-shape {
   margin-top: 30px;
+}
+
+/* 每一層的標題卡一樣高（有沒有工具列、地圖橫的或直的） */
+[data-layout='mobile'] .area-hero {
+  min-height: 206px;
+}
+
+/* 首頁：橫的地圖放在名稱下面、滿版 */
+.area-hero.strip {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: space-between;
+}
+
+.area-hero.strip .area-hero-shape {
+  height: 64px;
+}
+
+/* 清單名稱旁的收藏愛心 */
+.fav-mark {
+  margin-left: 6px;
+  color: var(--style-rp);
+  vertical-align: -0.05em;
 }
 
 .tool-button {
@@ -4436,9 +4461,14 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   padding: 24px 28px 24px 32px;
 }
 
-/* 沒有難度分佈的標題卡（首頁）：名稱與地圖兩欄 */
-[data-layout='wide'] .area-hero:not(:has(.area-hero-chart)) {
-  grid-template-columns: minmax(0, 1fr) 11.25rem;
+/* 首頁的標題卡：名稱與橫的地圖兩欄 */
+[data-layout='wide'] .area-hero.strip {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  align-content: center;
+}
+
+[data-layout='wide'] .area-hero.strip .area-hero-shape {
+  height: 8rem;
 }
 
 [data-layout='wide'] .area-hero h1 {

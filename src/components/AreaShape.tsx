@@ -29,19 +29,22 @@ function bounds(points: [number, number][]) {
 const ringsPath = (rings: Ring[], at: (p: [number, number]) => [number, number]) =>
   rings.map((ring) => `M${ring.map((p) => at(p).map((n) => n.toFixed(1)).join(',')).join('L')}Z`).join('')
 
+/** 畫面座標 (x 向東, y 向南) 轉 90 度 → (-y, x)：龍洞橫放，北邊朝右 */
+const turn = ([x, y]: [number, number]): [number, number] => [-y, x]
+
 const wallPath = (pts: [number, number][]) => `M${pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join('L')}`
 
-/** 整個龍洞：各大區域的形狀，用各自的顏色（與清單的色點相同） */
+/** 整個龍洞橫放（北邊朝右、海在下方，與路線清單的地圖相同）：各大區域的形狀，用各自的顏色（與清單的色點相同） */
 export function CragShape({ data, className }: { data: LoadedData; className?: string }) {
   const map = useScaleMap()
   if (map.status !== 'ok') return <div className={className} aria-hidden />
-  const b = bounds(map.data.areas.flatMap((a) => a.rings.flat()))
-  const pad = Math.max(b.w, b.h) * 0.03
+  const b = bounds(map.data.areas.flatMap((a) => a.rings.flat().map(turn)))
+  const pad = Math.max(b.w, b.h) * 0.02
   return (
     <svg className={className} viewBox={`${b.x - pad} ${b.y - pad} ${b.w + 2 * pad} ${b.h + 2 * pad}`} aria-hidden>
       {data.dataset.areas.map((area) => {
         const shape = map.data.areas.find((a) => a.id === areaKey(area))
-        return shape && <path key={area.id} d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.85} />
+        return shape && <path key={area.id} d={ringsPath(shape.rings, turn)} fill={area.color ?? 'var(--brand)'} />
       })}
     </svg>
   )
@@ -136,8 +139,6 @@ export function AreaStrip({ data, value, onChange }: { data: LoadedData; value: 
   )
   if (map.status !== 'ok') return <div className="area-strip">{arrows}</div>
 
-  // 畫面座標 (x 向東, y 向南) 轉 90 度 → (-y, x)
-  const turn = ([x, y]: [number, number]): [number, number] => [-y, x]
   // 名稱標在最大的一塊上方（有的區域另有離得較遠的小塊）
   const largest = (rings: Ring[]) => rings.reduce((a, b) => {
     const [ba, bb] = [bounds(a.map(turn)), bounds(b.map(turn))]

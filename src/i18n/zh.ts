@@ -222,6 +222,7 @@ export const zh = {
   'place.button': '回報位置',
   'place.title': '回報位置',
   'place.which': '你在這條路線的哪裡？',
+  'place.whichSector': '你在哪個分區的牆底？',
   'place.kind.start': '起攀點',
   'place.kind.rest': '休息點',
   'place.kind.top': '頂端',

@@ -95,6 +95,8 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
   const { link } = useRouteLink()
 
   const lookup = (id: string) => data.routeById.get(id)
+  // 收藏也可能是區域、分區（首頁、區域頁排在前面），這裡只列路線
+  const favorites = [...personal.favorites].filter((id) => !data.areaById.has(id) && !data.sectorById.has(id))
   const name = displayName(social.profiles, uid)
   // 完攀過的路線與最好的方式：攀登紀錄加上路線清單勾選的
   const sends = sendStyles(personal.ticks, personal.best)
@@ -202,7 +204,7 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
             </button>
             <button role="tab" aria-selected={tab === 'favorites'} onClick={() => setTab('favorites')}>
               {t('me.tab.favs')}
-              {personal.favorites.size > 0 && ` ${personal.favorites.size}`}
+              {favorites.length > 0 && ` ${favorites.length}`}
             </button>
           </div>
 
@@ -250,11 +252,11 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
             ))}
 
           {tab === 'favorites' &&
-            (personal.favorites.size === 0 ? (
+            (favorites.length === 0 ? (
               <p className="empty muted">{t('me.noFavs')}</p>
             ) : (
               <ul className="list-card">
-                {[...personal.favorites].map((id) => {
+                {favorites.map((id) => {
                   const ref = lookup(id)
                   return ref ? (
                     <RouteRow key={id} item={ref} showPlace />

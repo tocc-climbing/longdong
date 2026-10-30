@@ -3,7 +3,7 @@ import type { RouteRef } from '../src/data/dataset'
 import { translate } from '../src/i18n'
 import { en } from '../src/i18n/en'
 import { zh } from '../src/i18n/zh'
-import { routeUrl, shareText, targetUrl } from '../src/share'
+import { placeShareText, routeUrl, shareText, targetUrl } from '../src/share'
 
 const ref = (sectors: number, number?: string, grade?: string) => {
   const sector = { id: 'longdong/golden-valley-s1', name: { zh: '貓屋', en: 'The Cathouse' }, routes: [] }
@@ -39,5 +39,14 @@ ${url}`)
   it('沒有編號、難度時省略；只有一個區域的大區域不重複區域名', () => {
     const tz = (k: Parameters<typeof translate>[1]) => translate(zh, k)
     expect(shareText(ref(1), 'zh', tz)).toBe('拉斯塔法里海鳥｜龍洞 黃金谷')
+  })
+})
+
+describe('分享區域、分區', () => {
+  it('分享文字：分區 · 區域｜岩場', () => {
+    const tz = (k: Parameters<typeof translate>[1]) => translate(zh, k)
+    const { sector, area } = ref(10)
+    expect(placeShareText(area, undefined, 'zh', tz)).toBe('黃金谷｜龍洞')
+    expect(placeShareText(area, sector, 'zh', tz)).toBe('貓屋 · 黃金谷｜龍洞')
   })
 })

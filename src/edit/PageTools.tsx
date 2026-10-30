@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect } from 'react'
 import type { Sector } from '../data/schema'
 import { localName, LOCALES, useLang } from '../i18n'
 import { useWide } from '../layout'
@@ -44,49 +44,6 @@ export function useDismiss(open: boolean, onClose: () => void, box: React.RefObj
   }, [open, onClose, box])
 }
 
-export const Icon = ({ children }: { children: ReactNode }) => (
-  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    {children}
-  </svg>
-)
-
-/**
- * 區域、分區、路線頁標題旁的圖示：修改記錄（點了才展開；手機版不顯示）、編輯（進編輯模式的對應項目）。
- * 平常只佔兩個圖示的位置，不影響閱讀。
- */
-export function PageTools({ scope }: { scope: ToolScope }) {
-  const wide = useWide()
-  return (
-    <div className="page-tools">
-      {wide && <HistoryButton scope={scope} />}
-      <EditButton scope={scope} />
-    </div>
-  )
-}
-
-function HistoryButton({ scope }: { scope: ToolScope }) {
-  const { t } = useLang()
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-  useDismiss(open, () => setOpen(false), box)
-  return (
-    <div className="tool-wrap" ref={box}>
-      <button type="button" className="tool-button" aria-label={t('tools.history')} title={t('tools.history')} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <Icon>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 11v5M12 8h.01" />
-        </Icon>
-      </button>
-      {open && (
-        <div className="tool-pop" role="dialog" aria-label={t('tools.history')}>
-          <h2>{t('tools.history')}</h2>
-          <HistoryList scope={scope} />
-        </div>
-      )}
-    </div>
-  )
-}
-
 /** 讀取這頁的修改記錄（地圖、說明、Topo 的版本），由新到舊；Topo 的版本要另外載入 */
 export function useHistory(scope: ToolScope): { entries: Entry[]; edited: boolean } {
   const { lang, t } = useLang()
@@ -122,11 +79,6 @@ export function useHistory(scope: ToolScope): { entries: Entry[]; edited: boolea
   }
   entries.sort((a, b) => b.createdAt - a.createdAt)
   return { entries, edited: !!scope.text && !!currentText(texts[scope.text.target]) }
-}
-
-/** 展開後才讀取 Topo 的版本；地圖、說明的版本全站共用，已經讀好 */
-function HistoryList({ scope }: { scope: ToolScope }) {
-  return <HistoryView scope={scope} history={useHistory(scope)} />
 }
 
 export function HistoryView({ scope, history }: { scope: ToolScope; history: { entries: Entry[]; edited: boolean } }) {
@@ -203,51 +155,4 @@ export function useEditOptions(scope: ToolScope): EditOption[] {
     options.push({ key: 'topo', label: 'Topo', to: first ? href.topo(first.id) : href.topoAdd(sector.id) })
   }
   return options
-}
-
-/** 一個選項直接進入，多個選項跳小選單 */
-function EditButton({ scope }: { scope: ToolScope }) {
-  const { t } = useLang()
-  const options = useEditOptions(scope)
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-  useDismiss(open, () => setOpen(false), box)
-  if (options.length === 0) return null
-
-  const icon = (
-    <Icon>
-      <path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" />
-    </Icon>
-  )
-  if (options.length === 1) {
-    return (
-      <a className="tool-button" href={options[0].to} aria-label={`${t('tools.edit')}：${options[0].label}`} title={`${t('tools.edit')}：${options[0].label}`}>
-        {icon}
-      </a>
-    )
-  }
-  return (
-    <div className="tool-wrap" ref={box}>
-      <button
-        type="button"
-        className="tool-button"
-        aria-label={t('tools.edit')}
-        title={t('tools.edit')}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {icon}
-      </button>
-      {open && (
-        <div className="tool-pop menu" role="menu">
-          {options.map((o) => (
-            <a key={o.key} role="menuitem" href={o.to}>
-              {o.label}
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }

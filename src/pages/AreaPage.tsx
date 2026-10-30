@@ -6,7 +6,13 @@ import { GradeDistribution } from '../components/Charts'
 import { PageHero } from '../components/PageHero'
 import { RouteList } from '../components/RouteList'
 import { CommunityText } from '../edit/CommunityText'
-import { PageTools, type ToolScope } from '../edit/PageTools'
+import { TitleTools } from '../components/TitleTools'
+import type { ToolScope } from '../edit/PageTools'
+import { FavMark } from '../components/FavMark'
+import { favoritesFirst } from '../personal/model'
+import { usePersonal } from '../personal/store'
+import { useCloud } from '../personal/sync'
+import { placeShareText, siteUrl } from '../share'
 import { textTarget } from '../edit/textEdits'
 import { wallTarget } from '../map/shapes'
 import { SectorTopos } from '../topo/TopoSection'
@@ -16,7 +22,7 @@ import { useWide } from '../layout'
 import { href } from '../router'
 
 /**
- * 區域頁：列出分區，點進去才看路線（只有一個分區時直接顯示路線）。
+ * 區域頁：列出分區（收藏的排在前面），點進去才看路線（只有一個分區時直接顯示路線）。
  * 上方是標題卡（PageHero）：區域的顏色，右側是這個區域的地圖形狀。
  * 電腦版畫面寬：標題區多放英文名、難度範圍、Bolt 數、路線種類、需要注意的路線數與整區的難度分佈；
  * 分區也多放英文名、難度範圍、種類與需要注意的路線數。
@@ -24,6 +30,8 @@ import { href } from '../router'
 export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
   const { lang, t } = useLang()
   const wide = useWide()
+  const signedIn = useCloud().status === 'signed-in'
+  const favorites = usePersonal().favorites
   const area = data.areaById.get(id)
   if (!area) return <NotFound />
   const routes = area.sectors.flatMap((s) => s.routes).filter((r) => !r.isFixture)
@@ -50,7 +58,16 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
             {t('count.routes', { n: routeCount })}
           </>
         }
-        tools={<PageTools scope={areaScope} />}
+        tools={
+          <TitleTools
+            data={data}
+            favoriteId={area.id}
+            report={{ area }}
+            share={{ url: siteUrl(href.area(area.id)), text: placeShareText(area, undefined, lang, t) }}
+            signedIn={signedIn}
+            scope={areaScope}
+          />
+        }
         shape={<AreaShape area={area} className="area-hero-shape" />}
         wide={
           wide
@@ -77,9 +94,9 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
         <SectorRoutes data={data} sector={area.sectors[0]} />
       ) : (
         <ul className="area-list">
-          {area.sectors.map((sector, i) => (
+          {favoritesFirst(area.sectors, favorites).map((sector) => (
             <li key={sector.id}>
-              <SectorCard sector={sector} color={sectorColor(area.color, i, area.sectors.length)} />
+              <SectorCard sector={sector} color={areaSectorColor(area, sector)} favorite={favorites.has(sector.id)} />
             </li>
           ))}
         </ul>
@@ -88,7 +105,7 @@ export function AreaPage({ data, id }: { data: LoadedData; id: string }) {
   )
 }
 
-function SectorCard({ sector, color }: { sector: Sector; color?: string }) {
+function SectorCard({ sector, color, favorite }: { sector: Sector; color?: string; favorite: boolean }) {
   const { lang, t } = useLang()
   const routes = sector.routes.filter((r) => !r.isFixture)
   const range = gradeRange(routes)
@@ -96,7 +113,10 @@ function SectorCard({ sector, color }: { sector: Sector; color?: string }) {
   return (
     <a className="area-row" href={href.sector(sector.id)} style={{ '--area-color': color } as CSSProperties}>
       <span className="area-info">
-        <span className="sector-name">{name.main}</span>
+        <span className="sector-name">
+          {name.main}
+          {favorite && <FavMark />}
+        </span>
         {name.sub && <span className="en">{name.sub}</span>}
         <span className="area-count">
           {t('count.routes', { n: routes.length })}
@@ -139,6 +159,7 @@ export function areaSectorColor(area: Area, sector: Sector): string | undefined 
 /** 分區頁：Topo 與路線清單，可排序、篩選 */
 export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
   const { lang, t } = useLang()
+  const signedIn = useCloud().status === 'signed-in'
   const found = data.sectorById.get(id)
   if (!found) return <NotFound />
   const { sector, area } = found
@@ -155,7 +176,16 @@ export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
         color={color}
         name={name.main}
         sub={t('count.routes', { n: routes.length })}
-        tools={<PageTools scope={{ areaId: area.id, map: { target: wallTarget(sector.id), label: t('edit.sectorShapes') }, sectors: [sector], topoEdit: true }} />}
+        tools={
+          <TitleTools
+            data={data}
+            favoriteId={sector.id}
+            report={{ area, sector }}
+            share={{ url: siteUrl(href.sector(sector.id)), text: placeShareText(area, sector, lang, t) }}
+            signedIn={signedIn}
+            scope={{ areaId: area.id, map: { target: wallTarget(sector.id), label: t('edit.sectorShapes') }, sectors: [sector], topoEdit: true }}
+          />
+        }
         shape={<SectorShape area={area} sector={sector} color={color} className="area-hero-shape" />}
         compact
       />

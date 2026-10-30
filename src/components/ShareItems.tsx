@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { RouteRef } from '../data/dataset'
 import { useLang } from '../i18n'
-import { canSystemShare, copy, currentRouteUrl, shareText, systemShare, targetUrl, type ShareTarget } from '../share'
+import { canSystemShare, copy, systemShare, targetUrl, type ShareTarget } from '../share'
 
 /** fb-messenger:// 只有手機 App 能開 */
 const isPhone = () =>
@@ -13,9 +12,9 @@ const TARGETS: { target: ShareTarget; label: string; badge: string; phoneOnly?: 
   { target: 'messenger', label: 'Messenger', badge: 'm', phoneOnly: true },
 ]
 
-/** 路線頁「更多」選單裡的分享選項（LINE、Facebook、Messenger、複製連結、更多…）；onDone：分享動作送出後（關閉選單） */
-export function ShareItems({ item, onDone }: { item: RouteRef; onDone: () => void }) {
-  const { lang, t } = useLang()
+/** 路線、區域、分區頁「更多」選單裡的分享選項（LINE、Facebook、Messenger、複製連結、更多…）；onDone：分享動作送出後（關閉選單） */
+export function ShareItems({ url, text, onDone }: { url: string; text: string; onDone: () => void }) {
+  const { t } = useLang()
   const [status, setStatus] = useState<'copied' | 'failed'>()
 
   useEffect(() => {
@@ -23,9 +22,6 @@ export function ShareItems({ item, onDone }: { item: RouteRef; onDone: () => voi
     const timer = setTimeout(() => setStatus(undefined), 2500)
     return () => clearTimeout(timer)
   }, [status])
-
-  const url = currentRouteUrl(item.route.id)
-  const text = shareText(item, lang, t)
 
   const goTo = (target: ShareTarget) => {
     const link = targetUrl(target, url, text)

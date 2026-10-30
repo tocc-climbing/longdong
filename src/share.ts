@@ -1,4 +1,5 @@
 import type { RouteRef } from './data/dataset'
+import type { Area, Sector } from './data/schema'
 import { localName, type Lang, type Translate } from './i18n'
 
 /**
@@ -29,6 +30,17 @@ export function shareText({ route, sector, area }: RouteRef, lang: Lang, t: Tran
   const name = [route.number && `#${route.number}`, localName(route.name, lang).main, route.grade].filter(Boolean).join(' ')
   const place = [localName(area.name, lang).main, area.sectors.length > 1 && localName(sector.name, lang).main].filter(Boolean).join(' · ')
   return `${name}｜${t('share.crag')} ${place}`
+}
+
+/** 區域、分區的分享文字：「黃金谷｜龍洞」「貓屋 · 黃金谷｜龍洞」 */
+export function placeShareText(area: Area, sector: Sector | undefined, lang: Lang, t: Translate): string {
+  const place = [sector && localName(sector.name, lang).main, localName(area.name, lang).main].filter(Boolean).join(' · ')
+  return `${place}｜${t('share.crag')}`
+}
+
+/** 目前網站裡某一頁的完整網址（path 以 / 開頭，例如 /area/longdong/golden-valley） */
+export function siteUrl(path: string): string {
+  return location.origin + import.meta.env.BASE_URL.replace(/\/$/, '') + path
 }
 
 export type ShareTarget = 'line' | 'facebook' | 'messenger'
