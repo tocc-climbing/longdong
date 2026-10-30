@@ -6,7 +6,6 @@ import { PersonalPanel } from '../components/PersonalPanel'
 import { ReviewsFold } from '../components/ReviewsSection'
 import { SafetyLight } from '../components/SafetyLight'
 import { TitleTools } from '../components/TitleTools'
-import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route } from '../data/schema'
 import { CommunityText } from '../edit/CommunityText'
@@ -132,12 +131,6 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
       <div id="rating" className="route-block">
         <ReviewsFold routeId={route.id} rateable={!route.isFixture} open={reviewsOpen} onOpen={() => setReviewsOpen(true)} />
       </div>
-
-      {!signedIn && cloudStatus !== 'loading' && (
-        <div className="signin-hint">
-          <SignInPrompt compact message={route.isFixture ? t('comments.signIn') : t('route.signInHint')} />
-        </div>
-      )}
     </article>
   )
 }

@@ -8,8 +8,8 @@ import { preloadSignIn, signIn, useCloud } from '../personal/sync'
  */
 export const FACEBOOK_LOGIN_ENABLED = false
 
-/** 未登入時顯示的登入按鈕；message 說明登入後能做什麼。compact 為一行文字加連結 */
-export function SignInPrompt({ message, compact = false }: { message: string; compact?: boolean }) {
+/** 未登入時顯示的登入按鈕；message：按鈕上方的說明（不寫「登入後可以做什麼」） */
+export function SignInPrompt({ message }: { message?: string }) {
   const cloud = useCloud()
   const { t } = useLang()
   const offline = typeof navigator !== 'undefined' && !navigator.onLine
@@ -17,24 +17,9 @@ export function SignInPrompt({ message, compact = false }: { message: string; co
   useEffect(() => {
     if (!offline) preloadSignIn()
   }, [offline])
-  if (compact) {
-    return (
-      <>
-        <p className="muted small">
-          {message}
-          {!offline && (
-            <button className="link-button inline" onClick={() => void signIn()} disabled={cloud.status === 'loading'}>
-              {t('signin.link')}
-            </button>
-          )}
-        </p>
-        {cloud.error && <p className="small error">{cloud.error}</p>}
-      </>
-    )
-  }
   return (
     <div className="signin-prompt">
-      <p className="muted small">{message}</p>
+      {message && <p className="muted small">{message}</p>}
       {offline ? (
         <button className="action" disabled>
           {t('signin.offline')}

@@ -686,6 +686,8 @@ try {
   // 四層同一套設計：首頁也是標題卡（整個龍洞的地圖）；長條圖用區域的顏色；區域、分區、路線的名稱同一個字級
   await vp.goto(base)
   await vp.waitForSelector('.area-row .grade-dist .bar')
+  // 地圖（scale-map）比路線資料晚載入
+  await vp.waitForSelector('.area-hero svg.area-hero-shape path')
   check('首頁：標題卡有整個龍洞的地圖', (await vp.locator('.area-hero svg.area-hero-shape path').count()) === data.areas.length)
   const homeCard = (await vp.locator('.area-hero').boundingBox())!
   const homeMap = (await vp.locator('.area-hero svg.area-hero-shape').boundingBox())!
@@ -1158,6 +1160,8 @@ try {
   const guest = await newContext()
   await guest.page.setViewportSize({ width: 390, height: 844 })
   await guest.page.goto(base + `route/${topoRoutes[0].id}`)
+  await guest.page.waitForSelector('.reviews-fold')
+  check('沒登入：沒有「登入後可…」的文字', !((await guest.page.locator('main').textContent()) ?? '').includes('登入後'))
   await guest.page.locator('.reviews-fold').click()
   await guest.page.waitForSelector('.reviews .comment-m-list li')
   check('沒登入：看得到讚的數量，沒有按讚、回覆的按鈕', ((await guest.page.locator('.reviews .comment-like.static').first().textContent()) ?? '').trim() === '2' && (await guest.page.locator('.reviews button.comment-like').count()) === 0 && (await guest.page.locator('.comment-reply-button').count()) === 0)

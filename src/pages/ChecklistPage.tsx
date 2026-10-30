@@ -77,7 +77,7 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
     return (
       <article className="checklist">
         <h1>{t('checklist.title')}</h1>
-        <SignInPrompt message={t('checklist.signIn')} />
+        <SignInPrompt />
       </article>
     )
   }

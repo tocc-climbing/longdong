@@ -2399,14 +2399,6 @@ a.action {
   margin: 0 auto;
 }
 
-/* 路線頁尾的登入提醒：一行淡色文字 */
-.signin-hint {
-  margin-top: 24px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  text-align: center;
-}
-
 /* ---------- 手機版：上一區／下一區、左右滑動的轉場 ---------- */
 
 .pager {
@@ -5522,9 +5514,5 @@ html {
 
 [data-layout] .route-m .area-hero {
   border-radius: 20px 20px 0 0;
-}
-
-[data-layout] .route-m .signin-hint {
-  margin-top: 16px;
 }
 

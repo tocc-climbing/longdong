@@ -56,7 +56,7 @@ export function TopoEditor({ data, id, embedded, side }: { data: LoadedData; id:
         </>
       )}
       {cloud.status !== 'signed-in' ? (
-        cloud.status !== 'loading' && <SignInPrompt message={t('topo.signIn')} />
+        cloud.status !== 'loading' && <SignInPrompt />
       ) : (
         <Editor photo={photo} edits={edits} routes={sector.routes} labels={routeLabels(sector)} uid={cloud.user!.uid} side={side} />
       )}

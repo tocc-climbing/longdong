@@ -249,12 +249,11 @@ function VersionList({ versions, empty, onDelete }: { versions: (MapEditVersion 
   )
 }
 
-/** 沒登入時：面板上的登入提示 */
+/** 沒登入時：面板上的登入按鈕 */
 function NeedSignIn() {
-  const { t } = useLang()
   const cloud = useCloud()
   if (cloud.status === 'signed-in' || cloud.status === 'loading') return null
-  return <SignInPrompt message={t('edit.signIn')} />
+  return <SignInPrompt />
 }
 
 /**
