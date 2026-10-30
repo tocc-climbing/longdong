@@ -2746,6 +2746,20 @@ a.action {
   z-index: 4;
 }
 
+/* 標題卡上的圖示不用底色；地圖往下讓出圖示的位置，不被蓋住 */
+.area-hero-wrap > .page-tools .tool-button {
+  border-color: transparent;
+  background: transparent;
+}
+
+.area-hero-wrap > .page-tools .tool-button:is(:hover, :active, [aria-expanded='true']) {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.area-hero-wrap:has(> .page-tools > *) .area-hero-shape {
+  margin-top: 30px;
+}
+
 .tool-button {
   display: inline-grid;
   place-items: center;

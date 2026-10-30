@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { appPath, href, legacySectorHref, navigate, parseLocation, samePlace, scrollAfter, withDetail } from '../src/router'
+import { indexDataset } from '../src/data/dataset'
+import type { Dataset } from '../src/data/schema'
+import { ancestors, appPath, backTarget, href, legacySectorHref, navigate, parentHref, parseLocation, samePlace, scrollAfter, seedAncestors, withDetail } from '../src/router'
 
 describe('parseLocation', () => {
   it('ID 可以含 "/"', () => {
@@ -111,6 +114,9 @@ describe('上一頁回到原本的捲動位置', () => {
       search: '',
     })
     vi.stubGlobal('history', {
+      get state() {
+        return entries.at(-1)!.state
+      },
       replaceState: (state: unknown, _: string, url?: string) => (entries[entries.length - 1] = { state, url: url ?? entries.at(-1)!.url }),
       pushState: (state: unknown, _: string, url: string) => entries.push({ state, url }),
     })
@@ -120,7 +126,7 @@ describe('上一頁回到原本的捲動位置', () => {
     navigate('/route/longdong/100')
     expect(entries).toEqual([
       { state: { scroll: { window: 2400, '.shell-main': 300 } }, url: '/area/longdong/back-door' },
-      { state: null, url: '/route/longdong/100' },
+      { state: { depth: 1 }, url: '/route/longdong/100' },
     ])
   })
 
@@ -154,5 +160,70 @@ describe('legacySectorHref', () => {
   it('現在的網址、其他頁面不換', () => {
     expect(legacySectorHref(parseLocation('/sector/longdong/back-door-92kxxd'), legacy)).toBeUndefined()
     expect(legacySectorHref(parseLocation('/area/longdong/back-door-s1'), legacy)).toBeUndefined()
+  })
+})
+
+describe('返回一律回到上一層', () => {
+  const data = indexDataset(JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as Dataset)
+  const area = data.dataset.areas.find((a) => a.sectors.length > 1)!
+  const sector = area.sectors[0]
+  const route = sector.routes[0]
+  const parent = (location: string) => parentHref(location, data)
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('路線 → 分區 → 區域 → 首頁；清單旁邊開著路線時是拿掉路線；其他頁面沒有上一層', () => {
+    expect(parent(href.route(route.id))).toBe(href.sector(sector.id))
+    expect(parent(href.sector(sector.id))).toBe(href.area(area.id))
+    expect(parent(href.area(area.id))).toBe('/')
+    expect(parent('/')).toBeUndefined()
+    expect(parent(withDetail(href.sector(sector.id), route.id))).toBe(href.sector(sector.id))
+    expect(parent(href.search('火龍', route.id))).toBe(href.search('火龍'))
+    expect(parent('/search?q=火龍')).toBeUndefined()
+    expect(parent('/me')).toBeUndefined()
+    expect(ancestors(href.route(route.id), data)).toEqual(['/', href.area(area.id), href.sector(sector.id)])
+  })
+
+  it('返回時改去上一層；已經回到上一層、往前、沒有上一層時不改', () => {
+    const next = sector.id === area.sectors[1].id ? area.sectors[0] : area.sectors[1]
+    // 左右滑換過分區後按返回：回到區域，不是上一個分區
+    expect(backTarget(href.sector(next.id), true, href.sector(sector.id), parent)).toBe(href.area(area.id))
+    // 從搜尋點進路線後按返回：回到分區
+    expect(backTarget(href.route(route.id), true, '/search?q=x', parent)).toBe(href.sector(sector.id))
+    expect(backTarget(href.route(route.id), true, href.sector(sector.id), parent)).toBeUndefined()
+    expect(backTarget(href.sector(sector.id), false, href.route(route.id), parent)).toBeUndefined()
+    expect(backTarget('/me', true, '/search', parent)).toBeUndefined()
+  })
+
+  it('直接打開的網址：前面補上各上一層的瀏覽紀錄；重新載入（已有紀錄）、首頁時不補', () => {
+    const entries: { state: unknown; url: string }[] = [{ state: null, url: '/' }]
+    vi.stubGlobal('location', {
+      get pathname() {
+        return entries.at(-1)!.url
+      },
+      search: '',
+    })
+    vi.stubGlobal('history', {
+      get state() {
+        return entries.at(-1)!.state
+      },
+      replaceState: (state: unknown, _: string, url?: string) => (entries[entries.length - 1] = { state, url: url ?? entries.at(-1)!.url }),
+      pushState: (state: unknown, _: string, url: string) => entries.push({ state, url }),
+    })
+    vi.stubGlobal('window', { dispatchEvent: () => true })
+    seedAncestors(ancestors('/', data))
+    expect(entries).toEqual([{ state: null, url: '/' }])
+    entries[0].url = href.route(route.id)
+    seedAncestors(ancestors(href.route(route.id), data))
+    expect(entries).toEqual([
+      { state: { depth: 0 }, url: '/' },
+      { state: { depth: 1 }, url: href.area(area.id) },
+      { state: { depth: 2 }, url: href.sector(sector.id) },
+      { state: { depth: 3 }, url: href.route(route.id) },
+    ])
+    seedAncestors(ancestors(href.route(route.id), data))
+    expect(entries).toHaveLength(4)
   })
 })

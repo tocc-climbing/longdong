@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { findSector, type LoadedData } from './data/dataset'
 import { isWide } from './layout'
 import type { LatLng } from './geo'
 import { parseSimulation } from './simulate'
@@ -129,12 +130,62 @@ export const TOPO_ADD_PREFIX = 'sector:'
 
 export function navigate(to: string, { replace = false } = {}): void {
   if (to === here()) return
-  if (replace) history.replaceState(null, '', to)
+  const d = depth()
+  if (replace) history.replaceState({ depth: d }, '', to)
   else {
     // 離開前把這一頁的捲動位置記在它的瀏覽紀錄裡，按上一頁回來時捲回去（scrollAfter）
-    history.replaceState({ scroll: scrollPositions() }, '')
-    history.pushState(null, '', to)
+    history.replaceState({ ...history.state, scroll: scrollPositions() }, '')
+    history.pushState({ depth: d + 1 }, '', to)
   }
+  window.dispatchEvent(new Event(CHANGE))
+}
+
+/** 這筆瀏覽紀錄是第幾筆（navigate 記在 history.state）：比較前後就知道是返回還是往前 */
+function depth(): number {
+  return (history.state as { depth?: number } | null)?.depth ?? 0
+}
+
+/**
+ * 上一層的網址：路線 → 分區，分區 → 區域，區域 → 首頁；
+ * 清單旁邊開著路線（?r=）時是拿掉路線的清單。其他頁面沒有上一層（undefined）。
+ */
+export function parentHref(location: string, data: LoadedData): string | undefined {
+  const page = parseLocation(location)
+  if (page.detail) return withDetail(location)
+  if (page.name === 'route') {
+    const ref = data.routeById.get(page.id)
+    return ref && href.sector(ref.sector.id)
+  }
+  if (page.name === 'sector') {
+    const found = findSector(data, page.id)
+    return found && href.area(found.area.id)
+  }
+  if (page.name === 'area') return href.home()
+  return undefined
+}
+
+/** 各上一層的網址，由最上層開始（不含自己） */
+export function ancestors(location: string, data: LoadedData): string[] {
+  const chain: string[] = []
+  for (let p = parentHref(location, data); p; p = parentHref(p, data)) chain.unshift(p)
+  return chain
+}
+
+/** 按了返回（back）、從 left 回到 landed 時，要改去的上一層；已經是上一層、往前、或沒有上一層時 undefined */
+export function backTarget(left: string, back: boolean, landed: string, parentOf?: (location: string) => string | undefined): string | undefined {
+  const up = back ? parentOf?.(left) : undefined
+  return up && up !== landed ? up : undefined
+}
+
+/**
+ * 直接打開的網址（分享的連結、書籤）：在前面補上各上一層的瀏覽紀錄，按返回一層一層回去，不會直接離開 App。
+ * 只在這個分頁第一次打開時補（重新載入時瀏覽紀錄已經有了）。
+ */
+export function seedAncestors(chain: string[]): void {
+  if ((history.state as { depth?: number } | null)?.depth !== undefined || chain.length === 0) return
+  const to = here()
+  chain.forEach((p, i) => (i === 0 ? history.replaceState({ depth: 0 }, '', p) : history.pushState({ depth: i }, '', p)))
+  history.pushState({ depth: chain.length }, '', to)
   window.dispatchEvent(new Event(CHANGE))
 }
 
@@ -208,23 +259,40 @@ export function scrollAfter(from: Page, to: Page, state: unknown): ScrollPositio
   return saved ?? (samePlace(from, to) ? undefined : {})
 }
 
-export function usePage(): Page {
+/**
+ * 目前的頁面。parentOf：頁面的上一層（parentHref）；系統的「返回」一律回到上一層，
+ * 而不是上一個瀏覽紀錄（例如左右滑換過分區、從搜尋點進路線）。沒有上一層的頁面照瀏覽紀錄返回。
+ */
+export function usePage(parentOf?: (location: string) => string | undefined): Page {
   const [page, setPage] = useState(() => parseLocation(here()))
   const current = useRef(page)
   const scroll = useRef<ScrollPositions>(undefined)
+  const parent = useRef(parentOf)
+  useLayoutEffect(() => {
+    parent.current = parentOf
+  })
   useEffect(() => {
+    let level = depth()
+    let path = here()
     const onChange = () => {
       const next = parseLocation(here())
       scroll.current = scrollAfter(current.current, next, history.state)
       current.current = next
+      level = depth()
+      path = here()
       setPage(next)
+    }
+    const onPop = () => {
+      const up = backTarget(path, depth() < level, here(), parent.current)
+      if (up) history.replaceState({ depth: depth() }, '', up)
+      onChange()
     }
     // 站內換頁（navigate）與瀏覽器的上一頁、下一頁
     window.addEventListener(CHANGE, onChange)
-    window.addEventListener('popstate', onChange)
+    window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener(CHANGE, onChange)
-      window.removeEventListener('popstate', onChange)
+      window.removeEventListener('popstate', onPop)
     }
   }, [])
   // 新的頁面畫好後才捲動：畫好前內容的高度不夠，捲不到記下的位置

@@ -19,7 +19,7 @@ import { RescuePage } from './pages/RescuePage'
 import { RoutePage } from './pages/RoutePage'
 import { SearchPage } from './pages/SearchPage'
 import { loadRatings, useSocial } from './social/store'
-import { here, href, legacySectorHref, navigate, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
+import { ancestors, here, href, legacySectorHref, navigate, parentHref, seedAncestors, RouteLinkContext, usePage, withDetail, type Page, type RouteLink } from './router'
 import { useListView } from './listView'
 import { routeKey, summarize } from './social/model'
 import { neighbors, useSwipe, type Dir } from './swipe'
@@ -37,8 +37,8 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default:
 const EditPage = lazy(() => import('./edit/EditPage').then((m) => ({ default: m.EditPage })))
 
 export function App() {
-  const page = usePage()
   const state = useData()
+  const page = usePage((location) => (state.status === 'ready' ? parentHref(location, state.data) : undefined))
   const wide = useWide()
   const { lang, t } = useLang()
   const { offlineReady, banner } = useAppUpdate()
@@ -57,6 +57,10 @@ export function App() {
     const to = data && legacySectorHref(page, data.sectorIdByLegacyId)
     if (to) navigate(to, { replace: true })
   }, [page, data])
+  // 直接打開的網址：補上各上一層的瀏覽紀錄（舊網址換好之後）
+  useEffect(() => {
+    if (data) seedAncestors(ancestors(here(), data))
+  }, [data])
   const view = useMemo(() => (data && wide ? desktopView(page, data) : undefined), [page, data, wide])
   const routeLink = useMemo<RouteLink>(
     () =>

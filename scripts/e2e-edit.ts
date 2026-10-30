@@ -396,9 +396,16 @@ try {
   await editor.page.goto(base + `sector/${wallSector}`)
   await editor.page.waitForSelector('.area-hero')
   check('分區頁：標題卡有分區名稱', ((await editor.page.locator('.area-hero h1').textContent()) ?? '').includes(gateSectorName))
-  const viewWidth = Number(((await editor.page.locator('.area-hero svg.area-hero-shape').getAttribute('viewBox')) ?? '').split(' ')[2])
-  check('分區頁：地圖範圍不會太小（至少 200 公尺寬，看得到旁邊的岩壁）', viewWidth >= 200, `${viewWidth.toFixed(0)} m`)
   check('分區頁：地圖放大畫出這個分區的岩壁（粗線）', (await until(async () => ((await editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="5"]').count()) > 0 ? true : undefined), 5000)) === true)
+  // 放大到看得清楚：這個分區的岩壁至少佔地圖的一半（長的那一邊）
+  const ownBox = (await editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="5"]').boundingBox())!
+  const mapBox = (await editor.page.locator('.area-hero svg.area-hero-shape').boundingBox())!
+  // 地圖是正方形，置中放在框裡：用框的短邊比
+  const fill = Math.max(ownBox.width, ownBox.height) / Math.min(mapBox.width, mapBox.height)
+  check('分區頁：地圖放大到這個分區的岩壁', fill >= 0.5, `${(fill * 100).toFixed(0)}%`)
+  // 編輯的圖示不蓋住地圖
+  const editBox = await editor.page.locator('.area-hero-wrap > .page-tools').boundingBox()
+  check('分區頁：圖示不蓋住地圖', !editBox || editBox.y + editBox.height <= mapBox.y, `${editBox?.y}+${editBox?.height} / ${mapBox.y}`)
 
   // ── 5. Topo 標記：復原、重做、移除最後一點、提交 ─────────────────────
   const photo = 'e2ephoto'
@@ -895,15 +902,22 @@ try {
   check('「更多」選單一開始收起來', (await menuItems()).length === 0)
   await tool('更多').click()
   const items = await menuItems()
-  check('「更多」：分享、記錄攀登、編輯（路線說明）、修改記錄（這個分區有修改才有）', items.includes('分享') && items.includes('記錄攀登') && items.some((x) => x.includes('路線說明')) && items.includes('修改記錄'), items.join('|'))
+  check('「更多」：分享、記錄攀登、編輯（路線說明）；手機版沒有修改記錄', items.includes('分享') && items.includes('記錄攀登') && items.some((x) => x.includes('路線說明')) && !items.includes('修改記錄'), items.join('|'))
   await rp.getByRole('menuitem', { name: '分享', exact: true }).click()
   check('分享：展開 LINE、Facebook、複製連結', (await rp.locator('.share-item').allTextContents()).join('|').includes('LINE') && (await rp.locator('.share-item').allTextContents()).join('|').includes('複製連結'))
   await rp.getByRole('menuitem', { name: '記錄攀登' }).click()
   check('記錄攀登：打開視窗', (await rp.locator('.sheet[open]').count()) === 1 && (await rp.locator('.page-tools [role=menuitem]').count()) === 0)
   await rp.keyboard.press('Escape')
+  await rp.goto(base + `sector/${topoSector.id}`)
+  await rp.waitForSelector('.area-hero-wrap')
+  check('手機版分區頁：沒有修改記錄的圖示', (await rp.locator('.area-hero-wrap .page-tools').getByRole('button', { name: '修改記錄' }).count()) === 0)
+  // 修改記錄只在電腦版：這個分區有修改，「更多」選單有修改記錄
+  await rp.setViewportSize({ width: 1366, height: 900 })
+  await rp.goto(base + `route/${topoRoutes[0].id}`)
+  await rp.waitForSelector('.page-tools .tool-button.fav')
   await tool('更多').click()
   await rp.getByRole('menuitem', { name: '修改記錄' }).click()
-  check('修改記錄：展開清單', (await rp.locator('.page-tools .tool-history li').count()) > 0)
+  check('電腦版修改記錄：展開清單', (await rp.locator('.page-tools .tool-history li').count()) > 0)
   await rp.keyboard.press('Escape')
   // 這個分區沒有任何修改：選單沒有「修改記錄」
   const quiet = data.areas.flatMap((a) => a.sectors).find((x) => x.id !== topoSector.id && x.id !== sharedSector.id && x.routes.some((r) => r.number))!
@@ -911,6 +925,27 @@ try {
   await rp.waitForSelector('.page-tools .tool-button.fav')
   await tool('更多').click()
   check('沒有修改記錄的路線：選單沒有「修改記錄」', !(await menuItems()).includes('修改記錄') && (await menuItems()).includes('分享'), (await menuItems()).join('|'))
+  await rp.keyboard.press('Escape')
+  await rp.setViewportSize({ width: 390, height: 844 })
+  // 返回一律回到上一層：換到下一個分區後返回是區域；直接打開的路線返回是分區
+  const backSector = data.areas.flatMap((a) => a.sectors).find((x) => x.routes.length > 0)!
+  const backArea = data.areas.find((a) => a.sectors.some((x) => x.id === backSector.id))!
+  await rp.goto(base + `sector/${backSector.id}`)
+  await rp.waitForSelector('.pager .next')
+  await rp.locator('.pager .next').click()
+  await rp.waitForURL((u) => !u.pathname.endsWith(backSector.id))
+  await rp.goBack()
+  // 返回先回到上一筆瀏覽紀錄，App 收到後才換成上一層
+  await rp.waitForURL((u) => u.pathname === `/area/${backArea.id}`, { timeout: 3000 }).catch(() => {})
+  check('換過分區後返回：回到區域，不是上一個分區', new URL(rp.url()).pathname === `/area/${backArea.id}`, rp.url())
+  const fresh = await rp.context().newPage()
+  await fresh.goto(base + `route/${backSector.routes[0].id}`)
+  await fresh.waitForSelector('.route-facts')
+  await fresh.goBack()
+  check('直接打開的路線返回：回到分區', new URL(fresh.url()).pathname === `/sector/${backSector.id}`, fresh.url())
+  await fresh.goBack()
+  check('再返回：回到區域', new URL(fresh.url()).pathname === `/area/${backArea.id}`, fresh.url())
+  await fresh.close()
   // 安全：只有不是綠燈才在上方顯示警告；拉測、安全評級在「更多資訊」
   type Safe = { id: string; isFixture?: boolean; safety?: string; status?: string; bolts: unknown[]; anchors: unknown[] }
   const everyRoute = data.areas.flatMap((a) => a.sectors).flatMap((x) => x.routes) as unknown as Safe[]

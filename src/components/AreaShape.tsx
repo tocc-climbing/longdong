@@ -59,23 +59,24 @@ export function AreaShape({ area, className }: { area: Area; className?: string 
   )
 }
 
-/** 放大的範圍至少這麼寬（公尺，再乘上留白倍率）：岩壁很短的分區也看得到旁邊的岩壁，分辨得出位置 */
-const MIN_VIEW_M = 100
+/** 放大的範圍至少這麼寬（公尺）：岩壁很短的分區也看得到旁邊的岩壁 */
+const MIN_VIEW_M = 15
 
 /**
- * 一個分區的地圖：放大到這個分區的岩壁（粗線，分區的顏色），底下是大區域的形狀，同一個大區域的其他分區岩壁淡淡畫出。
- * 這個分區還沒有岩壁資料時，畫整個大區域的形狀。
+ * 一個分區的地圖：放大到這個分區的岩壁（照實際比例，分區的顏色加粗），旁邊其他分區的岩壁淡淡畫出，
+ * 大區域的形狀只畫到這個範圍。這個分區還沒有岩壁資料時，畫整個大區域的形狀。
  */
 export function SectorShape({ area, sector, color, className }: { area: Area; sector: Sector; color?: string; className?: string }) {
   const map = useScaleMap()
   if (map.status !== 'ok') return <div className={className} aria-hidden />
-  const own = (map.data.walls[sector.id] ?? []).map((line) => line.map(project))
+  const wallsOf = (s: Sector) => (map.data.walls[s.id] ?? []).map((line) => line.map(project))
+  const own = wallsOf(sector)
   if (own.length === 0) return <AreaShape area={area} className={className} />
+  const others = area.sectors.filter((s) => s.id !== sector.id).flatMap(wallsOf)
   const b = bounds(own.flat())
-  const side = Math.max(b.w, b.h, MIN_VIEW_M) * 2.2
+  const side = Math.max(b.w, b.h, MIN_VIEW_M) * 1.4
   const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2]
   const shape = map.data.areas.find((a) => a.id === areaKey(area))
-  const others = area.sectors.filter((s) => s.id !== sector.id).flatMap((s) => (map.data.walls[s.id] ?? []).map((line) => line.map(project)))
   return (
     <svg className={className} viewBox={`${cx - side / 2} ${cy - side / 2} ${side} ${side}`} aria-hidden>
       {shape && <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.28} />}

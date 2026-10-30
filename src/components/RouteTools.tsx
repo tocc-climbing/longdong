@@ -2,12 +2,13 @@ import { useRef, useState } from 'react'
 import type { LoadedData, RouteRef } from '../data/dataset'
 import { HistoryView, useDismiss, useEditOptions, useHistory, type ToolScope } from '../edit/PageTools'
 import { useLang } from '../i18n'
+import { useWide } from '../layout'
 import { setFavorite, usePersonal } from '../personal/store'
 import { PlaceReport } from './PlaceReport'
 import { ShareItems } from './ShareItems'
 
 /**
- * 路線頁右上的工具：收藏、回報位置（都是圖示），「更多」選單：分享、記錄攀登、修改路線、修改記錄（有修改記錄才顯示）。
+ * 路線頁右上的工具：收藏、回報位置（都是圖示），「更多」選單：分享、記錄攀登、修改路線、修改記錄（電腦版、有修改記錄才顯示）。
  * 收藏與記錄攀登要登入（固定點沒有）。onTick：打開記錄攀登的視窗。
  */
 export function RouteTools({ data, item, signedIn, scope, onTick }: { data: LoadedData; item: RouteRef; signedIn: boolean; scope: ToolScope; onTick: () => void }) {
@@ -17,6 +18,7 @@ export function RouteTools({ data, item, signedIn, scope, onTick }: { data: Load
   const favorite = personal.favorites.has(item.route.id)
   const edits = useEditOptions(scope)
   const history = useHistory(scope)
+  const wide = useWide()
   const [menu, setMenu] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -91,7 +93,7 @@ export function RouteTools({ data, item, signedIn, scope, onTick }: { data: Load
                 {t('tools.edit')}：{o.label}
               </a>
             ))}
-            {history.entries.length > 0 && (
+            {wide && history.entries.length > 0 && (
               <button
                 type="button"
                 role="menuitem"

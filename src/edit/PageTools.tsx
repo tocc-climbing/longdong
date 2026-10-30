@@ -51,13 +51,14 @@ export const Icon = ({ children }: { children: ReactNode }) => (
 )
 
 /**
- * 區域、分區、路線頁標題旁的圖示：修改記錄（點了才展開）、編輯（進編輯模式的對應項目）。
+ * 區域、分區、路線頁標題旁的圖示：修改記錄（點了才展開；手機版不顯示）、編輯（進編輯模式的對應項目）。
  * 平常只佔兩個圖示的位置，不影響閱讀。
  */
 export function PageTools({ scope }: { scope: ToolScope }) {
+  const wide = useWide()
   return (
     <div className="page-tools">
-      <HistoryButton scope={scope} />
+      {wide && <HistoryButton scope={scope} />}
       <EditButton scope={scope} />
     </div>
   )
