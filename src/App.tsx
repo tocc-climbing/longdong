@@ -152,7 +152,7 @@ export function App() {
       <main ref={swipeArea} className={page.name === 'map' ? 'map' : undefined}>
         <div ref={swipeMoving} key={slide?.n} className={slide ? `slide-${slide.dir}` : undefined}>
           {content}
-          {near && <Pager near={near} onGo={go} />}
+          {near?.kind === 'area' && <Pager near={near} onGo={go} />}
         </div>
       </main>
       {dragDir && dragTarget && (

@@ -30,14 +30,19 @@ const BETTER = 1.03
 
 /**
  * 選角度與 viewBox（和框同比例）：points 轉過去後的範圍放進框裡扣掉空白的地方，置中。
- * spread：範圍再放大的倍率（大於 1 時看得到旁邊的岩壁）；minSpan：範圍至少這麼寬、高（地圖單位，公尺）。
+ * spread：範圍再放大的倍率（大於 1 時看得到旁邊的岩壁）；minSpan：範圍至少這麼寬、高（地圖單位，公尺）；
+ * angle：固定這個角度，不找最大的（首頁）。
  */
-export function heroFit(points: Pt[], box: FitBox, { spread = 1, minSpan = 0 } = {}): { angle: number; viewBox: [number, number, number, number] } | undefined {
+export function heroFit(
+  points: Pt[],
+  box: FitBox,
+  { spread = 1, minSpan = 0, angle: fixed }: { spread?: number; minSpan?: number; angle?: number } = {},
+): { angle: number; viewBox: [number, number, number, number] } | undefined {
   const innerW = box.w - box.left - box.right
   const innerH = box.h - box.top - box.bottom
   if (points.length === 0 || innerW <= 0 || innerH <= 0) return undefined
   let best: { angle: number; k: number; cx: number; cy: number } | undefined
-  for (const angle of ANGLES) {
+  for (const angle of fixed === undefined ? ANGLES : [fixed]) {
     const turned = points.map((p) => rotate(p, angle))
     const xs = turned.map((p) => p[0])
     const ys = turned.map((p) => p[1])

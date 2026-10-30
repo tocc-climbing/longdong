@@ -639,7 +639,7 @@ try {
     return versions.length === 1 ? versions[0] : undefined
   })
   check('Ctrl+Enter 提交：資料庫有一版說明', textEdit?.text === 'e2e 說明 ✓')
-  // 手機的路線頁：上方是和區域、分區頁相同的標題卡（所在位置、名稱、地圖），接著是 Topo；長按 Topo 進入 Topo 編輯；點路線資訊進入說明編輯；沒有 Topo 的路線不留位置
+  // 手機的路線頁：上方是和區域、分區頁相同的標題卡（所在位置、名稱、地圖），接著是 Topo；長按 Topo 進入 Topo 編輯；點說明進入說明編輯；沒有 Topo 的路線不留位置
   const viewer2 = await newContext(undefined, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
   const vp = viewer2.page
   await vp.goto(base + `route/${topoRoutes[0].id}`)
@@ -665,9 +665,10 @@ try {
   const topoY = (await vp.locator('.route-m .topo').boundingBox())!.y
   const heroBottom = await vp.locator('.route-m .area-hero').evaluate((el) => el.getBoundingClientRect().bottom)
   check('手機路線頁：Topo 在標題卡下面', topoY > heroBottom, `${topoY} / ${heroBottom}`)
+  check('說明直接顯示內容（沒有「路線資訊」標題）', ((await vp.locator('.community-text').textContent()) ?? '').includes('e2e 說明') && (await vp.locator('.community-text h2').count()) === 0)
   const textBox = (await vp.locator('.community-edit').boundingBox())!
   await vp.touchscreen.tap(textBox.x + textBox.width / 2, textBox.y + textBox.height / 2)
-  check('手機路線頁：點路線資訊進入說明編輯', (await until(async () => (vp.url().includes('/edit/text/') ? true : undefined), 5000)) === true, vp.url())
+  check('手機路線頁：點說明進入說明編輯', (await until(async () => (vp.url().includes('/edit/text/') ? true : undefined), 5000)) === true, vp.url())
   await vp.goBack()
   await vp.waitForSelector('.route-m .topo')
   const phoneTopo = (await vp.locator('.route-m .topo').boundingBox())!
@@ -1066,7 +1067,7 @@ try {
   await fresh.goBack()
   check('再返回：回到區域', new URL(fresh.url()).pathname === `/area/${backArea.id}`, fresh.url())
   await fresh.close()
-  // 安全：只有不是綠燈才在上方顯示警告；拉測、安全評級在「更多資訊」
+  // 安全：只有不是綠燈才在上方顯示警告；拉測、安全評級在路線資料
   type Safe = { id: string; isFixture?: boolean; safety?: string; status?: string; bolts: unknown[]; anchors: unknown[] }
   const everyRoute = data.areas.flatMap((a) => a.sectors).flatMap((x) => x.routes) as unknown as Safe[]
   const warn = everyRoute.find((r) => !r.isFixture && (r.safety === 'yellow' || r.safety === 'red'))
@@ -1079,11 +1080,15 @@ try {
   await rp.goto(base + `route/${green.id}`)
   await rp.waitForSelector('.route-facts')
   check('綠燈：上方沒有安全色塊', (await rp.locator('.route-status').count()) === 0)
-  const summary = (await rp.locator('.route-more summary').textContent()) ?? ''
-  check('「更多資訊」摘要：安全與拉測、Bolt / Anchor 合併成一項', summary.includes('安全與拉測') && summary.includes('Bolt / Anchor') && !summary.includes('Anchor 配件'), summary)
-  await rp.locator('.route-more summary').click()
-  const bolted = green.bolts.length + green.anchors.length > 0
-  check('更多資訊：有拉測資訊，Bolt 與 Anchor 在同一張表', ((await rp.locator('.route-more').textContent()) ?? '').includes('最近拉測') && (await rp.locator('.route-more table.bolts').count()) === (bolted ? 1 : 0))
+  // 路線卡片：難度、長度、快扣、種類在標題卡裡；說明沒有標題；路線資料一行一項，Bolt 只有摘要，明細點了才展開
+  check('難度、長度、快扣、種類在標題卡裡（卡片外沒有另一列）', (await rp.locator('.area-hero .route-facts .grade-pill').count()) === 1 && (await rp.locator('.route-facts').count()) === 1)
+  check('沒有「更多資訊」；路線資料一行一項，有安全與拉測', (await rp.locator('.route-more').count()) === 0 && ((await rp.locator('.route-data').textContent()) ?? '').includes('最近拉測'))
+  check('Bolt 只有摘要（幾支 bolt）、明細收起來', ((await rp.locator('.route-bolts summary').textContent()) ?? '').includes('支 bolt') && !(await rp.locator('.route-bolts table.bolts').isVisible()))
+  await rp.locator('.route-bolts summary').click()
+  const boltTable = (await rp.locator('.route-bolts table.bolts').boundingBox())!
+  const card = (await rp.locator('.route-m').boundingBox())!
+  check('點 Bolt：明細在下面展開、幾乎滿寬', boltTable.width >= card.width - 40, `${boltTable.width} / ${card.width}`)
+  check('路線頁沒有最下方的上一條／下一條（左右滑動換卡片）', (await rp.locator('.pager').count()) === 0)
   // 電腦版：路線頁右上沒有 ×
   await rp.setViewportSize({ width: 1366, height: 900 })
   await rp.goto(base + `route/${green.id}`)
@@ -1091,6 +1096,10 @@ try {
   check('電腦版路線頁：右上沒有 ×（Esc 可以關閉）', (await rp.locator('.detail-close').count()) === 0)
   await rp.setViewportSize({ width: 390, height: 844 })
   await rp.goto(base + `route/${topoRoutes[0].id}`)
+  // 評價與留言預設收起：一列摘要（星等、留言數）與最新一則的預覽，點了才展開
+  await rp.waitForSelector('.reviews-fold-latest')
+  check('評價與留言預設收起：摘要有留言數、預覽最新一則', (await rp.locator('.reviews').count()) === 0 && ((await rp.locator('.reviews-fold-head').textContent()) ?? '').includes('則留言') && ((await rp.locator('.reviews-fold-latest').textContent()) ?? '').includes('e2e 留言 5'))
+  await rp.locator('.reviews-fold').click()
   await rp.waitForSelector('.reviews .comment-m-list li')
   check('評價與留言：先顯示最新 5 則，其餘收在「顯示全部」', (await rp.locator('.reviews .comment-m-list li').count()) === 5 && (await rp.locator('.comment-more').count()) === 1)
   check('最新的在最上面', ((await rp.locator('.reviews .comment-m-list li').first().textContent()) ?? '').includes('e2e 留言 5'))
@@ -1137,6 +1146,7 @@ try {
   check('資料庫：回覆帶 parent 指向那則留言', Object.values(stored ?? {}).some((c) => c.text === 'e2e 回覆內容' && c.parent === 'e2ecm5'))
   check('回覆不能再被回覆（回覆沒有「回覆」按鈕）', (await newest().locator('.comment-reply .comment-reply-button').count()) === 0)
   await rp.reload()
+  await rp.locator('.reviews-fold').click()
   await rp.waitForSelector('.reviews .comment-m-list li')
   check('重新整理：回覆收起來，顯示「查看 1 則回覆」，讚還在', ((await newest().locator('.comment-thread-toggle').textContent()) ?? '').includes('查看 1 則回覆') && (await newest().locator('.comment-reply').count()) === 0 && ((await likeButton().textContent()) ?? '').trim() === '2')
   await newest().locator('.comment-thread-toggle').click()
@@ -1148,6 +1158,7 @@ try {
   const guest = await newContext()
   await guest.page.setViewportSize({ width: 390, height: 844 })
   await guest.page.goto(base + `route/${topoRoutes[0].id}`)
+  await guest.page.locator('.reviews-fold').click()
   await guest.page.waitForSelector('.reviews .comment-m-list li')
   check('沒登入：看得到讚的數量，沒有按讚、回覆的按鈕', ((await guest.page.locator('.reviews .comment-like.static').first().textContent()) ?? '').trim() === '2' && (await guest.page.locator('.reviews button.comment-like').count()) === 0 && (await guest.page.locator('.comment-reply-button').count()) === 0)
   await guest.ctx.close()

@@ -48,7 +48,6 @@ describe('左右滑動的上一區／下一區', () => {
       kind: 'route',
       prev: undefined,
       next: { hash: '/route/r2', name: { zh: 'r2' }, number: '2', sector: undefined },
-      filtered: false,
     })
     expect(neighbors({ name: 'route', id: 'r2' }, data)?.next).toEqual({ hash: '/route/r3', name: { zh: 'r3' }, number: '3', sector: { zh: 'b1' } })
     expect(neighbors({ name: 'route', id: 'r3' }, data)?.next).toBeUndefined()
@@ -58,17 +57,15 @@ describe('左右滑動的上一區／下一區', () => {
     const order = { view: { sort: 'default' as const, desc: false, filter: { ...EMPTY_FILTER, kinds: ['sport' as const] } }, ratingOf: () => undefined }
     const n = neighbors({ name: 'route', id: 'r1' }, data, order)
     expect(n?.next?.hash).toBe('/route/r3')
-    expect(n?.filtered).toBe(true)
     // 目前的路線不符合條件（例如從搜尋點進來）：照原本的順序
     const m = neighbors({ name: 'route', id: 'r2' }, data, order)
-    expect([m?.prev?.hash, m?.next?.hash, m?.filtered]).toEqual(['/route/r1', '/route/r3', false])
+    expect([m?.prev?.hash, m?.next?.hash]).toEqual(['/route/r1', '/route/r3'])
   })
 
   it('路線頁：照各區域清單的排序（區域內排序，區域順序不變）', () => {
     const order = { view: { sort: 'grade' as const, desc: true, filter: EMPTY_FILTER }, ratingOf: () => undefined }
     expect(neighbors({ name: 'route', id: 'r2' }, data, order)?.next?.hash).toBe('/route/r1')
     expect(neighbors({ name: 'route', id: 'r1' }, data, order)?.next?.hash).toBe('/route/r3')
-    expect(neighbors({ name: 'route', id: 'r1' }, data, order)?.filtered).toBe(false)
   })
 
   it('其他頁面不切換', () => {

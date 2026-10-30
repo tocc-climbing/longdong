@@ -2745,10 +2745,10 @@ a.action {
   min-height: 206px;
 }
 
-/* 首頁：地圖放在名稱下面，左右與下緣跨到卡片邊緣 */
+/* 首頁：名稱在左上，地圖是整張卡片的背景 */
 .area-hero.strip {
   grid-template-columns: minmax(0, 1fr);
-  align-content: space-between;
+  align-content: start;
 }
 
 /* 清單名稱旁的收藏愛心 */
@@ -3425,12 +3425,13 @@ main.map > div {
   color: var(--danger);
 }
 
+/* 標題卡裡名稱下面的重點：難度、長度、快扣、種類、評分 */
 .route-facts {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 14px;
-  margin: 14px 0;
+  gap: 6px 12px;
+  margin: 0;
   font-weight: 700;
 }
 
@@ -3501,39 +3502,101 @@ main.map > div {
   font-size: 1.05rem;
 }
 
-.route-more summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* 路線資料：一行一項，左邊項目（淡色、固定寬度）、右邊內容 */
+.route-data {
+  display: grid;
+  gap: 10px;
+}
+
+.route-data-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
   gap: 12px;
-  padding-bottom: 10px;
+  align-items: baseline;
+}
+
+.route-data-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Bolt 的摘要：點了在下面展開明細、滿寬（右邊的箭頭） */
+.route-bolts summary {
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
   cursor: pointer;
   list-style: none;
 }
 
-.route-more summary::-webkit-details-marker {
+.route-bolts summary::-webkit-details-marker {
   display: none;
 }
 
-.route-more summary > span {
-  display: grid;
-  gap: 2px;
-}
-
-.route-more summary::after {
+.route-bolts summary::after {
   content: '';
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   margin-right: 4px;
   border-right: 2px solid var(--faint);
   border-bottom: 2px solid var(--faint);
-  transform: rotate(45deg);
+  transform: translateY(-2px) rotate(45deg);
   transition: transform 0.15s;
 }
 
-.route-more[open] summary::after {
-  transform: rotate(-135deg);
+.route-bolts[open] summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.route-bolts > section {
+  margin-top: 10px;
+}
+
+.route-bolts h2 {
+  display: none;
+}
+
+/* 評價與留言收起來時：一列摘要與最新一則留言（像社群 App 貼文下方） */
+.reviews-fold {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.reviews-fold-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.reviews-fold-head strong {
+  font-size: 1.05rem;
+}
+
+.reviews-fold-chevron {
+  margin-left: auto;
+  align-self: center;
+  color: var(--faint);
+}
+
+.reviews-fold-latest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.reviews-fold-latest > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 評價與留言（ReviewsSection） ── */
@@ -4474,10 +4537,9 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   padding: 24px 28px 24px 32px;
 }
 
-/* 首頁的標題卡：名稱在左，地圖佔右邊六成、滿高 */
+/* 首頁的標題卡：和區域頁一樣高 */
 [data-layout='wide'] .area-hero.strip {
   min-height: 11.5rem;
-  align-content: center;
 }
 
 [data-layout='wide'] .area-hero h1 {
@@ -5423,34 +5485,46 @@ button.key-row:disabled {
   width: 14rem;
 }
 
-/* 首頁（手機）：地圖在名稱下面，左右與下緣跨到卡片邊緣（卡片的 padding 是 18px 16px 18px 20px） */
+/* 首頁：地圖是整張卡片的背景，可以和文字重疊；左邊（文字那邊）淡出，文字看得清楚 */
 [data-layout] .area-hero.strip > .area-hero-shape.hero-map {
-  position: relative;
-  top: auto;
-  right: auto;
-  bottom: auto;
-  width: calc(100% + 36px);
-  height: 82px;
-  margin: 0 -16px -18px -20px;
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-
-[data-layout='wide'] .area-hero.strip > .area-hero-shape.hero-map {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 60%;
+  inset: 0;
+  width: 100%;
   height: 100%;
   margin: 0;
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%);
-  mask-image: linear-gradient(to right, transparent, #000 22%);
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 55%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 55%, #000 88%, transparent);
+}
+
+/* 電腦版卡片很寬：地圖放在右邊三分之二（左邊是名稱） */
+[data-layout='wide'] .area-hero.strip > .area-hero-shape.hero-map {
+  left: 33%;
+  width: auto;
 }
 
 /* 根元素也是深色：Android 的系統列（上方狀態列、下方手勢列）跟著深色 */
 html {
   color-scheme: dark;
   background: #0e0e0e;
+}
+
+/* 路線頁：整頁是一張路線卡片，上方是標題卡（上面兩角圓、下面直角接著內容） */
+[data-layout] .route-m {
+  margin: 0 0 16px;
+  padding: 0 16px 16px;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+[data-layout] .route-m > .area-hero-wrap {
+  margin: 0 -16px 14px;
+}
+
+[data-layout] .route-m .area-hero {
+  border-radius: 20px 20px 0 0;
+}
+
+[data-layout] .route-m .signin-hint {
+  margin-top: 16px;
 }
 

@@ -351,3 +351,41 @@ export function ReviewsSection({ routeId, rateable }: { routeId: string; rateabl
     </section>
   )
 }
+
+/**
+ * 評價與留言預設收起（像社群 App 貼文下方的一列）：平均星等、評分人數、留言數，下面是最新一則留言的預覽；
+ * 點了才展開完整的評價與留言（ReviewsSection）。open：已經展開（例如點了標題卡上的星等）。
+ */
+export function ReviewsFold({ routeId, rateable, open, onOpen }: { routeId: string; rateable: boolean; open: boolean; onOpen: () => void }) {
+  const social = useSocial()
+  const comments = useComments(routeId)
+  const { t } = useLang()
+  if (open) return <ReviewsSection routeId={routeId} rateable={rateable} />
+  const summary = summarize(social.ratings[routeKey(routeId)])
+  const top = (comments ?? []).filter((c) => !c.parent)
+  // 留言由新到舊（social/store.ts）
+  const latest = top[0]
+  const stats = [
+    rateable && (summary ? `★ ${summary.average.toFixed(1)} · ${t('rating.count', { n: summary.count })}` : t('rating.none')),
+    t('comments.count', { n: top.length }),
+  ].filter(Boolean)
+  return (
+    <button type="button" className="reviews-fold" aria-expanded={false} onClick={onOpen}>
+      <span className="reviews-fold-head">
+        <strong>{t('reviews.title')}</strong>
+        <span className="muted small">{stats.join(' · ')}</span>
+        <svg className="reviews-fold-chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      {latest && (
+        <span className="reviews-fold-latest">
+          <Avatar uid={latest.uid} name={displayName(social.profiles, latest.uid)} />
+          <span>
+            <strong>{displayName(social.profiles, latest.uid)}</strong> {latest.text}
+          </span>
+        </span>
+      )}
+    </button>
+  )
+}

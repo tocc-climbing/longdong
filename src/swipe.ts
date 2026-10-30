@@ -28,8 +28,6 @@ export interface Neighbors {
   kind: 'area' | 'route'
   prev?: Neighbor
   next?: Neighbor
-  /** 路線依篩選條件切換 */
-  filtered?: boolean
 }
 
 /** 切換路線時套用的清單篩選與排序；ratingOf 給依評分排序用 */
@@ -72,7 +70,7 @@ export function neighbors(page: Page, data: NavData, order?: RouteOrder): Neighb
         sector: ref.sector.id === here ? undefined : ref.sector.name,
       }
     }
-    return { kind: 'route', prev: pick(at - 1), next: pick(at + 1), filtered: useOrdered && filterCount(order!.view.filter) > 0 }
+    return { kind: 'route', prev: pick(at - 1), next: pick(at + 1) }
   }
 
   let list: (Neighbor & { id: string })[]
