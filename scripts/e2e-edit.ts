@@ -609,17 +609,17 @@ try {
     return versions.length === 1 ? versions[0] : undefined
   })
   check('Ctrl+Enter 提交：資料庫有一版說明', textEdit?.text === 'e2e 說明 ✓')
-  // 手機的路線頁：整頁是一張卡片；Topo 在最上面，長按進入 Topo 編輯；點路線資訊進入說明編輯；沒有 Topo 的路線不留位置
+  // 手機的路線頁：上方是和區域、分區頁相同的標題卡（所在位置、名稱、地圖），接著是 Topo；長按 Topo 進入 Topo 編輯；點路線資訊進入說明編輯；沒有 Topo 的路線不留位置
   const viewer2 = await newContext(undefined, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
   const vp = viewer2.page
   await vp.goto(base + `route/${topoRoutes[0].id}`)
   await vp.waitForSelector('.route-m .topo')
-  const cardBg = await vp.locator('.route-m').evaluate((el) => getComputedStyle(el).backgroundColor)
-  const pageBg = await vp.evaluate(`getComputedStyle(document.body).backgroundColor`)
-  check('手機路線頁：整頁是一張卡片（底色與頁面不同）', cardBg !== pageBg, `${cardBg} / ${pageBg}`)
+  const crumbs = (await vp.locator('.route-m .area-hero-crag a').allTextContents()).length
+  check('手機路線頁：標題卡上方是所在位置（龍洞 › 區域 › 分區，可以點）', crumbs >= 2, `${crumbs} 層`)
+  check('手機路線頁：標題卡有這個分區的地圖', (await vp.locator('.route-m .area-hero svg.area-hero-shape').count()) === 1)
   const topoY = (await vp.locator('.route-m .topo').boundingBox())!.y
-  const titleY = (await vp.locator('.route-m h1').boundingBox())!.y
-  check('手機路線頁：有 Topo 時照片在卡片最上面（標題之前）', topoY < titleY, `${topoY} / ${titleY}`)
+  const heroBottom = await vp.locator('.route-m .area-hero').evaluate((el) => el.getBoundingClientRect().bottom)
+  check('手機路線頁：Topo 在標題卡下面', topoY > heroBottom, `${topoY} / ${heroBottom}`)
   const textBox = (await vp.locator('.community-edit').boundingBox())!
   await vp.touchscreen.tap(textBox.x + textBox.width / 2, textBox.y + textBox.height / 2)
   check('手機路線頁：點路線資訊進入說明編輯', (await until(async () => (vp.url().includes('/edit/text/') ? true : undefined), 5000)) === true, vp.url())
@@ -637,6 +637,21 @@ try {
   await vp.waitForSelector('.route-m h1')
   await vp.waitForTimeout(500)
   check('手機路線頁：沒有 Topo 的路線不留位置', (await vp.locator('.route-m .topos').count()) === 0)
+  // 四層同一套設計：首頁也是標題卡（整個龍洞的地圖）；長條圖用區域的顏色；區域、分區、路線的名稱同一個字級
+  await vp.goto(base)
+  await vp.waitForSelector('.area-row .grade-dist .bar')
+  check('首頁：標題卡有整個龍洞的地圖', (await vp.locator('.area-hero svg.area-hero-shape path').count()) === data.areas.length)
+  const barAndDot = await vp.locator('.area-row').first().evaluate((el) => [getComputedStyle(el.querySelector('.grade-dist .bar')!).fill, getComputedStyle(el, '::before').backgroundColor])
+  check('首頁：長條圖用區域的顏色（和色點相同）', barAndDot[0] === barAndDot[1], barAndDot.join(' / '))
+  const nameSize = (selector: string) => vp.locator(selector).first().evaluate((el) => getComputedStyle(el).fontSize)
+  const homeName = await nameSize('.area-row .area-name')
+  await vp.goto(base + `area/${data.areas.find((a) => a.sectors.some((x) => x.id === topoSector.id))!.id}`)
+  await vp.waitForSelector('.area-row .sector-name')
+  const sectorName = await nameSize('.area-row .sector-name')
+  await vp.goto(base + `sector/${topoSector.id}`)
+  await vp.waitForSelector('.route-name .zh')
+  const routeName = await nameSize('.route-name .zh')
+  check('區域、分區、路線清單的名稱同一個字級', homeName === sectorName && sectorName === routeName, [homeName, sectorName, routeName].join(' / '))
   await viewer2.ctx.close()
 
   await editor.page.goto(base + 'edit')
@@ -783,7 +798,7 @@ try {
 
   const line = viewer.page.locator('figure.topo g.topo-route.link').first()
   await line.locator('.topo-hit').first().click({ force: true })
-  await viewer.page.waitForSelector('.detail-pane .route-sub, .detail-pane h1', { timeout: 15000 })
+  await viewer.page.waitForSelector('.detail-pane h1', { timeout: 15000 })
   check('點照片上的路線：右邊顯示那條路線', viewer.page.url().includes('r='))
   check('同時看到分區與路線時，Topo 只顯示一張（路線那邊不重複）', (await viewer.page.locator('figure.topo').count()) === 1 && (await viewer.page.locator('.detail-pane figure.topo').count()) === 0)
   // 用鍵盤 Shift+Tab 從照片右上角的按鈕往回到路線上（有焦點方框的情況）：不出現瀏覽器的方框

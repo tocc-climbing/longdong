@@ -1,25 +1,25 @@
 import type { LoadedData } from '../data/dataset'
+import { CragShape } from '../components/AreaShape'
 import { GradeDistribution } from '../components/Charts'
+import { PageHero } from '../components/PageHero'
 import { InstallBanner } from '../components/InstallPrompt'
 import { gradeDistribution, typeSummary } from '../format'
 import { href } from '../router'
 import { localName, useLang } from '../i18n'
 
-/** 首頁：龍洞的各區域，一區一列；左框用 Sheet 上該區域的顏色 */
+/** 首頁：標題卡（整個龍洞的地圖），下面是各區域，一區一列；色點用 Sheet 上該區域的顏色 */
 export function HomePage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
   const crag = localName(data.dataset.crag.name, lang)
   const routeCount = data.dataset.areas.flatMap((a) => a.sectors.flatMap((s) => s.routes)).filter((r) => !r.isFixture).length
   return (
     <>
-      {/* 標題區（TOCC 風格的漸層色塊）：岩場名稱（中英）與規模；App 名稱已在頂欄、側欄，這裡不重複 */}
-      <section className="home-hero">
-        <h1>
-          {crag.main}
-          {crag.sub && <span className="hero-en">{crag.sub}</span>}
-        </h1>
-        <p>{t('home.heroStats', { areas: data.dataset.areas.length, routes: routeCount })}</p>
-      </section>
+      <PageHero
+        crumbs={crag.sub ? [{ label: crag.sub }] : []}
+        name={crag.main}
+        sub={t('home.heroStats', { areas: data.dataset.areas.length, routes: routeCount })}
+        shape={<CragShape data={data} className="area-hero-shape" />}
+      />
       <InstallBanner />
       <ul className="area-list">
         {data.dataset.areas.map((area) => {

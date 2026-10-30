@@ -8,6 +8,7 @@ import { useHorizontalSwipe } from '../swipeGesture'
 
 /**
  * 用大區域的地圖形狀（public/rescue/areas.geojson，與地圖頁相同）畫的圖：
+ * - CragShape：整個龍洞，各區域用自己的顏色（首頁上方）
  * - AreaShape：一個大區域的形狀（區域頁上方）
  * - AreaStrip：龍洞橫放的一條，放大到選到的區域（路線清單選區域）
  * 地圖資料還沒載入或載入失敗時不畫（版面不跳動：外框的高度固定）。
@@ -29,6 +30,22 @@ const ringsPath = (rings: Ring[], at: (p: [number, number]) => [number, number])
   rings.map((ring) => `M${ring.map((p) => at(p).map((n) => n.toFixed(1)).join(',')).join('L')}Z`).join('')
 
 const wallPath = (pts: [number, number][]) => `M${pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join('L')}`
+
+/** 整個龍洞：各大區域的形狀，用各自的顏色（與清單的色點相同） */
+export function CragShape({ data, className }: { data: LoadedData; className?: string }) {
+  const map = useScaleMap()
+  if (map.status !== 'ok') return <div className={className} aria-hidden />
+  const b = bounds(map.data.areas.flatMap((a) => a.rings.flat()))
+  const pad = Math.max(b.w, b.h) * 0.03
+  return (
+    <svg className={className} viewBox={`${b.x - pad} ${b.y - pad} ${b.w + 2 * pad} ${b.h + 2 * pad}`} aria-hidden>
+      {data.dataset.areas.map((area) => {
+        const shape = map.data.areas.find((a) => a.id === areaKey(area))
+        return shape && <path key={area.id} d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.85} />
+      })}
+    </svg>
+  )
+}
 
 /** 一個大區域的形狀（區域的顏色，淡色）與裡面所有分區的岩壁（分區的顏色，與清單的色點相同），看得出岩壁的相對位置 */
 export function AreaShape({ area, className }: { area: Area; className?: string }) {

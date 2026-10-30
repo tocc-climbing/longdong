@@ -617,9 +617,10 @@ a.action {
   background: var(--brand);
 }
 
-.area-name {
-  font-size: 1.25rem;
-  font-weight: 800;
+/* 清單的名稱（區域、分區、路線）同一個字級：標題、清單名稱、小字三級 */
+:is(.area-name, .area-row .sector-name, .route-name .zh) {
+  font-size: 1.1rem;
+  font-weight: 750;
 }
 
 .area-count {
@@ -667,10 +668,6 @@ a.action {
 
 .route-name {
   min-width: 0;
-}
-
-.route-name .zh {
-  font-weight: 650;
 }
 
 .route-name .en,
@@ -1773,7 +1770,7 @@ a.action {
 }
 
 .grade-dist .bar {
-  fill: var(--chart);
+  fill: var(--area-color, var(--chart));
 }
 
 .grade-dist .axis {
@@ -1806,11 +1803,6 @@ a.action {
   margin-right: 10px;
   border-radius: 50%;
   vertical-align: 0.15em;
-}
-
-.area-row .sector-name {
-  font-size: 1.1rem;
-  font-weight: 750;
 }
 
 .lang-picker {
@@ -2690,17 +2682,6 @@ a.action {
   margin-top: 16px;
 }
 
-.page-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.page-title h1 {
-  min-width: 0;
-}
-
 /* 區域、分區、路線頁標題旁的圖示（src/edit/PageTools.tsx）：修改記錄、編輯、救援，點了才展開 */
 .page-tools {
   position: relative;
@@ -2979,7 +2960,7 @@ main.map > div {
 }
 
 /* 標題：粗黑幾何字 */
-[data-layout] :is(h1, h2, .brand, .area-name, .sector-card strong, .home-hero) {
+[data-layout] :is(h1, h2, .brand, .area-name, .area-row .sector-name, .route-name .zh, .sector-card strong) {
   font-family: var(--display);
 }
 
@@ -3059,35 +3040,6 @@ main.map > div {
   color: var(--surface);
 }
 
-/* 首頁標題區：TOCC 藍色塊、白色粗字，左右滿版 */
-.home-hero {
-  margin: -12px -16px 16px;
-  padding: 28px 20px 22px;
-  background: var(--hero);
-  color: #fff;
-}
-
-.home-hero h1 {
-  margin: 0;
-  font-size: 2.4rem;
-  line-height: 1.1;
-}
-
-.hero-en {
-  display: block;
-  margin-top: 4px;
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.home-hero p {
-  margin: 12px 0 0;
-  font-weight: 600;
-  opacity: 0.92;
-}
-
 /* 手機版的卡片（區域、分區、上一區／下一區）：按下時不換底色——米色背景上換成淺色，卡片看起來像閃一下；
    改成微微縮小的按壓效果，卡片維持白色 */
 [data-layout='mobile'] :is(.area-row, .sector-card, .pager a) {
@@ -3102,14 +3054,10 @@ main.map > div {
   transform: scale(0.985);
 }
 
-/* 很窄的手機（320px 寬）：區域卡片右邊的難度分佈圖縮窄、名稱縮小，長的英文單字（Auditorium）才放得下 */
+/* 很窄的手機（320px 寬）：區域卡片右邊的難度分佈圖縮窄，長的英文單字（Auditorium）才放得下 */
 @media (max-width: 359px) {
   .area-row {
     grid-template-columns: minmax(0, 1fr) 118px;
-  }
-
-  .area-row .area-name {
-    font-size: 1.1rem;
   }
 }
 
@@ -3350,12 +3298,6 @@ main.map > div {
   color: #fff;
 }
 
-/* ── 首頁：藍色漸層標題區 ── */
-[data-layout] .home-hero {
-  background: linear-gradient(135deg, #0395c3, #0a6f90);
-  border-radius: 0 0 24px 24px;
-}
-
 /* ── 區域、分區清單：細線分隔，左邊區域色點，不用卡片 ── */
 [data-layout] .area-list {
   gap: 0;
@@ -3443,18 +3385,6 @@ main.map > div {
 
 .route-flag.danger {
   color: var(--danger);
-}
-
-/* ── 路線頁（RoutePage） ── */
-.route-m h1 {
-  margin: 4px 0 2px;
-  font-size: 1.9rem;
-  line-height: 1.15;
-}
-
-.route-sub {
-  margin: 0;
-  color: var(--muted);
 }
 
 .route-facts {
@@ -4386,13 +4316,6 @@ main.map > div {
    電腦版：和手機版同一套設計，只調整版面（側欄＋內容＋右邊的路線頁）
    ========================================================================== */
 
-/* 首頁標題區：內容欄裡的圓角色塊（手機是左右滿版） */
-[data-layout='wide'] .home-hero {
-  margin: 0 0 16px;
-  padding: 28px 32px 26px;
-  border-radius: 24px;
-}
-
 /* 區域清單：兩欄，細線分隔 */
 [data-layout='wide'] .area-list {
   grid-template-columns: 1fr 1fr;
@@ -4511,6 +4434,11 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   grid-template-columns: minmax(0, 1fr) 16.25rem 11.25rem;
   gap: 32px;
   padding: 24px 28px 24px 32px;
+}
+
+/* 沒有難度分佈的標題卡（首頁）：名稱與地圖兩欄 */
+[data-layout='wide'] .area-hero:not(:has(.area-hero-chart)) {
+  grid-template-columns: minmax(0, 1fr) 11.25rem;
 }
 
 [data-layout='wide'] .area-hero h1 {
@@ -5376,40 +5304,6 @@ button.key-row:disabled {
   .topo-zoom-controls button {
     min-width: 44px;
   }
-}
-
-/* ---------- 手機版的路線頁：整頁是一張卡片 ---------- */
-[data-layout='mobile'] .route-m {
-  display: flex;
-  flex-direction: column;
-  margin: 4px 0 16px;
-  padding: 0 16px 16px;
-  border-radius: 20px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-[data-layout='mobile'] .route-m > .crumbs {
-  order: -2;
-  padding-top: 14px;
-}
-
-/* 有 Topo 時照片在卡片最上面、滿版；沒有 Topo 就沒有這一段，不留位置 */
-[data-layout='mobile'] .route-m > .topos {
-  order: -1;
-  gap: 0;
-  margin: 8px -16px 0;
-  padding: 0;
-  border-top: 0;
-}
-
-[data-layout='mobile'] .route-m > .topos > h2 {
-  display: none;
-}
-
-[data-layout='mobile'] .route-m > .page-title {
-  margin-top: 8px;
 }
 
 /* 路線資訊整段可以點（進入編輯）：看起來還是一般的文字 */

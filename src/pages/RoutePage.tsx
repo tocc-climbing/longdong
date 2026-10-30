@@ -1,5 +1,7 @@
+import { SectorShape } from '../components/AreaShape'
 import { BoltTable } from '../components/BoltTable'
 import { GradePill } from '../components/GradePill'
+import { PageHero } from '../components/PageHero'
 import { PersonalPanel } from '../components/PersonalPanel'
 import { ReviewsSection } from '../components/ReviewsSection'
 import { SafetyLight } from '../components/SafetyLight'
@@ -19,12 +21,12 @@ import { href, useRouteLink } from '../router'
 import { routeKey, summarize } from '../social/model'
 import { RouteTopos } from '../topo/TopoSection'
 import { useSocial } from '../social/store'
-import { NotFound } from './AreaPage'
+import { areaSectorColor, NotFound } from './AreaPage'
 
 /**
- * 路線頁（手機版與電腦版的右側相同）：名稱、一行重點（難度、種類、高度、評分）、安全與狀態合併的一個色塊、
- * 記錄／收藏／分享、Topo、路線資訊；首攀、Bolt、Anchor 收在「更多資訊」；最後是評分與留言。
- * 手機版整頁是一張卡片：有 Topo 時照片在最上面（沒有就不留位置）；點路線資訊進入說明編輯，長按 Topo 進入 Topo 編輯。
+ * 路線頁（手機版與電腦版的右側相同）：標題卡（與區域、分區頁相同；右上是收藏、回報位置、更多）、
+ * 一行重點（難度、種類、高度、評分）、安全與狀態合併的一個色塊、Topo、路線資訊；首攀、Bolt、Anchor 收在「更多資訊」；
+ * 最後是評分與留言。手機版點路線資訊進入說明編輯，長按 Topo 進入 Topo 編輯。
  */
 /**
  * topoInList：電腦版左邊的分區清單已經顯示這個分區的 Topo（選到的路線在上面亮色、可以切換 bolt），這裡不再重複顯示同一張。
@@ -53,21 +55,19 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
 
   return (
     <article className="route route-m">
-      <nav className="crumbs">
-        <a href={href.area(area.id)}>{localName(area.name, lang).main}</a>
-        {area.sectors.length > 1 && (
-          <>
-            {' › '}
-            <a href={href.sector(sector.id)}>{localName(sector.name, lang).main}</a>
-          </>
-        )}
-      </nav>
-
-      <div className="page-title">
-        <h1>{name.main}</h1>
-        <RouteTools data={data} item={ref} signedIn={signedIn} scope={scope} onTick={() => setTickOpen(true)} />
-      </div>
-      {(route.number || name.sub) && <p className="route-sub">{[route.number && `#${route.number}`, name.sub].filter(Boolean).join(' · ')}</p>}
+      <PageHero
+        crumbs={[
+          { label: localName(data.dataset.crag.name, lang).main, href: href.home() },
+          { label: localName(area.name, lang).main, href: href.area(area.id) },
+          ...(area.sectors.length > 1 ? [{ label: localName(sector.name, lang).main, href: href.sector(sector.id) }] : []),
+        ]}
+        color={areaSectorColor(area, sector)}
+        name={name.main}
+        sub={[route.number && `#${route.number}`, name.sub].filter(Boolean).join(' · ')}
+        tools={<RouteTools data={data} item={ref} signedIn={signedIn} scope={scope} onTick={() => setTickOpen(true)} />}
+        shape={<SectorShape area={area} sector={sector} color={areaSectorColor(area, sector)} className="area-hero-shape" />}
+        compact
+      />
 
       <div className="route-facts">
         <GradePill grade={route.grade} value={route.gradeValue} size="lg" />
