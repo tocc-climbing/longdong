@@ -10,6 +10,9 @@ import { usePersonal } from '../personal/store'
 import { href } from '../router'
 import { localName, useLang } from '../i18n'
 
+/** 首頁標題卡的顏色：岩石的灰藍，和各區域的顏色（音樂廳是藍色）都不同 */
+const CRAG_COLOR = '#8fa3b0'
+
 /** 首頁：標題卡（整個龍洞的地圖），下面是各區域，一區一列（收藏的排在前面）；色點用 Sheet 上該區域的顏色 */
 export function HomePage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
@@ -20,6 +23,7 @@ export function HomePage({ data }: { data: LoadedData }) {
     <>
       <PageHero
         crumbs={crag.sub ? [{ label: crag.sub }] : []}
+        color={CRAG_COLOR}
         name={crag.main}
         sub={t('home.heroStats', { areas: data.dataset.areas.length, routes: routeCount })}
         shape={<CragShape data={data} className="area-hero-shape" />}

@@ -2745,14 +2745,10 @@ a.action {
   min-height: 206px;
 }
 
-/* 首頁：橫的地圖放在名稱下面、滿版 */
+/* 首頁：地圖放在名稱下面，左右與下緣跨到卡片邊緣 */
 .area-hero.strip {
   grid-template-columns: minmax(0, 1fr);
   align-content: space-between;
-}
-
-.area-hero.strip .area-hero-shape {
-  height: 64px;
 }
 
 /* 清單名稱旁的收藏愛心 */
@@ -4478,14 +4474,10 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   padding: 24px 28px 24px 32px;
 }
 
-/* 首頁的標題卡：名稱與橫的地圖兩欄 */
+/* 首頁的標題卡：名稱在左，地圖佔右邊六成、滿高 */
 [data-layout='wide'] .area-hero.strip {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  min-height: 11.5rem;
   align-content: center;
-}
-
-[data-layout='wide'] .area-hero.strip .area-hero-shape {
-  height: 8rem;
 }
 
 [data-layout='wide'] .area-hero h1 {
@@ -5429,5 +5421,36 @@ button.key-row:disabled {
 /* 電腦版區域頁：地圖在難度分佈右邊那一欄 */
 [data-layout='wide'] .area-hero:not(.compact) > .area-hero-shape.hero-map {
   width: 14rem;
+}
+
+/* 首頁（手機）：地圖在名稱下面，左右與下緣跨到卡片邊緣（卡片的 padding 是 18px 16px 18px 20px） */
+[data-layout] .area-hero.strip > .area-hero-shape.hero-map {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  width: calc(100% + 36px);
+  height: 82px;
+  margin: 0 -16px -18px -20px;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+[data-layout='wide'] .area-hero.strip > .area-hero-shape.hero-map {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 60%;
+  height: 100%;
+  margin: 0;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%);
+  mask-image: linear-gradient(to right, transparent, #000 22%);
+}
+
+/* 根元素也是深色：Android 的系統列（上方狀態列、下方手勢列）跟著深色 */
+html {
+  color-scheme: dark;
+  background: #0e0e0e;
 }
 

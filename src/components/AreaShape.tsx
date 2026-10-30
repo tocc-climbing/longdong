@@ -36,24 +36,10 @@ const turn = ([x, y]: [number, number]): [number, number] => [-y, x]
 
 const wallPath = (pts: [number, number][]) => `M${pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join('L')}`
 
-/** 整個龍洞橫放（北邊朝右、海在下方，與路線清單的地圖相同）：各大區域的形狀，用各自的顏色（與清單的色點相同） */
-export function CragShape({ data, className }: { data: LoadedData; className?: string }) {
-  const map = useScaleMap()
-  if (map.status !== 'ok') return <div className={className} aria-hidden />
-  const b = bounds(map.data.areas.flatMap((a) => a.rings.flat().map(turn)))
-  const pad = Math.max(b.w, b.h) * 0.02
-  return (
-    <svg className={className} viewBox={`${b.x - pad} ${b.y - pad} ${b.w + 2 * pad} ${b.h + 2 * pad}`} aria-hidden>
-      {data.dataset.areas.map((area) => {
-        const shape = map.data.areas.find((a) => a.id === areaKey(area))
-        return shape && <path key={area.id} d={ringsPath(shape.rings, turn)} fill={area.color ?? 'var(--brand)'} />
-      })}
-    </svg>
-  )
-}
-
 /** 標題卡地圖四邊留的空白（px）：上方留給工具列的圖示 */
 const HERO_INSET = { top: 48, right: 12, bottom: 12, left: 12 }
+/** 首頁的地圖沒有工具列 */
+const CRAG_INSET = { top: 10, right: 12, bottom: 10, left: 12 }
 
 /** 元素的大小（px），變動時更新；還沒量到時 undefined */
 function useSize(ref: RefObject<Element | null>): { w: number; h: number } | undefined {
@@ -76,14 +62,46 @@ function useSize(ref: RefObject<Element | null>): { w: number; h: number } | und
  * 標題卡右邊的地圖（佔滿卡片的高度）：fit 的點（岩壁）整個看得到、轉到放得最大的方向（heroFit）；
  * 其他的圖形（區域的形狀）可以超出去，被卡片的邊切掉。
  */
-function HeroMap({ fit, spread, minSpan, className, children }: { fit: Pt[]; spread?: number; minSpan?: number; className?: string; children: ReactNode }) {
+function HeroMap({
+  fit,
+  spread,
+  minSpan,
+  inset = HERO_INSET,
+  className,
+  children,
+}: {
+  fit: Pt[]
+  spread?: number
+  minSpan?: number
+  inset?: typeof HERO_INSET
+  className?: string
+  children: ReactNode
+}) {
   const ref = useRef<SVGSVGElement>(null)
   const size = useSize(ref)
-  const placed = size && heroFit(fit, { ...size, ...HERO_INSET }, { spread, minSpan })
+  const placed = size && heroFit(fit, { ...size, ...inset }, { spread, minSpan })
   return (
     <svg ref={ref} className={`${className ?? ''} hero-map`} viewBox={placed?.viewBox.join(' ')} preserveAspectRatio="xMidYMid slice" aria-hidden>
       {placed && <g transform={`rotate(${placed.angle})`}>{children}</g>}
     </svg>
+  )
+}
+
+/**
+ * 整個龍洞（首頁）：各大區域用各自的顏色（與清單的色點相同）。範圍是所有的岩壁、轉到放得最大的方向，
+ * 沒有岩壁的地方（校門口、長巷的海島，兩端的岬角）可以被切掉。
+ */
+export function CragShape({ data, className }: { data: LoadedData; className?: string }) {
+  const map = useScaleMap()
+  if (map.status !== 'ok') return <div className={className} aria-hidden />
+  const fit = Object.values(map.data.walls).flatMap((lines) => lines.flatMap((line) => line.map(project)))
+  return (
+    <HeroMap fit={fit} inset={CRAG_INSET} className={className}>
+      {data.dataset.areas.map((area) => {
+        const shape = map.data.areas.find((a) => a.id === areaKey(area))
+        return shape && <path key={area.id} d={shape.path} fill={area.color ?? 'var(--brand)'} />
+      })}
+    </HeroMap>
   )
 }
 

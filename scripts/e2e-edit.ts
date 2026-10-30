@@ -686,6 +686,16 @@ try {
   await vp.goto(base)
   await vp.waitForSelector('.area-row .grade-dist .bar')
   check('首頁：標題卡有整個龍洞的地圖', (await vp.locator('.area-hero svg.area-hero-shape path').count()) === data.areas.length)
+  const homeCard = (await vp.locator('.area-hero').boundingBox())!
+  const homeMap = (await vp.locator('.area-hero svg.area-hero-shape').boundingBox())!
+  check('首頁：地圖放大，左右跨到卡片邊緣', homeMap.x <= homeCard.x + 1 && homeMap.x + homeMap.width >= homeCard.x + homeCard.width - 1, `${homeMap.x}+${homeMap.width} / ${homeCard.x}+${homeCard.width}`)
+  const homeColor = await vp.locator('.area-hero').evaluate((el) => getComputedStyle(el).getPropertyValue('--area-color').trim().toLowerCase())
+  const areaColors = (JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as { areas: { color?: string }[] }).areas.map((a) => a.color?.toLowerCase())
+  // 看起來要不同（不只是色碼不同）：RGB 距離至少 80
+  const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const nearest = Math.min(...areaColors.filter(Boolean).map((c) => Math.hypot(...rgb(c!).map((v, i) => v - rgb(homeColor)[i]))))
+  check('首頁：標題卡的顏色和每個區域看起來都不同', /^#[0-9a-f]{6}$/.test(homeColor) && nearest >= 80, `${homeColor}，最接近的差 ${nearest.toFixed(0)}`)
+  check('根元素是深色（Android 的系統列跟著深色）', (await vp.evaluate(`getComputedStyle(document.documentElement).backgroundColor`)) === 'rgb(14, 14, 14)')
   const barAndDot = await vp.locator('.area-row').first().evaluate((el) => [getComputedStyle(el.querySelector('.grade-dist .bar')!).fill, getComputedStyle(el, '::before').backgroundColor])
   check('首頁：長條圖用區域的顏色（和色點相同）', barAndDot[0] === barAndDot[1], barAndDot.join(' / '))
   const nameSize = (selector: string) => vp.locator(selector).first().evaluate((el) => getComputedStyle(el).fontSize)
