@@ -200,6 +200,10 @@ h2 .en {
   filter: invert(1);
 }
 
+.topbar .brand-mark {
+  height: 44px;
+}
+
 main {
   max-width: 720px;
   margin: 0 auto;
@@ -2578,44 +2582,19 @@ a.action {
   --emergency: #d40442;
 }
 
-.rescue-cross {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  background: var(--emergency);
-  color: #fff;
-  font-weight: 900;
-  font-size: 1rem;
-  line-height: 1;
-  flex: none;
-}
-
-/* 手機版頂欄右上的救援按鈕：每一頁都在同一個位置 */
+/* 手機版頂欄右上的救援按鈕：每一頁都在同一個位置；只有圖示，比標誌小（點的範圍比圖示大） */
 .rescue-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  height: 34px;
-  padding: 0 12px 0 7px;
-  border-radius: 999px;
-  background: var(--emergency);
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.rescue-button .rescue-cross {
-  background: #fff;
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin: 0 -8px 0 auto;
+  width: 40px;
+  height: 40px;
   color: var(--emergency);
 }
 
 .rescue-button:is(:hover, :active, [aria-current='page']) {
-  text-decoration: none;
-  background: #b0033a;
+  color: #b0033a;
 }
 
 /* 救援頁：最上面是撥 119，其他電話較小；下面是定位的結果 */

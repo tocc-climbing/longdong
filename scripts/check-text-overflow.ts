@@ -4,6 +4,7 @@
  *   2. 不換行的文字被擠出元件（按鈕、標籤、欄位標題等；刻意用「…」截斷的不算）
  *   3. 元素超出畫面右緣（可以左右捲動的表格、地圖框裡的不算）
  *   4. 應該是單行的元件（按鈕、膠囊、欄位標題、分頁）被擠成兩行
+ *   5. 手機版頂欄的救援按鈕有文字，或比標誌大（要不顯眼）
  *
  *   npm run build && npm run check:text
  *
@@ -127,6 +128,19 @@ try {
         await page.waitForTimeout(200)
         for (const problem of (await page.evaluate(`(${FIND_PROBLEMS})()`)) as Problem[]) {
           found.push(`[${lang}・${vp.name}・${p.name}] ${problem.kind}：${problem.element}「${problem.text}」（${problem.detail}）`)
+        }
+        if (vp.mobile) {
+          const top = await page.evaluate(() => {
+            const rescue = document.querySelector('.topbar .rescue-button')
+            const icon = rescue?.querySelector('svg')
+            const logo = document.querySelector('.topbar .brand-mark')
+            if (!rescue || !icon || !logo) return '找不到救援按鈕或標誌'
+            const r = icon.getBoundingClientRect()
+            const l = logo.getBoundingClientRect()
+            if (rescue.textContent?.trim()) return `救援按鈕有文字「${rescue.textContent.trim()}」`
+            if (r.height > l.height || r.width > l.width) return `救援按鈕 ${r.width}×${r.height} 比標誌 ${l.width}×${l.height} 大`
+          })
+          if (top) found.push(`[${lang}・${vp.name}・${p.name}] 頂欄：${top}`)
         }
       }
       await context.close()
