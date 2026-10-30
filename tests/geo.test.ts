@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RESCUE_POINTS } from '../src/data/rescue'
-import { NEAR_CRAG_M, bearingDeg, direction, distanceM, nearestPoints } from '../src/geo'
+import { NEAR_CRAG_M, bearingDeg, direction, distanceM, nearestPoints, whereabouts } from '../src/geo'
 
 describe('距離與方位', () => {
   it('距離：緯度差 0.001 度約 111 公尺；同一點為 0', () => {
@@ -57,3 +57,29 @@ describe('是否在龍洞岩場附近', () => {
   })
 })
 
+describe('救援頁依位置顯示', () => {
+  it('在黃金谷：通報地點是 #10 黃金谷，最近的急救器材是 #5 黃金谷中央區小木屋', () => {
+    const w = whereabouts([25.1067, 121.922483])
+    expect(w.kind).toBe('crag')
+    if (w.kind !== 'crag') return
+    expect(w.point.point.no).toBe(10)
+    expect(w.ems.point.no).toBe(5)
+    expect(w.ems.distance).toBeLessThan(20)
+  })
+
+  it('在校門口：最近的急救器材是 #1 校門口，不是救援點同區的其他器材', () => {
+    const w = whereabouts([25.1129, 121.921617])
+    expect(w.kind === 'crag' && [w.point.point.no, w.ems.point.no]).toEqual([3, 1])
+  })
+
+  it('急救器材以自己的位置找最近的，不是以最近的救援點找（音樂廳南側：救援點 #7，器材 #4 第一洞比 #3 長巷近）', () => {
+    const w = whereabouts([25.1098, 121.9226])
+    expect(w.kind === 'crag' && [w.point.point.no, w.ems.point.no]).toEqual([7, 4])
+  })
+
+  it('在台北：不在岩場附近，只給離最近救援點的距離', () => {
+    const w = whereabouts([25.033, 121.5654])
+    expect(w.kind).toBe('outside')
+    expect(w.kind === 'outside' && w.distance).toBeGreaterThan(30_000)
+  })
+})

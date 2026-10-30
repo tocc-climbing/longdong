@@ -3,25 +3,21 @@ import type { LocalizedName } from './schema'
 /**
  * 龍洞岩場救援資訊，來源：TOCC 龍洞岩場救援計畫（https://www.tocc-climbing.org/ems-project）
  * 與「龍洞岩場救援資訊圖」2026 年 7 月版。內容由救援計畫團隊維護，App 照實顯示，不修正、不推測。
- * 救援頁的地圖用比例尺地圖（src/map/，資料由 scripts/gen-scale-map.ts 產生，放在 public/rescue/）。
+ * 地圖（src/map/）的救援點、急救器材也用這裡的資料（scripts/gen-scale-map.ts 產生，放在 public/rescue/）。
  */
 
 export const RESCUE_SOURCE = {
   version: '2026-07',
-  projectUrl: 'https://www.tocc-climbing.org/ems-project',
-  /** 救援計畫書（約 100MB 的 PDF，不放進離線資料） */
-  handbookUrl: 'https://www.tocc-climbing.org/_files/ugd/a65be6_7d036a2bf7574815b8870cc0d5788610.pdf',
   /** 「龍洞岩場意外事故通報社群(新)」；TOCC 救援計畫頁上的是舊群組（2026-10-15 更新） */
   lineGroupUrl: 'https://line.me/ti/g2/yNQP-eP_OiI7Ja292782IKVPjtHuySCZgbKWjQ',
   lineGroupPassword: 'TOCC',
-  reportFormUrl: 'https://forms.gle/XsEMmdx1hjF8RVyd8',
 }
 
 /** 緊急電話：112 在沒有自己電信的訊號時也能撥 */
 export const EMERGENCY_NUMBERS = ['119', '112', '118'] as const
 
 export interface RescuePoint {
-  /** 救援點的識別：#12 有地下二樓、地下一樓兩個點共用編號，選取與比對一律用 key，不用 no */
+  /** 救援點的識別：#12 有地下二樓、地下一樓兩個點共用編號，比對一律用 key，不用 no */
   key: string
   /** 地圖上的編號 */
   no: number
@@ -61,6 +57,13 @@ export interface EmsLocation {
   where: LocalizedName
   /** 另有捲式擔架（SKED）：救援資訊圖上長巷、第一洞、黃金谷、後門四處有 */
   sked: boolean
+  /**
+   * WGS84 座標：#1 是現場回報的（2026-10 四筆 GPS，誤差 5～15 公尺，彼此相距 2 公尺內，依誤差加權平均）；
+   * 其他依放置位置的說明，對照編輯模式畫的分區岩壁（public/rescue/walls.geojson）放：
+   * #3 長巷兩側岩壁最深處的中間、#4 第一洞內西面與東北面岩壁的內角、#6 鱷魚岬與老人牆兩段岩壁之間的內角；
+   * #5 傳奇岩前面（岩壁東側）；#2 的說明對不到岩壁（洞穴），維持救援資訊圖換算的位置。
+   */
+  coords: [number, number]
 }
 
 /**
@@ -69,17 +72,18 @@ export interface EmsLocation {
  * 與救援資訊圖 2026 年 7 月版的器材位置一致（TOCC 救援計畫頁的文字仍是舊位置）。
  */
 export const EMS_LOCATIONS: EmsLocation[] = [
-  { no: 1, name: { zh: '校門口', en: 'School Gate' }, where: { zh: '左側洞穴內', en: 'Inside the boulder cave at the left side' }, sked: false },
+  { no: 1, name: { zh: '校門口', en: 'School Gate' }, where: { zh: '左側洞穴內', en: 'Inside the boulder cave at the left side' }, sked: false, coords: [25.112738, 121.921587] },
   {
     no: 2,
     name: { zh: '鐘塔', en: 'Clocktower' },
     where: { zh: '總統頭像山後方洞穴內', en: 'Inside the tunnel at the left side to the base of Four Presidents' },
     sked: false,
+    coords: [25.111433, 121.922568],
   },
-  { no: 3, name: { zh: '長巷', en: 'Long Lane' }, where: { zh: '最深處', en: 'At the far end of the lane' }, sked: true },
-  { no: 4, name: { zh: '第一洞', en: 'First Cave' }, where: { zh: '洞內最深處', en: 'At the end of the cave' }, sked: true },
-  { no: 5, name: { zh: '黃金谷', en: 'Golden Valley' }, where: { zh: '中央區小木屋', en: 'In the small cabin in the central area' }, sked: true },
-  { no: 6, name: { zh: '後門', en: 'Back Door' }, where: { zh: '鱷魚岬與老人牆內角洞穴內', en: 'In the alcove between Crocodile Cape and Old Man Wall' }, sked: true },
+  { no: 3, name: { zh: '長巷', en: 'Long Lane' }, where: { zh: '最深處', en: 'At the far end of the lane' }, sked: true, coords: [25.110835, 121.922587] },
+  { no: 4, name: { zh: '第一洞', en: 'First Cave' }, where: { zh: '洞內最深處', en: 'At the end of the cave' }, sked: true, coords: [25.109305, 121.92204] },
+  { no: 5, name: { zh: '黃金谷', en: 'Golden Valley' }, where: { zh: '中央區小木屋', en: 'In the small cabin in the central area' }, sked: true, coords: [25.106624, 121.92252] },
+  { no: 6, name: { zh: '後門', en: 'Back Door' }, where: { zh: '鱷魚岬與老人牆內角洞穴內', en: 'In the alcove between Crocodile Cape and Old Man Wall' }, sked: true, coords: [25.105243, 121.922678] },
 ]
 
 /**
@@ -105,17 +109,7 @@ export function rescueKey(areaId: string): string | undefined {
   return key in AREA_RESCUE ? key : undefined
 }
 
-/** 依 key 找救援點 */
-export function rescuePoint(key: string): RescuePoint | undefined {
-  return RESCUE_POINTS.find((p) => p.key === key)
-}
-
 /** 「25.106700, 121.922483」：照地圖上的寫法固定 6 位小數 */
 export function formatCoords([lat, lng]: [number, number]): string {
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-}
-
-/** 用地圖 App 開啟座標（手機上會跳出 Google 地圖或 Apple 地圖） */
-export function mapUrl([lat, lng]: [number, number]): string {
-  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
 }

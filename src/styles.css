@@ -1,86 +1,9 @@
 /* ==========================================================================
    龍洞攀岩資料庫：視覺系統
-   色彩、字型、間距都定義在 :root 的變數，深色模式只換變數值。
+   色彩、字型、間距都定義在 :root 的變數；固定深色。
    ========================================================================== */
 
 :root {
-  --bg: #f3f4f1;
-  --surface: #ffffff;
-  --surface-2: #eef0ec;
-  --text: #15191b;
-  --muted: #687176;
-  --faint: #9aa2a6;
-  --border: #e3e6e1;
-
-  /* 品牌青綠：--brand 用於填色（按鈕、圖表、選中狀態），--link 用於文字 */
-  --brand: #00879c;
-  --brand-soft: #dff1f3;
-  --on-brand: #ffffff;
-  --link: #006b7c;
-
-  --ok: #2e7d4f;
-  --warn: #a86a00;
-  --danger: #b3261e;
-  --star: #e3a008;
-
-  /* 難度區間淡色底 */
-  --band-easy: #dcf1e2;
-  --band-g10: #fbf0c4;
-  --band-g11: #fde1cb;
-  --band-g12: #fbd5d5;
-  --band-g13: #e7dcf6;
-
-  --chart: #00879c;
-  --chart-track: #eef0ec;
-
-  --radius: 16px;
-  --radius-sm: 10px;
-  --shadow: 0 1px 2px rgba(16, 24, 28, 0.06), 0 2px 8px rgba(16, 24, 28, 0.04);
-  --card-border: transparent;
-  --bar-bg: rgba(243, 244, 241, 0.82);
-
-  color-scheme: light;
-}
-
-/* 深色：系統是深色且沒有手動選淺色，或在「我的」手動選了深色（data-theme 由 src/theme.ts 設定） */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #0d1113;
-    --surface: #161c1f;
-    --surface-2: #1e2629;
-    --text: #edf1f2;
-    --muted: #97a3a8;
-    --faint: #66737a;
-    --border: #253034;
-
-    --brand: #119db3;
-    --brand-soft: #12343a;
-    --on-brand: #ffffff;
-    --link: #5cc8d8;
-
-    --ok: #6cc28e;
-    --warn: #e0b04f;
-    --danger: #f08a80;
-    --star: #f2c14e;
-
-    --band-easy: #1c3a26;
-    --band-g10: #3a3216;
-    --band-g11: #432a1a;
-    --band-g12: #462124;
-    --band-g13: #33284c;
-
-    --chart: #119db3;
-    --chart-track: #1e2629;
-
-    --shadow: none;
-    --card-border: #253034;
-    --bar-bg: rgba(13, 17, 19, 0.82);
-
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme='dark'] {
   --bg: #0d1113;
   --surface: #161c1f;
   --surface-2: #1e2629;
@@ -89,6 +12,7 @@
   --faint: #66737a;
   --border: #253034;
 
+  /* 品牌青綠：--brand 用於填色（按鈕、圖表、選中狀態），--link 用於文字 */
   --brand: #119db3;
   --brand-soft: #12343a;
   --on-brand: #ffffff;
@@ -99,6 +23,7 @@
   --danger: #f08a80;
   --star: #f2c14e;
 
+  /* 難度區間淡色底 */
   --band-easy: #1c3a26;
   --band-g10: #3a3216;
   --band-g11: #432a1a;
@@ -108,9 +33,13 @@
   --chart: #119db3;
   --chart-track: #1e2629;
 
+  --radius: 16px;
+  --radius-sm: 10px;
   --shadow: none;
   --card-border: #253034;
   --bar-bg: rgba(13, 17, 19, 0.82);
+  /* 手機版底部分頁的高度（不含系統列） */
+  --nav-h: 48px;
 
   color-scheme: dark;
 }
@@ -267,22 +196,14 @@ h2 .en {
   display: block;
   width: auto;
   height: 30px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .brand-mark {
-    filter: invert(1);
-  }
-}
-
-:root[data-theme='dark'] .brand-mark {
+  /* 標誌是黑色：反白放在深色底上 */
   filter: invert(1);
 }
 
 main {
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 16px calc(88px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(72px + env(safe-area-inset-bottom));
   /* 左右滑動時內容跟著手指移動，不讓頁面出現水平捲軸（clip 不影響 sticky） */
   overflow-x: clip;
 }
@@ -295,7 +216,7 @@ main {
   z-index: 20;
   display: flex;
   justify-content: space-around;
-  padding: 4px 8px env(safe-area-inset-bottom);
+  padding: 0 8px env(safe-area-inset-bottom);
   background: var(--bar-bg);
   backdrop-filter: saturate(180%) blur(16px);
   -webkit-backdrop-filter: saturate(180%) blur(16px);
@@ -304,13 +225,9 @@ main {
 
 .bottom-nav a {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 0;
-  font-size: 0.7rem;
-  font-weight: 500;
+  display: grid;
+  place-items: center;
+  height: var(--nav-h);
   color: var(--faint);
 }
 
@@ -328,20 +245,11 @@ main {
 
 .bottom-nav a.active {
   color: var(--text);
-  font-weight: 700;
 }
 
 .bottom-nav a.active svg {
   background: var(--brand-soft);
   color: var(--brand);
-}
-
-.footer {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 8px 16px calc(100px + env(safe-area-inset-bottom));
-  text-align: center;
-  line-height: 1.8;
 }
 
 .banner {
@@ -728,7 +636,6 @@ a.action {
 .sector h2 {
   margin: 24px 4px 8px;
 }
-
 
 /* ---------- 路線清單 ---------- */
 
@@ -2243,10 +2150,6 @@ a.action {
   }
 }
 
-.shell .footer {
-  padding-bottom: 32px;
-}
-
 .list-pane,
 .detail-pane {
   min-width: 0;
@@ -2668,11 +2571,11 @@ a.action {
   scrollbar-color: var(--faint) transparent;
 }
 
-/* ---------- 救援資訊 ---------- */
+/* ---------- 救援 ---------- */
 
-/* 緊急用的紅底白字：深淺色模式都用同一個深紅色（--danger 在深色模式是淺紅，白字對比不足） */
-.rescue {
-  --emergency: #b3261e;
+/* 緊急用的紅底白字：TOCC 的深桃紅（--danger 是淺紅，白字對比不足） */
+:root {
+  --emergency: #d40442;
 }
 
 .rescue-cross {
@@ -2681,7 +2584,7 @@ a.action {
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  background: #b3261e;
+  background: var(--emergency);
   color: #fff;
   font-weight: 900;
   font-size: 1rem;
@@ -2689,43 +2592,123 @@ a.action {
   flex: none;
 }
 
-.rescue-entry {
-  display: flex;
+/* 手機版頂欄右上的救援按鈕：每一頁都在同一個位置 */
+.rescue-button {
+  display: inline-flex;
   align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  height: 34px;
+  padding: 0 12px 0 7px;
+  border-radius: 999px;
+  background: var(--emergency);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.rescue-button .rescue-cross {
+  background: #fff;
+  color: var(--emergency);
+}
+
+.rescue-button:is(:hover, :active, [aria-current='page']) {
+  text-decoration: none;
+  background: #b0033a;
+}
+
+/* 救援頁：最上面是撥 119，其他電話較小；下面是定位的結果 */
+.rescue h1 {
+  margin: 4px 0 12px;
+}
+
+.sos-call {
+  display: flex;
+  align-items: baseline;
   gap: 12px;
-  margin: 4px 0 14px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
-  box-shadow: var(--shadow);
-  color: var(--text);
+  background: var(--emergency);
+  color: #fff;
 }
 
-.rescue-entry .rescue-cross {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  font-size: 1.4rem;
+.sos-call strong {
+  font-size: 2.6rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.rescue-entry > span:last-child {
+.sos-call span {
+  font-weight: 700;
+}
+
+.sos-call:is(:hover, :active) {
+  text-decoration: none;
+  filter: brightness(1.08);
+}
+
+.sos-calls {
   display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sos-calls .sos-call {
+  flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
+  padding: 10px 14px;
 }
 
-.rescue-entry strong {
-  color: var(--danger);
+.sos-calls .sos-call strong {
+  font-size: 1.6rem;
 }
 
-.rescue-entry .small {
+.sos-calls .sos-call span {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.92;
+}
+
+.sos-where {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sos-where h2 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 
-.rescue-entry:hover,
-.rescue-entry:active {
-  text-decoration: none;
-  background: var(--surface-2);
+.sos-where h2:not(:first-child) {
+  margin-top: 18px;
+}
+
+.sos-spot {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.sos-spot strong {
+  font-size: 1.15rem;
+}
+
+.sos-spot :is(.point-no, .ems-icon) {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+
+.sos-line {
+  margin-top: 16px;
 }
 
 .page-title {
@@ -2781,10 +2764,6 @@ a.action {
   text-decoration: none;
   background: var(--surface-2);
   color: var(--text);
-}
-
-.tool-button.rescue {
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 .tool-pop {
@@ -2867,68 +2846,6 @@ a.action {
   color: var(--muted);
 }
 
-.rescue section {
-  margin-top: 24px;
-}
-
-.rescue h3 {
-  margin: 16px 4px 8px;
-  font-size: 0.95rem;
-}
-
-.rescue-calls h2 {
-  margin-top: 0;
-}
-
-.call-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.call-button {
-  display: grid;
-  gap: 2px;
-  align-content: start;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--emergency);
-  color: #fff;
-}
-
-.call-button strong {
-  font-size: 1.6rem;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.call-button span {
-  font-size: 0.72rem;
-  line-height: 1.3;
-  opacity: 0.92;
-}
-
-.call-button:hover,
-.call-button:active {
-  text-decoration: none;
-  filter: brightness(1.08);
-}
-
-.rescue-links {
-  margin: 12px 0 0;
-  padding-left: 1.2em;
-  display: grid;
-  gap: 6px;
-}
-
-.point-item {
-  display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 14px;
-}
-
 .point-no {
   display: inline-grid;
   place-items: center;
@@ -2939,54 +2856,6 @@ a.action {
   color: #fff;
   font-size: 0.75rem;
   font-weight: 800;
-}
-
-.point-body {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.point-name {
-  font-weight: 600;
-}
-
-.point-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.point-actions .chip {
-  padding: 4px 10px;
-  font-size: 0.8rem;
-}
-
-.point-actions a.chip:hover {
-  text-decoration: none;
-}
-
-/* 救援頁的救援點、急救器材清單：整列是按鈕，點一下就在地圖上顯示 */
-.rescue-row {
-  display: grid;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.rescue-row:not(.point-item) {
-  padding: 0 14px;
-}
-
-.rescue-row:disabled {
-  cursor: default;
-}
-
-.rescue-row:not(:disabled):active {
-  background: var(--surface-2);
 }
 
 /* 捲式擔架（SKED）：救援資訊圖上的 SKED 是橘色 */
@@ -3002,13 +2871,6 @@ a.action {
   vertical-align: 1px;
 }
 
-.ems-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 10px 0;
-}
-
 .ems-icon {
   display: inline-grid;
   place-items: center;
@@ -3019,58 +2881,6 @@ a.action {
   color: #fff;
   font-weight: 900;
   flex: none;
-}
-
-/* 救援地圖（src/map/RescueMap.tsx）：固定高度的框，地圖在框內拖曳、縮放 */
-.rescue-map {
-  position: relative;
-  height: min(62vh, 420px);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  overflow: hidden;
-  background: #fff;
-}
-
-/* 從清單按「看地圖」捲過來時，標題不被頂欄蓋住 */
-.rescue-map-section {
-  scroll-margin-top: calc(60px + env(safe-area-inset-top));
-}
-
-.rescue-map-section > p {
-  margin-top: 10px;
-}
-
-/* 電腦版救援資訊：兩欄，左邊電話、我的位置、救援點、急救器材，右邊救援地圖（捲動時固定） */
-.shell main.roomy .rescue {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: 28px;
-  align-items: start;
-}
-
-.shell main.roomy .rescue > * {
-  grid-column: 1;
-}
-
-.shell main.roomy .rescue > h1 {
-  grid-column: 1 / -1;
-}
-
-.shell main.roomy .rescue > .rescue-map-section {
-  grid-column: 2;
-  grid-row: 2 / span 20;
-  position: sticky;
-  top: 0;
-  margin-top: 0;
-}
-
-.shell main.roomy .rescue-map-section .rescue-map {
-  height: calc(100vh - 220px);
-}
-
-/* 救援頁「我的位置」 */
-.my-location h2 {
-  margin-top: 0;
 }
 
 .my-coords {
@@ -3090,10 +2900,6 @@ a.action {
   color: var(--warn);
 }
 
-.near-item {
-  grid-template-columns: 2rem minmax(0, 1fr);
-}
-
 /* 地圖頁（/map）的版面（地圖本身的樣式在 src/map/map.css，打開地圖時才載入）：
    手機版填滿頂欄與底部分頁之間（地圖的下緣不被分頁蓋住，最南端的救援點也看得到），電腦版填滿右邊整欄 */
 main.map {
@@ -3101,8 +2907,8 @@ main.map {
   top: calc(52px + env(safe-area-inset-top));
   left: 0;
   right: 0;
-  /* 底部分頁約 66px：少 2px 讓分頁蓋住接縫 */
-  bottom: calc(64px + env(safe-area-inset-bottom));
+  /* 少 2px 讓底部分頁蓋住接縫 */
+  bottom: calc(var(--nav-h) - 1px + env(safe-area-inset-bottom));
   max-width: none;
   margin: 0;
   padding: 0;
@@ -3127,13 +2933,6 @@ main.map > div {
 
 .shell-main:has(> main.map) {
   overflow: hidden;
-}
-
-/* 岩場頁右上的搜尋 */
-.topbar-search {
-  margin-left: auto;
-  background: transparent;
-  color: var(--text);
 }
 
 /* 開發站的標示（品牌名稱旁），見 components/DevBadge.tsx */
@@ -3161,53 +2960,6 @@ main.map > div {
    ========================================================================== */
 
 :root[data-layout] {
-  --bg: #efece5;
-  --surface: #ffffff;
-  --surface-2: #f4f1ea;
-  --text: #141414;
-  --muted: #5c5a55;
-  --faint: #8e897f;
-  --border: #e1dcd1;
-  /* TOCC 藍：填色（色塊、圖表、選中）；文字用較深的 --link */
-  --brand: #0395c3;
-  --brand-soft: #dcf0f8;
-  --on-brand: #ffffff;
-  --link: #00739a;
-  --danger: #d40442;
-  --chart: #0395c3;
-  --chart-track: #f4f1ea;
-  --hero: #0395c3;
-  --radius: 8px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 0 rgba(20, 20, 20, 0.04);
-  --card-border: transparent;
-  --bar-bg: #ffffff;
-  /* 標題字：iPhone 內建 Avenir Next（TOCC 網站用 Avenir），其他裝置用系統字的粗體 */
-  --display: 'Avenir Next', 'Avenir', system-ui, -apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root[data-layout]:not([data-theme='light']) {
-    --bg: #0e0e0e;
-    --surface: #1a1a1a;
-    --surface-2: #242424;
-    --text: #f2f2f2;
-    --muted: #a8a49c;
-    --faint: #77736b;
-    --border: #2e2e2e;
-    --brand: #2db6e0;
-    --brand-soft: #10313d;
-    --on-brand: #0e0e0e;
-    --link: #5fc8ea;
-    --danger: #ff4f7e;
-    --chart: #2db6e0;
-    --chart-track: #242424;
-    --hero: #0a6f90;
-    --bar-bg: #141414;
-  }
-}
-
-:root[data-layout][data-theme='dark'] {
   --bg: #0e0e0e;
   --surface: #1a1a1a;
   --surface-2: #242424;
@@ -3215,6 +2967,7 @@ main.map > div {
   --muted: #a8a49c;
   --faint: #77736b;
   --border: #2e2e2e;
+  /* TOCC 藍：填色（色塊、圖表、選中）；文字用較深的 --link */
   --brand: #2db6e0;
   --brand-soft: #10313d;
   --on-brand: #0e0e0e;
@@ -3223,7 +2976,13 @@ main.map > div {
   --chart: #2db6e0;
   --chart-track: #242424;
   --hero: #0a6f90;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 0 rgba(20, 20, 20, 0.04);
+  --card-border: transparent;
   --bar-bg: #141414;
+  /* 標題字：iPhone 內建 Avenir Next（TOCC 網站用 Avenir），其他裝置用系統字的粗體 */
+  --display: 'Avenir Next', 'Avenir', system-ui, -apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
 }
 
 /* 標題：粗黑幾何字 */
@@ -3334,41 +3093,6 @@ main.map > div {
   margin: 12px 0 0;
   font-weight: 600;
   opacity: 0.92;
-}
-
-/* 救援入口與救援按鈕：桃紅實心色塊（像 TOCC 的「攀岩是危險活動」）；深淺色模式都用同一個深桃紅，白字才看得清楚 */
-[data-layout] .rescue-entry {
-  border: 0;
-  background: #d40442;
-  color: #fff;
-}
-
-[data-layout] .rescue-button {
-  border: 0;
-  background: #d40442;
-  color: #fff;
-}
-
-[data-layout] .rescue-entry :is(strong, .small) {
-  color: #fff;
-}
-
-[data-layout] .rescue-entry .small {
-  opacity: 0.9;
-}
-
-[data-layout] :is(.rescue-entry, .rescue-button) .rescue-cross {
-  background: #fff;
-  color: #d40442;
-}
-
-[data-layout] :is(.rescue-entry, .rescue-button):is(:hover, :active) {
-  background: #b0033a;
-}
-
-/* 救援頁的緊急電話等紅色：改用 TOCC 的深桃紅（深淺色模式都一樣） */
-[data-layout] .rescue {
-  --emergency: #d40442;
 }
 
 /* 手機版的卡片（區域、分區、上一區／下一區）：按下時不換底色——米色背景上換成淺色，卡片看起來像閃一下；
@@ -3516,22 +3240,6 @@ main.map > div {
 
 /* OS／RP／TR 各一個顏色（路線清單、難度金字塔共用）：OS 綠、RP 紅、TR 藍 */
 :root {
-  --style-os: #1f7a45;
-  --style-rp: #c62828;
-  --style-tr: #1565c0;
-  --on-style: #fff;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --style-os: #4cba7a;
-    --style-rp: #f06262;
-    --style-tr: #5c9ded;
-    --on-style: #0e0e0e;
-  }
-}
-
-:root[data-theme='dark'] {
   --style-os: #4cba7a;
   --style-rp: #f06262;
   --style-tr: #5c9ded;
@@ -3611,18 +3319,6 @@ main.map > div {
    ========================================================================== */
 
 :root[data-layout] {
-  --border: #ebe6dc;
-  --brand-dark: #0a6f90;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root[data-layout]:not([data-theme='light']) {
-    --border: #2a2a2a;
-    --brand-dark: #5fc8ea;
-  }
-}
-
-:root[data-layout][data-theme='dark'] {
   --border: #2a2a2a;
   --brand-dark: #5fc8ea;
 }
@@ -3661,66 +3357,10 @@ main.map > div {
   color: #fff;
 }
 
-/* ── 首頁：藍色漸層標題區，搜尋框在裡面 ── */
+/* ── 首頁：藍色漸層標題區 ── */
 [data-layout] .home-hero {
   background: linear-gradient(135deg, #0395c3, #0a6f90);
   border-radius: 0 0 24px 24px;
-}
-
-.hero-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-  padding: 11px 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.hero-search:hover {
-  text-decoration: none;
-  background: rgba(255, 255, 255, 0.24);
-}
-
-/* 救援資訊：一行，桃紅色字 */
-[data-layout] .rescue-entry {
-  margin: 0;
-  padding: 12px 0;
-  border-radius: 0;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  color: #d40442;
-}
-
-[data-layout] .rescue-entry > span:last-child {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 8px;
-}
-
-/* 權重要高過前面白字的 .rescue-entry :is(strong, .small) */
-[data-layout] .rescue-entry > span > strong:first-child {
-  color: #d40442;
-}
-
-[data-layout] .rescue-entry > span > span.small {
-  color: var(--muted);
-  opacity: 1;
-}
-
-[data-layout] .rescue-entry .rescue-cross {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: #d40442;
-  color: #fff;
-  font-size: 1.1rem;
-}
-
-[data-layout] .rescue-entry:is(:hover, :active) {
-  background: transparent;
 }
 
 /* ── 區域、分區清單：細線分隔，左邊區域色點，不用卡片 ── */
@@ -4760,11 +4400,6 @@ main.map > div {
   border-radius: 24px;
 }
 
-/* 側欄已有搜尋框 */
-[data-layout='wide'] .hero-search {
-  display: none;
-}
-
 /* 區域清單：兩欄，細線分隔 */
 [data-layout='wide'] .area-list {
   grid-template-columns: 1fr 1fr;
@@ -5230,7 +4865,6 @@ dialog.topo-full[open] {
   --topo-line: #1e7bff;
   --topo-pill: #1e7bff;
 }
-
 
 .topo-route.dim {
   opacity: 0.6;

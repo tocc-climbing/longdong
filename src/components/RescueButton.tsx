@@ -1,18 +1,15 @@
 import { useLang } from '../i18n'
 import { href } from '../router'
 
-/** 首頁的救援資訊入口：顯眼的紅色卡片 */
-export function RescueEntry() {
+/** 手機版頂欄右上的救援按鈕：每一頁都在同一個位置，一按就到救援頁 */
+export function RescueButton({ active }: { active: boolean }) {
   const { t } = useLang()
   return (
-    <a className="rescue-entry" href={href.rescue()}>
+    <a className="rescue-button" href={href.rescue()} aria-current={active ? 'page' : undefined}>
       <span className="rescue-cross" aria-hidden>
         +
       </span>
-      <span>
-        <strong>{t('rescue.entry')}</strong>
-        <span className="small">{t('rescue.entryDesc')}</span>
-      </span>
+      {t('rescue.button')}
     </a>
   )
 }

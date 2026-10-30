@@ -4,10 +4,10 @@ import { useAppUpdate } from './appUpdate'
 import { DevBadge } from './components/DevBadge'
 import { Pager, neighborLabel } from './components/Pager'
 import { DetailPane, desktopView, useDesktopKeys } from './desktop'
-import { BottomNav, activeTab } from './components/BottomNav'
+import { BottomNav } from './components/BottomNav'
+import { RescueButton } from './components/RescueButton'
 import { Sidebar } from './components/Sidebar'
 import { useData, type LoadedData } from './data/dataset'
-import { relativeTime } from './format'
 import { whenActive } from './freshness'
 import { useLang } from './i18n'
 import { useWide } from './layout'
@@ -42,6 +42,7 @@ export function App() {
   const wide = useWide()
   const { lang, t } = useLang()
   const { offlineReady, banner } = useAppUpdate()
+  const offline = offlineReady || !!navigator.serviceWorker?.controller
 
   // 評分（路線清單顯示平均星等）在背景載入；離線時用 Service Worker 快取的上一份。
   // 從背景回來時重新讀取，看得到別人新的評分
@@ -104,7 +105,7 @@ export function App() {
     ) : view?.split ? (
       <>
         <div className="list-pane">
-          <PageView page={view.list} data={state.data} />
+          <PageView page={view.list} data={state.data} offline={offline} />
         </div>
         <DetailPane data={state.data} id={view.detail} listSector={view.listSector} />
       </>
@@ -112,22 +113,8 @@ export function App() {
       // 電腦版分享的「清單＋路線」網址，在手機上直接顯示路線頁
       <RoutePage key={page.detail} data={state.data} id={page.detail} />
     ) : (
-      <PageView page={page} data={state.data} />
+      <PageView page={page} data={state.data} offline={offline} />
     )
-
-  const footer = data && page.name === 'home' && (
-    <footer className="footer muted small">
-      {t('footer.updated', { time: relativeTime(data.dataset.updatedAt, t) })}
-      {offlineReady || navigator.serviceWorker?.controller ? ` · ${t('footer.offlineReady')}` : ''}
-      <br />
-      {t('footer.source')}
-      <a href={data.dataset.source.projectUrl} target="_blank" rel="noreferrer">
-        {data.dataset.source.attribution}
-      </a>
-      <br />
-      {t('footer.disclaimer')} · <a href={href.about()}>{t('footer.about')}</a>
-    </footer>
-  )
 
   if (wide) {
     return (
@@ -139,7 +126,6 @@ export function App() {
             {page.name === 'edit' || page.name === 'topo' ? banner && <div className="banner-over">{banner}</div> : banner}
             <SimulationBanner />
             <main className={page.name === 'map' ? 'map' : view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
-            {footer}
           </div>
         </div>
       </RouteLinkContext.Provider>
@@ -155,17 +141,7 @@ export function App() {
           <HoldMark />
           <DevBadge />
         </a>
-        {/* 搜尋放在岩場頁的右上（下方的分頁換成地圖） */}
-        {activeTab(page) === 'crags' && (
-          <a className={`icon-button topbar-search${page.name === 'search' ? ' on' : ''}`} href={href.search()} aria-label={t('nav.search')} title={t('nav.search')}>
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
-              <path
-                d="M10.5 4a6.5 6.5 0 1 0 4.04 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"
-                fill="currentColor"
-              />
-            </svg>
-          </a>
-        )}
+        <RescueButton active={page.name === 'rescue'} />
       </header>
       {banner}
       <SimulationBanner />
@@ -184,13 +160,12 @@ export function App() {
           <span className="swipe-hint-name">{neighborLabel(dragTarget, lang)}</span>
         </div>
       )}
-      {footer}
       <BottomNav page={page} />
     </RouteLinkContext.Provider>
   )
 }
 
-function PageView({ page, data }: { page: Page; data: LoadedData }) {
+function PageView({ page, data, offline }: { page: Page; data: LoadedData; offline: boolean }) {
   switch (page.name) {
     case 'area':
       return <AreaPage key={page.id} data={data} id={page.id} />
@@ -201,9 +176,9 @@ function PageView({ page, data }: { page: Page; data: LoadedData }) {
     case 'search':
       return <SearchPage data={data} query={page.q} detail={page.detail} />
     case 'me':
-      return <MePage data={data} />
+      return <MePage data={data} offline={offline} />
     case 'rescue':
-      return <RescuePage data={data} areaKey={page.id} />
+      return <RescuePage />
     case 'about':
       return <AboutPage data={data} />
     case 'map':

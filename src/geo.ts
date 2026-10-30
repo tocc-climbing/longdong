@@ -1,4 +1,4 @@
-import type { RescuePoint } from './data/rescue'
+import { EMS_LOCATIONS, RESCUE_POINTS, type EmsLocation, type RescuePoint } from './data/rescue'
 
 /** 經緯度座標 [緯度, 經度]（WGS84，和救援點座標同一套） */
 export type LatLng = [number, number]
@@ -29,8 +29,8 @@ export function direction(bearing: number): Direction {
   return DIRECTIONS[Math.round(bearing / 45) % 8]
 }
 
-export interface NearbyPoint {
-  point: RescuePoint & { coords: LatLng }
+export interface Nearby<T> {
+  point: T & { coords: LatLng }
   distance: number
   direction: Direction
 }
@@ -41,11 +41,22 @@ export interface NearbyPoint {
  */
 export const NEAR_CRAG_M = 1000
 
-/** 最近的幾個救援點（只算有座標的），由近到遠 */
-export function nearestPoints(here: LatLng, points: RescuePoint[], count: number): NearbyPoint[] {
+/** 最近的幾個點（只算有座標的），由近到遠 */
+export function nearestPoints<T extends { coords?: LatLng }>(here: LatLng, points: T[], count: number): Nearby<T>[] {
   return points
-    .filter((p): p is RescuePoint & { coords: LatLng } => !!p.coords)
+    .filter((p): p is T & { coords: LatLng } => !!p.coords)
     .map((point) => ({ point, distance: distanceM(here, point.coords), direction: direction(bearingDeg(here, point.coords)) }))
     .sort((a, b) => a.distance - b.distance)
     .slice(0, count)
+}
+
+/** 救援頁依位置決定顯示什麼：在岩場附近時是最近的救援點（通報的地點）與最近的急救器材，否則是離岩場多遠 */
+export type Whereabouts =
+  | { kind: 'crag'; point: Nearby<RescuePoint>; ems: Nearby<EmsLocation> }
+  | { kind: 'outside'; distance: number }
+
+export function whereabouts(here: LatLng): Whereabouts {
+  const [point] = nearestPoints(here, RESCUE_POINTS, 1)
+  if (point.distance > NEAR_CRAG_M) return { kind: 'outside', distance: point.distance }
+  return { kind: 'crag', point, ems: nearestPoints(here, EMS_LOCATIONS, 1)[0] }
 }

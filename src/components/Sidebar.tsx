@@ -69,8 +69,8 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
       </div>
 
       <nav className="side-nav" aria-label={t('nav.main')}>
-        {/* 電腦版由上到下：我的、地圖、岩場（岩場緊接下面的區域清單） */}
-        {[...TABS].reverse().map((tab) => (
+        {/* 電腦版由上到下：我的、地圖、岩場（岩場緊接下面的區域清單）；搜尋用上面的搜尋框 */}
+        {TABS.filter((tab) => tab.key !== 'search').reverse().map((tab) => (
           <a key={tab.key} href={tab.href} className={tab.key === active ? 'active' : ''} aria-current={tab.key === active ? 'page' : undefined}>
             <svg viewBox="0 0 24 24" aria-hidden width="20" height="20">
               <path d={tab.icon} fill="currentColor" />

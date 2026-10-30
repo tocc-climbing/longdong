@@ -1,7 +1,6 @@
 import type { LoadedData } from '../data/dataset'
 import { GradeDistribution } from '../components/Charts'
 import { InstallBanner } from '../components/InstallPrompt'
-import { RescueEntry } from '../components/RescueButton'
 import { gradeDistribution, typeSummary } from '../format'
 import { href } from '../router'
 import { localName, useLang } from '../i18n'
@@ -20,18 +19,8 @@ export function HomePage({ data }: { data: LoadedData }) {
           {crag.sub && <span className="hero-en">{crag.sub}</span>}
         </h1>
         <p>{t('home.heroStats', { areas: data.dataset.areas.length, routes: routeCount })}</p>
-        <a className="hero-search" href={href.search()}>
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-            <path
-              d="M10.5 4a6.5 6.5 0 1 0 4.04 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"
-              fill="currentColor"
-            />
-          </svg>
-          {t('search.placeholder')}
-        </a>
       </section>
       <InstallBanner />
-      <RescueEntry />
       <ul className="area-list">
         {data.dataset.areas.map((area) => {
           const routes = area.sectors.flatMap((s) => s.routes).filter((r) => !r.isFixture)

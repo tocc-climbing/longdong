@@ -1,5 +1,5 @@
 /**
- * 截圖：在 Firebase 模擬器上打開 App，拍手機與電腦、淺色與深色的畫面，檢查改版或新功能用。
+ * 截圖：在 Firebase 模擬器上打開 App，拍手機與電腦的畫面，檢查改版或新功能用。
  * 不碰正式資料（模擬器，專案 demo-longdong）；圖存在 shots/（不提交）。
  *
  *   npm run shots -- [選項] <路徑…>
@@ -8,7 +8,6 @@
  *   --login=信箱    先用這個信箱登入（模擬器的帳號，例如管理員 kant.kang@gmail.com）；要登入才看得到的頁面用
  *   --sim=緯度,經度 模擬位置（同 /map@緯度,經度），例如 --sim=25.1105,121.9228
  *   --mobile        只拍手機（390×844）；--desktop 只拍電腦（1366×860）；--imac 只拍 24 吋 iMac（2240×1260）
- *   --dark          只拍深色；--light 只拍淺色
  *   --full          拍整頁（預設只拍一個畫面）
  *   --seed          先放一些測試資料：留言、檢舉、地圖回報（管理頁用）
  *
@@ -43,7 +42,6 @@ const viewports = [
   { name: 'desktop', width: 1366, height: 860, mobile: false },
   { name: 'imac', width: 2240, height: 1260, mobile: false },
 ].filter((v) => (flag('imac') ? v.name === 'imac' : v.name !== 'imac' && !(flag('mobile') && !v.mobile) && !(flag('desktop') && v.mobile)))
-const schemes = (['light', 'dark'] as const).filter((s) => !(flag('dark') && s === 'light') && !(flag('light') && s === 'dark'))
 
 /** 測試資料：兩則留言（一則被檢舉）、兩筆地圖回報（一筆有在地圖上點的位置） */
 async function seed() {
@@ -91,36 +89,33 @@ const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL ?? 
 let failed = false
 try {
   for (const vp of viewports) {
-    for (const scheme of schemes) {
-      const ctx = await browser.newContext({
-        viewport: { width: vp.width, height: vp.height },
-        deviceScaleFactor: vp.name === 'imac' ? 1 : 2,
-        isMobile: vp.mobile,
-        hasTouch: vp.mobile,
-        colorScheme: scheme,
-        serviceWorkers: 'block',
-      })
-      // 地圖頁第一次的說明不顯示
-      await ctx.addInitScript(`localStorage.setItem('longdong.map.intro', '1')`)
-      const page = await ctx.newPage()
-      page.on('pageerror', (e) => {
-        failed = true
-        console.log(`✗ ${vp.name} ${scheme}：${String(e)}`)
-      })
-      if (login) await signIn(page, base, login)
-      if (sim) await page.goto(`${base}map@${sim}`)
-      for (const path of paths.length ? paths : ['/']) {
-        await page.goto(base + path.replace(/^\//, ''))
-        await page.waitForLoadState('networkidle')
-        // 登入狀態是重新載入後才恢復的：等登入提示消失（最多 15 秒）
-        if (login) await page.waitForFunction(`!document.querySelector('.signin-prompt')`, undefined, { timeout: 15000 }).catch(() => console.log(`✗ ${path}：還是沒登入`))
-        await page.waitForTimeout(800)
-        const file = `${OUT}/${path.replace(/^\//, '').replace(/[/?=&@,]+/g, '_') || 'home'}-${vp.name}-${scheme}.png`
-        await page.screenshot({ path: file, fullPage: flag('full') })
-        console.log(file)
-      }
-      await ctx.close()
+    const ctx = await browser.newContext({
+      viewport: { width: vp.width, height: vp.height },
+      deviceScaleFactor: vp.name === 'imac' ? 1 : 2,
+      isMobile: vp.mobile,
+      hasTouch: vp.mobile,
+      serviceWorkers: 'block',
+    })
+    // 地圖頁第一次的說明不顯示
+    await ctx.addInitScript(`localStorage.setItem('longdong.map.intro', '1')`)
+    const page = await ctx.newPage()
+    page.on('pageerror', (e) => {
+      failed = true
+      console.log(`✗ ${vp.name}：${String(e)}`)
+    })
+    if (login) await signIn(page, base, login)
+    if (sim) await page.goto(`${base}map@${sim}`)
+    for (const path of paths.length ? paths : ['/']) {
+      await page.goto(base + path.replace(/^\//, ''))
+      await page.waitForLoadState('networkidle')
+      // 登入狀態是重新載入後才恢復的：等登入提示消失（最多 15 秒）
+      if (login) await page.waitForFunction(`!document.querySelector('.signin-prompt')`, undefined, { timeout: 15000 }).catch(() => console.log(`✗ ${path}：還是沒登入`))
+      await page.waitForTimeout(800)
+      const file = `${OUT}/${path.replace(/^\//, '').replace(/[/?=&@,]+/g, '_') || 'home'}-${vp.name}.png`
+      await page.screenshot({ path: file, fullPage: flag('full') })
+      console.log(file)
     }
+    await ctx.close()
   }
 } finally {
   await browser.close()

@@ -1,21 +1,17 @@
 import { useRef, useState } from 'react'
 import type { LoadedData, RouteRef } from '../data/dataset'
-import { rescueKey } from '../data/rescue'
 import { HistoryView, useDismiss, useEditOptions, useHistory, type ToolScope } from '../edit/PageTools'
 import { useLang } from '../i18n'
-import { useWide } from '../layout'
 import { setFavorite, usePersonal } from '../personal/store'
-import { href } from '../router'
 import { PlaceReport } from './PlaceReport'
 import { ShareItems } from './ShareItems'
 
 /**
  * 路線頁右上的工具：收藏、回報位置（都是圖示），「更多」選單：分享、記錄攀登、修改路線、修改記錄（有修改記錄才顯示）。
- * 收藏與記錄攀登要登入（固定點沒有）。手機版最右邊多一個救援。onTick：打開記錄攀登的視窗。
+ * 收藏與記錄攀登要登入（固定點沒有）。onTick：打開記錄攀登的視窗。
  */
 export function RouteTools({ data, item, signedIn, scope, onTick }: { data: LoadedData; item: RouteRef; signedIn: boolean; scope: ToolScope; onTick: () => void }) {
   const { t } = useLang()
-  const wide = useWide()
   const personal = usePersonal()
   const mine = signedIn && !item.route.isFixture && !personal.error
   const favorite = personal.favorites.has(item.route.id)
@@ -116,13 +112,6 @@ export function RouteTools({ data, item, signedIn, scope, onTick }: { data: Load
           </div>
         )}
       </div>
-      {!wide && (
-        <a className="tool-button rescue" href={href.rescue(rescueKey(item.area.id))} aria-label={t('rescue.button')} title={t('rescue.button')}>
-          <span className="rescue-cross" aria-hidden>
-            +
-          </span>
-        </a>
-      )}
     </div>
   )
 }

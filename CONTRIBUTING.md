@@ -30,8 +30,8 @@
 |---|---|
 | 任何程式碼 | `npm run typecheck`、`npm test` |
 | 匯入程式、Sheet 解析 | `npm run import -- --check`，看警告清單與各區路線數 |
-| 介面 | `npm run build` 後以瀏覽器實際檢查：手機寬度、淺色與深色、各語言；`npm run check:text`（CI 也會跑）檢查各語言的文字沒有超出元件 |
-| 需要登入的畫面、管理頁 | `npm run shots -- --login=信箱 --seed /checklist /admin`：在 Firebase 模擬器上登入、放測試資料，拍手機與電腦、淺色與深色的截圖到 `shots/`（選項見 `scripts/shots.ts`，需要 Java） |
+| 介面 | `npm run build` 後以瀏覽器實際檢查：手機寬度、各語言；`npm run check:text`（CI 也會跑）檢查各語言的文字沒有超出元件 |
+| 需要登入的畫面、管理頁 | `npm run shots -- --login=信箱 --seed /checklist /admin`：在 Firebase 模擬器上登入、放測試資料，拍手機與電腦的截圖到 `shots/`（選項見 `scripts/shots.ts`，需要 Java） |
 | 資料庫規則 | `npm run test:rules`（Database 模擬器，需要 Java；CI 也會跑）；`firebase deploy --only database --dry-run`；PR 描述附上與線上規則的差異 |
 | 登入後的功能、資料庫的讀寫、編輯模式 | `npm run test:e2e`（Firebase 模擬器、Chrome 或 Edge，需要 Java；CI 也會跑）：新功能的流程補進 `scripts/e2e-edit.ts` |
 | 離線行為 | 以 build 結果測試：載入後斷網、重新整理，頁面與資料仍可用 |

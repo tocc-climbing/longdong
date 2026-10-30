@@ -742,20 +742,6 @@ for (const { at, gps, slack, note } of CONTROL_POINTS) {
 
 const source = `TOCC 龍洞岩場救援資訊圖 2026 年 7 月版，以 ${CONTROL_POINTS.length} 個控制點校正（${RESCUE_PINS.length} 個救援點、${FIELD_POINTS.length} 個現場點、${REFERENCE_POINTS.length} 個 OpenStreetMap 參考點、${curvePoints.length} 個沿線參考點；岩岸另以 ${cragPoints.length} 個 OpenStreetMap 海岸參考點對齊，道路以 ${roadPoints.length} 個 OpenStreetMap 參考點對齊）；© 臺灣戶外攀岩協會；道路參考 © OpenStreetMap contributors（ODbL）`
 
-/**
- * 急救器材的位置（緯度、經度）：#1 是現場回報的（2026-10 四筆 GPS，誤差 5～15 公尺，彼此相距 2 公尺內，依誤差加權平均）；
- * 其他依 EMS_LOCATIONS 的放置位置說明，對照編輯模式畫的分區岩壁（public/rescue/walls.geojson）放：
- * #3 長巷兩側岩壁最深處的中間、#4 第一洞內西面與東北面岩壁的內角、#6 鱷魚岬與老人牆兩段岩壁之間的內角；
- * #5 傳奇岩前面（岩壁東側）；#2 的說明對不到岩壁（洞穴），維持救援資訊圖換算的位置。
- */
-const EMS_AT: Record<number, Pt> = {
-  1: [25.112738, 121.921587],
-  2: [25.111433, 121.922568],
-  3: [25.110835, 121.922587],
-  4: [25.109305, 121.92204],
-  5: [25.106624, 121.92252],
-  6: [25.105243, 121.922678],
-}
 
 /**
  * 往北延伸（救援資訊圖只畫到龍洞街口，台二線在地圖中間斷掉看起來很奇怪）：
@@ -867,7 +853,7 @@ const scaleMap = {
     feature({ kind: 'trail' }, { type: 'MultiLineString', coordinates: trailLines }),
     feature({ kind: 'parking' }, { type: 'MultiPolygon', coordinates: [...parkingShapes.flat(), ...otherParking].map((r) => [r.map(metersToLngLat)]) }),
     ...parkingLots.map((lot) => feature({ kind: 'parking' }, { type: 'Point', coordinates: metersToLngLat(lot.label) })),
-    ...EMS_LOCATIONS.map(({ no }) => feature({ kind: 'ems', no }, { type: 'Point', coordinates: [EMS_AT[no][1], EMS_AT[no][0]] })),
+    ...EMS_LOCATIONS.map(({ no, coords }) => feature({ kind: 'ems', no }, { type: 'Point', coordinates: [coords[1], coords[0]] })),
     ...PLACES.map(({ zh, en, ja, tone, at, line, gps }) => {
       const properties = { kind: line ? 'name' : 'place', zh, en, ja, tone, ...(line ? { line } : {}) }
       return gps ? feature(properties, { type: 'Point', coordinates: [gps[1], gps[0]] }) : point(properties, at)

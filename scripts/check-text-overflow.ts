@@ -44,11 +44,10 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
   { name: '搜尋', path: '/search?q=5.10' },
   { name: '我的', path: '/me' },
   {
-    name: '救援（含我的位置）',
-    path: '/rescue/golden-valley',
+    name: '救援（在岩場：通報地點與急救器材）',
+    path: '/rescue',
     prepare: async (page) => {
-      await page.click('.my-location .action.primary')
-      await page.waitForSelector('.my-coords')
+      await page.waitForSelector('.sos-where .my-coords')
     },
   },
   {

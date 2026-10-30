@@ -130,7 +130,7 @@
 |---|---|
 | 任何程式碼 | `npm run typecheck`、`npm test` |
 | 匯入程式、Sheet 解析 | `npm run import -- --check`，並看警告清單與各區路線數 |
-| 介面 | `npm run build` 後以實際瀏覽器截圖檢查：手機寬度、淺色與深色、各語言；`npm run check:text` 檢查各語言的文字沒有超出元件 |
+| 介面 | `npm run build` 後以實際瀏覽器截圖檢查：手機寬度、各語言；`npm run check:text` 檢查各語言的文字沒有超出元件 |
 | 資料庫規則 | `npm run test:rules`（修正與紅案同次提交）；`firebase deploy --only database --dry-run`，部署前列出與線上規則的差異 |
 | 離線行為 | 以 build 結果測試：載入後斷網、重新整理，確認頁面與資料仍可用 |
 

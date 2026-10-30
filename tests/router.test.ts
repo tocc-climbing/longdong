@@ -91,9 +91,8 @@ describe('samePlace：換頁時要不要捲回頂端', () => {
     expect(samePlace({ name: 'sector', id: 's', detail: 'r1' }, { name: 'sector', id: 's', detail: 'r2' })).toBe(true)
   })
 
-  it('從沒有 id 換到有 id 的同名頁面算換頁（/rescue → /rescue/golden-valley）', () => {
-    expect(samePlace({ name: 'rescue' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
-    expect(samePlace({ name: 'rescue', id: 'back-door' }, { name: 'rescue', id: 'golden-valley' })).toBe(false)
+  it('從沒有 id 換到有 id 的同名頁面算換頁（/edit → /edit/topo/x）', () => {
+    expect(samePlace({ name: 'edit' }, { name: 'edit', kind: 'topo', id: 'x' })).toBe(false)
     expect(samePlace({ name: 'sector', id: 'a' }, { name: 'sector', id: 'b' })).toBe(false)
   })
 })

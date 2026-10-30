@@ -130,15 +130,11 @@ function declutter(
   return { shown, labels, sectorLabels, nudged, occupied }
 }
 
-/** 聚焦：地圖移到這些東西（大區域、救援點）並放大到剛好放進框裡；key 改變時重新聚焦 */
+/** 聚焦：地圖移到這些東西（大區域、位置）並放大到剛好放進框裡；key 改變時重新聚焦 */
 export interface MapFocus {
   key: string
   /** 大區域 key：其他區域變淡 */
   area?: string
-  /** 救援點（RescuePoint 的 key）：加大標示 */
-  points?: string[]
-  /** 急救器材編號：加大標示 */
-  ems?: number[]
   /** 其他位置（例如一筆回報的 GPS 與在地圖上點的位置） */
   coords?: LatLng[]
 }
@@ -184,17 +180,9 @@ export interface MapEdit {
   onSelect: (index: number) => void
 }
 
-/** 選中的救援點（#12 有兩個點共用編號，用 key 區分）或急救器材 */
-export type MapSelection = { kind: 'rescue'; key: string } | { kind: 'ems'; no: number }
-
-/** 聚焦範圍外留的邊（公尺）；範圍至少這麼大，只聚焦一個救援點時也看得到周圍的區域與步道 */
+/** 聚焦範圍外留的邊（公尺）；範圍至少這麼大，只聚焦一個點時也看得到周圍的區域與步道 */
 const FOCUS_PADDING_M = 30
 const FOCUS_MIN_M = 200
-/** 點救援點：離圓心這個距離（像素）內都算 */
-const POINT_HIT_PX = 18
-/** 地圖上的資訊框：半寬（像素，左右不超出地圖）、離上緣不到這個距離就改顯示在下方 */
-const POPUP_HALF_PX = 150
-const POPUP_FLIP_PX = 140
 /** 放大到每像素不到這麼多公尺時才顯示分區名稱 */
 const SECTOR_LABEL_SCALE = 0.4
 /** 分區名稱的字級 */
@@ -210,12 +198,10 @@ function segmentDistance(p: Vec, a: Vec, b: Vec): number {
   return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
 }
 
-/** 聚焦的範圍（地圖座標）：區域外框與救援點的外接矩形 */
+/** 聚焦的範圍（地圖座標）：區域外框與位置的外接矩形 */
 function focusRect(focus: MapFocus, map: ScaleMapData): Rect | undefined {
   const xy = [
     ...(map.areas.find((a) => a.id === focus.area)?.rings.flat() ?? []),
-    ...located.filter((p) => focus.points?.includes(p.key)).map((p) => p.at),
-    ...map.markers.flatMap((m) => (m.kind === 'ems' && focus.ems?.includes(m.no) ? [m.at] : [])),
     ...(focus.coords ?? []).map(project),
   ]
   if (xy.length === 0) return undefined
@@ -243,7 +229,7 @@ interface Props {
   areaNames: Record<string, string>
   here?: { coords: LatLng; accuracy: number }
   marks: MapMark[]
-  /** 在地圖上點位置的模式：點一下就回傳那裡的經緯度（不選救援點）；at 是目前點的位置 */
+  /** 在地圖上點位置的模式：點一下就回傳那裡的經緯度；at 是目前點的位置 */
   pick?: { at?: LatLng; onPick: (at: LatLng, metersPerPixel: number) => void }
   /** 按「回到我的位置」：還沒定位時由外層開始定位，定位到之後地圖自動移過去；在範圍外時地圖不動，由外層說明。沒有時不顯示這個按鈕 */
   onLocate?: () => void
@@ -251,18 +237,10 @@ interface Props {
   onAreaPress?: (area: string) => void
   /** 左上角的按鈕（測試版說明、回報） */
   topLeft?: ReactNode
-  /** 聚焦的區域、救援點（例如救援頁從區域進來時）；有聚焦時，定位到也不會自動移到目前位置 */
+  /** 聚焦的區域、位置（例如回報的區域與位置）；有聚焦時，定位到也不會自動移到目前位置 */
   focus?: MapFocus
   /** 換頁也沿用的畫面：有記下的就從那裡開始（不聚焦），之後的移動、縮放都記回去 */
   keepView?: { current?: MapView }
-  /** 選中的救援點或急救器材：加大標示 */
-  selected?: MapSelection
-  /** 點救援點或急救器材時 */
-  onSelect?: (selection: MapSelection) => void
-  /** 選中的救援點或急救器材的資訊，顯示在地圖上那一點的旁邊 */
-  popup?: ReactNode
-  /** 點地圖的其他地方（關掉資訊） */
-  onDeselect?: () => void
   /** 折線（岩壁標記） */
   lines?: MapLine[]
   /** 點到折線時（不在點位置的模式） */
@@ -286,7 +264,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, selected, onSelect, popup, onDeselect, lines, onLineTap, sectorLabels: sectorPlaces, edit, hideAreas, ortho, topo, keepView }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, lines, onLineTap, sectorLabels: sectorPlaces, edit, hideAreas, ortho, topo, keepView }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -343,8 +321,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     if (target) apply(() => focusView(target, BOUNDS, frame))
   }, [focus?.key, !!frame])
 
-  // 急救器材實際畫在螢幕上的位置（被擋住時挪到旁邊），點按判斷用
-  const emsAt = useRef(new Map<number, Vec>())
   // 拖曳、縮放、旋轉、長按區域（useMapGestures）
   const gestures = useRef<MapGestures>(undefined!)
   gestures.current = {
@@ -373,20 +349,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
         if (i >= 0) edit.onSelect(i)
         return
       }
-      const distance = ([x, y]: Vec) => Math.hypot(x - p.x, y - p.y)
-      const candidates = [
-        ...located.map((pt) => ({ selection: { kind: 'rescue', key: pt.key } as MapSelection, at: toScreen(v, f, pt.at) })),
-        // 急救器材點在畫出來的位置（可能挪到旁邊）
-        ...map.markers.flatMap((m, i) =>
-          m.kind === 'ems' ? [{ selection: { kind: 'ems', no: m.no } as MapSelection, at: emsAt.current.get(i) ?? toScreen(v, f, m.at) }] : [],
-        ),
-      ]
-      const hit = onSelect && candidates
-        .map((c) => ({ ...c, d: distance(c.at) }))
-        .filter((h) => h.d <= POINT_HIT_PX)
-        .sort((a, b) => a.d - b.d)[0]
-      if (hit) return onSelect(hit.selection)
-      // 救援點優先；其次是最近的折線
+      // 最近的折線
       const line = onLineTap && (lines ?? [])
         .filter((l) => !l.draft)
         .map((l) => {
@@ -395,8 +358,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
         })
         .filter((l) => l.d <= LINE_HIT_PX)
         .sort((a, b) => a.d - b.d)[0]
-      if (line) return onLineTap(line.key)
-      onDeselect?.()
+      if (line) onLineTap(line.key)
     },
   }
   useMapGestures(box, gestures)
@@ -441,8 +403,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   }
 
   const screen = (p: Vec) => toScreen(view, frame, p)
-  const isSelectedRescue = (key: string) => selected?.kind === 'rescue' && selected.key === key
-  const isSelectedEms = (no: number) => selected?.kind === 'ems' && selected.no === no
   /** 一個螢幕像素等於幾公尺：地圖圖形的線寬、虛線用它換算成固定的螢幕大小 */
   const px = view.s
   const atMax = view.s <= MIN_SCALE * 1.0001
@@ -460,7 +420,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
   const sectorTexts =
     sectorPlaces && view.s < SECTOR_LABEL_SCALE ? sectorPlaces.map((s) => ({ id: s.id, text: s.text, at: screen(project(s.at)) })) : []
   const { shown, labels, sectorLabels, nudged, occupied } = declutter(map.markers, hideAreas ? [] : map.areas, areaNames, hideAreas ? [] : sectorTexts, screen, lang, t('map.hazard'))
-  emsAt.current = nudged
   // 圓的半徑大於畫面對角線時，海面用大矩形蓋滿（旋轉後四角也不會露白）
   const cover = Math.hypot(frame.w, frame.h) * px
 
@@ -562,7 +521,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
             const moved = nudged.get(i)
             const [ex, ey] = moved ?? [x, y]
             return (
-              <g key={i} className={`sm-ems${isSelectedEms(m.no) ? ' selected' : ''}`}>
+              <g key={i} className="sm-ems">
                 <title>{t('map.ems', { n: m.no })}</title>
                 {moved && <line className="sm-ems-link" x1={x} y1={y} x2={ex} y2={ey} />}
                 {moved && <circle className="sm-ems-dot" cx={x} cy={y} r={2} />}
@@ -619,11 +578,10 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           })}
           {located.map((p, i) => {
             const [x, y] = screen(p.at)
-            const on = isSelectedRescue(p.key) || !!focus?.points?.includes(p.key)
             return (
-              <g key={i} className={`sm-rescue${on ? ' on' : ''}${isSelectedRescue(p.key) ? ' selected' : ''}`} transform={grown(x, y)}>
-                <circle cx={x} cy={y} r={on ? 10 : 7} />
-                <text x={x} y={y} fontSize={on ? 11 : 9} textAnchor="middle" dominantBaseline="central">
+              <g key={i} className="sm-rescue" transform={grown(x, y)}>
+                <circle cx={x} cy={y} r={7} />
+                <text x={x} y={y} fontSize={9} textAnchor="middle" dominantBaseline="central">
                   {p.no}
                 </text>
               </g>
@@ -693,26 +651,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           )}
         </g>
       </svg>
-
-      {popup && selected && (() => {
-        // 救援點的位置；急救器材畫在挪開的位置（被擋住時）
-        const at =
-          selected.kind === 'rescue'
-            ? located.find((p) => p.key === selected.key)?.at && screen(located.find((p) => p.key === selected.key)!.at)
-            : (() => {
-                const i = map.markers.findIndex((m) => m.kind === 'ems' && m.no === selected.no)
-                return i < 0 ? undefined : (nudged.get(i) ?? screen(map.markers[i].at))
-              })()
-        if (!at || at[0] < 0 || at[1] < 0 || at[0] > frame.w || at[1] > frame.h) return null
-        // 太靠近上緣時顯示在下方；左右不超出地圖
-        const below = at[1] < POPUP_FLIP_PX
-        const x = Math.min(Math.max(at[0], POPUP_HALF_PX), frame.w - POPUP_HALF_PX)
-        return (
-          <div className={`sm-popup${below ? ' below' : ''}`} style={{ left: x, top: at[1], ['--arrow-x' as string]: `${at[0] - x}px` }}>
-            {popup}
-          </div>
-        )
-      })()}
 
       {topLeft && <div className="sm-top-left">{topLeft}</div>}
 

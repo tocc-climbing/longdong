@@ -449,18 +449,6 @@
   opacity: 0.35;
 }
 
-/* 聚焦或選中的救援點：加大；選中的外圍多一圈 */
-.sm-rescue.on circle {
-  stroke: #fff;
-  stroke-width: 2px;
-}
-
-.sm-rescue.selected circle {
-  stroke: #fff;
-  stroke-width: 3px;
-  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
-}
-
 /* 圖上文字依種類上色（與救援資訊圖相同）：道路深藍、步道綠、海面淡灰斜體、警示紅 */
 .sm-place-road {
   fill: #004080;
@@ -498,14 +486,6 @@
   paint-order: stroke;
   stroke: #fff;
   stroke-width: 3px;
-}
-
-/* 選中的急救器材：外圍一圈 */
-.sm-ems.selected rect {
-  stroke: #fff;
-  stroke-width: 3px;
-  paint-order: stroke;
-  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
 }
 
 /* 回報時在地圖上點自己的位置：上方一條說明＋完成、取消 */
@@ -669,47 +649,6 @@
   background: var(--surface);
   color: var(--text);
   font: inherit;
-}
-
-/* 選中的救援點、急救器材的資訊：顯示在那一點上方（太靠近上緣時在下方），箭頭指著那一點 */
-.sm-popup {
-  position: absolute;
-  z-index: 2;
-  width: max-content;
-  max-width: min(300px, calc(100% - 24px));
-  transform: translate(-50%, calc(-100% - 18px));
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  cursor: auto;
-}
-
-.sm-popup.below {
-  transform: translate(-50%, 18px);
-}
-
-.sm-popup::after {
-  content: '';
-  position: absolute;
-  left: calc(50% + var(--arrow-x, 0px) - 7px);
-  top: 100%;
-  border: 7px solid transparent;
-  border-top-color: var(--surface);
-}
-
-.sm-popup.below::after {
-  top: auto;
-  bottom: 100%;
-  border-top-color: transparent;
-  border-bottom-color: var(--surface);
-}
-
-.sm-popup .point-item,
-.sm-popup .ems-item {
-  margin: 0;
-  padding: 0;
 }
 
 /* 分區名稱：放大後標在岩壁中間 */

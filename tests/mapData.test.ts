@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hasUnuploaded, toGeoJSON, type Fix } from '../src/map/calibration'
-import { AREA_RESCUE, RESCUE_POINTS } from '../src/data/rescue'
+import { AREA_RESCUE, EMS_LOCATIONS, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseLocation } from '../src/router'
 import { centroid, loadScaleMap, project, unproject } from '../src/map/mapData'
@@ -208,6 +208,8 @@ describe('比例尺地圖資料', () => {
     expect(ems.map((f) => f.properties.no)).toEqual([1, 2, 3, 4, 5, 6])
     for (const f of ems) {
       const [lng, lat] = f.geometry.coordinates
+      // 救援頁用 EMS_LOCATIONS 找最近的急救器材：與地圖上畫的位置相同
+      expect([lat, lng], `急救器材 #${f.properties.no} 的座標`).toEqual(EMS_LOCATIONS.find((e) => e.no === f.properties.no)!.coords)
       const nos = Object.values(AREA_RESCUE).filter((a) => a.ems === f.properties.no).flatMap((a) => a.points)
       const nearest = Math.min(...RESCUE_POINTS.filter((p) => nos.includes(p.no) && p.coords).map((p) => distanceM(p.coords!, [lat, lng])))
       expect(nearest, `急救器材 #${f.properties.no}`).toBeLessThan(100)

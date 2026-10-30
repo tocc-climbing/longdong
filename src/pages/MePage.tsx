@@ -13,7 +13,6 @@ import { ROUTE_TYPES, TypeFilter } from '../components/TypeFilter'
 import type { RouteType } from '../data/schema'
 import { deleteTick, setFavorite, usePersonal } from '../personal/store'
 import { signOut, useCloud } from '../personal/sync'
-import { setThemeSetting, useThemeSetting, type ThemeSetting } from '../theme'
 import { deleteMyAccount, rename } from '../social/actions'
 import { NAME_MAX } from '../social/model'
 import { displayName, useSocial } from '../social/store'
@@ -23,12 +22,13 @@ import { APP_VERSION, formatVersion } from '../version'
 
 type Tab = 'ticks' | 'favorites'
 
-export function MePage({ data }: { data: LoadedData }) {
+/** offline：已可離線使用（Service Worker 已快取） */
+export function MePage({ data, offline }: { data: LoadedData; offline: boolean }) {
   const cloud = useCloud()
   const { t } = useLang()
 
   if (cloud.status === 'signed-in' && cloud.user) {
-    return <SignedIn data={data} uid={cloud.user.uid} email={cloud.user.email} />
+    return <SignedIn data={data} offline={offline} uid={cloud.user.uid} email={cloud.user.email} />
   }
   if (cloud.status === 'loading') return <p className="empty muted">{t('app.loading')}</p>
 
@@ -50,12 +50,11 @@ export function MePage({ data }: { data: LoadedData }) {
             message={t('me.signInMessage', { providers: FACEBOOK_LOGIN_ENABLED ? `Google${t('me.or')}Facebook` : 'Google' })}
           />
         </section>
-        {/* 語言、外觀設定不需要登入 */}
+        {/* 語言設定不需要登入 */}
         <section className="card settings">
           <LanguagePicker />
-          <ThemePicker />
           <InstallButton />
-          <AppVersionLine />
+          <AppInfo data={data} offline={offline} />
         </section>
         <p className="center small">
           <a href={href.about()}>{t('footer.about')}</a>
@@ -76,7 +75,7 @@ function loadPyramidTypes(): RouteType[] {
   }
 }
 
-function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: string }) {
+function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: boolean; uid: string; email: string }) {
   const personal = usePersonal()
   const cloud = useCloud()
   const social = useSocial()
@@ -150,7 +149,7 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
       </header>
       {cloud.error && <p className="small error">{cloud.error}</p>}
 
-      {settings && <Settings uid={uid} email={email} />}
+      {settings && <Settings data={data} offline={offline} uid={uid} email={email} />}
 
       {/* 寬度夠時（電腦版）統計在左、紀錄在右 */}
       <div className="me-grid">
@@ -276,14 +275,13 @@ function SignedIn({ data, uid, email }: { data: LoadedData; uid: string; email: 
   )
 }
 
-function Settings({ uid, email }: { uid: string; email: string }) {
+function Settings({ data, offline, uid, email }: { data: LoadedData; offline: boolean; uid: string; email: string }) {
   const { t } = useLang()
   return (
     <section className="card settings">
       <NameEditor uid={uid} />
       <p className="muted small">{t('me.emailPrivate', { email })}</p>
       <LanguagePicker />
-      <ThemePicker />
       <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
@@ -292,15 +290,22 @@ function Settings({ uid, email }: { uid: string; email: string }) {
         </button>
       </div>
       <DeleteAccount />
-      <AppVersionLine />
+      <AppInfo data={data} offline={offline} />
     </section>
   )
 }
 
-/** 設定最下方的版號：回報問題時可以附上 */
-function AppVersionLine() {
+/** 設定最下方：資料更新時間、是否已可離線使用，與版號（回報問題時可以附上） */
+function AppInfo({ data, offline }: { data: LoadedData; offline: boolean }) {
   const { t } = useLang()
-  return <p className="muted small app-version">{t('app.version', { version: formatVersion(APP_VERSION), date: APP_VERSION.date })}</p>
+  return (
+    <p className="muted small app-version">
+      {t('footer.updated', { time: relativeTime(data.dataset.updatedAt, t) })}
+      {offline && ` · ${t('footer.offlineReady')}`}
+      <br />
+      {t('app.version', { version: formatVersion(APP_VERSION), date: APP_VERSION.date })}
+    </p>
+  )
 }
 
 /** 語言：自動（依系統語言）、中文、English；選擇存在這台裝置上 */
@@ -316,22 +321,6 @@ function LanguagePicker() {
             {t(`lang.${l}`)}
           </option>
         ))}
-      </select>
-    </label>
-  )
-}
-
-/** 外觀：自動（依系統設定）、淺色、深色；選擇存在這台裝置上 */
-function ThemePicker() {
-  const { t } = useLang()
-  const setting = useThemeSetting()
-  return (
-    <label className="lang-picker">
-      <span>{t('me.theme')}</span>
-      <select value={setting} onChange={(e) => setThemeSetting(e.target.value as ThemeSetting)}>
-        <option value="auto">{t('theme.auto')}</option>
-        <option value="light">{t('theme.light')}</option>
-        <option value="dark">{t('theme.dark')}</option>
       </select>
     </label>
   )

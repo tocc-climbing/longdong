@@ -4,7 +4,7 @@ import type { LatLng } from './geo'
 import { parseSimulation } from './simulate'
 
 /**
- * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue/<區域>、/map、/reports、/admin、/bolts、/topo/<照片>、
+ * 極簡路由，網址不帶 #：/、/search?q=、/area/<id>、/sector/<id>、/route/<id>、/me、/about、/rescue、/map、/reports、/admin、/bolts、/topo/<照片>、
  * /edit/<種類>/<項目>（編輯模式：map、topo、text；id 本身含 "/"）。
  * 清單頁可帶 ?r=<路線 id>：電腦版在清單旁邊顯示這條路線，手機版直接顯示路線頁。
  * 伺服器（Firebase Hosting）把所有路徑都交給 index.html；站內連結由這裡攔下來換頁，不重新載入。
@@ -17,7 +17,7 @@ export type Page = (
   | { name: 'route'; id: string }
   | { name: 'me' }
   | { name: 'about' }
-  | { name: 'rescue'; id?: string }
+  | { name: 'rescue' }
   /** simulate：/map@緯度,經度 的模擬位置（src/simulate.ts） */
   | { name: 'map'; simulate?: LatLng }
   | { name: 'reports' }
@@ -65,7 +65,8 @@ export function parseLocation(location: string): Page {
     const [editKind, ...itemId] = rest
     return EDIT_KINDS.includes(editKind as EditKind) && itemId.length ? { name: 'edit', kind: editKind as EditKind, id: itemId.join('/') } : { name: 'edit' }
   }
-  if (kind === 'rescue') return id ? { name: 'rescue', id } : { name: 'rescue' }
+  // 救援頁依定位顯示，不分區域：舊的 /rescue/<區域> 也到救援頁，緊急時不會落到「找不到」
+  if (kind === 'rescue') return { name: 'rescue' }
   if (!kind) return { name: 'home' }
   return { name: 'notFound' }
 }
@@ -91,7 +92,7 @@ export const href = {
   me: () => '/me',
   about: () => '/about',
   /** 救援資訊；area 為大區域的救援 key（golden-valley），會先顯示該區的資訊 */
-  rescue: (area?: string) => (area ? `/rescue/${area}` : '/rescue'),
+  rescue: () => '/rescue',
   /** 照比例尺的龍洞地圖（測試版，可回報位置幫忙校正） */
   map: () => '/map',
   /** 管理員：所有人的地圖回報（管理頁的「地圖回報」分頁） */
@@ -173,7 +174,7 @@ export function withDetail(location: string, id?: string): string {
 export function samePlace(a: Page, b: Page): boolean {
   if (a.name !== b.name) return false
   if (a.name === 'route' && b.name === 'route') return a.id === b.id || isWide()
-  // 沒有 id 的頁面兩邊都是 undefined；/rescue 換到 /rescue/<大區域> 算換頁
+  // 沒有 id 的頁面兩邊都是 undefined；/edit 換到 /edit/<種類>/<項目> 算換頁
   return (a as { id?: string }).id === (b as { id?: string }).id
 }
 
