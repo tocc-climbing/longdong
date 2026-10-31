@@ -23,7 +23,13 @@ const VIEWPORTS = [
 
 /** 名稱最長的幾條路線，與一般的頁面 */
 const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolean) => Promise<void> }[] = [
-  { name: '首頁', path: '/' },
+  {
+    name: '首頁',
+    path: '/',
+    prepare: async (page, mobile) => {
+      if (mobile) await page.waitForSelector('.weather-now')
+    },
+  },
   { name: '區域', path: '/area/longdong/golden-valley' },
   {
     name: '分區（展開篩選）',
@@ -101,6 +107,8 @@ async function launch(): Promise<Browser> {
 
 /** 在頁面裡執行的檢查，見 lib/find-overflow.browser.js */
 const FIND_PROBLEMS = readFileSync(new URL('./lib/find-overflow.browser.js', import.meta.url), 'utf8')
+/** 首頁天氣的回應（tests/fixtures 的實際資料） */
+const WEATHER_SAMPLE = readFileSync(new URL('../tests/fixtures/open-meteo.json', import.meta.url), 'utf8')
 
 const server = await preview({ preview: { port: 4179, strictPort: true }, logLevel: 'silent' })
 const base = server.resolvedUrls!.local[0]
@@ -119,6 +127,8 @@ try {
         permissions: ['geolocation'],
       })
       await context.addInitScript((l) => localStorage.setItem('longdong.lang', l), lang)
+      // 首頁的天氣用固定的回應：不靠外部服務，天氣的文字一定會被檢查到
+      await context.route('https://api.open-meteo.com/**', (r) => r.fulfill({ contentType: 'application/json', body: WEATHER_SAMPLE }))
       const page = await context.newPage()
       for (const p of PAGES) {
         await page.goto(new URL(p.path, base).href)
