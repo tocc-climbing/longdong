@@ -17,6 +17,7 @@ import { formatDate, quickdraws, typeLabel } from '../format'
 import { localName, useLang, type Lang, type Translate } from '../i18n'
 import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from 'react'
 import { useWide } from '../layout'
+import { useViewTimer } from '../personal/history'
 import { useCloud } from '../personal/sync'
 import { href, useRouteLink } from '../router'
 import { currentRouteUrl, shareText } from '../share'
@@ -45,6 +46,7 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
   const [reviews, setReviews] = useState<ReviewsSheet>()
   const [editing, setEditing] = useInlineEditing(id)
   const wide = useWide()
+  useViewTimer(ref && id)
   if (!ref) return <NotFound />
   const { route, sector, area } = ref
   const name = localName(route.name, lang)
@@ -82,15 +84,13 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
             share={{ url: currentRouteUrl(route.id), text: shareText(ref, lang, t) }}
             signedIn={signedIn}
             scope={scope}
-            onTick={route.isFixture ? undefined : () => setTickOpen(true)}
+            info={hasRouteData(route) ? <RouteData data={data} route={route} /> : undefined}
             inlineEdit={wide ? undefined : { text: () => setEditing({ kind: 'text' }), topo: () => setEditing({ kind: 'topo' }) }}
           />
         }
         shape={<SectorShape area={area} sector={sector} color={areaSectorColor(area, sector)} single className="area-hero-shape" />}
         compact
       />
-
-      {signedIn && !route.isFixture && <PersonalPanel route={route} open={tickOpen} onClose={() => setTickOpen(false)} />}
 
       {!topoInList && <RouteTopos sector={sector} routeId={route.id} onEdit={wide ? undefined : (photo) => setEditing({ kind: 'topo', photo })} />}
 
@@ -133,8 +133,10 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
       )}
 
       <div id="rating" className="route-block">
-        <ReviewsBar routeId={route.id} rateable={!route.isFixture} sheet={reviews} onSheet={setReviews} info={hasRouteData(route) ? <RouteData data={data} route={route} /> : undefined} />
+        <ReviewsBar routeId={route.id} rateable={!route.isFixture} sheet={reviews} onSheet={setReviews} onLog={signedIn && !route.isFixture ? () => setTickOpen(true) : undefined} />
       </div>
+
+      {signedIn && !route.isFixture && <PersonalPanel route={route} open={tickOpen} onClose={() => setTickOpen(false)} />}
     </article>
   )
 }

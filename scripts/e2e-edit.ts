@@ -1403,14 +1403,17 @@ try {
   check('「更多」選單一開始收起來', (await menuItems()).length === 0)
   await tool('更多').click()
   const items = await menuItems()
-  check('「更多」：分享、記錄攀登、編輯（路線說明）；手機版沒有修改記錄', items.includes('分享') && items.includes('記錄攀登') && items.some((x) => x.includes('路線說明')) && !items.includes('修改記錄'), items.join('|'))
+  check('「更多」：分享、編輯（路線說明），最下面是路線資料；沒有記錄攀登；手機版沒有修改記錄', items[0] === '分享' && items.at(-1) === '路線資料' && items.some((x) => x.includes('路線說明')) && !items.includes('記錄攀登') && !items.includes('修改記錄'), items.join('|'))
   await rp.getByRole('menuitem', { name: '分享', exact: true }).click()
-  check('分享：展開 LINE、Facebook、複製連結', (await rp.locator('.share-item').allTextContents()).join('|').includes('LINE') && (await rp.locator('.share-item').allTextContents()).join('|').includes('複製連結'))
-  const shareMenu = (await rp.locator('.tool-pop.menu').boundingBox())!
-  const cramped = await rp.locator('.share-item').evaluateAll((els) => els.some((el) => el.scrollWidth > el.clientWidth + 1))
-  check('分享選單夠寬：文字沒有擠在一起、沒有超出', shareMenu.width >= 190 && !cramped, `${shareMenu.width}`)
-  await rp.getByRole('menuitem', { name: '記錄攀登' }).click()
-  check('記錄攀登：打開視窗', (await rp.locator('.sheet[open]').count()) === 1 && (await rp.locator('.page-tools [role=menuitem]').count()) === 0)
+  const shareSheet = rp.locator('dialog.sheet[open]')
+  await shareSheet.locator('.share-item').first().waitFor()
+  const shareItems = (await shareSheet.locator('.share-item').allTextContents()).join('|')
+  check('分享：選單關掉，從下方滑出 LINE、Facebook、複製連結', shareItems.includes('LINE') && shareItems.includes('複製連結') && (await rp.locator('.tool-pop.menu').count()) === 0, shareItems)
+  const cramped = await shareSheet.locator('.share-item').evaluateAll((els) => els.some((el) => el.scrollWidth > el.clientWidth + 1))
+  check('分享視窗：文字沒有擠在一起、沒有超出', !cramped)
+  await rp.keyboard.press('Escape')
+  await rp.locator('.reviews-icon.log').click()
+  check('記錄攀登：卡片最下方的圖示打開視窗', (await rp.locator('.sheet[open] .tick-sheet').count()) === 1)
   await rp.keyboard.press('Escape')
   await rp.goto(base + `sector/${topoSector.id}`)
   await rp.waitForSelector('.area-hero-wrap')
@@ -1521,12 +1524,26 @@ try {
   check('路線頁的難度沒有難度底色', (await rp.locator('.route-facts .grade-pill').count()) === 0 && (await rp.locator('.route-facts .route-grade').evaluate((el) => getComputedStyle(el).backgroundColor)) === 'rgba(0, 0, 0, 0)')
   // 說明以外的資料（安全與拉測、首攀、備註、Bolt）整份收在說明下面，只有一個 ⓘ 按鈕
   // 說明以外的資料（安全與拉測、首攀、備註、Bolt）：留言右邊的 ⓘ，點了從下方滑出（卡片裡沒有）
-  check('ⓘ 在留言圖示右邊，卡片裡沒有路線資料', ((await rp.locator('.reviews-bar-icons > button').evaluateAll((els) => els.map((el) => el.className))) as string[]).join() === 'reviews-icon rating,reviews-icon comments,reviews-icon info' && (await rp.locator('.route-m .route-data').count()) === 0)
-  await rp.locator('.reviews-icon.info').click()
+  const icons = (await rp.locator('.reviews-bar-icons > button').evaluateAll((els) => els.map((el) => el.className.split(' ')[1]))) as string[]
+  check('卡片最下方的圖示：評分、留言、完攀、記錄攀登；卡片裡沒有路線資料', icons.join() === 'rating,comments,sent,log' && (await rp.locator('.route-m .route-data').count()) === 0, icons.join())
+  // 完攀：從下方滑出 OS／RP／TR，選了圖示旁邊標出來，重新整理還在，再按一次清除
+  await rp.locator('.reviews-icon.sent').click()
+  await rp.locator('dialog.sheet[open] .checklist-style', { hasText: 'OS' }).click()
+  await rp.keyboard.press('Escape')
+  check('完攀：選 OS 後圖示旁邊標 OS', ((await rp.locator('.reviews-icon.sent.on').textContent()) ?? '') === 'OS')
+  await rp.reload()
+  await rp.waitForSelector('.reviews-icon.sent')
+  check('完攀：重新整理後還在', await until(async () => ((await rp.locator('.reviews-icon.sent.on').textContent()) ?? '') === 'OS') === true)
+  await rp.locator('.reviews-icon.sent').click()
+  await rp.locator('dialog.sheet[open] .checklist-style', { hasText: 'OS' }).click()
+  await rp.keyboard.press('Escape')
+  check('完攀：再按一次清除', (await rp.locator('.reviews-icon.sent.on').count()) === 0)
+  await tool('更多').click()
+  await rp.getByRole('menuitem', { name: '路線資料' }).click()
   const infoSheet = rp.locator('dialog.sheet[open]')
   await infoSheet.locator('.route-data').waitFor()
   const infoLabels = await infoSheet.locator('.route-data-label').allTextContents()
-  check('點 ⓘ：從下方滑出安全與拉測、Bolt（同一份）', infoLabels.includes('安全與拉測') && infoLabels.includes('Bolt') && ((await infoSheet.textContent()) ?? '').includes('最近拉測'), infoLabels.join())
+  check('「更多 › 路線資料」：從下方滑出安全與拉測、Bolt（同一份）', infoLabels.includes('安全與拉測') && infoLabels.includes('Bolt') && ((await infoSheet.textContent()) ?? '').includes('最近拉測'), infoLabels.join())
   // 一整張卡片：標題卡沒有自己的底色與圓角、卡片裡沒有水平分隔線
   check('卡片沒有斷裂：標題卡透明、各段沒有水平分隔線', (await rp.locator('.route-m .area-hero').evaluate((el) => getComputedStyle(el).backgroundColor)) === 'rgba(0, 0, 0, 0)' && (await rp.locator('.route-m .route-block').evaluateAll((els) => els.every((el) => getComputedStyle(el).borderTopWidth === '0px'))))
   // 沒有任何評分：星星和留言圖示一樣是白色（不是星星色）
@@ -1539,13 +1556,15 @@ try {
   const sheetWidth = (await infoSheet.boundingBox())!.width
   check('點 Bolt：明細在下面展開、幾乎滿寬', boltTable.width >= sheetWidth - 48, `${boltTable.width} / ${sheetWidth}`)
   await rp.keyboard.press('Escape')
-  // 沒有任何路線資料（固定點、沒有首攀、備註、bolt）：沒有 ⓘ
+  // 沒有任何路線資料（固定點、沒有首攀、備註、bolt）：「更多」沒有路線資料
   type Bare = Safe & { firstAscent?: string; notes?: string }
   const bare = (everyRoute as Bare[]).find((r) => r.isFixture && !r.firstAscent && !r.notes && r.bolts.length + r.anchors.length === 0)
   if (bare) {
     await rp.goto(base + `route/${bare.id}`)
     await rp.waitForSelector('.reviews-bar')
-    check('沒有路線資料：沒有 ⓘ', (await rp.locator('.reviews-icon.info').count()) === 0)
+    await tool('更多').click()
+    check('沒有路線資料：「更多」沒有路線資料', !(await menuItems()).includes('路線資料'), (await menuItems()).join('|'))
+    await rp.keyboard.press('Escape')
     await rp.goto(base + `route/${green.id}`)
     await rp.waitForSelector('.reviews-bar')
   }
@@ -1683,7 +1702,7 @@ try {
   check('觸控：往右滑換到上一條，畫面不會往左跳（舊頁面往右滑出、新頁面從左邊進來）', tapper.page.url() !== fromUrl && !backward, frames.map((f) => `${Math.round(f.x)}/${f.o.toFixed(1)}`).join(' '))
   await tapper.ctx.close()
 
-  // ── 10. 手機版首頁：天氣（Open-Meteo 換成固定的回應）、日出日落、交通、最近去過；電腦版沒有 ──
+  // ── 10. 手機版首頁：天氣（Open-Meteo 換成固定的回應）、日出日落、交通、最近查過；電腦版沒有 ──
   const weatherSample = readFileSync('tests/fixtures/open-meteo.json', 'utf8')
   await rp.route('https://api.open-meteo.com/**', (r) => r.fulfill({ contentType: 'application/json', body: weatherSample }))
   // 潮汐：今天（台北時間）的資料，和資料檔的日期無關
@@ -1692,8 +1711,7 @@ try {
   await rp.route('**/data/tide.json', (r) => r.fulfill({ contentType: 'application/json', body: tideFor(taipeiToday) }))
   await rp.setViewportSize({ width: 390, height: 844 })
   await rp.goto(base + `route/${topoRoutes[2].id}`)
-  await tool('更多').click()
-  await rp.getByRole('menuitem', { name: '記錄攀登' }).click()
+  await rp.locator('.reviews-icon.log').click()
   await rp.locator('.tick-sheet button[type=submit]').click()
   await rp.waitForSelector('.sheet[open]', { state: 'detached' })
   // 分區頁的路線清單：難度沒有底色；評分、小心／危險（兩個字）、自己的完攀方式（編號下面）
@@ -1710,6 +1728,12 @@ try {
     const flags = await rp.locator('.route-list .route-status').allTextContents()
     check('分區頁路線清單：小心、危險只有兩個字', flags.length > 0 && flags.every((f) => ['!小心', '!危險'].includes(f)), flags.join('|'))
   }
+  // 最近查過：看超過 10 秒才算（其他步驟沒打開過的兩條路線）
+  const [longView, glance] = data.areas.at(-1)!.sectors.at(-1)!.routes
+  await rp.goto(base + `route/${longView.id}`)
+  await rp.waitForTimeout(10_500)
+  await rp.goto(base + `route/${glance.id}`)
+  await rp.waitForTimeout(2_000)
   await rp.goto(base)
   await rp.waitForSelector('.home-m .weather-now')
   check('首頁天氣：目前溫度、天氣與風', ((await rp.locator('.weather-now').textContent()) ?? '').replace(/\s+/g, '') === '23°毛毛雨風5m/s·陣風11·濕度90%', (await rp.locator('.weather-now').textContent()) ?? '')
@@ -1719,8 +1743,9 @@ try {
   check('首頁潮汐：今天的潮差與乾潮、滿潮時間', ((await rp.locator('.tide-times').textContent()) ?? '').replace(/\s+/g, '') === '大潮乾潮05:11滿潮14:01', (await rp.locator('.tide-times').textContent()) ?? '')
   const directions = (await rp.locator('.home-links a').evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).href))).map((u) => new URL(u).searchParams)
   check('交通：Google 地圖開車（路況）與大眾運輸，目的地是岩場入口', directions.length === 2 && directions.every((p) => p.get('destination') === '25.113133,121.92035') && directions[0].get('travelmode') === 'driving' && directions[1].get('travelmode') === 'transit')
-  const recent = rp.locator('.home-recent')
-  check('最近去過：剛記錄的路線出現在今天那一組', ((await recent.locator('.timeline').first().textContent()) ?? '').includes(topoRoutes[2].name.zh), (await recent.textContent()) ?? '')
+  const viewed = (await rp.locator('.home-recent .route-row').allTextContents()).join('|')
+  check('最近查過：看超過 10 秒的路線在最前面', ((await rp.locator('.home-recent .route-row').first().textContent()) ?? '').includes(longView.name.zh), viewed)
+  check('最近查過：只看 2 秒的不算', !viewed.includes(glance.name.zh), viewed)
   check('首頁的區域清單還在卡片下面', (await rp.locator('.home-m ~ .area-list .area-row').count()) === data.areas.length)
   await rp.unroute('https://api.open-meteo.com/**')
   await rp.route('https://api.open-meteo.com/**', (r) => r.abort())

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Area, Route, Sector } from '../data/schema'
 import { HistoryView, useDismiss, useEditOptions, useHistory, type ToolScope } from '../edit/PageTools'
@@ -7,12 +7,13 @@ import { useWide } from '../layout'
 import { setFavorite, usePersonal } from '../personal/store'
 import { PlaceReport } from './PlaceReport'
 import { ShareItems } from './ShareItems'
+import { Sheet } from './Sheet'
 
 /**
- * 區域、分區、路線頁標題卡右上的工具：收藏、回報位置（都是圖示），「更多」選單：分享、記錄攀登（路線）、編輯、
- * 修改記錄（電腦版、有修改記錄才顯示）。收藏與記錄攀登要登入。
+ * 區域、分區、路線頁標題卡右上的工具：收藏、回報位置（都是圖示），「更多」選單：分享、編輯、
+ * 修改記錄（電腦版、有修改記錄才顯示）、路線資料（只有路線）。收藏要登入。分享與路線資料從下方滑出，不在選單裡展開。
  * favoriteId：收藏的對象（路線、區域或分區的 ID；固定點不能收藏時 undefined）；report：回報位置的對象；
- * onTick：打開記錄攀登的視窗（只有路線）；inlineEdit：在這一頁就地編輯的項目（手機路線頁的說明、Topo），選了不換頁。
+ * info：路線資料的內容；inlineEdit：在這一頁就地編輯的項目（手機路線頁的說明、Topo），選了不換頁。
  */
 export function TitleTools({
   data,
@@ -21,7 +22,7 @@ export function TitleTools({
   share,
   signedIn,
   scope,
-  onTick,
+  info,
   inlineEdit,
 }: {
   data: LoadedData
@@ -30,7 +31,7 @@ export function TitleTools({
   share: { url: string; text: string }
   signedIn: boolean
   scope: ToolScope
-  onTick?: () => void
+  info?: ReactNode
   inlineEdit?: Partial<Record<string, () => void>>
 }) {
   const { t } = useLang()
@@ -41,11 +42,11 @@ export function TitleTools({
   const edits = useEditOptions(scope)
   const history = useHistory(scope)
   const [menu, setMenu] = useState(false)
-  const [sharing, setSharing] = useState(false)
+  const [sheet, setSheet] = useState<'share' | 'info'>()
   const [showHistory, setShowHistory] = useState(false)
   const box = useRef<HTMLDivElement>(null)
-  useDismiss(menu || showHistory, () => (setMenu(false), setSharing(false), setShowHistory(false)), box)
-  const close = () => (setMenu(false), setSharing(false))
+  useDismiss(menu || showHistory, () => (setMenu(false), setShowHistory(false)), box)
+  const close = () => setMenu(false)
 
   return (
     <div className="page-tools">
@@ -78,7 +79,7 @@ export function TitleTools({
           title={t('route.actionsMore')}
           aria-haspopup="menu"
           aria-expanded={menu}
-          onClick={() => (setMenu(!menu), setSharing(false), setShowHistory(false))}
+          onClick={() => (setMenu(!menu), setShowHistory(false))}
         >
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
             <circle cx="5" cy="12" r="2" fill="currentColor" />
@@ -88,27 +89,9 @@ export function TitleTools({
         </button>
         {menu && (
           <div className="tool-pop menu" role="menu">
-            <button type="button" role="menuitem" aria-expanded={sharing} onClick={() => setSharing(!sharing)}>
+            <button type="button" role="menuitem" onClick={() => (close(), setSheet('share'))}>
               {t('share.button')}
             </button>
-            {sharing && (
-              <div className="share-list">
-                <ShareItems url={share.url} text={share.text} onDone={close} />
-              </div>
-            )}
-            {mine && onTick && (
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!personal.ready}
-                onClick={() => {
-                  close()
-                  onTick()
-                }}
-              >
-                {t('tick.menu')}
-              </button>
-            )}
             {edits.map((o) => {
               const label = `${t('tools.edit')}：${o.label}`
               const here = inlineEdit?.[o.key]
@@ -134,6 +117,11 @@ export function TitleTools({
                 {t('tools.history')}
               </button>
             )}
+            {info && (
+              <button type="button" role="menuitem" onClick={() => (close(), setSheet('info'))}>
+                {t('route.info')}
+              </button>
+            )}
           </div>
         )}
         {showHistory && (
@@ -143,6 +131,16 @@ export function TitleTools({
           </div>
         )}
       </div>
+      <Sheet open={sheet === 'share'} onClose={() => setSheet(undefined)} title={t('share.button')}>
+        <div className="share-sheet" role="menu">
+          <ShareItems url={share.url} text={share.text} onDone={() => setSheet(undefined)} />
+        </div>
+      </Sheet>
+      {info && (
+        <Sheet open={sheet === 'info'} onClose={() => setSheet(undefined)} title={t('route.info')}>
+          {info}
+        </Sheet>
+      )}
     </div>
   )
 }

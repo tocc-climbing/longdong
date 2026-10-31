@@ -7,7 +7,7 @@ import { addTick } from '../personal/store'
 import { GradePill } from './GradePill'
 import { Sheet } from './Sheet'
 
-/** 攀登方式按鈕的顏色（同路線清單）：OS、RP（含 Flash）、TR（含跟攀）；嘗試沿用文字色 */
+/** 攀登方式按鈕的顏色（同路線清單）：OS（含 Flash）、RP、TR（含跟攀）；嘗試沿用文字色 */
 const STYLE_CLASS = { onsight: 'style-os', redpoint: 'style-rp', toprope: 'style-tr' } as const
 const styleClass = (style: TickStyle) => {
   const best = checklistStyle(style)

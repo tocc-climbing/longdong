@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { relativeTime } from '../format'
 import { useLang, type MessageKey } from '../i18n'
+import { sendStyle, SEND_SHORT } from '../personal/stats'
+import { usePersonal } from '../personal/store'
 import { useCloud } from '../personal/sync'
 import { postComment, rate, removeComment, report, toggleLike } from '../social/actions'
 import { COMMENT_MAX, FEELS, routeKey, summarize, type Comment, type Feel } from '../social/model'
 import { displayName, useComments, useSocial } from '../social/store'
+import { SentPicker } from './SentPicker'
 import { Sheet } from './Sheet'
 import { StarPicker } from './Stars'
 
@@ -59,11 +62,17 @@ const CommentIcon = () => (
   </svg>
 )
 
-const InfoIcon = () => (
+const SentIcon = () => (
   <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>
-    <circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M12 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="12" cy="7.6" r="1.3" fill="currentColor" />
+    <path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+/** 記錄攀登：月曆加號 */
+const LogIcon = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>
+    <rect x="3.5" y="5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M3.5 9.5h17M8 3v4M16 3v4M12 12.5v5M9.5 15h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
   </svg>
 )
 
@@ -92,7 +101,7 @@ function useRun() {
   return { busy, error, setError, run }
 }
 
-export type ReviewsSheet = 'rating' | 'comments' | 'info'
+export type ReviewsSheet = 'rating' | 'comments' | 'sent'
 
 /**
  * 評價與留言（像 IG 貼文下方）：只有圖示與數字（★ 平均星等、留言數），下面是最新一則留言的預覽。
@@ -105,13 +114,14 @@ export function ReviewsBar({
   rateable,
   sheet,
   onSheet,
-  info,
+  onLog,
 }: {
   routeId: string
   rateable: boolean
   sheet?: ReviewsSheet
   onSheet: (sheet: ReviewsSheet | undefined) => void
-  info?: ReactNode
+  /** 打開記錄攀登的視窗；有值時才顯示完攀與記錄攀登（登入、不是固定點） */
+  onLog?: () => void
 }) {
   const social = useSocial()
   const comments = useComments(routeId)
@@ -120,6 +130,8 @@ export function ReviewsBar({
   const top = (comments ?? []).filter((c) => !c.parent)
   // 留言由新到舊（social/store.ts）
   const latest = top[0]
+  const personal = usePersonal()
+  const sent = onLog && sendStyle(personal.ticks, personal.best, routeId)
   return (
     <div className="reviews-bar">
       <div className="reviews-bar-icons">
@@ -133,10 +145,21 @@ export function ReviewsBar({
           <CommentIcon />
           {top.length > 0 && <span>{top.length}</span>}
         </button>
-        {info && (
-          <button type="button" className="reviews-icon info" aria-label={t('route.info')} onClick={() => onSheet('info')}>
-            <InfoIcon />
-          </button>
+        {onLog && (
+          <>
+            <button
+              type="button"
+              className={`reviews-icon sent${sent ? ` on style-${SEND_SHORT[sent].toLowerCase()}` : ''}`}
+              aria-label={t('sent.title')}
+              onClick={() => onSheet('sent')}
+            >
+              <SentIcon />
+              {sent && <span>{SEND_SHORT[sent]}</span>}
+            </button>
+            <button type="button" className="reviews-icon log" aria-label={t('tick.menu')} disabled={!personal.ready} onClick={onLog}>
+              <LogIcon />
+            </button>
+          </>
         )}
       </div>
       {latest && (
@@ -152,9 +175,9 @@ export function ReviewsBar({
       <Sheet open={sheet === 'comments'} onClose={() => onSheet(undefined)} title={t('comments.title')} className="comments-sheet">
         <CommentsPanel routeId={routeId} />
       </Sheet>
-      {info && (
-        <Sheet open={sheet === 'info'} onClose={() => onSheet(undefined)} title={t('route.info')}>
-          {info}
+      {onLog && (
+        <Sheet open={sheet === 'sent'} onClose={() => onSheet(undefined)} title={t('sent.title')}>
+          <SentPicker routeId={routeId} label={t('sent.title')} />
         </Sheet>
       )}
     </div>

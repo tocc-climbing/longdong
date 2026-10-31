@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Route } from '../src/data/schema'
 import type { Tick } from '../src/personal/model'
-import { gradePyramid, groupByMonth, recentActivity, recentVisits, sendStyles } from '../src/personal/stats'
+import { gradePyramid, groupByMonth, recentActivity, sendStyles } from '../src/personal/stats'
 
 const tick = (routeId: string, date: string, style: Tick['style'] = 'redpoint'): Tick => ({
   id: `${routeId}-${date}-${style}`, routeId, date, style, createdAt: 'x', updatedAt: 'x',
@@ -18,9 +18,9 @@ const lookup = (id: string) => routes[id] as Route | undefined
 const none = { onsight: 0, redpoint: 0, toprope: 0 }
 
 describe('sendStyles', () => {
-  it('每條路線取最好的方式；嘗試不算；Flash 算 RP、跟攀算 TR；路線清單一起算', () => {
+  it('每條路線取最好的方式；嘗試不算；Flash 算 OS、跟攀算 TR；路線清單一起算', () => {
     const ticks = [tick('a', '2026-10-01'), tick('a', '2026-10-02', 'onsight'), tick('b', '2026-10-03', 'flash'), tick('c', '2026-10-04', 'attempt'), tick('d', '2026-10-05', 'follow')]
-    expect(Object.fromEntries(sendStyles(ticks, new Map([['e', 'toprope']])))).toEqual({ a: 'onsight', b: 'redpoint', d: 'toprope', e: 'toprope' })
+    expect(Object.fromEntries(sendStyles(ticks, new Map([['e', 'toprope']])))).toEqual({ a: 'onsight', b: 'onsight', d: 'toprope', e: 'toprope' })
   })
 
   it('攀登紀錄比路線清單好時，取攀登紀錄', () => {
@@ -116,16 +116,6 @@ describe('groupByMonth', () => {
     expect(g.map((x) => [x.key, x.ticks.length])).toEqual([
       ['2026-10', 2],
       ['2026-09', 1],
-    ])
-  })
-})
-
-describe('recentVisits', () => {
-  it('同一天的放在一組，只取最近 n 天', () => {
-    const v = recentVisits([tick('a', '2026-10-26'), tick('b', '2026-10-26'), tick('c', '2026-10-19'), tick('d', '2026-10-05')], 2)
-    expect(v.map((x) => [x.key, x.ticks.map((t) => t.routeId)])).toEqual([
-      ['2026-10-26', ['a', 'b']],
-      ['2026-10-19', ['c']],
     ])
   })
 })

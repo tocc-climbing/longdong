@@ -1,22 +1,22 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { RESCUE_POINTS } from '../data/rescue'
 import { CragShape } from '../components/AreaShape'
+import { RouteRow } from '../components/RouteRow'
 import { GradeDistribution } from '../components/Charts'
-import { GradePill } from '../components/GradePill'
 import { PageHero } from '../components/PageHero'
 import { FavMark } from '../components/FavMark'
 import { InstallBanner } from '../components/InstallPrompt'
 import { gradeDistribution, typeSummary } from '../format'
 import { useWide } from '../layout'
 import { favoritesFirst } from '../personal/model'
-import { recentVisits } from '../personal/stats'
+import { loadViews } from '../personal/history'
 import { usePersonal } from '../personal/store'
-import { href, useRouteLink } from '../router'
+import { href } from '../router'
 import { sunTimes } from '../sun'
 import { useTide } from '../tide'
 import { useWeather } from '../weather'
-import { LOCALES, localName, useLang } from '../i18n'
+import { localName, useLang } from '../i18n'
 
 /** 首頁標題卡的顏色：岩石的灰藍，和各區域的顏色（音樂廳是藍色）都不同 */
 const CRAG_COLOR = '#8fa3b0'
@@ -28,12 +28,12 @@ const ENTRANCE = (() => {
   return coords
 })()
 
-/** 最近去過列幾天 */
-const RECENT_DAYS = 3
+/** 最近查過列幾條 */
+const RECENT_VIEWS = 5
 
 /**
  * 首頁：標題卡（整個龍洞的地圖），下面是各區域，一區一列（收藏的排在前面）；色點用 Sheet 上該區域的顏色。
- * 手機版是出發前看的那一頁：標題卡和天氣、日出日落、交通、最近去過連成一張卡片（和路線卡片同樣子）
+ * 手機版是出發前看的那一頁：標題卡和天氣、日出日落、交通、最近查過連成一張卡片（和路線卡片同樣子）
  */
 export function HomePage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
@@ -60,7 +60,7 @@ export function HomePage({ data }: { data: LoadedData }) {
           {hero}
           <Today />
           <Transport />
-          <RecentVisits data={data} />
+          <RecentViews data={data} />
         </article>
       )}
       <InstallBanner />
@@ -195,44 +195,20 @@ function Transport() {
   )
 }
 
-/** 最近去過的幾天與那天爬的路線；沒有攀登紀錄時不顯示 */
-function RecentVisits({ data }: { data: LoadedData }) {
-  const { lang, t } = useLang()
-  const { ticks } = usePersonal()
-  const { link } = useRouteLink()
-  if (ticks.length === 0) return null
-  const day = new Intl.DateTimeFormat(LOCALES[lang], { timeZone: 'UTC', month: 'short', day: 'numeric', weekday: 'short' })
+/** 最近查過的路線（在路線頁看超過 10 秒的）；沒有時不顯示 */
+function RecentViews({ data }: { data: LoadedData }) {
+  const { t } = useLang()
+  const [views] = useState(loadViews)
+  const items = views.flatMap((v) => data.routeById.get(v.routeId) ?? []).slice(0, RECENT_VIEWS)
+  if (items.length === 0) return null
   return (
     <section className="route-block home-recent">
-      <h2 className="home-recent-head">
-        {t('home.recent')}
-        <a className="small" href={href.me()}>
-          {t('home.recentAll')} ›
-        </a>
-      </h2>
-      {recentVisits(ticks, RECENT_DAYS).map((visit) => (
-        <section key={visit.key} className="timeline">
-          <h3>{day.format(new Date(`${visit.key}T00:00Z`))}</h3>
-          <ul className="list-card">
-            {visit.ticks.map((tick) => {
-              const r = data.routeById.get(tick.routeId)?.route
-              return (
-                <li key={tick.id} className="timeline-item">
-                  <a className="timeline-body" href={link(tick.routeId)}>
-                    <span className="timeline-title">
-                      {r ? `${r.number ? `#${r.number} ` : ''}${localName(r.name, lang).main}` : t('me.routeMissing', { id: tick.routeId })}
-                    </span>
-                    <span className="timeline-meta">
-                      <span className={`style-tag style-${tick.style}`}>{t(`style.${tick.style}`)}</span>
-                    </span>
-                  </a>
-                  <GradePill grade={r?.grade} value={r?.gradeValue} size="sm" />
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ))}
+      <h2>{t('home.viewed')}</h2>
+      <ul className="list-card">
+        {items.map((item) => (
+          <RouteRow key={item.route.id} item={item} showPlace />
+        ))}
+      </ul>
     </section>
   )
 }

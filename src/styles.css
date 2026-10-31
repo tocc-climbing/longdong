@@ -812,17 +812,23 @@ a.action {
   font-weight: 500;
 }
 
-.share-list {
+/* 分享（從下方滑出）：一列一個，左邊是圖示 */
+.share-sheet {
   display: grid;
-  margin: 0 0 4px 12px;
-  padding-left: 8px;
-  border-left: 2px solid var(--border);
 }
 
-.tool-pop.menu .share-item {
+.share-sheet .share-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  min-height: 48px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .share-badge {
@@ -5773,11 +5779,23 @@ html {
   cursor: pointer;
 }
 
-/* 有人評分才是星星色；沒有任何評分時和留言圖示一樣是白色 */
-.reviews-icon.info {
-  color: var(--muted);
+/* 完攀：標了之後是那種方式的顏色（.style-os 等），旁邊是簡寫 */
+.reviews-icon.sent.on {
+  color: var(--style);
 }
 
+/* 完攀的彈出視窗：三個按鈕撐滿寬度 */
+.sheet .checklist-styles {
+  gap: 8px;
+}
+
+.sheet .checklist-style {
+  flex: 1;
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+/* 有人評分才是星星色；沒有任何評分時和留言圖示一樣是白色 */
 .reviews-icon.rating.rated svg {
   color: var(--star);
 }
@@ -6395,17 +6413,7 @@ dialog.topo-upload-crop::backdrop {
   text-decoration: none;
 }
 
-.home-recent-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.home-recent-head a {
-  font-weight: 600;
-}
-
-:is(.home-recent, .me-m) .timeline h3 {
+.me-m .timeline h3 {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 0.85rem;
@@ -6417,7 +6425,7 @@ dialog.topo-upload-crop::backdrop {
   background: transparent;
 }
 
-:is(.home-recent, .me-m) .timeline-item {
+.me-m .timeline-item {
   padding: 8px 0;
 }
 

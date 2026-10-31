@@ -41,11 +41,20 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
   { name: '路線（長名稱）', path: '/route/longdong/u4r3sk' },
   { name: '路線（長中文名）', path: '/route/longdong/ze4rpe' },
   {
-    name: '路線（分享選單）',
+    name: '路線（更多選單）',
     path: '/route/longdong/u4r3sk',
     prepare: async (page) => {
       await page.click('article.route .page-tools button[aria-haspopup=menu]')
-      await page.click('article.route .page-tools [role=menuitem][aria-expanded]')
+    },
+  },
+  {
+    name: '路線（分享視窗）',
+    path: '/route/longdong/u4r3sk',
+    prepare: async (page) => {
+      await page.click('article.route .page-tools button[aria-haspopup=menu]')
+      // 選單的第一項是分享
+      await page.click('article.route .page-tools [role=menuitem] >> nth=0')
+      await page.waitForSelector('dialog.sheet[open] .share-item')
     },
   },
   { name: '搜尋', path: '/search?q=5.10' },
