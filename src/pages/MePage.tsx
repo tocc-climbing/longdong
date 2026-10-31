@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { ActivityChart, GradePyramid } from '../components/Charts'
 import { GradePill } from '../components/GradePill'
@@ -22,6 +22,9 @@ import { APP_VERSION, formatVersion } from '../version'
 
 type Tab = 'ticks' | 'favorites'
 
+/** 整頁是一張卡片（和路線卡片同一套）：品牌色從上方往下淡出、左邊一條色條 */
+const CARD_STYLE = { '--area-color': 'var(--brand)' } as CSSProperties
+
 /** offline：已可離線使用（Service Worker 已快取） */
 export function MePage({ data, offline }: { data: LoadedData; offline: boolean }) {
   const cloud = useCloud()
@@ -34,7 +37,7 @@ export function MePage({ data, offline }: { data: LoadedData; offline: boolean }
 
   return (
     // 電腦版寬版面中置中，不要只佔左邊一欄
-    <div className="me-signed-out">
+    <article className="route-m me-m me-signed-out" style={CARD_STYLE}>
         <h1>{t('me.title')}</h1>
         <section className="card intro-card">
           <h2>{t('me.introTitle')}</h2>
@@ -59,7 +62,7 @@ export function MePage({ data, offline }: { data: LoadedData; offline: boolean }
         <p className="center small">
           <a href={href.about()}>{t('footer.about')}</a>
         </p>
-    </div>
+    </article>
   )
 }
 
@@ -110,7 +113,7 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
   const activity = recentActivity(personal.ticks)
 
   return (
-    <>
+    <article className="route-m me-m" style={CARD_STYLE}>
       <header className="profile-head">
         <span className="avatar" aria-hidden>
           {[...name][0]}
@@ -273,7 +276,7 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
             ))}
         </div>
       </div>
-    </>
+    </article>
   )
 }
 

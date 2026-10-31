@@ -5617,7 +5617,8 @@ html {
     var(--surface);
 }
 
-[data-layout='mobile'] .route-m .area-hero {
+/* 只有路線頁固定高度（首頁、我的也用 .route-m 卡片，標題卡和區域頁一樣高） */
+[data-layout='mobile'] .route.route-m .area-hero {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
   height: var(--route-hero-h);
@@ -6368,18 +6369,49 @@ dialog.topo-upload-crop::backdrop {
   font-weight: 600;
 }
 
-.home-recent .timeline h3 {
+:is(.home-recent, .me-m) .timeline h3 {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 0.85rem;
 }
 
 /* 卡片裡的清單不再框一層 */
-.home-recent .list-card {
+:is(.home-recent, .me-m) .list-card {
   border: 0;
   background: transparent;
 }
 
-.home-recent .timeline-item {
+:is(.home-recent, .me-m) .timeline-item {
   padding: 8px 0;
+}
+
+/* ---------- 我的：整頁一張卡片（.route-m），裡面各段只用間距分開，不再一格一格框起來 ---------- */
+
+.me-m .profile-head {
+  margin: 0;
+  padding: 18px 0 4px;
+}
+
+.me-signed-out.me-m > h1 {
+  margin: 18px 0 0;
+}
+
+.me-m :is(.card, .stat-row div, .checklist-entry) {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.me-m .card {
+  margin: 22px 0 0;
+  padding: 0;
+}
+
+.me-m .stat-row div {
+  padding: 0;
+}
+
+.me-m .checklist-entry {
+  margin: 18px 0 0;
+  padding: 0;
 }
