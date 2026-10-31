@@ -22,7 +22,6 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
   const personal = usePersonal()
   const signedIn = useCloud().status === 'signed-in'
   const rating = summarize(useSocial().ratings[routeKey(route.id)])
-  const favorite = signedIn && personal.favorites.has(route.id)
   const { link, selected } = useRouteLink()
   const send = signedIn ? sendStyle(personal.ticks, personal.best, route.id) : undefined
 
@@ -36,11 +35,6 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
   const zh = (
     <span className="zh">
       {name.main}
-      {favorite && (
-        <span className="marks" title={t('mark.fav')} aria-label={t('mark.fav')}>
-          ★
-        </span>
-      )}
     </span>
   )
   const place = showPlace && (

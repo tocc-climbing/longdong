@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { bestStyle, daysAgo, favoritesFirst, mergeRecords, NOTE_MAX, sentRouteIds, today, type Tick } from '../src/personal/model'
-import { addTick, applyRecords, clearAll, deleteTick, exportAll, setBest, setFavorite } from '../src/personal/store'
+import { bestStyle, daysAgo, mergeRecords, NOTE_MAX, sentRouteIds, today, type Tick } from '../src/personal/model'
+import { addTick, applyRecords, clearAll, deleteTick, exportAll, setBest } from '../src/personal/store'
 
 const tick = (id: string, updatedAt: string, over: Partial<Tick> = {}): Tick => ({
   id, routeId: 'longdong/328ac2', date: '2026-10-01', style: 'redpoint', createdAt: '2026-10-01T00:00:00Z', updatedAt, ...over,
@@ -23,27 +23,23 @@ describe('mergeRecords', () => {
 })
 
 describe('store（IndexedDB）', () => {
-  it('收藏、紀錄、刪除，舊資料不會蓋掉較新的刪除', async () => {
-    await setFavorite('longdong/328ac2', true)
+  it('紀錄、刪除，舊資料不會蓋掉較新的刪除', async () => {
     await addTick({ routeId: 'longdong/328ac2', date: today(), style: 'onsight' })
     await addTick({ routeId: 'longdong/q3ek73', date: '2026-01-02', style: 'attempt', note: '第三 bolt 卡關' })
 
     const snapshot = await exportAll()
-    expect(snapshot.favorites.map((f) => f.routeId)).toEqual(['longdong/328ac2'])
     expect(snapshot.ticks).toHaveLength(2)
 
     const removed = snapshot.ticks.find((t) => t.routeId === 'longdong/q3ek73')!
     await deleteTick(removed.id)
-    await setFavorite('longdong/328ac2', false)
 
     // 例如另一台裝置送來較舊的版本
-    expect(await applyRecords(snapshot.favorites, snapshot.ticks)).toEqual({ favorites: 0, ticks: 0, best: 0 })
+    expect(await applyRecords(snapshot.ticks)).toEqual({ ticks: 0, best: 0 })
     const after = await exportAll()
     expect(after.ticks.find((t) => t.id === removed.id)?.deleted).toBe(true)
-    expect(after.favorites[0].deleted).toBe(true)
 
     await clearAll()
-    expect(await exportAll()).toMatchObject({ favorites: [], ticks: [], best: [] })
+    expect(await exportAll()).toMatchObject({ ticks: [], best: [] })
   })
 
   it('路線清單的最佳攀登方式：每條路線一筆，改了就覆蓋，清除時留刪除標記', async () => {
@@ -58,7 +54,7 @@ describe('store（IndexedDB）', () => {
 
     // 較舊的版本（例如另一台裝置）不會蓋掉清除
     const older = { ...best!.find((b) => b.routeId === 'longdong/bbbbbb')!, deleted: false, updatedAt: '2000-01-01T00:00:00Z' }
-    expect((await applyRecords([], [], [older])).best).toBe(0)
+    expect((await applyRecords([], [older])).best).toBe(0)
     await clearAll()
   })
 
@@ -72,7 +68,7 @@ describe('store（IndexedDB）', () => {
 
   it('刪除標記不留備註：本機留有超過上限備註的舊紀錄也能刪除並同步', async () => {
     // 加上上限之前存下的紀錄
-    await applyRecords([], [tick('old', '2026-10-01T00:00:00Z', { note: 'x'.repeat(NOTE_MAX + 1) })])
+    await applyRecords([tick('old', '2026-10-01T00:00:00Z', { note: 'x'.repeat(NOTE_MAX + 1) })])
     await deleteTick('old')
     const { ticks } = await exportAll()
     expect(ticks).toEqual([
@@ -108,13 +104,5 @@ describe('daysAgo', () => {
     const now = new Date(2026, 9, 25, 13, 30)
     daysAgo(3, now)
     expect(now.getDate()).toBe(25)
-  })
-})
-
-describe('收藏的排在前面', () => {
-  it('收藏的照原本順序排在前面，其他也照原本順序', () => {
-    const items = ['a', 'b', 'c', 'd'].map((id) => ({ id }))
-    expect(favoritesFirst(items, new Set(['c', 'a'])).map((x) => x.id)).toEqual(['a', 'c', 'b', 'd'])
-    expect(favoritesFirst(items, new Set()).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 })

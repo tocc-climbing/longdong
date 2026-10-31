@@ -3,7 +3,6 @@ import type { LoadedData } from '../data/dataset'
 import { ActivityChart, GradePyramid } from '../components/Charts'
 import { GradePill } from '../components/GradePill'
 import { InstallButton } from '../components/InstallPrompt'
-import { RouteRow } from '../components/RouteRow'
 import { FACEBOOK_LOGIN_ENABLED, SignInPrompt } from '../components/SignInPrompt'
 import { relativeTime } from '../format'
 import { LANGS, localName, monthTitle, setLangSetting, useLang, type LangSetting } from '../i18n'
@@ -11,7 +10,7 @@ import { sentRouteIds } from '../personal/model'
 import { gradePyramid, groupByMonth, recentActivity, sendStyles } from '../personal/stats'
 import { ROUTE_TYPES, TypeFilter } from '../components/TypeFilter'
 import type { RouteType } from '../data/schema'
-import { deleteTick, setFavorite, usePersonal } from '../personal/store'
+import { deleteTick, usePersonal } from '../personal/store'
 import { signOut, useCloud } from '../personal/sync'
 import { deleteMyAccount, rename } from '../social/actions'
 import { NAME_MAX } from '../social/model'
@@ -19,8 +18,6 @@ import { displayName, useSocial } from '../social/store'
 import { useIsAdmin } from '../admin'
 import { href, useRouteLink } from '../router'
 import { APP_VERSION, formatVersion } from '../version'
-
-type Tab = 'ticks' | 'favorites'
 
 /** 整頁是一張卡片（和路線卡片同一套）：品牌色從上方往下淡出、左邊一條色條 */
 const CARD_STYLE = { '--area-color': 'var(--brand)' } as CSSProperties
@@ -42,7 +39,7 @@ export function MePage({ data, offline }: { data: LoadedData; offline: boolean }
         <section className="card intro-card">
           <h2>{t('me.introTitle')}</h2>
           <ul className="feature-list">
-            {(['log', 'fav', 'social', 'sync'] as const).map((f) => (
+            {(['log', 'social', 'sync'] as const).map((f) => (
               <li key={f}>
                 <strong>{t(`me.feature.${f}`)}</strong>
                 <span>{t(`me.feature.${f}Desc`)}</span>
@@ -83,7 +80,6 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
   const cloud = useCloud()
   const social = useSocial()
   const { lang, t } = useLang()
-  const [tab, setTab] = useState<Tab>('ticks')
   const [settings, setSettings] = useState(false)
   const admin = useIsAdmin()
   const [pyramidTypes, setPyramidTypesState] = useState(loadPyramidTypes)
@@ -98,8 +94,6 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
   const { link } = useRouteLink()
 
   const lookup = (id: string) => data.routeById.get(id)
-  // 收藏也可能是區域、分區（首頁、區域頁排在前面），這裡只列路線
-  const favorites = [...personal.favorites].filter((id) => !data.areaById.has(id) && !data.sectorById.has(id))
   const name = displayName(social.profiles, uid)
   // 完攀過的路線與最好的方式：攀登紀錄加上路線清單勾選的
   const sends = sendStyles(personal.ticks, personal.best)
@@ -201,79 +195,48 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
         </div>
 
         <div className="me-log">
-          <div className="segmented" role="tablist">
-            <button role="tab" aria-selected={tab === 'ticks'} onClick={() => setTab('ticks')}>
-              {t('me.tab.ticks')}
-            </button>
-            <button role="tab" aria-selected={tab === 'favorites'} onClick={() => setTab('favorites')}>
-              {t('me.tab.favs')}
-              {favorites.length > 0 && ` ${favorites.length}`}
-            </button>
-          </div>
-
-          {tab === 'ticks' &&
-            (personal.ticks.length === 0 ? (
-              <p className="empty muted">{t('me.noTicks')}</p>
-            ) : (
-              groupByMonth(personal.ticks).map((g) => (
-                <section key={g.key} className="timeline">
-                  <h3>{monthTitle(g.key, lang)}</h3>
-                  <ul className="list-card">
-                    {g.ticks.map((tick) => {
-                      const r = lookup(tick.routeId)?.route
-                      return (
-                        <li key={tick.id} className="timeline-item">
-                          <span className="timeline-day">
-                            <strong>{Number(tick.date.slice(8, 10))}</strong>
-                            {t('me.dayUnit') && <span>{t('me.dayUnit')}</span>}
+          <h2>{t('me.ticks')}</h2>
+          {personal.ticks.length === 0 ? (
+            <p className="empty muted">{t('me.noTicks')}</p>
+          ) : (
+            groupByMonth(personal.ticks).map((g) => (
+              <section key={g.key} className="timeline">
+                <h3>{monthTitle(g.key, lang)}</h3>
+                <ul className="list-card">
+                  {g.ticks.map((tick) => {
+                    const r = lookup(tick.routeId)?.route
+                    return (
+                      <li key={tick.id} className="timeline-item">
+                        <span className="timeline-day">
+                          <strong>{Number(tick.date.slice(8, 10))}</strong>
+                          {t('me.dayUnit') && <span>{t('me.dayUnit')}</span>}
+                        </span>
+                        <a className="timeline-body" href={link(tick.routeId)}>
+                          <span className="timeline-title">
+                            {r
+                              ? `${r.number ? `#${r.number} ` : ''}${localName(r.name, lang).main}`
+                              : t('me.routeMissing', { id: tick.routeId })}
                           </span>
-                          <a className="timeline-body" href={link(tick.routeId)}>
-                            <span className="timeline-title">
-                              {r
-                                ? `${r.number ? `#${r.number} ` : ''}${localName(r.name, lang).main}`
-                                : t('me.routeMissing', { id: tick.routeId })}
-                            </span>
-                            <span className="timeline-meta">
-                              <span className={`style-tag style-${tick.style}`}>{t(`style.${tick.style}`)}</span>
-                              {tick.note && <span className="muted">{tick.note}</span>}
-                            </span>
-                          </a>
-                          <GradePill grade={r?.grade} value={r?.gradeValue} size="sm" />
-                          <button
-                            className="icon-button small"
-                            aria-label={t('tick.deleteAria')}
-                            onClick={() => confirm(t('tick.confirmDelete')) && deleteTick(tick.id)}
-                          >
-                            ×
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </section>
-              ))
-            ))}
-
-          {tab === 'favorites' &&
-            (favorites.length === 0 ? (
-              <p className="empty muted">{t('me.noFavs')}</p>
-            ) : (
-              <ul className="list-card">
-                {favorites.map((id) => {
-                  const ref = lookup(id)
-                  return ref ? (
-                    <RouteRow key={id} item={ref} showPlace />
-                  ) : (
-                    <li key={id} className="timeline-item">
-                      <span className="timeline-body muted small">{t('me.routeMissing', { id })}</span>
-                      <button className="icon-button small" aria-label={t('me.removeFav')} onClick={() => setFavorite(id, false)}>
-                        ×
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            ))}
+                          <span className="timeline-meta">
+                            <span className={`style-tag style-${tick.style}`}>{t(`style.${tick.style}`)}</span>
+                            {tick.note && <span className="muted">{tick.note}</span>}
+                          </span>
+                        </a>
+                        <GradePill grade={r?.grade} value={r?.gradeValue} size="sm" />
+                        <button
+                          className="icon-button small"
+                          aria-label={t('tick.deleteAria')}
+                          onClick={() => confirm(t('tick.confirmDelete')) && deleteTick(tick.id)}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            ))
+          )}
         </div>
       </div>
     </article>

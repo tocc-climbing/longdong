@@ -10,7 +10,7 @@ export default function AboutText({ projectUrl, attribution, sheetUrl }: AboutTe
 
       <h2>帳號與隱私</h2>
       <p>
-        使用 Google 帳號登入。收藏與攀登紀錄只有你自己看得到；留言會公開並顯示你的暱稱；評分在畫面上只顯示平均與人數。Email
+        使用 Google 帳號登入。攀登紀錄只有你自己看得到；留言會公開並顯示你的暱稱；評分在畫面上只顯示平均與人數。Email
         不會公開。資料存放在臺灣戶外攀岩協會的 Firebase 專案。不當留言請按「檢舉」，由管理員處理。詳見
         <a href="./terms.html">服務條款</a>與<a href="./privacy.html">隱私權政策</a>；要刪除帳號與所有資料，請到「我的」頁的設定。
       </p>

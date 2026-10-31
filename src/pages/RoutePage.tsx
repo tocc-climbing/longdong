@@ -28,9 +28,9 @@ import { areaSectorColor, NotFound } from './AreaPage'
 const InlineTopoEditor = lazy(() => import('../topo/TopoEditor').then((m) => ({ default: m.InlineTopoEditor })))
 
 /**
- * 路線頁（手機版與電腦版的右側相同）：整頁是一張路線卡片。上方是標題卡（與區域、分區頁相同；右上是收藏、回報位置、更多），
- * 名稱下面是難度、長度、快扣、種類，不是綠燈時下一列是警告；接著是 Topo、說明（直接顯示內容）、路線資料（安全與拉測、首攀、
- * Bolt 的摘要，明細點了才展開）；最後是評價與留言（預設收起，只看到摘要與最新一則）。
+ * 路線頁（手機版與電腦版的右側相同）：整頁是一張路線卡片。上方是標題卡（與區域、分區頁相同；右上是回報位置、更多），
+ * 名稱下面是難度、長度、快扣、種類，不是綠燈時下一列是警告；接著是 Topo、說明（直接顯示內容）；
+ * 最下方是圖示列：評分、留言、完攀、記錄攀登（路線資料在右上「更多」）。
  * 手機版點說明在卡片裡編輯，點 Topo 開全螢幕、按裡面的「編輯」才打開整個畫面的 Topo 編輯器（都不換頁；「更多」選單的編輯也一樣）；左右滑動換到上一張、下一張卡片。
  */
 /**
@@ -79,10 +79,8 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
         tools={
           <TitleTools
             data={data}
-            favoriteId={route.isFixture ? undefined : route.id}
             report={{ area, sector, route }}
             share={{ url: currentRouteUrl(route.id), text: shareText(ref, lang, t) }}
-            signedIn={signedIn}
             scope={scope}
             info={hasRouteData(route) ? <RouteData data={data} route={route} /> : undefined}
             inlineEdit={wide ? undefined : { text: () => setEditing({ kind: 'text' }), topo: () => setEditing({ kind: 'topo' }) }}

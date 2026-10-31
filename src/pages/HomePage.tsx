@@ -5,13 +5,10 @@ import { CragShape } from '../components/AreaShape'
 import { RouteRow } from '../components/RouteRow'
 import { GradeDistribution } from '../components/Charts'
 import { PageHero } from '../components/PageHero'
-import { FavMark } from '../components/FavMark'
 import { InstallBanner } from '../components/InstallPrompt'
 import { gradeDistribution, typeSummary } from '../format'
 import { useWide } from '../layout'
-import { favoritesFirst } from '../personal/model'
 import { loadViews } from '../personal/history'
-import { usePersonal } from '../personal/store'
 import { href } from '../router'
 import { sunTimes } from '../sun'
 import { useTide } from '../tide'
@@ -32,13 +29,12 @@ const ENTRANCE = (() => {
 const RECENT_VIEWS = 5
 
 /**
- * 首頁：標題卡（整個龍洞的地圖），下面是各區域，一區一列（收藏的排在前面）；色點用 Sheet 上該區域的顏色。
+ * 首頁：標題卡（整個龍洞的地圖），下面是各區域，一區一列；色點用 Sheet 上該區域的顏色。
  * 手機版是出發前看的那一頁：標題卡和天氣、日出日落、交通、最近查過連成一張卡片（和路線卡片同樣子）
  */
 export function HomePage({ data }: { data: LoadedData }) {
   const { lang, t } = useLang()
   const wide = useWide()
-  const favorites = usePersonal().favorites
   const crag = localName(data.dataset.crag.name, lang)
   const routeCount = data.dataset.areas.flatMap((a) => a.sectors.flatMap((s) => s.routes)).filter((r) => !r.isFixture).length
   const hero = (
@@ -65,7 +61,7 @@ export function HomePage({ data }: { data: LoadedData }) {
       )}
       <InstallBanner />
       <ul className="area-list">
-        {favoritesFirst(data.dataset.areas, favorites).map((area) => {
+        {data.dataset.areas.map((area) => {
           const routes = area.sectors.flatMap((s) => s.routes).filter((r) => !r.isFixture)
           const name = localName(area.name, lang)
           return (
@@ -74,7 +70,6 @@ export function HomePage({ data }: { data: LoadedData }) {
                 <span className="area-info">
                   <span className="area-name">
                     {name.main}
-                    {favorites.has(area.id) && <FavMark />}
                   </span>
                   {name.sub && <span className="en">{name.sub}</span>}
                   <span className="area-count">

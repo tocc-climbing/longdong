@@ -16,7 +16,7 @@ export default function AboutText({ projectUrl, sheetUrl }: AboutTextProps) {
 
       <h2>Account &amp; privacy</h2>
       <p>
-        Sign in with Google. Your climb log and favorites are private; comments are public under your nickname; ratings are shown only as
+        Sign in with Google. Your climb log is private; comments are public under your nickname; ratings are shown only as
         an average and count. Your email is never shown. Data is stored in TOCC’s Firebase project. Use “Report” on inappropriate comments
         and a moderator will review them. See the <a href="./terms.html">Terms of Service</a> and{' '}
         <a href="./privacy.html">Privacy Policy</a>. To delete your account and all data, open settings on the Me tab.

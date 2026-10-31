@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from 'react'
-import { bestPath, favoritePath, reconcile, tickPath, clean, type RemotePersonal } from './reconcile'
+import { bestPath, reconcile, tickPath, clean, type RemotePersonal } from './reconcile'
 import { applyRecords, clearAll, exportAll, onLocalWrite, type LocalWrite } from './store'
 import { setLocalProfile } from '../social/store'
 import { t } from '../i18n'
 
 /**
- * 雲端同步：登入 Google 後，收藏與攀登紀錄自動同步到 Firebase（/v2/personal/<uid>）。
+ * 雲端同步：登入 Google 後，攀登紀錄與路線清單自動同步到 Firebase（/v2/personal/<uid>）。
  *
  * 本機（IndexedDB）一直是主要資料來源，沒網路也能記錄；
  * 每次連上雲端（登入、開啟 App、其他裝置有變動）都雙向合併，同一筆以 updatedAt 較新者為準。
@@ -120,7 +120,7 @@ export async function signIn(provider: ProviderName = 'google'): Promise<void> {
   }
 }
 
-/** 登出：收藏與紀錄都在雲端，清除這台裝置上的副本 */
+/** 登出：紀錄都在雲端，清除這台裝置上的副本 */
 export async function signOut(): Promise<void> {
   const m = await load()
   stopRemote?.()
@@ -184,7 +184,7 @@ async function sync(m: FirebaseModule, uid: string, remote: RemotePersonal | nul
     set({ syncing: true })
     const local = await exportAll()
     const { toLocal, toRemote } = reconcile(uid, local, remote)
-    await applyRecords(toLocal.favorites, toLocal.ticks, toLocal.best)
+    await applyRecords(toLocal.ticks, toLocal.best)
     if (Object.keys(toRemote).length) await m.writeRemote(toRemote)
     set({ syncing: false, lastSync: new Date().toISOString(), error: undefined })
   } catch (err) {
@@ -197,11 +197,6 @@ async function push(w: LocalWrite) {
   if (state.status !== 'signed-in' || !state.user || !fb) return
   const m = await fb
   const uid = state.user.uid
-  const paths =
-    'favorite' in w
-      ? { [favoritePath(uid, w.favorite.routeId)]: clean(w.favorite) }
-      : 'tick' in w
-        ? { [tickPath(uid, w.tick.id)]: clean(w.tick) }
-        : { [bestPath(uid, w.best.routeId)]: clean(w.best) }
+  const paths = 'tick' in w ? { [tickPath(uid, w.tick.id)]: clean(w.tick) } : { [bestPath(uid, w.best.routeId)]: clean(w.best) }
   m.writeRemote(paths).catch((err: Error) => set({ error: t('sync.failed', { error: err.message }) }))
 }
