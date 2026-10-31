@@ -5,9 +5,14 @@ name: Deploy
 # - release（發布：把 release 快轉到 main 的同一個 commit）→ 正式站 https://longdong.web.app/，並打上版號標籤
 # - 路線資料（public/data，每天從 Google Sheet 同步）合併到 main 後也直接更新正式站：
 #   用 release 的程式加上 main 的最新資料建置，先用 release 程式的資料格式驗證，對不上就不更新並顯示警告。
+# - 潮汐（中央氣象署，未來一個月）在建置時抓，不放進 repo；每週一重新部署兩個網站，潮汐跟著更新。
+#   授權碼在 CWA_API_KEY 這個 Environment。
 on:
   push:
     branches: [main, release]
+  schedule:
+    # 每週一台灣時間 04:00（預設分支 main）
+    - cron: '0 20 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -17,6 +22,7 @@ jobs:
   dev:
     if: github.ref_name == 'main'
     runs-on: ubuntu-latest
+    environment: CWA_API_KEY
     concurrency:
       group: deploy-dev
       cancel-in-progress: true
@@ -38,6 +44,12 @@ jobs:
       # 分享圖片的字型（scripts/lib/ogImage.ts）
       - run: bash scripts/install-og-fonts.sh
 
+      # 潮汐：抓不到時照樣部署（首頁顯示沒有今天的潮汐資料），在這次執行標出警告
+      - name: 抓潮汐預報
+        run: npm run tide || echo "::warning::潮汐預報抓取失敗，這次部署沒有潮汐資料"
+        env:
+          CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
+
       # VITE_CHANNEL=dev：畫面上標示「開發版」、不讓搜尋引擎收錄
       - run: npm run build
         env:
@@ -57,6 +69,7 @@ jobs:
 
   live:
     runs-on: ubuntu-latest
+    environment: CWA_API_KEY
     permissions:
       contents: write # 發布時打版號標籤
     concurrency:
@@ -68,13 +81,13 @@ jobs:
           ref: release
           fetch-depth: 0
 
-      # main 的推送：只有路線資料和正式版不同時才更新正式站
+      # main 的推送：只有路線資料和正式版不同時才更新正式站；每週排程與手動執行一律更新（潮汐）
       - name: 加入 main 的最新路線資料
         id: data
         run: |
           if [ "$GITHUB_REF_NAME" = main ]; then
             git checkout "$GITHUB_SHA" -- public/data
-            if git diff --cached --quiet -- public/data; then
+            if [ "$GITHUB_EVENT_NAME" = push ] && git diff --cached --quiet -- public/data; then
               echo "路線資料與正式版相同，正式站不用更新"
               echo "deploy=false" >> "$GITHUB_OUTPUT"
               exit 0
@@ -107,6 +120,16 @@ jobs:
       # 分享圖片的字型；正式版的程式還沒有分享圖片時（發布前）沒有這支腳本，跳過
       - if: steps.data.outputs.deploy == 'true'
         run: if [ -f scripts/install-og-fonts.sh ]; then bash scripts/install-og-fonts.sh; fi
+
+      # 潮汐；正式版的程式還沒有潮汐時（發布前）沒有這支腳本，跳過。抓不到時照樣部署並標出警告
+      - name: 抓潮汐預報
+        if: steps.data.outputs.deploy == 'true'
+        run: |
+          if [ -f scripts/fetch-tide.ts ]; then
+            npm run tide || echo "::warning::潮汐預報抓取失敗，這次部署沒有潮汐資料"
+          fi
+        env:
+          CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
 
       - if: steps.data.outputs.deploy == 'true'
         run: npm run build

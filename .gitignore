@@ -8,3 +8,5 @@ dist-e2e/
 .claude/
 shots/
 .env.local
+# 部署時抓的潮汐預報（scripts/fetch-tide.ts）
+public/data/tide.json

@@ -4,7 +4,7 @@
  *
  *   CWA_API_KEY=… npm run tide
  *
- * 每週由 .github/workflows/tide.yml 執行。
+ * 部署時由 .github/workflows/deploy.yml 執行（每週一也重新部署）；產生的檔案不放進 repo。
  */
 import { writeFileSync } from 'node:fs'
 import { parseCwaTide } from '../src/tide'

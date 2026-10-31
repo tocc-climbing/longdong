@@ -3,8 +3,8 @@ import { z } from 'zod'
 
 /**
  * 龍洞的潮汐：中央氣象署「潮汐預報－未來 1 個月」（F-A0021-001）。
- * 授權碼不放前端：每週由 GitHub Actions 抓一次存成 public/data/tide.json（scripts/fetch-tide.ts、.github/workflows/tide.yml），
- * 跟著網站一起離線快取。
+ * 授權碼不放前端：部署時由 GitHub Actions 抓下來存成 public/data/tide.json（scripts/fetch-tide.ts、.github/workflows/deploy.yml，
+ * 每週一也重新部署），跟著網站一起離線快取；不放進 repo，本機開發時沒有這個檔。
  */
 
 /** 氣象署的預報地點裡離岩場最近的 */
