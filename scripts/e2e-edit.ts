@@ -1707,7 +1707,8 @@ try {
   await rp.waitForSelector('.home-today .error')
   check('讀不到天氣：一行錯誤訊息，日出日落照樣顯示', (await rp.locator('.weather-now').count()) === 0 && (await rp.locator('.sun-times').count()) === 1)
   await rp.setViewportSize({ width: 1366, height: 900 })
-  await rp.waitForSelector('.area-list')
+  // 等畫面換成電腦版（區域清單在手機版本來就有，不能拿來等）
+  await rp.waitForSelector('.home-m', { state: 'detached' })
   check('電腦版首頁維持原樣：沒有天氣、交通卡片', (await rp.locator('.home-m').count()) === 0 && (await rp.locator('.area-hero.strip').count()) === 1)
   await rp.unroute('https://api.open-meteo.com/**')
 
