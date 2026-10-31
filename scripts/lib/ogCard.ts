@@ -11,7 +11,7 @@ import { DB_URL } from '../../src/social/model'
 import { pointAlong, smoothPath, type Pt } from '../../src/topo/annotate'
 import { fillShared } from '../../src/topo/lines'
 import { decodeEdit, FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type StoredEdit, type TopoPhoto } from '../../src/topo/model'
-import { routeCrop } from '../../src/topo/viewport'
+import { routeCrop, widenCrop } from '../../src/topo/viewport'
 import { areaMap, D, drawToccMark, fit, holdMark, loadToccImage, MARK, OG_SIZE, ogFonts, plainName, rich, splitLine, textWidth, TYPE_ZH, ZOOM, type Box, type OgMap } from './ogImage'
 
 /** 與 App 深色版相同 */
@@ -22,8 +22,6 @@ const MAP = { sea: '#141819', land: '#2a2a2a', areaLine: '#555555', brand: DARK.
 const LINE = { sport: ['#1565c0', '#1e7bff'], other: ['#c8102e', '#e11d2e'] }
 
 const BAR = 10
-/** 分享卡片的 Topo：路線離畫面中間最多偏這麼多（佔寬度的比例） */
-const OFF_CENTER = 0.15
 const LEFT = 56
 /** 上半部的文字之下是 Topo（或地圖），一直到底，下緣淡出、標誌疊在上面 */
 const LOWER_TOP = 300
@@ -212,14 +210,14 @@ async function drawMap(ctx: SKRSContext2D, box: Box, map: OgMap, area: Area, are
 }
 
 /**
- * 下半部的 Topo：照片灰階、路線周圍原色；裁切同路線卡片（routeCrop，再放寬到框的寬高比），線、起點、終點、編號同 App。
+ * 下半部的 Topo：照片灰階、路線周圍原色；裁切同路線卡片（routeCrop，再放寬到框的寬高比：widenCrop），線、起點、終點、編號同 App。
  * highlight：路線卡片的主角（其他路線淡淡的、小編號放在線的下段）；沒有時（分區）每條路線一樣。
  */
 async function drawTopo(ctx: SKRSContext2D, box: Box, topo: OgTopo, sector: Sector, color = DARK.brand, highlight?: string) {
   const { photo, image } = topo
   const marks = fillShared(topo.marks, sector.routes)
   const base = topo.crop ?? FULL_CROP
-  const crop = widen(photo, highlight ? routeCrop(photo, base, marks[highlight]) : base, base, box.w / box.h)
+  const crop = widenCrop(photo, highlight ? routeCrop(photo, base, marks[highlight]) : base, base, box.w / box.h)
   // 照片像素 → 框裡的座標（照片置中、放得下）
   const [cx, cy, cw, ch] = [(crop.x * photo.width) / SCALE, (crop.y * photo.height) / SCALE, (crop.w * photo.width) / SCALE, (crop.h * photo.height) / SCALE]
   const s = Math.min(box.w / cw, box.h / ch)
@@ -377,24 +375,6 @@ function drawLines(g: SKRSContext2D, marks: Marks, sector: Sector, at: (p: [numb
     g.globalAlpha = 1
   }
   for (const draw of pills) draw()
-}
-
-/**
- * 裁切範圍放寬到 aspect（寬／高，照片像素），不超出照片的裁切範圍 base：
- * 路線（原本的中心）離畫面中間不超過 OFF_CENTER；一邊到了照片的邊緣、再放寬路線會太偏時就不再放寬（照片比框窄，兩邊是卡片底色）
- */
-function widen(photo: { width: number; height: number }, crop: Crop, base: Crop, aspect: number): Crop {
-  const sx = photo.width / SCALE
-  const sy = photo.height / SCALE
-  let w = crop.w * sx
-  let h = crop.h * sy
-  const room = (c: number, size: number, lo: number, len: number) => Math.max(size, Math.min(c - lo, lo + len - c) / (0.5 - OFF_CENTER))
-  if (w / h < aspect) w = Math.min(room((crop.x + crop.w / 2) * sx, w, base.x * sx, base.w * sx), h * aspect)
-  else h = Math.min(room((crop.y + crop.h / 2) * sy, h, base.y * sy, base.h * sy), w / aspect)
-  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi))
-  const x = clamp((crop.x + crop.w / 2) * sx - w / 2, base.x * sx, (base.x + base.w) * sx - w)
-  const y = clamp((crop.y + crop.h / 2) * sy - h / 2, base.y * sy, (base.y + base.h) * sy - h)
-  return { x: x / sx, y: y / sy, w: w / sx, h: h / sy }
 }
 
 /** 圖層裡 r 這一塊的邊緣淡出（各邊淡出的範圍，佔寬或高的比例） */

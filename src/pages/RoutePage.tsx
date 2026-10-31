@@ -19,9 +19,7 @@ import { useWide } from '../layout'
 import { useCloud } from '../personal/sync'
 import { href, useRouteLink } from '../router'
 import { currentRouteUrl, shareText } from '../share'
-import { routeKey, summarize } from '../social/model'
 import { RouteTopos } from '../topo/TopoSection'
-import { useSocial } from '../social/store'
 import { areaSectorColor, NotFound } from './AreaPage'
 
 // 編輯器只有要編輯時才載入
@@ -42,7 +40,6 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
   const { link } = useRouteLink()
   const cloudStatus = useCloud().status
   const signedIn = cloudStatus === 'signed-in'
-  const rating = summarize(useSocial().ratings[routeKey(id)])
   const [tickOpen, setTickOpen] = useState(false)
   const [reviews, setReviews] = useState<ReviewsSheet>()
   const [editing, setEditing] = useInlineEditing(id)
@@ -71,11 +68,6 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
             {route.heightM && <span>{route.heightM} m</span>}
             {qd && <span>{t('type.quickdraws', { n: qd })}</span>}
             {(route.type || route.isFixture) && <span>{route.isFixture ? t('type.fixture') : typeLabel(route.type!, t)}</span>}
-            {rating && (
-              <button type="button" className="route-facts-rating" onClick={() => setReviews('rating')}>
-                ★ {rating.average.toFixed(1)}
-              </button>
-            )}
           </p>
         }
         tools={
@@ -91,10 +83,9 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
           />
         }
         shape={<SectorShape area={area} sector={sector} color={areaSectorColor(area, sector)} single className="area-hero-shape" />}
+        badge={!route.isFixture && <RouteStatus route={route} />}
         compact
       />
-
-      {!route.isFixture && <RouteStatus route={route} />}
 
       {signedIn && !route.isFixture && <PersonalPanel route={route} open={tickOpen} onClose={() => setTickOpen(false)} />}
 
@@ -154,8 +145,8 @@ function safetyLevel(route: Route): Level {
 }
 
 /**
- * 頁面上方只在安全不是綠燈（小心、危險、封閉、待移除）時顯示警告色塊；
- * 正常、尚未評級的不佔版面，安全與拉測的資訊在路線資料（RouteData）。
+ * 標題卡的地圖上只在安全不是綠燈（小心、危險、封閉、待移除）時疊一個警告標示（不佔版面）；
+ * 正常、尚未評級的不顯示；狀態的日期、拉測等資訊在路線資料（RouteData）。
  */
 function RouteStatus({ route }: { route: Route }) {
   const { lang, t } = useLang()
@@ -168,10 +159,7 @@ function RouteStatus({ route }: { route: Route }) {
       <span className="route-status-icon" aria-hidden>
         !
       </span>
-      <span>
-        <strong>{[safety, status].filter(Boolean).join(' · ')}</strong>
-        {route.statusDate && <span className="small">{formatDate(route.statusDate)}</span>}
-      </span>
+      <strong>{[safety, status].filter(Boolean).join(' · ')}</strong>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FULL_CROP } from '../src/topo/model'
-import { clampView, routeCrop } from '../src/topo/viewport'
+import { clampView, routeCrop, widenCrop } from '../src/topo/viewport'
 
 const photo = { width: 2000, height: 1500 }
 const inside = (c: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) => c.x >= b.x && c.y >= b.y && c.x + c.w <= b.x + b.w + 1 && c.y + c.h <= b.y + b.h + 1
@@ -72,6 +72,32 @@ describe('routeCrop', () => {
     expect(c.w).toBeLessThan(base.w)
     const xs = [...line, ...Object.values(bolts)].map(([x]) => x)
     expect(Math.abs(c.x + c.w / 2 - (Math.min(...xs) + Math.max(...xs)) / 2)).toBeLessThan(60)
+  })
+})
+
+describe('widenCrop', () => {
+  const ratio = (c: { w: number; h: number }) => (c.w * photo.width) / (c.h * photo.height)
+
+  it('有空間：放寬到 4:5，路線仍在中間', () => {
+    const crop = { x: 4500, y: 2000, w: 1000, h: 6000 }
+    const c = widenCrop(photo, crop, FULL_CROP, 0.8)
+    expect(ratio(c)).toBeCloseTo(0.8, 3)
+    expect(c.h).toBeCloseTo(crop.h, 3)
+    expect(c.x + c.w / 2).toBeCloseTo(5000, 3)
+    expect(inside(c, FULL_CROP)).toBe(true)
+  })
+
+  it('太扁：放高到 4:5', () => {
+    const c = widenCrop(photo, { x: 2000, y: 4000, w: 6000, h: 2000 }, FULL_CROP, 0.8)
+    expect(ratio(c)).toBeCloseTo(0.8, 3)
+    expect(inside(c, FULL_CROP)).toBe(true)
+  })
+
+  it('照片的裁切範圍不夠寬：不超出裁切範圍（兩邊是卡片底色）', () => {
+    const base = { x: 4000, y: 0, w: 2000, h: 10000 }
+    const c = widenCrop(photo, { x: 4500, y: 1000, w: 1000, h: 8000 }, base, 0.8)
+    expect(inside(c, base)).toBe(true)
+    expect(ratio(c)).toBeLessThan(0.8)
   })
 })
 

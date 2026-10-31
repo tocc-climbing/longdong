@@ -111,3 +111,25 @@ export function routeCrop(photo: { width: number; height: number }, base: Crop, 
   const y = clamp(cy - h / 2, by, by + bh - h)
   return { x: Math.round(x / sx), y: Math.round(y / sy), w: Math.round(w / sx), h: Math.round(h / sy) }
 }
+
+/** 路線卡片、分享卡片的 Topo：路線離畫面中間最多偏這麼多（佔寬度的比例） */
+const OFF_CENTER = 0.15
+
+/**
+ * 裁切範圍放寬到 aspect（寬／高，照片像素），不超出照片的裁切範圍 base：
+ * 路線（原本的中心）離畫面中間不超過 OFF_CENTER；一邊到了照片的邊緣、再放寬路線會太偏時就不再放寬（照片比框窄，兩邊是卡片底色）
+ */
+export function widenCrop(photo: { width: number; height: number }, crop: Crop, base: Crop, aspect: number): Crop {
+  const sx = photo.width / SCALE
+  const sy = photo.height / SCALE
+  let w = crop.w * sx
+  let h = crop.h * sy
+  const room = (c: number, size: number, lo: number, len: number) => Math.min(len, Math.max(size, Math.min(c - lo, lo + len - c) / (0.5 - OFF_CENTER)))
+  if (w / h < aspect) w = Math.min(room((crop.x + crop.w / 2) * sx, w, base.x * sx, base.w * sx), h * aspect)
+  else h = Math.min(room((crop.y + crop.h / 2) * sy, h, base.y * sy, base.h * sy), w / aspect)
+  const x = clampIn((crop.x + crop.w / 2) * sx - w / 2, base.x * sx, (base.x + base.w) * sx - w)
+  const y = clampIn((crop.y + crop.h / 2) * sy - h / 2, base.y * sy, (base.y + base.h) * sy - h)
+  return { x: x / sx, y: y / sy, w: w / sx, h: h / sy }
+}
+
+const clampIn = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi))

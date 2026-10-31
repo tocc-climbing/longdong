@@ -994,8 +994,8 @@ try {
       buttons: f.querySelectorAll('button').length,
       badges: [...f.querySelectorAll('.topo-badge:not(.small) text')].map((t) => t.textContent),
       gray: getComputedStyle(img).filter.includes('grayscale'),
-      edge: getComputedStyle(f.querySelector('.topo-frame')!, '::after').backgroundImage,
-      ring: getComputedStyle(f.querySelector('.topo-frame')!, '::after').boxShadow,
+      tint: getComputedStyle(f.querySelector('.topo-frame')!, '::after').content,
+      ratio: f.getBoundingClientRect().width / f.getBoundingClientRect().height,
       fade: getComputedStyle(f.querySelector('.topo-frame')!).maskImage,
       reveal: f.querySelectorAll('.topo-reveal').length,
       zoomed: parseFloat(img.style.width) > 100,
@@ -1007,7 +1007,8 @@ try {
     cardState.buttons === 0 && cardState.badges.join(',') === topoRoutes[0].number,
     JSON.stringify(cardState),
   )
-  check('手機路線卡片：照片灰階、只有上緣帶區域色並淡入卡片，這條路線周圍是原色，放大到這條路線', cardState.gray && cardState.edge.includes('linear-gradient') && cardState.ring === 'none' &&cardState.fade.includes('gradient') && cardState.reveal === 1 && cardState.zoomed, JSON.stringify(cardState))
+  check('手機路線卡片：照片灰階、上緣淡入卡片的漸層（照片不另外染色），這條路線周圍是原色，放大到這條路線', cardState.gray && cardState.tint === 'none' && cardState.fade.includes('gradient') && cardState.reveal === 1 && cardState.zoomed, JSON.stringify(cardState))
+  check('手機路線卡片：Topo 固定 4:5', Math.abs(cardState.ratio - 0.8) < 0.01, String(cardState.ratio))
   await card.click()
   await vp.waitForSelector('dialog.topo-full[open] .topo-route.on', { timeout: 10000 })
   check('手機路線卡片：點 Topo 開全螢幕，選好這條路線', (await vp.locator('dialog.topo-full[open] .topo-route.on').count()) > 0 && vp.url() === routeUrl, vp.url())
@@ -1116,6 +1117,25 @@ try {
   await vp.waitForSelector('.route-name .zh')
   const routeName = await nameSize('.route-name .zh')
   check('區域、分區、路線清單的名稱同一個字級', homeName === sectorName && sectorName === routeName, [homeName, sectorName, routeName].join(' / '))
+  // 手機路線卡片的標題卡固定高度（名稱長短、有沒有警告都一樣）；警告疊在標題卡上
+  type Hero = { id: string; isFixture?: boolean; safety?: string; name: { zh?: string } }
+  const heroRoutes = data.areas.flatMap((a) => a.sectors).flatMap((x) => x.routes) as unknown as Hero[]
+  const longest = heroRoutes.reduce((a, b) => ((b.name.zh ?? '').length > (a.name.zh ?? '').length ? b : a))
+  // 名稱最長的有警告路線（名稱兩行時難度那一列最低）
+  const warned = heroRoutes.filter((r) => !r.isFixture && (r.safety === 'yellow' || r.safety === 'red')).reduce((a, b) => ((b.name.zh ?? '').length > (a.name.zh ?? '').length ? b : a))
+  const heroes: { h: number; status?: boolean }[] = []
+  for (const r of [topoRoutes[0], longest, warned]) {
+    await vp.goto(base + `route/${r.id}`)
+    await vp.waitForSelector('.route-m .area-hero .route-facts')
+    heroes.push(
+      await vp.locator('.route-m .area-hero').evaluate((el) => {
+        const status = el.parentElement!.querySelector('.route-status')?.getBoundingClientRect()
+        return { h: el.getBoundingClientRect().height, status: status ? status.top >= el.querySelector('.route-facts')!.getBoundingClientRect().bottom : undefined }
+      }),
+    )
+  }
+  check('手機路線卡片：標題卡一樣高（短名稱、最長的名稱、有警告）', heroes.every((x) => x.h === heroes[0].h), JSON.stringify(heroes))
+  check('手機路線卡片：警告疊在標題卡下緣，不壓到難度那一列', heroes[2].status === true, JSON.stringify(heroes))
   await viewer2.ctx.close()
 
   await editor.page.goto(base + 'edit')
@@ -1486,11 +1506,11 @@ try {
   if (warn) {
     await rp.goto(base + `route/${warn.id}`)
     await rp.waitForSelector('.route-facts')
-    check('非綠燈（小心、危險）：上方顯示警告色塊', (await rp.locator('.route-status').count()) === 1)
+    check('非綠燈（小心、危險）：標題卡上顯示警告', (await rp.locator('.area-hero-wrap > .route-status').count()) === 1)
   }
   await rp.goto(base + `route/${green.id}`)
   await rp.waitForSelector('.route-facts')
-  check('綠燈：上方沒有安全色塊', (await rp.locator('.route-status').count()) === 0)
+  check('綠燈：標題卡上沒有警告', (await rp.locator('.route-status').count()) === 0)
   // 路線卡片：難度、長度、快扣、種類在標題卡裡；說明沒有標題；路線資料一行一項，Bolt 只有摘要，明細點了才展開
   check('難度、長度、快扣、種類在標題卡裡（卡片外沒有另一列）', (await rp.locator('.area-hero .route-facts .route-grade').count()) === 1 && (await rp.locator('.route-facts').count()) === 1)
   check('路線頁的難度沒有難度底色', (await rp.locator('.route-facts .grade-pill').count()) === 0 && (await rp.locator('.route-facts .route-grade').evaluate((el) => getComputedStyle(el).backgroundColor)) === 'rgba(0, 0, 0, 0)')
@@ -1537,6 +1557,7 @@ try {
   await rp.waitForSelector('.reviews-latest')
   const bar = ((await rp.locator('.reviews-bar-icons').textContent()) ?? '').trim()
   check('評價與留言：只有圖示與數字（沒有「評價與留言」「則留言」等文字）', /^[\d.\s]+$/.test(bar) && (await rp.locator('.reviews-icon svg').count()) >= 2 && (await rp.locator('.reviews').count()) === 0, bar)
+  check('有評分的路線：評分只在卡片下方，標題卡沒有', /\d\.\d/.test(bar) && !((await rp.locator('.area-hero').textContent()) ?? '').includes('★'), bar)
   check('評價與留言：預覽最新一則', ((await rp.locator('.reviews-latest').textContent()) ?? '').includes('e2e 留言 5'))
   // 評分：點星星從下方滑出；點一顆星評分，再點同一顆取消（沒有「你的評分」「刪除我的評分」）
   await rp.locator('.reviews-icon.rating').click()

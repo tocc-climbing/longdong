@@ -3438,30 +3438,23 @@ main.map > div {
   font-weight: 700;
 }
 
-.route-facts-rating {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-/* 安全與狀態合併的色塊 */
+/* 安全與狀態：疊在標題卡的右下角（.area-hero-wrap），不佔標題卡的高度 */
 .route-status {
   --tone: var(--faint);
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 4px 0 14px;
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--tone) 13%, var(--surface));
-  color: color-mix(in srgb, var(--tone) 70%, var(--text));
-}
-
-.route-status.ok {
-  --tone: #1f8a4c;
+  gap: 6px;
+  max-width: 42%;
+  padding: 4px 10px 4px 4px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tone) 80%, #000);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1.25;
 }
 
 .route-status.warn {
@@ -3472,24 +3465,15 @@ main.map > div {
   --tone: #d40442;
 }
 
-.route-status > span:last-child {
-  display: grid;
-  gap: 2px;
-}
-
-.route-status .small {
-  color: var(--muted);
-}
-
 .route-status-icon {
   flex: none;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--tone);
-  color: #fff;
+  background: #fff;
+  color: var(--tone);
   font-weight: 900;
 }
 
@@ -4589,11 +4573,26 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 }
 
 /*
- * 路線卡片的 Topo：和上面標題卡的地圖連成一整塊——照片撐滿卡片的寬度、上緣淡入卡片的漸層、左右下緣淡出，
- * 只有上緣帶一點區域色；照片灰階（同編輯器），只有這條路線周圍是原色（RouteReveal），其他路線淡淡的
+ * 路線卡片的 Topo：和上面標題卡連成一整塊——固定 4:5（ROUTE_TOPO_ASPECT），上緣淡入卡片的區域色漸層、左右下緣淡出；
+ * 照片不夠寬時（narrow）置中，兩邊是卡片底色。照片灰階（同編輯器），只有這條路線周圍是原色（RouteReveal），其他路線淡淡的
  */
 [data-layout] .route-m .route-topo {
   margin: -6px -16px 0 -14px;
+}
+
+.route-topo {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+}
+
+.route-topo .topo-frame {
+  width: 100%;
+}
+
+.route-topo.narrow .topo-frame {
+  width: auto;
+  height: 100%;
 }
 
 .route-topo .topo-frame {
@@ -4607,22 +4606,6 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 
 .route-topo .topo-frame > img {
   filter: grayscale(1) contrast(0.8);
-}
-
-/* 只有上緣帶區域色，接上標題卡的漸層；其餘維持灰階 */
-.route-topo .topo-frame::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--area-color, var(--brand)) 45%, transparent), transparent 30%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-}
-
-.route-topo .topo-frame.ready::after {
-  opacity: 1;
 }
 
 .route-topo .topo-frame > svg {
@@ -5621,6 +5604,55 @@ html {
   -webkit-mask-composite: source-in;
   mask-image: linear-gradient(to right, transparent, #000 22%), linear-gradient(to bottom, #000 55%, transparent);
   mask-composite: intersect;
+}
+
+/*
+ * 手機版：標題卡固定高度（名稱最多兩行，其他各一行），每條路線的 Topo 都從同一個位置開始；
+ * 卡片的區域色漸層在標題卡下緣開始淡出，和 Topo 上緣的淡入重疊，接成一段
+ */
+[data-layout='mobile'] .route-m {
+  --route-hero-h: 208px;
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--area-color) 14%, var(--surface)) var(--route-hero-h), var(--surface) calc(var(--route-hero-h) + 140px)),
+    var(--surface);
+}
+
+[data-layout='mobile'] .route-m .area-hero {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  height: var(--route-hero-h);
+  min-height: 0;
+}
+
+/* 警告放在標題卡與 Topo 之間的空白：名稱兩行時也不會壓到難度那一列 */
+[data-layout='mobile'] .route-m .route-status {
+  bottom: -10px;
+}
+
+/* 文字撐滿卡片的寬度（地圖在下層）；麵包屑讓開右上角的工具 */
+[data-layout='mobile'] .route-m .area-hero-crag {
+  padding-right: 96px;
+}
+
+[data-layout='mobile'] .route-m .area-hero h1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+[data-layout='mobile'] .route-m :is(.area-hero-crag, .page-sub, .route-facts) {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+[data-layout='mobile'] .route-m .route-facts {
+  display: block;
+}
+
+[data-layout='mobile'] .route-m .route-facts > * + * {
+  margin-left: 12px;
 }
 
 [data-layout] .route-m .route-block {

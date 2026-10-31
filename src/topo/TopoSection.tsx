@@ -9,7 +9,7 @@ import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
 import { px, RouteReveal, routeInfo, TopoFrame, TopoLines } from './TopoView'
-import { routeCrop } from './viewport'
+import { routeCrop, widenCrop } from './viewport'
 import { ZoomPane } from './ZoomPane'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
@@ -76,9 +76,12 @@ export function SectorTopos({ sector, onEdit }: { sector: Sector; onEdit?: (phot
   )
 }
 
+/** 路線卡片的 Topo 固定的寬高比（同 styles.css 的 .route-topo）；照片不夠寬時兩邊是卡片底色（narrow） */
+const ROUTE_TOPO_ASPECT = 4 / 5
+
 /**
  * 路線頁：有標記這條路線的 Topo（直接放在卡片裡，沒有標題、沒有按鈕），這條路線是唯一的主角：
- * 照片放大到這條路線附近、灰階並染上區域的顏色，只有這條路線周圍是原色；其他路線淡淡的、不標編號。
+ * 照片放大到這條路線附近、灰階，只有這條路線周圍是原色；其他路線淡淡的、不標編號。
  * 點照片開全螢幕；手機版（onEdit）全螢幕裡的「編輯」在這一頁編輯這張照片；沒有 Topo 時整段不顯示。
  */
 export function RouteTopos({ sector, routeId, onEdit }: { sector: Sector; routeId: string; onEdit?: (photo: string) => void }) {
@@ -93,10 +96,12 @@ export function RouteTopos({ sector, routeId, onEdit }: { sector: Sector; routeI
     <section className="route-block topos" aria-label={t('topo.title')}>
       {topos.map((topo) => {
         const marks = fillShared(topo.latest!.marks, sector.routes)
-        const crop = routeCrop(topo.photo, topo.latest!.crop ?? FULL_CROP, marks[routeId])
+        const base = topo.latest!.crop ?? FULL_CROP
+        const crop = widenCrop(topo.photo, routeCrop(topo.photo, base, marks[routeId]), base, ROUTE_TOPO_ASPECT)
+        const [cw, ch] = px(topo.photo, [crop.w, crop.h])
         const line = marks[routeId]?.line
         return (
-          <TopoFigure key={topo.photo.id} className="topo route-topo" onOpen={() => setOpen(topo)} label={t('topo.fullscreen')}>
+          <TopoFigure key={topo.photo.id} className={`topo route-topo${cw / ch < ROUTE_TOPO_ASPECT ? ' narrow' : ''}`} onOpen={() => setOpen(topo)} label={t('topo.fullscreen')}>
             <TopoFrame photo={topo.photo} crop={crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
               {(k) => (
                 <>
