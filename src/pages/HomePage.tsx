@@ -18,7 +18,7 @@ import { localName, useLang } from '../i18n'
 /** 首頁標題卡的顏色：岩石的灰藍，和各區域的顏色（音樂廳是藍色）都不同 */
 const CRAG_COLOR = '#8fa3b0'
 
-/** 天氣、日出日落、導航的位置：岩場入口（救援點 #2） */
+/** 天氣、日出日落的位置：岩場入口（救援點 #2） */
 const ENTRANCE = (() => {
   const coords = RESCUE_POINTS.find((p) => p.key === '2')?.coords
   if (!coords) throw new Error('救援資料缺少岩場入口（#2）的座標')
@@ -170,11 +170,14 @@ function Tides({ tide, date }: { tide: ReturnType<typeof useTide>; date: string 
   )
 }
 
-/** 交通：Google 地圖的路線規劃（開車的有即時路況），目的地是岩場入口 */
+/** 導航的目的地：和美國小（交通部 TDX 的「和美國小」公車站牌，學校旁邊） */
+const HEMEI_SCHOOL = '25.112353,121.919128'
+
+/** 交通：Google 地圖的路線規劃（開車的有即時路況），目的地是和美國小 */
 function Transport() {
   const { t } = useLang()
   const directions = (mode: 'driving' | 'transit') =>
-    `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination: ENTRANCE.join(','), travelmode: mode })}`
+    `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination: HEMEI_SCHOOL, travelmode: mode })}`
   return (
     <section className="route-block home-transport">
       <h2>{t('home.transport')}</h2>

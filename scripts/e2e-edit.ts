@@ -1732,7 +1732,7 @@ try {
   check('首頁：日出、日落、預報來源與時間', /日出\s*\d\d:\d\d.*日落\s*\d\d:\d\d/.test((await rp.locator('.sun-times').textContent()) ?? '') && ((await rp.locator('.weather-source').textContent()) ?? '') === 'Open-Meteo 預報 · 21:15 · 潮汐：中央氣象署')
   check('首頁潮汐：今天的潮差與乾潮、滿潮時間', ((await rp.locator('.tide-times').textContent()) ?? '').replace(/\s+/g, '') === '大潮乾潮05:11滿潮14:01', (await rp.locator('.tide-times').textContent()) ?? '')
   const directions = (await rp.locator('.home-links a').evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).href))).map((u) => new URL(u).searchParams)
-  check('交通：Google 地圖開車（路況）與大眾運輸，目的地是岩場入口', directions.length === 2 && directions.every((p) => p.get('destination') === '25.113133,121.92035') && directions[0].get('travelmode') === 'driving' && directions[1].get('travelmode') === 'transit')
+  check('交通：Google 地圖開車（路況）與大眾運輸，目的地是和美國小', directions.length === 2 && directions.every((p) => p.get('destination') === '25.112353,121.919128') && directions[0].get('travelmode') === 'driving' && directions[1].get('travelmode') === 'transit')
   const viewed = (await rp.locator('.home-recent .route-row').allTextContents()).join('|')
   check('最近查過：看超過 10 秒的路線在最前面', ((await rp.locator('.home-recent .route-row').first().textContent()) ?? '').includes(longView.name.zh), viewed)
   check('最近查過：只看 2 秒的不算', !viewed.includes(glance.name.zh), viewed)
