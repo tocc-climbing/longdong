@@ -15,6 +15,7 @@ describe('parseLocation', () => {
     expect(parseLocation('/me')).toEqual({ name: 'me' })
     expect(parseLocation('/search?q=5.12')).toEqual({ name: 'search', q: '5.12' })
     expect(parseLocation('/search')).toEqual({ name: 'search', q: '' })
+    expect(parseLocation('/topo-lab')).toEqual({ name: 'topoLab' })
     expect(parseLocation('/?q=5.12')).toEqual({ name: 'home' })
     expect(parseLocation('')).toEqual({ name: 'home' })
     expect(parseLocation('/')).toEqual({ name: 'home' })

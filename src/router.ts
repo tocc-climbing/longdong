@@ -27,6 +27,8 @@ export type Page = (
   | { name: 'checklist' }
   /** Topo 編輯（電腦版）；id 是照片 id */
   | { name: 'topo'; id: string }
+  /** Topo 實驗室（免登入手機手勢與 JSON 實驗） */
+  | { name: 'topoLab' }
   /** 編輯模式：kind 是 map（地圖編輯的對象）、topo（照片 id）、text（說明的對象）；沒有時顯示目錄 */
   | { name: 'edit'; kind?: EditKind; id?: string }
   /** 不是 App 的頁面（例如 /terms.html 等靜態檔案）：站內連結不攔，直接載入時顯示找不到頁面 */
@@ -61,6 +63,7 @@ export function parseLocation(location: string): Page {
   if (kind === 'admin') return { name: 'admin' }
   if (kind === 'bolts') return { name: 'bolts' }
   if (kind === 'checklist') return { name: 'checklist' }
+  if (kind === 'topo-lab') return { name: 'topoLab' }
   if (kind === 'topo' && id) return { name: 'topo', id }
   if (kind === 'edit') {
     const [editKind, ...itemId] = rest
@@ -104,6 +107,8 @@ export const href = {
   bolts: () => '/bolts',
   /** 路線清單：快速記錄每條路線的最佳攀登方式與評分（我的 → 路線清單） */
   checklist: () => '/checklist',
+  /** Topo 實驗室：隔離測試手勢與 JSON 匯出入 */
+  topoLab: () => '/topo-lab',
   /** Topo 編輯（電腦版） */
   /** Topo 編輯在編輯模式裡（舊的 /topo/<照片> 也會開編輯模式） */
   topo: (id: string) => `/edit/topo/${id}`,

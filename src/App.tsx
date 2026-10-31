@@ -35,6 +35,8 @@ const ChecklistPage = lazy(() => import('./pages/ChecklistPage').then((m) => ({ 
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 /** Topo 編輯（電腦版） */
 const EditPage = lazy(() => import('./edit/EditPage').then((m) => ({ default: m.EditPage })))
+/** Topo 實驗室（免登入手機手勢與 JSON 實驗） */
+const TopoLabPage = lazy(() => import('./topo/TopoLabPage').then((m) => ({ default: m.TopoLabPage })))
 
 export function App() {
   const state = useData()
@@ -127,7 +129,7 @@ export function App() {
           <Sidebar page={page} data={data} kbdLevel={kbdLevel} />
           <div className={`shell-main${view?.split ? ' split' : ''}`}>
             {/* 編輯模式蓋滿整個視窗（edit.css）：提示條要浮在上面，否則被蓋住、看不到有新版本 */}
-            {page.name === 'edit' || page.name === 'topo' ? banner && <div className="banner-over">{banner}</div> : banner}
+            {page.name === 'edit' || page.name === 'topo' || page.name === 'topoLab' ? banner && <div className="banner-over">{banner}</div> : banner}
             <SimulationBanner />
             <main className={page.name === 'map' ? 'map' : view?.split ? 'split' : view?.roomy ? 'roomy' : undefined}>{content}</main>
           </div>
@@ -221,6 +223,12 @@ function PageView({ page, data, offline }: { page: Page; data: LoadedData; offli
       return (
         <Suspense>
           <EditPage data={data} kind={page.name === 'topo' ? 'topo' : page.kind} id={page.id} />
+        </Suspense>
+      )
+    case 'topoLab':
+      return (
+        <Suspense>
+          <TopoLabPage data={data} />
         </Suspense>
       )
     case 'notFound':

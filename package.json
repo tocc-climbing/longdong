@@ -26,7 +26,8 @@
     "idb": "^8.0.4",
     "minisearch": "^7.2.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-zoom-pan-pinch": "^4.2.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^6.0.0",

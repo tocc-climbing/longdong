@@ -6248,3 +6248,87 @@ dialog.topo-upload-crop::backdrop {
 .topo-upload-crop-actions .action:first-child {
   margin-right: auto;
 }
+
+/* ---------- Topo 實驗室（/topo-lab） ---------- */
+.topo-lab {
+  --catalog-col: 0px;
+}
+
+.topo-lab-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topo-lab-photos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.topo-lab-photos .chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.topo-lab-photos .chip.active {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.topo-lab-modes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topo-lab-transform-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.topo-lab-transform-content {
+  width: 100% !important;
+}
+
+.topo-lab-panel {
+  padding: 12px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.topo-lab-json {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.topo-lab-json textarea {
+  width: 100%;
+  font-family: monospace;
+  font-size: 0.75rem;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  resize: vertical;
+}
+
+.topo-lab-json-actions {
+  display: flex;
+  gap: 8px;
+}
+
