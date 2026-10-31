@@ -3438,42 +3438,36 @@ main.map > div {
   font-weight: 700;
 }
 
-/* 安全與狀態：疊在標題卡的右下角（.area-hero-wrap），不佔標題卡的高度 */
+/* 安全不是綠燈時，難度那一列的下一列：「(!) 危險」 */
 .route-status {
   --tone: var(--faint);
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2;
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 42%;
-  padding: 4px 10px 4px 4px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--tone) 80%, #000);
-  color: #fff;
-  font-size: 0.8rem;
-  line-height: 1.25;
+  margin: 4px 0 0;
+  color: var(--tone);
+  font-weight: 700;
+  line-height: 18px;
 }
 
 .route-status.warn {
-  --tone: #d99a00;
+  --tone: var(--warn);
 }
 
 .route-status.danger {
-  --tone: #d40442;
+  --tone: var(--danger);
 }
 
 .route-status-icon {
   flex: none;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #fff;
-  color: var(--tone);
+  background: var(--tone);
+  color: var(--surface);
+  font-size: 0.75rem;
   font-weight: 900;
 }
 
@@ -5607,11 +5601,11 @@ html {
 }
 
 /*
- * 手機版：標題卡固定高度（名稱最多兩行，其他各一行），每條路線的 Topo 都從同一個位置開始；
+ * 手機版：標題卡固定高度（名稱最多兩行，其他各一行，留一行給警告），每條路線的 Topo 都從同一個位置開始；
  * 卡片的區域色漸層在標題卡下緣開始淡出，和 Topo 上緣的淡入重疊，接成一段
  */
 [data-layout='mobile'] .route-m {
-  --route-hero-h: 208px;
+  --route-hero-h: 224px;
   background:
     linear-gradient(to bottom, color-mix(in srgb, var(--area-color) 14%, var(--surface)) var(--route-hero-h), var(--surface) calc(var(--route-hero-h) + 140px)),
     var(--surface);
@@ -5623,11 +5617,6 @@ html {
   align-items: start;
   height: var(--route-hero-h);
   min-height: 0;
-}
-
-/* 警告放在標題卡與 Topo 之間的空白：名稱兩行時也不會壓到難度那一列 */
-[data-layout='mobile'] .route-m .route-status {
-  bottom: -10px;
 }
 
 /* 文字撐滿卡片的寬度（地圖在下層）；麵包屑讓開右上角的工具 */

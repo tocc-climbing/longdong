@@ -21,7 +21,6 @@ export function PageHero({
   facts,
   tools,
   shape,
-  badge,
   wide,
   compact,
   strip,
@@ -35,8 +34,6 @@ export function PageHero({
   facts?: ReactNode
   tools?: ReactNode
   shape: ReactNode
-  /** 疊在標題卡右下角的標示（路線狀態），不佔標題卡的高度 */
-  badge?: ReactNode
   wide?: { facts: ReactNode; chart: ReactNode }
   compact?: boolean
   strip?: boolean
@@ -65,7 +62,6 @@ export function PageHero({
         {wide?.chart}
         {shape}
       </div>
-      {badge}
     </div>
   )
 }

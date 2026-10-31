@@ -27,7 +27,7 @@ const InlineTopoEditor = lazy(() => import('../topo/TopoEditor').then((m) => ({ 
 
 /**
  * 路線頁（手機版與電腦版的右側相同）：整頁是一張路線卡片。上方是標題卡（與區域、分區頁相同；右上是收藏、回報位置、更多），
- * 名稱下面是難度、長度、快扣、種類；接著是安全與狀態合併的一個色塊、Topo、說明（直接顯示內容）、路線資料（安全與拉測、首攀、
+ * 名稱下面是難度、長度、快扣、種類，不是綠燈時下一列是警告；接著是 Topo、說明（直接顯示內容）、路線資料（安全與拉測、首攀、
  * Bolt 的摘要，明細點了才展開）；最後是評價與留言（預設收起，只看到摘要與最新一則）。
  * 手機版點說明在卡片裡編輯，點 Topo 開全螢幕、按裡面的「編輯」才打開整個畫面的 Topo 編輯器（都不換頁；「更多」選單的編輯也一樣）；左右滑動換到上一張、下一張卡片。
  */
@@ -63,12 +63,15 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
         name={name.main}
         sub={[route.number && `#${route.number}`, name.sub].filter(Boolean).join(' · ')}
         facts={
-          <p className="route-facts">
-            {route.grade && <span className="route-grade">{route.grade}</span>}
-            {route.heightM && <span>{route.heightM} m</span>}
-            {qd && <span>{t('type.quickdraws', { n: qd })}</span>}
-            {(route.type || route.isFixture) && <span>{route.isFixture ? t('type.fixture') : typeLabel(route.type!, t)}</span>}
-          </p>
+          <>
+            <p className="route-facts">
+              {route.grade && <span className="route-grade">{route.grade}</span>}
+              {route.heightM && <span>{route.heightM} m</span>}
+              {qd && <span>{t('type.quickdraws', { n: qd })}</span>}
+              {(route.type || route.isFixture) && <span>{route.isFixture ? t('type.fixture') : typeLabel(route.type!, t)}</span>}
+            </p>
+            {!route.isFixture && <RouteStatus route={route} />}
+          </>
         }
         tools={
           <TitleTools
@@ -83,7 +86,6 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
           />
         }
         shape={<SectorShape area={area} sector={sector} color={areaSectorColor(area, sector)} single className="area-hero-shape" />}
-        badge={!route.isFixture && <RouteStatus route={route} />}
         compact
       />
 
@@ -145,22 +147,20 @@ function safetyLevel(route: Route): Level {
 }
 
 /**
- * 標題卡的地圖上只在安全不是綠燈（小心、危險、封閉、待移除）時疊一個警告標示（不佔版面）；
- * 正常、尚未評級的不顯示；狀態的日期、拉測等資訊在路線資料（RouteData）。
+ * 難度那一列的下一列：安全不是綠燈（小心、危險、封閉、待移除）時只寫「小心」或「危險」；
+ * 正常、尚未評級的不顯示；狀態（封閉等）、日期、拉測在路線資料（RouteData）。
  */
 function RouteStatus({ route }: { route: Route }) {
-  const { lang, t } = useLang()
+  const { t } = useLang()
   const level = safetyLevel(route)
   if (level === 'ok' || level === 'unknown') return null
-  const safety = t(level === 'danger' ? 'safety.red' : 'safety.yellow')
-  const status = route.status && (lang === 'zh' ? route.statusLabel : t(`status.${route.status}`))
   return (
-    <div className={`route-status ${level}`} role={level === 'danger' ? 'alert' : undefined}>
+    <p className={`route-status ${level}`} role={level === 'danger' ? 'alert' : undefined}>
       <span className="route-status-icon" aria-hidden>
         !
       </span>
-      <strong>{[safety, status].filter(Boolean).join(' · ')}</strong>
-    </div>
+      {t(level === 'danger' ? 'safety.red' : 'safety.yellow')}
+    </p>
   )
 }
 

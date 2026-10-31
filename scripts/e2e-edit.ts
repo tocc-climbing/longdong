@@ -1117,7 +1117,7 @@ try {
   await vp.waitForSelector('.route-name .zh')
   const routeName = await nameSize('.route-name .zh')
   check('區域、分區、路線清單的名稱同一個字級', homeName === sectorName && sectorName === routeName, [homeName, sectorName, routeName].join(' / '))
-  // 手機路線卡片的標題卡固定高度（名稱長短、有沒有警告都一樣）；警告疊在標題卡上
+  // 手機路線卡片的標題卡固定高度（名稱長短、有沒有警告都一樣）；警告在難度那一列的下一列
   type Hero = { id: string; isFixture?: boolean; safety?: string; name: { zh?: string } }
   const heroRoutes = data.areas.flatMap((a) => a.sectors).flatMap((x) => x.routes) as unknown as Hero[]
   const longest = heroRoutes.reduce((a, b) => ((b.name.zh ?? '').length > (a.name.zh ?? '').length ? b : a))
@@ -1129,13 +1129,15 @@ try {
     await vp.waitForSelector('.route-m .area-hero .route-facts')
     heroes.push(
       await vp.locator('.route-m .area-hero').evaluate((el) => {
-        const status = el.parentElement!.querySelector('.route-status')?.getBoundingClientRect()
-        return { h: el.getBoundingClientRect().height, status: status ? status.top >= el.querySelector('.route-facts')!.getBoundingClientRect().bottom : undefined }
+        const status = el.querySelector('.route-status')?.getBoundingClientRect()
+        const facts = el.querySelector('.route-facts')!.getBoundingClientRect()
+        const hero = el.getBoundingClientRect()
+        return { h: hero.height, status: status ? status.top >= facts.bottom && status.left === facts.left && status.bottom <= hero.bottom : undefined }
       }),
     )
   }
   check('手機路線卡片：標題卡一樣高（短名稱、最長的名稱、有警告）', heroes.every((x) => x.h === heroes[0].h), JSON.stringify(heroes))
-  check('手機路線卡片：警告疊在標題卡下緣，不壓到難度那一列', heroes[2].status === true, JSON.stringify(heroes))
+  check('手機路線卡片：警告在難度那一列的下一列、左邊對齊，名稱兩行時也在標題卡裡', heroes[2].status === true, JSON.stringify(heroes))
   await viewer2.ctx.close()
 
   await editor.page.goto(base + 'edit')
@@ -1509,7 +1511,7 @@ try {
   if (warn) {
     await rp.goto(base + `route/${warn.id}`)
     await rp.waitForSelector('.route-facts')
-    check('非綠燈（小心、危險）：標題卡上顯示警告', (await rp.locator('.area-hero-wrap > .route-status').count()) === 1)
+    check('非綠燈（小心、危險）：標題卡上顯示警告', (await rp.locator('.area-hero .route-status').count()) === 1)
   }
   await rp.goto(base + `route/${green.id}`)
   await rp.waitForSelector('.route-facts')
