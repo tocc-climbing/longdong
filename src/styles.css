@@ -6248,3 +6248,106 @@ dialog.topo-upload-crop::backdrop {
 .topo-upload-crop-actions .action:first-child {
   margin-right: auto;
 }
+
+/* ---------- 手機版首頁：標題卡、天氣、交通、最近去過連成一張卡片（和路線卡片 .route-m 同一套） ---------- */
+
+.weather-now {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.weather-temp {
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-desc {
+  display: grid;
+  min-width: 0;
+}
+
+.weather-cond {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* 接下來 12 小時，每兩小時一格：時間、溫度、降雨機率 */
+.weather-hours {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-hours li {
+  display: grid;
+  gap: 2px;
+}
+
+.weather-rain {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.weather-rain.wet {
+  color: var(--link);
+  font-weight: 700;
+}
+
+.sun-times {
+  display: flex;
+  gap: 18px;
+  margin: 14px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-source {
+  margin: 6px 0 0;
+}
+
+.home-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-links .action {
+  display: inline-flex;
+  align-items: center;
+}
+
+.home-links .action:hover {
+  text-decoration: none;
+}
+
+.home-recent-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.home-recent-head a {
+  font-weight: 600;
+}
+
+.home-recent .timeline h3 {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* 卡片裡的清單不再框一層 */
+.home-recent .list-card {
+  border: 0;
+  background: transparent;
+}
+
+.home-recent .timeline-item {
+  padding: 8px 0;
+}

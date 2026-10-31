@@ -136,9 +136,19 @@ export function recentActivity(ticks: Tick[], now = new Date()): Activity | unde
 
 /** 依月份（YYYY-MM）分組（新到舊），給時間軸用 */
 export function groupByMonth(ticks: Tick[]): { key: string; ticks: Tick[] }[] {
+  return groupBy(ticks, (t) => t.date.slice(0, 7))
+}
+
+/** 最近去過的 n 天（新到舊），每天一組；key 是日期 YYYY-MM-DD */
+export function recentVisits(ticks: Tick[], n: number): { key: string; ticks: Tick[] }[] {
+  return groupBy(ticks, (t) => t.date).slice(0, n)
+}
+
+/** ticks 已依日期新到舊排好：相鄰同一個 key 的放在一組 */
+function groupBy(ticks: Tick[], keyOf: (t: Tick) => string): { key: string; ticks: Tick[] }[] {
   const groups: { key: string; ticks: Tick[] }[] = []
   for (const t of ticks) {
-    const key = t.date.slice(0, 7)
+    const key = keyOf(t)
     let g = groups[groups.length - 1]
     if (!g || g.key !== key) {
       g = { key, ticks: [] }

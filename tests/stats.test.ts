@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Route } from '../src/data/schema'
 import type { Tick } from '../src/personal/model'
-import { gradePyramid, groupByMonth, recentActivity, sendStyles } from '../src/personal/stats'
+import { gradePyramid, groupByMonth, recentActivity, recentVisits, sendStyles } from '../src/personal/stats'
 
 const tick = (routeId: string, date: string, style: Tick['style'] = 'redpoint'): Tick => ({
   id: `${routeId}-${date}-${style}`, routeId, date, style, createdAt: 'x', updatedAt: 'x',
@@ -116,6 +116,16 @@ describe('groupByMonth', () => {
     expect(g.map((x) => [x.key, x.ticks.length])).toEqual([
       ['2026-10', 2],
       ['2026-09', 1],
+    ])
+  })
+})
+
+describe('recentVisits', () => {
+  it('同一天的放在一組，只取最近 n 天', () => {
+    const v = recentVisits([tick('a', '2026-10-26'), tick('b', '2026-10-26'), tick('c', '2026-10-19'), tick('d', '2026-10-05')], 2)
+    expect(v.map((x) => [x.key, x.ticks.map((t) => t.routeId)])).toEqual([
+      ['2026-10-26', ['a', 'b']],
+      ['2026-10-19', ['c']],
     ])
   })
 })

@@ -66,6 +66,17 @@ export default defineConfig({
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+          // 首頁的天氣（Open-Meteo）：有網路時讀最新，離線時顯示最後一次讀到的（畫面上有預報的時間）
+          {
+            urlPattern: /^https:\/\/api\.open-meteo\.com\/v1\/forecast/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'weather',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 2 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           // 航照圖磚（國土測繪中心，允許 CORS）：同一張圖磚內容不變，看過的直接用快取；地圖頁也可以一次下載整個範圍（src/map/ortho.ts）
           {
             urlPattern: /^https:\/\/wmts\.nlsc\.gov\.tw\/wmts\/PHOTO2\//,

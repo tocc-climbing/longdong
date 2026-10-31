@@ -22,7 +22,7 @@ const put = async (path: string, body: unknown) => {
 
 /** 龍洞的資料：找一個有至少三條編號路線的分區放 Topo，校門口所在的分區放岩壁 */
 const data = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as {
-  areas: { id: string; name: { zh: string }; sectors: { id: string; name: { zh: string }; routes: { id: string; number?: string; bolts?: unknown[]; anchors?: unknown[] }[] }[] }[]
+  areas: { id: string; name: { zh: string }; sectors: { id: string; name: { zh: string }; routes: { id: string; number?: string; name: { zh: string }; bolts?: unknown[]; anchors?: unknown[] }[] }[] }[]
 }
 // 有至少三條編號路線、而且前三條都有 bolt／anchor 位置的分區（測試 bolt 位置的按鈕要用）
 const topoSector = data.areas
@@ -1656,6 +1656,36 @@ try {
   const backward = frames.some((f, i) => i > 0 && f.o >= 0.5 && frames[i - 1].o >= 0.5 && f.x < frames[i - 1].x - 4)
   check('觸控：往右滑換到上一條，畫面不會往左跳（舊頁面往右滑出、新頁面從左邊進來）', tapper.page.url() !== fromUrl && !backward, frames.map((f) => `${Math.round(f.x)}/${f.o.toFixed(1)}`).join(' '))
   await tapper.ctx.close()
+
+  // ── 10. 手機版首頁：天氣（Open-Meteo 換成固定的回應）、日出日落、交通、最近去過；電腦版沒有 ──
+  const weatherSample = readFileSync('tests/fixtures/open-meteo.json', 'utf8')
+  await rp.route('https://api.open-meteo.com/**', (r) => r.fulfill({ contentType: 'application/json', body: weatherSample }))
+  await rp.setViewportSize({ width: 390, height: 844 })
+  await rp.goto(base + `route/${topoRoutes[2].id}`)
+  await tool('更多').click()
+  await rp.getByRole('menuitem', { name: '記錄攀登' }).click()
+  await rp.locator('.tick-sheet button[type=submit]').click()
+  await rp.waitForSelector('.sheet[open]', { state: 'detached' })
+  await rp.goto(base)
+  await rp.waitForSelector('.home-m .weather-now')
+  check('首頁天氣：目前溫度、天氣與風', ((await rp.locator('.weather-now').textContent()) ?? '').replace(/\s+/g, '') === '23°毛毛雨風5m/s·陣風11·濕度90%', (await rp.locator('.weather-now').textContent()) ?? '')
+  const hours = await rp.locator('.weather-hours li').allTextContents()
+  check('首頁天氣：接下來 12 小時每兩小時一格，從下一個整點開始', hours.length === 6 && hours[0] === '22:0023°65%' && hours[5].startsWith('08:00'), hours.join('|'))
+  check('首頁：日出、日落、預報來源與時間', /日出\s*\d\d:\d\d.*日落\s*\d\d:\d\d/.test((await rp.locator('.sun-times').textContent()) ?? '') && ((await rp.locator('.weather-source').textContent()) ?? '') === 'Open-Meteo 預報 · 21:15')
+  const directions = (await rp.locator('.home-links a').evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).href))).map((u) => new URL(u).searchParams)
+  check('交通：Google 地圖開車（路況）與大眾運輸，目的地是岩場入口', directions.length === 2 && directions.every((p) => p.get('destination') === '25.113133,121.92035') && directions[0].get('travelmode') === 'driving' && directions[1].get('travelmode') === 'transit')
+  const recent = rp.locator('.home-recent')
+  check('最近去過：剛記錄的路線出現在今天那一組', ((await recent.locator('.timeline').first().textContent()) ?? '').includes(topoRoutes[2].name.zh), (await recent.textContent()) ?? '')
+  check('首頁的區域清單還在卡片下面', (await rp.locator('.home-m ~ .area-list .area-row').count()) === data.areas.length)
+  await rp.unroute('https://api.open-meteo.com/**')
+  await rp.route('https://api.open-meteo.com/**', (r) => r.abort())
+  await rp.reload()
+  await rp.waitForSelector('.home-today .error')
+  check('讀不到天氣：一行錯誤訊息，日出日落照樣顯示', (await rp.locator('.weather-now').count()) === 0 && (await rp.locator('.sun-times').count()) === 1)
+  await rp.setViewportSize({ width: 1366, height: 900 })
+  await rp.waitForSelector('.area-list')
+  check('電腦版首頁維持原樣：沒有天氣、交通卡片', (await rp.locator('.home-m').count()) === 0 && (await rp.locator('.area-hero.strip').count()) === 1)
+  await rp.unroute('https://api.open-meteo.com/**')
 
   await admin.ctx.close()
   await editor.ctx.close()
