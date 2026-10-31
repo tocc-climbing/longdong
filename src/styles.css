@@ -4590,7 +4590,7 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 
 /*
  * 路線卡片的 Topo：和上面標題卡的地圖連成一整塊——照片撐滿卡片的寬度、上緣淡入卡片的漸層、左右下緣淡出，
- * 邊緣帶一點區域色；照片灰階（同編輯器），只有這條路線周圍是原色（RouteReveal），其他路線淡淡的
+ * 只有上緣帶一點區域色；照片灰階（同編輯器），只有這條路線周圍是原色（RouteReveal），其他路線淡淡的
  */
 [data-layout] .route-m .route-topo {
   margin: -6px -16px 0 -14px;
@@ -4609,13 +4609,13 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   filter: grayscale(1) contrast(0.8);
 }
 
-/* 邊緣一圈淡淡的區域色 */
+/* 只有上緣帶區域色，接上標題卡的漸層；其餘維持灰階 */
 .route-topo .topo-frame::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 1;
-  box-shadow: inset 0 0 36px 6px color-mix(in srgb, var(--area-color, var(--brand)) 45%, transparent);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--area-color, var(--brand)) 45%, transparent), transparent 30%);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s ease;

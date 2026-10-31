@@ -994,7 +994,8 @@ try {
       buttons: f.querySelectorAll('button').length,
       badges: [...f.querySelectorAll('.topo-badge:not(.small) text')].map((t) => t.textContent),
       gray: getComputedStyle(img).filter.includes('grayscale'),
-      edge: getComputedStyle(f.querySelector('.topo-frame')!, '::after').boxShadow,
+      edge: getComputedStyle(f.querySelector('.topo-frame')!, '::after').backgroundImage,
+      ring: getComputedStyle(f.querySelector('.topo-frame')!, '::after').boxShadow,
       fade: getComputedStyle(f.querySelector('.topo-frame')!).maskImage,
       reveal: f.querySelectorAll('.topo-reveal').length,
       zoomed: parseFloat(img.style.width) > 100,
@@ -1006,7 +1007,7 @@ try {
     cardState.buttons === 0 && cardState.badges.join(',') === topoRoutes[0].number,
     JSON.stringify(cardState),
   )
-  check('手機路線卡片：照片灰階、邊緣帶區域色、上緣淡入卡片，這條路線周圍是原色，放大到這條路線', cardState.gray && cardState.edge.includes('inset') && cardState.fade.includes('gradient') && cardState.reveal === 1 && cardState.zoomed, JSON.stringify(cardState))
+  check('手機路線卡片：照片灰階、只有上緣帶區域色並淡入卡片，這條路線周圍是原色，放大到這條路線', cardState.gray && cardState.edge.includes('linear-gradient') && cardState.ring === 'none' &&cardState.fade.includes('gradient') && cardState.reveal === 1 && cardState.zoomed, JSON.stringify(cardState))
   await card.click()
   await vp.waitForSelector('dialog.topo-full[open] .topo-route.on', { timeout: 10000 })
   check('手機路線卡片：點 Topo 開全螢幕，選好這條路線', (await vp.locator('dialog.topo-full[open] .topo-route.on').count()) > 0 && vp.url() === routeUrl, vp.url())
