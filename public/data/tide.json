@@ -1,0 +1,650 @@
+{
+  "location": "海水浴場龍洞灣公園",
+  "fetchedAt": "2026-10-31T15:27:44.271Z",
+  "days": [
+    {
+      "date": "2026-10-31",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "05:11",
+          "type": "low"
+        },
+        {
+          "time": "14:01",
+          "type": "high"
+        },
+        {
+          "time": "17:24",
+          "type": "low"
+        },
+        {
+          "time": "21:12",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-01",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "06:24",
+          "type": "low"
+        },
+        {
+          "time": "15:11",
+          "type": "high"
+        },
+        {
+          "time": "19:31",
+          "type": "low"
+        },
+        {
+          "time": "22:41",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-02",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "07:43",
+          "type": "low"
+        },
+        {
+          "time": "15:55",
+          "type": "high"
+        },
+        {
+          "time": "21:21",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "00:38",
+          "type": "high"
+        },
+        {
+          "time": "08:58",
+          "type": "low"
+        },
+        {
+          "time": "16:23",
+          "type": "high"
+        },
+        {
+          "time": "22:16",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "02:30",
+          "type": "high"
+        },
+        {
+          "time": "09:59",
+          "type": "low"
+        },
+        {
+          "time": "16:32",
+          "type": "high"
+        },
+        {
+          "time": "22:56",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "03:52",
+          "type": "high"
+        },
+        {
+          "time": "10:48",
+          "type": "low"
+        },
+        {
+          "time": "16:29",
+          "type": "high"
+        },
+        {
+          "time": "23:31",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-06",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "04:51",
+          "type": "high"
+        },
+        {
+          "time": "11:28",
+          "type": "low"
+        },
+        {
+          "time": "16:36",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-07",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "00:04",
+          "type": "low"
+        },
+        {
+          "time": "05:39",
+          "type": "high"
+        },
+        {
+          "time": "12:02",
+          "type": "low"
+        },
+        {
+          "time": "16:50",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-08",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "00:37",
+          "type": "low"
+        },
+        {
+          "time": "06:23",
+          "type": "high"
+        },
+        {
+          "time": "12:33",
+          "type": "low"
+        },
+        {
+          "time": "17:10",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-09",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "01:10",
+          "type": "low"
+        },
+        {
+          "time": "07:07",
+          "type": "high"
+        },
+        {
+          "time": "13:02",
+          "type": "low"
+        },
+        {
+          "time": "17:32",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-10",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "01:44",
+          "type": "low"
+        },
+        {
+          "time": "07:54",
+          "type": "high"
+        },
+        {
+          "time": "13:30",
+          "type": "low"
+        },
+        {
+          "time": "17:55",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-11",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "02:20",
+          "type": "low"
+        },
+        {
+          "time": "08:47",
+          "type": "high"
+        },
+        {
+          "time": "13:57",
+          "type": "low"
+        },
+        {
+          "time": "18:19",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-12",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "02:56",
+          "type": "low"
+        },
+        {
+          "time": "09:49",
+          "type": "high"
+        },
+        {
+          "time": "14:23",
+          "type": "low"
+        },
+        {
+          "time": "18:42",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-13",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "03:35",
+          "type": "low"
+        },
+        {
+          "time": "19:04",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-14",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "04:16",
+          "type": "low"
+        },
+        {
+          "time": "19:26",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-15",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "05:02",
+          "type": "low"
+        },
+        {
+          "time": "19:45",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-16",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "05:57",
+          "type": "low"
+        },
+        {
+          "time": "14:57",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-17",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "07:02",
+          "type": "low"
+        },
+        {
+          "time": "15:20",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-18",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "08:15",
+          "type": "low"
+        },
+        {
+          "time": "15:38",
+          "type": "high"
+        },
+        {
+          "time": "22:11",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-19",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "01:28",
+          "type": "high"
+        },
+        {
+          "time": "09:18",
+          "type": "low"
+        },
+        {
+          "time": "15:49",
+          "type": "high"
+        },
+        {
+          "time": "22:34",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-20",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "03:37",
+          "type": "high"
+        },
+        {
+          "time": "10:10",
+          "type": "low"
+        },
+        {
+          "time": "15:56",
+          "type": "high"
+        },
+        {
+          "time": "23:03",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-21",
+      "range": "neap",
+      "tides": [
+        {
+          "time": "04:41",
+          "type": "high"
+        },
+        {
+          "time": "10:55",
+          "type": "low"
+        },
+        {
+          "time": "16:07",
+          "type": "high"
+        },
+        {
+          "time": "23:36",
+          "type": "low"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-22",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "05:33",
+          "type": "high"
+        },
+        {
+          "time": "11:36",
+          "type": "low"
+        },
+        {
+          "time": "16:26",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-23",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "00:12",
+          "type": "low"
+        },
+        {
+          "time": "06:22",
+          "type": "high"
+        },
+        {
+          "time": "12:16",
+          "type": "low"
+        },
+        {
+          "time": "16:52",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-24",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "00:51",
+          "type": "low"
+        },
+        {
+          "time": "07:15",
+          "type": "high"
+        },
+        {
+          "time": "12:55",
+          "type": "low"
+        },
+        {
+          "time": "17:23",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-25",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "01:34",
+          "type": "low"
+        },
+        {
+          "time": "08:11",
+          "type": "high"
+        },
+        {
+          "time": "13:36",
+          "type": "low"
+        },
+        {
+          "time": "17:59",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-26",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "02:20",
+          "type": "low"
+        },
+        {
+          "time": "09:16",
+          "type": "high"
+        },
+        {
+          "time": "14:19",
+          "type": "low"
+        },
+        {
+          "time": "18:42",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-27",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "03:09",
+          "type": "low"
+        },
+        {
+          "time": "10:30",
+          "type": "high"
+        },
+        {
+          "time": "15:08",
+          "type": "low"
+        },
+        {
+          "time": "19:30",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-28",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "04:01",
+          "type": "low"
+        },
+        {
+          "time": "11:49",
+          "type": "high"
+        },
+        {
+          "time": "16:05",
+          "type": "low"
+        },
+        {
+          "time": "20:24",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-29",
+      "range": "spring",
+      "tides": [
+        {
+          "time": "04:57",
+          "type": "low"
+        },
+        {
+          "time": "13:00",
+          "type": "high"
+        },
+        {
+          "time": "17:16",
+          "type": "low"
+        },
+        {
+          "time": "21:26",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-30",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "05:56",
+          "type": "low"
+        },
+        {
+          "time": "13:56",
+          "type": "high"
+        },
+        {
+          "time": "18:45",
+          "type": "low"
+        },
+        {
+          "time": "22:43",
+          "type": "high"
+        }
+      ]
+    },
+    {
+      "date": "2026-12-01",
+      "range": "mid",
+      "tides": [
+        {
+          "time": "06:59",
+          "type": "low"
+        },
+        {
+          "time": "14:36",
+          "type": "high"
+        },
+        {
+          "time": "20:23",
+          "type": "low"
+        }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,7 @@ import { recentVisits } from '../personal/stats'
 import { usePersonal } from '../personal/store'
 import { href, useRouteLink } from '../router'
 import { sunTimes } from '../sun'
+import { useTide } from '../tide'
 import { useWeather } from '../weather'
 import { LOCALES, localName, useLang } from '../i18n'
 
@@ -103,11 +104,17 @@ const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: 
 /** 龍洞今天的日期 YYYY-MM-DD */
 const todayInTaipei = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date())
 
-/** 天氣（目前與接下來 12 小時，每兩小時一格）與日出日落；日出日落在裝置上算，沒有網路也有 */
+/** 天氣（目前與接下來 12 小時，每兩小時一格）、日出日落與潮汐；日出日落在裝置上算、潮汐跟著網站離線快取，沒有網路也有 */
 function Today() {
   const { t } = useLang()
   const weather = useWeather(ENTRANCE)
-  const sun = sunTimes(todayInTaipei(), ENTRANCE)
+  const tide = useTide()
+  const today = todayInTaipei()
+  const sun = sunTimes(today, ENTRANCE)
+  const sources = [
+    weather.status === 'ready' && t('home.weatherSource', { time: weather.weather.time.slice(11, 16) }),
+    tide.status === 'ready' && t('home.tideSource'),
+  ].filter(Boolean)
   return (
     <section className="route-block home-today" aria-label={t('home.weather')}>
       {weather.status === 'ready' && (
@@ -144,8 +151,27 @@ function Today() {
           <span className="muted">{t('home.sunset')}</span> <strong>{clock.format(sun.set)}</strong>
         </span>
       </p>
-      {weather.status === 'ready' && <p className="muted small weather-source">{t('home.weatherSource', { time: weather.weather.time.slice(11, 16) })}</p>}
+      <Tides tide={tide} date={today} />
+      {sources.length > 0 && <p className="muted small weather-source">{sources.join(' · ')}</p>}
     </section>
+  )
+}
+
+/** 今天的潮差與滿潮、乾潮的時間；資料檔沒有今天（每週更新停了）時說出來 */
+function Tides({ tide, date }: { tide: ReturnType<typeof useTide>; date: string }) {
+  const { t } = useLang()
+  if (tide.status === 'loading') return null
+  const day = tide.status === 'ready' ? tide.tide.days.find((d) => d.date === date) : undefined
+  if (!day) return <p className="small error">{t('home.tideMissing')}</p>
+  return (
+    <p className="tide-times">
+      <span className="muted">{t(`tide.${day.range}`)}</span>
+      {day.tides.map((x) => (
+        <span key={x.time}>
+          <span className="muted">{t(`tide.${x.type}`)}</span> <strong>{x.time}</strong>
+        </span>
+      ))}
+    </p>
   )
 }
 

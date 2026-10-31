@@ -6340,6 +6340,14 @@ dialog.topo-upload-crop::backdrop {
   font-variant-numeric: tabular-nums;
 }
 
+.tide-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .weather-source {
   margin: 6px 0 0;
 }

@@ -1684,6 +1684,10 @@ try {
   // ── 10. 手機版首頁：天氣（Open-Meteo 換成固定的回應）、日出日落、交通、最近去過；電腦版沒有 ──
   const weatherSample = readFileSync('tests/fixtures/open-meteo.json', 'utf8')
   await rp.route('https://api.open-meteo.com/**', (r) => r.fulfill({ contentType: 'application/json', body: weatherSample }))
+  // 潮汐：今天（台北時間）的資料，和資料檔的日期無關
+  const tideFor = (date: string) => JSON.stringify({ location: '海水浴場龍洞灣公園', fetchedAt: 'x', days: [{ date, range: 'spring', tides: [{ time: '05:11', type: 'low' }, { time: '14:01', type: 'high' }] }] })
+  const taipeiToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date())
+  await rp.route('**/data/tide.json', (r) => r.fulfill({ contentType: 'application/json', body: tideFor(taipeiToday) }))
   await rp.setViewportSize({ width: 390, height: 844 })
   await rp.goto(base + `route/${topoRoutes[2].id}`)
   await tool('更多').click()
@@ -1695,7 +1699,8 @@ try {
   check('首頁天氣：目前溫度、天氣與風', ((await rp.locator('.weather-now').textContent()) ?? '').replace(/\s+/g, '') === '23°毛毛雨風5m/s·陣風11·濕度90%', (await rp.locator('.weather-now').textContent()) ?? '')
   const hours = await rp.locator('.weather-hours li').allTextContents()
   check('首頁天氣：接下來 12 小時每兩小時一格，從下一個整點開始', hours.length === 6 && hours[0] === '22:0023°65%' && hours[5].startsWith('08:00'), hours.join('|'))
-  check('首頁：日出、日落、預報來源與時間', /日出\s*\d\d:\d\d.*日落\s*\d\d:\d\d/.test((await rp.locator('.sun-times').textContent()) ?? '') && ((await rp.locator('.weather-source').textContent()) ?? '') === 'Open-Meteo 預報 · 21:15')
+  check('首頁：日出、日落、預報來源與時間', /日出\s*\d\d:\d\d.*日落\s*\d\d:\d\d/.test((await rp.locator('.sun-times').textContent()) ?? '') && ((await rp.locator('.weather-source').textContent()) ?? '') === 'Open-Meteo 預報 · 21:15 · 潮汐：中央氣象署')
+  check('首頁潮汐：今天的潮差與乾潮、滿潮時間', ((await rp.locator('.tide-times').textContent()) ?? '').replace(/\s+/g, '') === '大潮乾潮05:11滿潮14:01', (await rp.locator('.tide-times').textContent()) ?? '')
   const directions = (await rp.locator('.home-links a').evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).href))).map((u) => new URL(u).searchParams)
   check('交通：Google 地圖開車（路況）與大眾運輸，目的地是岩場入口', directions.length === 2 && directions.every((p) => p.get('destination') === '25.113133,121.92035') && directions[0].get('travelmode') === 'driving' && directions[1].get('travelmode') === 'transit')
   const recent = rp.locator('.home-recent')
@@ -1706,6 +1711,12 @@ try {
   await rp.reload()
   await rp.waitForSelector('.home-today .error')
   check('讀不到天氣：一行錯誤訊息，日出日落照樣顯示', (await rp.locator('.weather-now').count()) === 0 && (await rp.locator('.sun-times').count()) === 1)
+  await rp.unroute('**/data/tide.json')
+  await rp.route('**/data/tide.json', (r) => r.fulfill({ contentType: 'application/json', body: tideFor('2000-01-01') }))
+  await rp.reload()
+  await rp.waitForSelector('.home-today .sun-times')
+  check('潮汐資料沒有今天（每週更新停了）：說出來', await until(async () => (await rp.locator('.home-today').textContent())?.includes('沒有今天的潮汐資料')) === true)
+  await rp.unroute('**/data/tide.json')
   await rp.setViewportSize({ width: 1366, height: 900 })
   // 等畫面換成電腦版（區域清單在手機版本來就有，不能拿來等）
   await rp.waitForSelector('.home-m', { state: 'detached' })
