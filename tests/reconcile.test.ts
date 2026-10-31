@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Best, Tick } from '../src/personal/model'
-import { bestPath, reconcile, type RemotePersonal } from '../src/personal/reconcile'
+import { bestPath, reconcile } from '../src/personal/reconcile'
 
 const tick = (id: string, updatedAt: string, over: Partial<Tick> = {}): Tick => ({
   id, routeId: 'longdong/328ac2', date: '2026-10-01', style: 'redpoint', createdAt: '2026-10-01T00:00:00Z', updatedAt, ...over,
@@ -35,11 +35,6 @@ describe('reconcile', () => {
     const local = { ticks: [tick('t1', 'a')] }
     const remote = { ticks: { t1: tick('t1', 'a') } }
     expect(reconcile('u1', local, remote)).toEqual({ toLocal: { ticks: [], best: [] }, toRemote: {} })
-  })
-
-  it('雲端還留著舊版的收藏時不理會（不下載、不回寫）', () => {
-    const remote = { favorites: { 'longdong:aaaaaa': { routeId: 'longdong/aaaaaa', createdAt: 'a', updatedAt: 'a' } }, ticks: { t1: tick('t1', 'a') } } as RemotePersonal
-    expect(reconcile('u1', { ticks: [tick('t1', 'a')] }, remote)).toEqual({ toLocal: { ticks: [], best: [] }, toRemote: {} })
   })
 
   it('路線清單的最佳攀登方式：以路線 key 存放，各取較新的', () => {

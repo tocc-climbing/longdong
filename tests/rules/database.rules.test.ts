@@ -253,6 +253,12 @@ describe('攀登紀錄的備註（v2/personal/<uid>/ticks）', () => {
   })
 })
 
+describe('收藏已經移除（v2/personal/<uid>/favorites）', () => {
+  it('本人也不能再寫入', async () => {
+    await assertFails(set(alice, 'v2/personal/alice/favorites/longdong:aaaaaa', { routeId: 'longdong/aaaaaa', createdAt: 'a', updatedAt: 'a' }))
+  })
+})
+
 describe('既有行為不變', () => {
   it('本人可以讀寫自己的紀錄；別人不能讀', async () => {
     await assertSucceeds(get(alice, 'v2/personal/alice'))

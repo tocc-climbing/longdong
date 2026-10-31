@@ -318,11 +318,6 @@
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid",
-          "favorites": {
-            "$key": {
-              ".validate": "newData.hasChildren(['routeId', 'createdAt', 'updatedAt']) && newData.child('routeId').isString() && newData.child('routeId').val().length <= 100 && newData.child('updatedAt').isString()"
-            }
-          },
           "best": {
             "$key": {
               ".validate": "newData.hasChildren(['routeId', 'style', 'createdAt', 'updatedAt']) && newData.child('routeId').isString() && newData.child('routeId').val().length <= 100 && newData.child('style').val().matches(/^(onsight|flash|redpoint|toprope)$/) && newData.child('updatedAt').isString() && (!newData.child('deleted').exists() || newData.child('deleted').isBoolean())"
