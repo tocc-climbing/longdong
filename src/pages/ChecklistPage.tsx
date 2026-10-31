@@ -6,9 +6,10 @@ import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import type { Route, RouteType } from '../data/schema'
 import { localName, useLang } from '../i18n'
-import { BEST_STYLES, bestStyle, checklistStyle, isSent, sentRouteIds } from '../personal/model'
-import { setBest, usePersonal } from '../personal/store'
+import { BEST_STYLES, sentRouteIds } from '../personal/model'
+import { usePersonal } from '../personal/store'
 import { SEND_SHORT } from '../personal/stats'
+import { routeStyle, SentPicker } from '../components/SentPicker'
 import { useCloud } from '../personal/sync'
 import { href } from '../router'
 import { useHorizontalSwipe } from '../swipeGesture'
@@ -178,17 +179,6 @@ export function ChecklistPage({ data }: { data: LoadedData }) {
   )
 }
 
-type Personal = ReturnType<typeof usePersonal>
-
-/** 路線的最佳攀登方式：在清單勾選的（chosen），沒有勾選時是攀登紀錄裡最好的完攀方式（fromLog） */
-function routeStyle(personal: Personal, routeId: string): { chosen?: Style; fromLog?: Style } {
-  const saved = personal.best.get(routeId)
-  const chosen = saved && checklistStyle(saved)
-  if (chosen) return { chosen }
-  const logged = bestStyle(personal.ticks.filter((tk) => tk.routeId === routeId && isSent(tk.style)).map((tk) => tk.style))
-  return { fromLog: logged && checklistStyle(logged) }
-}
-
 /**
  * 全區（手機）：各區域的完攀統計，不列路線。一列一個區域：名稱、完攀數、OS／RP／TR 分色的進度條；點了進到那個區域。
  */
@@ -256,17 +246,13 @@ function AreaStats({
  */
 function ChecklistRow({ route, onError }: { route: Route; onError: (message: string | undefined) => void }) {
   const { lang, t } = useLang()
-  const personal = usePersonal()
   const cloud = useCloud()
   const social = useSocial()
   const uid = cloud.user?.uid
   const mine = uid ? social.ratings[routeKey(route.id)]?.[uid] : undefined
-  // 沒有在清單勾選時，顯示攀登紀錄裡最好的完攀方式（外框）
-  const { chosen, fromLog } = routeStyle(personal, route.id)
   const name = localName(route.name, lang)
   const [rating, setRating] = useState(false)
 
-  const choose = (style: Style) => void setBest(route.id, chosen === style ? null : style)
   const star = (n: number) => {
     if (!uid) return
     const next = mine?.stars === n ? null : { stars: n, ...(mine?.feel ? { feel: mine.feel } : {}) }
@@ -289,22 +275,7 @@ function ChecklistRow({ route, onError }: { route: Route; onError: (message: str
       <GradePill grade={route.grade} value={route.gradeValue} size="sm" />
     </a>
   )
-  const styles = (
-    <div className="checklist-styles" role="group" aria-label={t('checklist.styleAria', { route: name.main })}>
-      {BEST_STYLES.map((s) => (
-        <button
-          key={s}
-          type="button"
-          className={`checklist-style style-${SEND_SHORT[s].toLowerCase()}${chosen === s ? ' on' : fromLog === s ? ' from-log' : ''}`}
-          aria-pressed={chosen === s}
-          title={fromLog === s ? t('checklist.fromLog', { style: t(`style.${s}`) }) : t(`style.${s}`)}
-          onClick={() => choose(s)}
-        >
-          {SEND_SHORT[s]}
-        </button>
-      ))}
-    </div>
-  )
+  const styles = <SentPicker routeId={route.id} label={t('checklist.styleAria', { route: name.main })} />
   return (
     <li className="checklist-row checklist-row-m">
       {routeLink}
