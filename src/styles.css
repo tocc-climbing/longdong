@@ -5001,8 +5001,10 @@ g.topo-route.link:is(:hover, :focus-visible) {
   font-variant-numeric: tabular-nums;
 }
 
+/* bolt 是輔助資訊：半透明，看得到下面的岩壁 */
 .topo-bolt rect {
   fill: #1ea0e6;
+  fill-opacity: 0.6;
   stroke: none;
 }
 

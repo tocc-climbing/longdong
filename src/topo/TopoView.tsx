@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react'
 import { navigate } from '../router'
 import type { Route } from '../data/schema'
-import { centeredBox, pathLength, Placer, pointAlong, smoothPath, textWidth, wrapText, type Box, type Pt } from './annotate'
+import { centeredBox, distanceToLine, pathLength, Placer, pointAlong, smoothPath, textWidth, wrapText, type Box, type Pt } from './annotate'
 import { drawnRuns, ownRuns } from './lines'
 import { FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type Point, type TopoPhoto } from './model'
 import { isSketch } from './viewport'
@@ -107,7 +107,7 @@ export function routeInfo(routes: Route[], nameOf: (r: Route) => string): Map<st
         kind: r.type === 'sport' ? 'sport' : 'other',
         grade: r.grade || undefined,
         name: nameOf(r),
-        bolts: Object.fromEntries([...r.bolts, ...r.anchors].map((b) => [b.position, [isMaterialCode(b.material) ? b.material : '', b.installed].filter(Boolean).join(' · ')])),
+        bolts: Object.fromEntries([...r.bolts, ...r.anchors].map((b) => [b.position, isMaterialCode(b.material) ? b.material : ''])),
       },
     ]),
   )
@@ -118,6 +118,9 @@ const PILL_H_BASE = 20
 const PILL_FONT_BASE = 11.5
 const BOLT_H_BASE = 18
 const BOLT_FONT_BASE = 11
+/** 看的時候 bolt 是輔助資訊：小的半透明牌子，只有 ×（anchor ××） */
+const BOLT_VIEW_H_BASE = 12
+const BOLT_VIEW_FONT_BASE = 9
 const NOTE_FONT_BASE = 10
 const NOTE_LINE_BASE = 12.5
 /** 電腦版（寬螢幕）螢幕大、離得遠，牌子與字放大一點；手機維持原樣 */
@@ -129,11 +132,12 @@ const SMALL_SPOTS = [0.14, 0.22, 0.08, 0.3]
 const MIN_LABEL_LINE_PX = 40
 /** 編輯時線上的點（把手）佔的範圍（半徑，螢幕像素）：牌子不蓋在上面 */
 const EDIT_POINT_PX = 12
-/** 編號牌放在線上的候選位置（占全長的比例）：先放正中間，不行再往兩邊找 */
 /** 示意線終點的向上箭頭：尖端在終點上面幾個圓點半徑 */
 const ARROW_UP = 2.2
 const arrowUp = ([x, y]: Pt, r: number) => `M${x} ${y - ARROW_UP * r}L${x + 1.8 * r} ${y + 0.6 * r}L${x - 1.8 * r} ${y + 0.6 * r}Z`
-
+/** 看整張照片時，編號、bolt 離別條路線的線至少這麼遠（螢幕像素）才顯示難度名稱、bolt 種類：縮小時只有編號，放大到夠寬才多顯示 */
+const NOTE_ROOM_PX = 90
+/** 編號牌放在線上的候選位置（占全長的比例）：先放正中間，不行再往兩邊找 */
 const LABEL_SPOTS = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82]
 /** 說明文字太長時換行的寬度（螢幕像素）：先試一行，再試這些寬度 */
 const WRAP_PX = [90, 60]
@@ -188,7 +192,8 @@ export function TopoLines({
 }) {
   const c = crop ?? FULL_CROP
   const u = uiScale()
-  const [PILL_H, PILL_FONT, BOLT_H, BOLT_FONT, NOTE_FONT, NOTE_LINE] = [PILL_H_BASE, PILL_FONT_BASE, BOLT_H_BASE, BOLT_FONT_BASE, NOTE_FONT_BASE, NOTE_LINE_BASE].map((v) => v * u)
+  const [PILL_H, PILL_FONT, NOTE_FONT, NOTE_LINE, ROOM] = [PILL_H_BASE, PILL_FONT_BASE, NOTE_FONT_BASE, NOTE_LINE_BASE, NOTE_ROOM_PX].map((v) => v * u)
+  const [BOLT_H, BOLT_FONT] = (editing ? [BOLT_H_BASE, BOLT_FONT_BASE] : [BOLT_VIEW_H_BASE, BOLT_VIEW_FONT_BASE]).map((v) => v * u)
   const [bx, by] = px(photo, [c.x, c.y])
   const [bw, bh] = px(photo, [c.w, c.h])
   // 亮色的畫在最上面
@@ -201,6 +206,8 @@ export function TopoLines({
   const runs = drawnRuns(drawn)
   const own = ownRuns(drawn)
   const drawnOf = new Map(drawn)
+  /** 這個位置旁邊夠寬，可以多顯示說明（路線卡片已經放大到這條路線，一律可以） */
+  const roomy = (at: Pt, id: string) => solo || drawn.every(([other, line]) => other === id || distanceToLine(at, line) >= ROOM * k)
   /** 起點、終點圓點的半徑（畫面像素） */
   const dotSize = (id: string) => (editing ? 3 : id === lead ? 4 : 3.2)
   const lineOf = (id: string): Pt[] | undefined => marks[id].line?.map((p) => px(photo, p) as Pt)
@@ -229,7 +236,8 @@ export function TopoLines({
     if (!bolts.includes(id)) continue
     for (const [pos, p] of Object.entries(marks[id].bolts ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
       const anchor = pos.startsWith('A')
-      const label = anchor ? '××' : `× ${pos}`
+      // 編輯時要分得出是哪一顆（拖曳、對照路線資料），看的時候只標位置
+      const label = anchor ? '××' : editing ? `× ${pos}` : '×'
       const at = px(photo, p) as Pt
       // 編輯時 bolt 一定要看得到（牌子就是拖曳的地方）
       const pill = placer.place([centeredBox(at, (textWidth(label, BOLT_FONT) + 12) * k, BOLT_H * k)], editing)
@@ -307,7 +315,7 @@ export function TopoLines({
       // 說明優先放在不壓到別條線的位置（可以壓在自己的線上）；都沒有才壓在別條線上
       for (const avoid of [true, false]) {
         for (const pill of spots) {
-          if (!placer.fits(pill)) continue
+          if (!placer.fits(pill) || (lines.length > 0 && !roomy([pill.x + pill.w / 2, pill.y + pill.h / 2], id))) continue
           if (lines.length === 0) {
             placer.reserve(pill)
             entry.pill = pill
@@ -330,15 +338,14 @@ export function TopoLines({
   const mains = priority.filter((id) => !solo || id === highlight)
   for (const id of mains) if (!short(id)) placePill(id, false)
   for (const id of mains) if (short(id)) placePill(id, false)
-  // 3. bolt 旁邊的材質與年份（空間夠才顯示）
+  // 3. bolt 旁邊的種類（材質；旁邊夠寬才顯示）
   for (const id of editing ? [] : priority) {
     const entry = plan.get(id)!
     const i = info?.get(id)
     for (const b of entry.bolts) {
       const text = i?.bolts[b.pos]
-      if (!text) continue
-      // 一行放不下時，材質與年份分兩行
-      const versions = [[text], ...WRAP_PX.map((wpx) => wrapText(text, NOTE_FONT, wpx))].filter((v, j, all) => all.findIndex((o) => o.join('|') === v.join('|')) === j)
+      if (!text || !roomy(b.at, id)) continue
+      const versions = [[text]]
       const g = 4 * k
       const got = placer.placeFirst(
         versions.map((lines) => {

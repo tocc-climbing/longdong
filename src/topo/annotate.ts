@@ -68,6 +68,18 @@ export const overlaps = (a: Box, b: Box, gap = 0) => a.x < b.x + b.w + gap && b.
 /** 以 at 為中心、寬 w 高 h 的框 */
 export const centeredBox = ([x, y]: Pt, w: number, h: number): Box => ({ x: x - w / 2, y: y - h / 2, w, h })
 
+/** 點 p 到折線 line 的最短距離 */
+export function distanceToLine(p: Pt, line: Pt[]): number {
+  let best = Infinity
+  for (let i = 1; i < line.length; i++) {
+    const [a, b] = [line[i - 1], line[i]]
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]]
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)))
+    best = Math.min(best, Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy))
+  }
+  return best
+}
+
 /** 線段 a–b 是否穿過框 */
 export function segmentHitsBox(a: Pt, b: Pt, box: Box): boolean {
   const inBox = ([x, y]: Pt) => x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h

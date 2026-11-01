@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Marks, TopoPhoto } from '../src/topo/model'
 import { textWidth } from '../src/topo/annotate'
-import { TopoLines, type RouteInfo } from '../src/topo/TopoView'
+import type { Route } from '../src/data/schema'
+import { routeInfo, TopoLines, type RouteInfo } from '../src/topo/TopoView'
 import schoolGate from './fixtures/topo-school-gate.json'
 
 const photo = { id: 'p', sector: 's', uid: 'u', width: 2000, height: 1000, image: 'x', createdAt: 0 } as TopoPhoto
@@ -13,7 +14,7 @@ const marks: Marks = {
 }
 const labels = new Map([['a', '10'], ['b', '11']])
 const info = new Map<string, RouteInfo>([
-  ['a', { kind: 'sport', grade: '5.10a', name: '路線甲', bolts: { B01: '316-TW · 2007', A01: 'Ti-U · 2021' } }],
+  ['a', { kind: 'sport', grade: '5.10a', name: '路線甲', bolts: { B01: '316-TW', A01: 'Ti-U' } }],
   ['b', { kind: 'other', grade: '5.11b', name: '路線乙', bolts: {} }],
 ])
 const render = (k: number, extra: object = {}) => renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks, labels, k, info, ...extra })))
@@ -28,13 +29,18 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     expect(count(render(1, { editing: true }), /class="topo-dot"/g)).toBe(2)
   })
 
-  it('實際的 Topo（校門口 · 騙人的牆，565–569）：分區頁、全螢幕的大小，每條都標完整的難度名稱，緊貼在自己的編號正旁邊', () => {
+  it('實際的 Topo（校門口 · 騙人的牆，565–569）：分區頁、全螢幕的大小只有編號；放大三倍每條都標完整的難度名稱，緊貼在自己的編號正旁邊', () => {
     const real = schoolGate as unknown as { photo: TopoPhoto; crop: { x: number; y: number; w: number; h: number }; marks: Marks; routes: { id: string; number: string; grade: string; name: string; type: string }[] }
     const realLabels = new Map(real.routes.map((r) => [r.id, r.number]))
     const realInfo = new Map<string, RouteInfo>(real.routes.map((r) => [r.id, { kind: r.type === 'sport' ? 'sport' : 'other', grade: r.grade, name: r.name, bolts: {} }]))
     // 手機的分區頁約 340 個螢幕像素寬、全螢幕約 375（k = 照片像素／螢幕像素）
     const cropPx = (real.crop.w / 10000) * real.photo.width
     for (const screen of [340, 375]) {
+      const fit = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo: real.photo, marks: real.marks, labels: realLabels, k: cropPx / screen, info: realInfo, crop: real.crop })))
+      expect(count(fit, /class="topo-badge"/g), `${screen}px`).toBe(real.routes.length)
+      expect(fit, `${screen}px`).not.toContain('topo-note')
+    }
+    for (const screen of [340 * 3, 375 * 3]) {
       const k = cropPx / screen
       const html = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo: real.photo, marks: real.marks, labels: realLabels, k, info: realInfo, crop: real.crop })))
       for (const r of real.routes) {
@@ -138,13 +144,25 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     }
   })
 
-  it('bolt、anchor 只在 bolts 指定的路線顯示，放大才有材質與年份', () => {
+  it('bolt、anchor 只在 bolts 指定的路線顯示；看的時候是小牌子只有 ×，旁邊夠寬才標種類；編輯時標位置', () => {
     expect(count(render(1), /class="topo-bolt/g)).toBe(0)
     const html = render(1, { bolts: ['a'] })
     expect(count(html, /class="topo-bolt/g)).toBe(2)
-    expect(html).toContain('316-TW · 2007')
-    expect(html).toContain('××')
-    expect(html).toContain('× B01')
+    expect(html).toContain('>316-TW<')
+    expect(html).toContain('>××<')
+    expect(html).toContain('>×<')
+    expect(html).not.toContain('B01')
+    expect(html).toMatch(/<g class="topo-bolt"><rect [^>]*height="12"/)
+    // 縮小到兩條線只隔 60 個螢幕像素：只有 ×，沒有種類
+    const far = render(10, { bolts: ['a'] })
+    expect(count(far, /class="topo-bolt/g)).toBe(2)
+    expect(far).not.toContain('316-TW')
+    expect(render(1, { bolts: ['a'], editing: true })).toContain('>× B01<')
+  })
+
+  it('bolt 的說明只有種類（材質），沒有年份', () => {
+    const route = { id: 'r', type: 'sport', grade: '5.10a', name: { zh: '甲' }, bolts: [{ position: 'B01', material: '316-TW', installed: '2007' }], anchors: [{ position: 'A01', material: 'Ti-U', installed: '2021' }] } as unknown as Route
+    expect(routeInfo([route], () => '甲').get('r')!.bolts).toEqual({ B01: '316-TW', A01: 'Ti-U' })
   })
 
   it('編輯時：線比較細、沒有難度名稱等說明，編號不蓋在選到的路線的點上，bolt 照樣顯示', () => {
@@ -214,7 +232,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
       const x = 2000 + i * 900
       crowded[`r${i}`] = { line: [[x, 9200], [x + 150, 5000], [x, 900]], bolts: { B01: [x + 100, 7500], B02: [x + 140, 4500], A01: [x, 1200] } }
       crowdedLabels.set(`r${i}`, String(i + 1))
-      crowdedInfo.set(`r${i}`, { kind: i % 2 ? 'sport' : 'other', grade: '5.11c', name: `一條名字非常非常長的路線${i}`, bolts: { B01: '316-TW · 2007', B02: 'Ti-U · 2021', A01: '316-TW · 2019' } })
+      crowdedInfo.set(`r${i}`, { kind: i % 2 ? 'sport' : 'other', grade: '5.11c', name: `一條名字非常非常長的路線${i}`, bolts: { B01: '316-TW', B02: 'Ti-U', A01: '316-TW' } })
     }
     const ids = Object.keys(crowded)
     for (const k of [0.4, 0.8, 1.5, 3]) {
@@ -244,7 +262,6 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
         // 編號沿著線移動找空位：每條都標得出完整的名稱，不只留難度
         expect(lines.filter((t) => /^一條名字非常非常長的路線\d$/.test(t))).toHaveLength(6)
       }
-      if (k === 3) expect(lines.some((t) => /^\d{4}$/.test(t))).toBe(true)
     }
   })
 })
