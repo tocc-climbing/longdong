@@ -13,7 +13,7 @@ import { favoritesFirst } from '../personal/model'
 import { loadViews } from '../personal/history'
 import { usePersonal } from '../personal/store'
 import { href } from '../router'
-import { sunTimes } from '../sun'
+import { clock, sunTimes, todayInTaipei } from '../sun'
 import { useTide } from '../tide'
 import { useWeather } from '../weather'
 import { localName, useLang } from '../i18n'
@@ -98,11 +98,6 @@ export function HomePage({ data }: { data: LoadedData }) {
     </>
   )
 }
-
-/** 龍洞的時間（台北時間）：HH:mm */
-const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-/** 龍洞今天的日期 YYYY-MM-DD */
-const todayInTaipei = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date())
 
 /** 天氣（目前與接下來 12 小時，每兩小時一格）、日出日落與潮汐；日出日落在裝置上算、潮汐跟著網站離線快取，沒有網路也有 */
 function Today() {

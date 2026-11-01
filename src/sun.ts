@@ -10,6 +10,11 @@ const JD_UNIX = 2440587.5
 const J2000 = 2451545
 const rad = Math.PI / 180
 
+/** 龍洞的時間（台北時間）：HH:mm */
+export const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+/** 龍洞今天的日期 YYYY-MM-DD */
+export const todayInTaipei = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date())
+
 /** date：當地的日期 YYYY-MM-DD；lng 東經為正。回傳的是那一天當地中午前後的日出與日落 */
 export function sunTimes(date: string, [lat, lng]: [number, number]): { rise: Date; set: Date } {
   const [y, m, d] = date.split('-').map(Number)

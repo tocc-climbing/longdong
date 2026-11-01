@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { LatLng } from '../geo'
+import { nearestOnSegment } from '../map/aspect'
 import { project, unproject, type ScaleMapData } from '../map/mapData'
 import type { MapEdit, MapLine } from '../map/ScaleMap'
 import { LINE_TARGETS, isLineTarget, isOpenTarget, sectorOf, simplifyLine, useMapShapes, type EditTarget } from '../map/shapes'
@@ -11,14 +12,6 @@ export { tidyShapes } from './mapDrafts'
 const SIMPLIFY_M = 1.5
 /** 畫步道支線時，點在既有路徑這個距離（螢幕像素）內就接到路徑上 */
 const SNAP_PX = 12
-
-/** 點到線段上最近的位置（地圖座標） */
-function nearestOnSegment(p: [number, number], a: [number, number], b: [number, number]): [number, number] {
-  const [dx, dy] = [b[0] - a[0], b[1] - a[1]]
-  const len2 = dx * dx + dy * dy
-  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2))
-  return [a[0] + t * dx, a[1] + t * dy]
-}
 
 /**
  * 目前地圖上的形狀（最新版本、原始版；自動產生的步道與道路先簡化）
