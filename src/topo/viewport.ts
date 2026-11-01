@@ -67,6 +67,19 @@ const FOCUS_MARGIN = 0.03
 const SKETCH_EDGE = 0.02
 const SKETCH_HEIGHT = 0.35
 
+/** 示意的線：只畫了一小段、從照片的裁切範圍邊緣出去，主要的路線不在照片裡（例如 565） */
+export function isSketch(photo: { width: number; height: number }, base: Crop, marks: RouteMarks | undefined): boolean {
+  const pts = [...(marks?.line ?? []), ...Object.values(marks?.bolts ?? {})]
+  if (pts.length === 0) return false
+  const sx = photo.width / SCALE
+  const sy = photo.height / SCALE
+  const xs = pts.map(([x]) => x * sx)
+  const ys = pts.map(([, y]) => y * sy)
+  const [bx, by, bw, bh] = [base.x * sx, base.y * sy, base.w * sx, base.h * sy]
+  const nearEdge = xs.some((x, i) => Math.min(x - bx, bx + bw - x) < SKETCH_EDGE * bw || Math.min(ys[i] - by, by + bh - ys[i]) < SKETCH_EDGE * bh)
+  return nearEdge && Math.max(...ys) - Math.min(...ys) < SKETCH_HEIGHT * bh
+}
+
 /**
  * 路線卡片：只顯示照片上這條路線附近的一塊（照片的裁切範圍裡），路線放大成主角、盡量在畫面中間
  * （路線靠近照片邊緣時，裁掉另一邊讓路線置中，路線本身一定整條看得到）。
@@ -87,8 +100,7 @@ export function routeCrop(photo: { width: number; height: number }, base: Crop, 
   const rh = Math.max(...ys) - minY
   const cx = minX + rw / 2
   const cy = minY + rh / 2
-  const nearEdge = xs.some((x, i) => Math.min(x - bx, bx + bw - x) < SKETCH_EDGE * bw || Math.min(ys[i] - by, by + bh - ys[i]) < SKETCH_EDGE * bh)
-  if (nearEdge && rh < SKETCH_HEIGHT * bh) return base
+  if (isSketch(photo, base, marks)) return base
   let w = rw + 2 * Math.max(FOCUS_PAD * rw, 0.1 * bw)
   let h = rh + 2 * Math.max(FOCUS_PAD * rh, 0.1 * bh)
   // 太窄、太扁：放寬短的那一邊
