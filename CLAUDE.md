@@ -113,6 +113,7 @@
   - **推之前在本機跑完 CI 會跑的檢查**：推上 `main` 會同時觸發 CI 與部署，部署不等 CI，壞掉的程式會直接上開發站。至少 `npm run typecheck`、`npm test`，介面改動加 `npm run check:text`、`npm run test:e2e`，資料庫規則改動加 `npm run test:rules`。
   - **線性歷史**（規則集要求）：推之前 `git fetch origin main && git rebase origin/main`，不產生 merge commit；**不可 force push**。衝突自己解（`public/data/longdong.json` 依下方規則重新匯入），解完重跑檢查再推。
   - **推完確認**：看推上去的那次 `ci` 是否通過；失敗就修好再推，不要停下來問。
+  - **開發站從本機部署，不等 GitHub 的 Deploy**（2026-11-01 使用者指示）：推完直接 `VITE_CHANNEL=dev npm run build`，用只含 hosting、`site: "longdong-dev"` 的暫時設定檔（先印出確認 site）執行 `npx -y firebase-tools@15.34.0 deploy --only hosting --config <檔> --project project-2803619783974357321 --non-interactive`，部署完刪掉設定檔；再比對開發站 `index.html` 引用的 `assets/index-*.js` 與本機 `dist` 相同。本機沒有氣象署金鑰，潮汐由之後 GitHub 的 Deploy 補上。
   - 只有「解法會改變需求或行為取捨」時才問使用者（例如兩邊都改了同一段邏輯、取捨會失去其中一邊的行為）。
 - **合併上開發站，發布上正式站**：`main` 自動部署到開發站 https://longdong-dev.web.app/ ，`release` 部署到正式站 https://longdong.web.app/ 。**只有「發布」要問使用者**。
 - **發布要使用者說「發布」**：先列出 `release..main` 的 commit 給使用者看，再 `git push origin main:release`（只能快轉，不可 force push）。路線資料（`public/data`）推到 `main` 後會直接更新正式站，不必發布。部署資料庫規則、寫入或刪除正式資料、修改 Firebase 設定仍須先取得明確同意。
