@@ -4,8 +4,9 @@ import { SignInPrompt } from '../components/SignInPrompt'
 import type { LoadedData } from '../data/dataset'
 import { LOCALES, localName, useLang, type MessageKey } from '../i18n'
 import { useWide } from '../layout'
+import { angleBetween, meanFacing, photoFacing, wallFaces } from '../map/aspect'
+import type { LatLng } from '../geo'
 import { useScaleMap, withShapes } from '../map/mapData'
-import type { MapView } from '../map/mapView'
 import { ScaleMap } from '../map/ScaleMap'
 import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallLabelAt, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useReportPins } from './useReportPins'
@@ -314,9 +315,6 @@ const typing = (e: KeyboardEvent) => {
 }
 
 /** 地圖的編輯畫面：工具列（選取、新增、刪除、復原、重做、航照、提交）、地圖、右側面板（說明、修改紀錄、快捷鍵） */
-/** 畫岩壁時的地圖畫面：換到別的分區也停在原處 */
-const wallView: { current?: MapView } = {}
-
 function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTarget }) {
   const { lang, t } = useLang()
   const cloud = useCloud()
@@ -354,7 +352,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   const pins = useReportPins(m.closed || isWall ? { target, data, map: map.status === 'ok' ? map.data : undefined } : undefined)
   const [pinOn, setPinOn] = useState<string>()
 
-  // 快捷鍵都是單一按鍵（Windows、Mac 一樣）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、Z 復原、Y 重做、S 提交、A 航照、T 地形圖
+  // 快捷鍵都是單一按鍵（Windows、Mac 一樣）：V 選取、N 新增、Enter 完成、Esc 取消、Delete 刪除選中的、F 翻轉岩壁面、Z 復原、Y 重做、S 提交、A 航照、T 地形圖
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing(e) || m.locked) return
@@ -374,6 +372,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
       if (key === 'enter' && m.drawing) return run(m.actions.finishDrawing)
       if (key === 'escape') return run(m.actions.cancel)
       if ((key === 'delete' || key === 'backspace') && !m.drawing) return run(m.actions.removeSelected)
+      if (key === 'f' && isWall && !m.drawing) return run(m.actions.flip)
       if (key === 'a') return run(() => setOrtho((o) => !o))
       if (key === 't') return run(() => setTopo((o) => !o))
     }
@@ -381,12 +380,12 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // 打開時放大到這個項目；分區還沒有岩壁時放大到所在的大區域；步道看整個地圖
+  // 打開時放大到這個項目（岩壁放大到只比岩壁多一點）；分區還沒有岩壁時放大到所在的大區域；步道看整個地圖
   const focusArea = sector ? data.sectorById.get(sector)?.area.id.split('/').pop() : undefined
   const focus =
     m.ready && !isLineTarget(target)
       ? m.rings.length
-        ? { key: target, coords: m.rings.flat() }
+        ? { key: target, coords: m.rings.flat(), tight: isWall }
         : focusArea && { key: target, area: focusArea }
       : undefined
 
@@ -435,6 +434,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
           ) : (
             <>
               {tool(false, t('shape.removeRing'), 'Del', m.actions.removeSelected, m.selected === undefined)}
+              {isWall && tool(false, t('wall.flip'), 'F', m.actions.flip, m.selected === undefined)}
               <span className="edit-divider" />
               {tool(false, t('edit.undo'), 'Z', m.actions.undo, !m.canUndo)}
               {tool(false, t('edit.redo'), 'Y', m.actions.redo, !m.canRedo)}
@@ -461,7 +461,6 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
               pick={m.pick}
               lines={[...otherWalls, ...(m.draftLine ? [m.draftLine] : [])]}
               focus={focus || undefined}
-              keepView={isWall ? wallView : undefined}
               sectorLabels={otherLabels}
             />
           ) : (
@@ -474,6 +473,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
         <h2>{item.label}</h2>
         <NeedSignIn />
         <PendingList changed={changed} errors={errors} data={data} current={target} locked={submitting} />
+        {sector && <WallPhotoCheck sector={sector} lines={m.rings} />}
         <ReportPins pins={pins} data={data} on={pinOn} onPick={setPinOn} />
         <VersionList versions={m.versions} empty={t('shape.noVersions')} onDelete={(v) => void deleteVersion(v)} />
         {/* 其他快捷鍵都標在上方工具列的按鈕上；這裡只留沒有按鈕的操作 */}
@@ -481,6 +481,20 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
       </aside>
     </>
   )
+}
+
+/** 這個分區回報照片的相機朝向（EXIF）和岩壁的朝向相反時提醒：岩壁可能畫反了，要翻面 */
+function WallPhotoCheck({ sector, lines }: { sector: string; lines: LatLng[][] }) {
+  const { t } = useLang()
+  const { photos } = useTopoState()
+  useEffect(() => {
+    void loadPhotos()
+  }, [])
+  const headings = Object.values(photos ?? {}).flatMap((p) => (p.sector === sector && p.shot?.exifHeading !== undefined ? [p.shot.exifHeading] : []))
+  const fromPhotos = photoFacing(headings)
+  const wall = meanFacing(lines.flatMap(wallFaces))
+  if (fromPhotos === undefined || wall === undefined || angleBetween(fromPhotos, wall) <= 90) return null
+  return <p className="edit-error wall-photo-check">{t('wall.photoOpposite', { n: headings.length })}</p>
 }
 
 /** 還沒提交的修改（跨項目）：每個項目一列，點了切過去；失敗的列出原因；可以全部放棄 */

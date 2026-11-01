@@ -185,6 +185,66 @@
           "createdAt": {
             ".validate": "newData.val() === now"
           },
+          "shot": {
+            ".validate": "newData.hasChildren()",
+            "lat": {
+              ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
+            },
+            "lng": {
+              ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180"
+            },
+            "accuracy": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+            },
+            "alpha": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360"
+            },
+            "beta": {
+              ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180"
+            },
+            "gamma": {
+              ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
+            },
+            "absolute": {
+              ".validate": "newData.isBoolean()"
+            },
+            "compass": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360"
+            },
+            "compassAccuracy": {
+              ".validate": "newData.isNumber() && newData.val() >= -1 && newData.val() <= 360"
+            },
+            "time": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4102444800000"
+            },
+            "exifLat": {
+              ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
+            },
+            "exifLng": {
+              ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180"
+            },
+            "exifAlt": {
+              ".validate": "newData.isNumber() && newData.val() >= -1000 && newData.val() <= 10000"
+            },
+            "exifHeading": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360"
+            },
+            "exifHeadingRef": {
+              ".validate": "newData.val() === 'T' || newData.val() === 'M'"
+            },
+            "make": {
+              ".validate": "newData.isString() && newData.val().length <= 60"
+            },
+            "model": {
+              ".validate": "newData.isString() && newData.val().length <= 60"
+            },
+            "focal35": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
           "$other": {
             ".validate": false
           }

@@ -491,6 +491,37 @@ describe('Topo（v2/topos、v2/topoEdits）', () => {
     await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), note: 'x' }))
   })
 
+  it('照片的拍照資料（回報附的照片）：欄位與範圍固定，不能有其他欄位', async () => {
+    const shot = {
+      lat: 25.1105,
+      lng: 121.9228,
+      accuracy: 8,
+      alpha: 10,
+      beta: 80,
+      gamma: -3,
+      absolute: true,
+      compass: 250,
+      compassAccuracy: 15,
+      time: 1793500000000,
+      exifLat: 25.1105,
+      exifLng: 121.9228,
+      exifAlt: 12.5,
+      exifHeading: 247.25,
+      exifHeadingRef: 'T',
+      make: 'Apple',
+      model: 'iPhone 15',
+      focal35: 26,
+    }
+    await assertSucceeds(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), shot }))
+    await assertSucceeds(set(mallory, 'v2/topos/p3', { ...photo('mallory', 'p3'), shot: { lat: 25.1, lng: 121.9 } }))
+    await assertFails(set(mallory, 'v2/topos/p4', { ...photo('mallory', 'p4'), shot: { ...shot, compass: 361 } }))
+    await assertFails(set(mallory, 'v2/topos/p4', { ...photo('mallory', 'p4'), shot: { ...shot, exifHeadingRef: 'X' } }))
+    await assertFails(set(mallory, 'v2/topos/p4', { ...photo('mallory', 'p4'), shot: { ...shot, make: 'x'.repeat(61) } }))
+    await assertFails(set(mallory, 'v2/topos/p4', { ...photo('mallory', 'p4'), shot: { ...shot, uid: 'alice' } }))
+    await assertFails(set(mallory, 'v2/topos/p4', { ...photo('mallory', 'p4'), shot: 'x' }))
+    await assertFails(set(mallory, 'v2/topos/p4', { ...photo('mallory', 'p4'), shot: true }))
+  })
+
   it('照片：不能修改（原圖不動）；本人與管理員可以連同所有版本一起刪除，別人不能', async () => {
     await assertFails(set(alice, 'v2/topos/p1/width', 200))
     await assertFails(update(mallory, { 'v2/topos/p1': null, 'v2/topoEdits/p1': null }))

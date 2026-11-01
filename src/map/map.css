@@ -666,6 +666,20 @@
   fill: none;
 }
 
+/* 岩壁面朝向：線段右手邊的箭頭 */
+.sm-edit-face {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 地形圖的等高線淡一點，岩壁與編輯中的線看得清楚 */
+.sm-topo {
+  opacity: 0.45;
+}
+
 /* 打開航照時的下載提示：按鈕可以點（提示框本身不擋地圖操作） */
 .map-toast.offer button {
   margin-left: 10px;

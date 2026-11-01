@@ -5,6 +5,7 @@ import { AreaShape, SectorShape } from '../components/AreaShape'
 import { GradeDistribution } from '../components/Charts'
 import { PageHero } from '../components/PageHero'
 import { RouteList } from '../components/RouteList'
+import { SectorSun } from '../components/SectorSun'
 import { useInlineEditing } from '../edit/backGuard'
 import { CommunityText } from '../edit/CommunityText'
 import { TitleTools } from '../components/TitleTools'
@@ -196,7 +197,12 @@ export function SectorPage({ data, id }: { data: LoadedData; id: string }) {
         ]}
         color={color}
         name={name.main}
-        sub={t('count.routes', { n: routes.length })}
+        sub={
+          <>
+            {t('count.routes', { n: routes.length })}
+            <SectorSun sector={sector.id} />
+          </>
+        }
         tools={
           <TitleTools
             data={data}

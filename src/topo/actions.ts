@@ -1,6 +1,7 @@
 import { withCloud } from '../personal/sync'
 import { t } from '../i18n'
 import { encodeMarks, FULL_CROP, isFullCrop, MAX_EDGE, SCALE, type Crop, type Marks, type TopoPhoto } from './model'
+import type { Shot } from './shot'
 import { loadEdits, loadPhotos } from './store'
 
 /** 裁切（crop：萬分比，沒給是整張）、縮到長邊不超過 MAX_EDGE，輸出 WebP（瀏覽器不支援時為 JPEG）；照片的方向依 EXIF 轉正 */
@@ -28,11 +29,11 @@ async function shrink(file: File, crop: Crop = FULL_CROP): Promise<{ blob: Blob;
   return { blob, width, height }
 }
 
-/** 上傳照片到分區（先裁切成 crop），回傳照片 id */
-export async function uploadTopo(sector: string, file: File, crop?: Crop): Promise<string> {
+/** 上傳照片到分區（先裁切成 crop），回傳照片 id；shot：回報附的照片的拍照資料 */
+export async function uploadTopo(sector: string, file: File, crop?: Crop, shot?: Shot): Promise<string> {
   const { m, uid } = await withCloud()
   const { blob, width, height } = await shrink(file, crop)
-  const id = await m.createTopo(uid, sector, blob, width, height)
+  const id = await m.createTopo(uid, sector, blob, width, height, shot)
   await loadPhotos(true)
   return id
 }

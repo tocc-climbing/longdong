@@ -27,6 +27,7 @@ import { isAdminDeletable, type AdminRaw } from '../admin/feed'
 import type { StoredPin } from '../map/reportPins'
 import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
 import { STORAGE_BUCKET, type Crop, type StoredRoutes, type TopoPhoto } from '../topo/model'
+import type { Shot } from '../topo/shot'
 
 const app = initializeApp({
   // 前端用的公開設定（不是密鑰）；存取權限由 Realtime Database 規則控管
@@ -299,14 +300,14 @@ async function storage() {
 }
 
 /** 上傳照片（不能覆蓋）並建立 Topo；資料庫寫入失敗時刪掉剛上傳的檔案。回傳照片 id */
-export async function createTopo(uid: string, sector: string, image: Blob, width: number, height: number): Promise<string> {
+export async function createTopo(uid: string, sector: string, image: Blob, width: number, height: number, shot?: Shot): Promise<string> {
   const id = push(ref(db, 'v2/topos')).key!
   const path = `topos/${uid}/${id}.${image.type === 'image/webp' ? 'webp' : 'jpg'}`
   const { s, instance } = await storage()
   const file = s.ref(instance, path)
   await s.uploadBytes(file, image, { contentType: image.type })
   try {
-    await set(ref(db, `v2/topos/${id}`), { uid, sector, image: path, width, height, createdAt: serverTimestamp() })
+    await set(ref(db, `v2/topos/${id}`), { uid, sector, image: path, width, height, createdAt: serverTimestamp(), ...(shot && Object.keys(shot).length ? { shot } : {}) })
   } catch (err) {
     await s.deleteObject(file).catch(() => {})
     throw err

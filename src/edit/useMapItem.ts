@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { LatLng } from '../geo'
-import { nearestOnSegment } from '../map/aspect'
+import { faceTrail, nearestOnSegment } from '../map/aspect'
 import { project, unproject, type ScaleMapData } from '../map/mapData'
 import type { MapEdit, MapLine } from '../map/ScaleMap'
 import { LINE_TARGETS, isLineTarget, isOpenTarget, sectorOf, simplifyLine, useMapShapes, type EditTarget } from '../map/shapes'
@@ -60,17 +60,21 @@ export function useMapItem({ target, map }: { target: EditTarget; map?: ScaleMap
     return best && Math.hypot(best[0] - p[0], best[1] - p[1]) <= SNAP_PX * metersPerPixel ? unproject(best) : at
   }
 
+  const isWall = target.startsWith('wall:')
   const minPoints = closed ? 3 : 2
   const actions = {
     draw: () => setDrawing([]),
     undoPoint: () => drawing && setDrawing(drawing.slice(0, -1)),
     finishDrawing: () => {
       if (!drawing || drawing.length < minPoints) return
-      change([...rings, drawing], rings.length)
+      // 新畫的岩壁預設朝向最近的步道（岩壁面朝向由畫線方向決定，見 aspect.ts）
+      change([...rings, isWall && map ? faceTrail(drawing, map.lineLayers.trail) : drawing], rings.length)
       setDrawing(undefined)
     },
     cancel: () => (drawing ? setDrawing(undefined) : setSelectedRing(undefined)),
     removeSelected: () => selected !== undefined && change(rings.filter((_, i) => i !== selected), undefined),
+    /** 岩壁面換到另一側：把選中的線反過來 */
+    flip: () => isWall && selected !== undefined && change(rings.map((r, i) => (i === selected ? [...r].reverse() : r))),
     undo: () => {
       undoDraft(target)
       setSelectedRing(undefined)
@@ -92,6 +96,7 @@ export function useMapItem({ target, map }: { target: EditTarget; map?: ScaleMap
           onChange: (next) => setDraftRings(target, saved, next),
           onChangeStart: () => checkpointDraft(target, saved),
           onSelect: setSelectedRing,
+          faces: isWall,
         }
   const pick = drawing && !submitting ? { onPick: (at: LatLng, metersPerPixel: number) => setDrawing([...drawing, snap(at, metersPerPixel)]) } : undefined
   // 多邊形還沒閉環：點本身不補起點，暫時封閉的區域由地圖用半透明顯示（MapLine.closed）

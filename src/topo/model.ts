@@ -1,9 +1,10 @@
 import type { Route } from '../data/schema'
 import { E2E, routeKey } from '../social/model'
+import type { Shot } from './shot'
 
 /**
  * Topo：岩壁照片上的路線線段與 bolt 位置。照片存在 Cloud Storage，原圖不動；標記另外存，畫面上再疊上去。
- *   /v2/topos/<照片>              { uid, sector, image, width, height, createdAt }
+ *   /v2/topos/<照片>              { uid, sector, image, width, height, createdAt, shot? }（shot：回報附的照片的拍照資料，見 shot.ts）
  *   /v2/topoEdits/<照片>/<版本>   { uid, createdAt, routes: { <routeKey>: { line?, bolts? } }, crop?: { x, y, w, h } }
  * 任何登入者都可以提交新版本（完整的標記，不是差異）；最新的版本就是目前顯示的，刪掉它就回到前一版。
  * 座標是照片寬、高的萬分比（0–10000 的整數），和照片的解析度無關。
@@ -53,6 +54,7 @@ export interface TopoPhoto {
   height: number
   /** 伺服器時間（毫秒） */
   createdAt: number
+  shot?: Shot
 }
 
 export interface TopoEdit {

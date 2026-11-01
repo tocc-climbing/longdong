@@ -32,13 +32,13 @@ function Photo({ topo, alt, render }: { topo: SectorTopo; alt: string; render: (
 }
 
 /**
- * 分區頁：這個分區的所有 Topo。電腦版點線段換到那條路線；
+ * 分區頁：這個分區有標記路線的 Topo（還沒人標記的照片只在 Topo 編輯器出現）。電腦版點線段換到那條路線；
  * 手機版照片上沒有按鈕，點照片開全螢幕（onEdit：全螢幕裡的「編輯」在這一頁編輯那一張）。
  */
 export function SectorTopos({ sector, onEdit }: { sector: Sector; onEdit?: (photo: string) => void }) {
   const { lang, t } = useLang()
   const wide = useWide()
-  const topos = useSectorTopos(sector.id)
+  const topos = useSectorTopos(sector.id)?.filter((x): x is Required<SectorTopo> => !!x.latest)
   const { link, selected } = useRouteLink()
   const [showBolts] = useShowBolts()
   const [open, setOpen] = useState<SectorTopo>()
@@ -48,27 +48,25 @@ export function SectorTopos({ sector, onEdit }: { sector: Sector; onEdit?: (phot
   return (
     <section className="topos" aria-label={t('topo.title')}>
       {topos.map((topo) => (
-        <TopoFigure key={topo.photo.id} onOpen={wide || !topo.latest ? undefined : () => setOpen(topo)} label={t('topo.fullscreen')}>
+        <TopoFigure key={topo.photo.id} onOpen={wide ? undefined : () => setOpen(topo)} label={t('topo.fullscreen')}>
           <Photo
             topo={topo}
             alt={t('topo.alt', { name: localName(sector.name, lang).main })}
-            render={(k) =>
-              topo.latest && (
-                <TopoLines
-                  photo={topo.photo}
-                  marks={fillShared(topo.latest.marks, sector.routes)}
-                  labels={labels}
-                  k={k}
-                  highlight={selected}
-                  bolts={showBolts ? Object.keys(topo.latest.marks) : []}
-                  info={info}
-                  link={wide ? link : undefined}
-                  crop={topo.latest.crop}
-                />
-              )
-            }
+            render={(k) => (
+              <TopoLines
+                photo={topo.photo}
+                marks={fillShared(topo.latest.marks, sector.routes)}
+                labels={labels}
+                k={k}
+                highlight={selected}
+                bolts={showBolts ? Object.keys(topo.latest.marks) : []}
+                info={info}
+                link={wide ? link : undefined}
+                crop={topo.latest.crop}
+              />
+            )}
           />
-          {wide && topo.latest && <FullscreenButton topo={topo} sector={sector} initial={selected} />}
+          {wide && <FullscreenButton topo={topo} sector={sector} initial={selected} />}
         </TopoFigure>
       ))}
       {open && <Fullscreen topo={open} sector={sector} initial={selected} onClose={() => setOpen(undefined)} onEdit={onEdit} />}

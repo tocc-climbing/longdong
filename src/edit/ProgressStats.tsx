@@ -14,7 +14,8 @@ export function ProgressStats({ data, items }: { data: LoadedData; items: EditIt
     void loadAllEdits()
   }, [])
   const photos = Object.values(topo.photos ?? {})
-  const loaded = !!topo.photos && photos.every((p) => topo.edits[p.id])
+  // 回報附的照片可能還沒有任何版本：讀完全部版本才算載入完成，沒有版本的照片沒有線段
+  const loaded = !!topo.photos && !!topo.allEdits
   const routeIds = data.routes.filter((r) => !r.route.isFixture).map((r) => r.route.id)
   const stats: { key: string; label: string; unit: string; progress?: Progress }[] = [
     {
@@ -24,7 +25,7 @@ export function ProgressStats({ data, items }: { data: LoadedData; items: EditIt
       progress: loaded
         ? topoProgress(
             routeIds,
-            photos.map((p) => topo.edits[p.id]!.at(-1)?.marks ?? {}),
+            photos.map((p) => topo.edits[p.id]?.at(-1)?.marks ?? {}),
           )
         : undefined,
     },

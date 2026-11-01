@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Area, Route, Sector } from '../data/schema'
 import { RESCUE_POINTS } from '../data/rescue'
@@ -12,6 +12,9 @@ import { LocationHelp } from './LocationHelp'
 import { useGeolocation } from './MyLocation'
 import { Sheet } from './Sheet'
 import { useSimulation } from '../simulate'
+import { useCloud } from '../personal/sync'
+import { uploadTopo } from '../topo/actions'
+import { fromOrientation, readExif, type Orientation, type Shot } from '../topo/shot'
 
 /** 誤差在這以內才適合當校正點（與地圖頁相同） */
 const GOOD_ACCURACY_M = 10
@@ -19,6 +22,43 @@ const GOOD_ACCURACY_M = 10
 const SENT_MS = 4000
 
 type Kind = ReportTarget['kind']
+
+/** 回報附的照片：檔案與按下拍照那一刻的手機姿態 */
+interface Photo {
+  file: File
+  url: string
+  pose: Shot
+}
+
+/** iOS 要先取得使用者同意才收得到手機姿態（必須在點按的當下要求） */
+type OrientationPermission = { requestPermission?: () => Promise<'granted' | 'denied'> }
+
+/** 回報畫面開著時持續記下最新的手機姿態（Android 優先用以北為準的 deviceorientationabsolute） */
+function useOrientation(on: boolean) {
+  const latest = useRef<Orientation>(undefined)
+  useEffect(() => {
+    if (!on) return
+    const onEvent = (e: Event) => {
+      const o = e as DeviceOrientationEvent & { webkitCompassHeading?: number; webkitCompassAccuracy?: number }
+      if (e.type === 'deviceorientation' && latest.current?.absolute && !o.absolute) return
+      latest.current = {
+        alpha: o.alpha,
+        beta: o.beta,
+        gamma: o.gamma,
+        absolute: o.absolute || e.type === 'deviceorientationabsolute',
+        webkitCompassHeading: o.webkitCompassHeading,
+        webkitCompassAccuracy: o.webkitCompassAccuracy,
+      }
+    }
+    window.addEventListener('deviceorientationabsolute', onEvent)
+    window.addEventListener('deviceorientation', onEvent)
+    return () => {
+      window.removeEventListener('deviceorientationabsolute', onEvent)
+      window.removeEventListener('deviceorientation', onEvent)
+    }
+  }, [on])
+  return latest
+}
 const KINDS: Kind[] = ['start', 'rest', 'top', 'base']
 
 /**
@@ -41,6 +81,14 @@ export function PlaceReport({ data, area, sector, route }: { data: LoadedData; a
   const [picked, setPicked] = useState<LatLng>()
   const [extra, setExtra] = useState('')
   const [sent, setSent] = useState(false)
+  const signedIn = useCloud().status === 'signed-in'
+  const [photos, setPhotos] = useState<Photo[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string>()
+  const photoInput = useRef<HTMLInputElement>(null)
+  const pose = useOrientation(open && signedIn)
+  /** 按下拍照那一刻的姿態（選好照片回來時手機已經放下了） */
+  const poseAtTap = useRef<Shot>({})
 
   useEffect(() => {
     if (!sent) return
@@ -59,12 +107,51 @@ export function PlaceReport({ data, area, sector, route }: { data: LoadedData; a
     setSector(undefined)
     setPicked(undefined)
     setExtra('')
+    setPhotos((list) => {
+      list.forEach((p) => URL.revokeObjectURL(p.url))
+      return []
+    })
+    setUploadError(undefined)
     setOpen(true)
     if (geo.status !== 'ok') start()
   }
 
-  const submit = () => {
-    if (!kind || !target || !fix || outside !== undefined) return
+  const takePhoto = () => {
+    const permission = (window.DeviceOrientationEvent as OrientationPermission | undefined)?.requestPermission
+    if (permission) void permission().catch(() => 'denied')
+    poseAtTap.current = pose.current ? fromOrientation(pose.current) : {}
+    photoInput.current?.click()
+  }
+
+  const addPhotos = (files: FileList | null) => {
+    const picked = [...(files ?? [])].map((file) => ({ file, url: URL.createObjectURL(file), pose: poseAtTap.current }))
+    setPhotos((list) => [...list, ...picked])
+  }
+
+  const removePhoto = (photo: Photo) => {
+    URL.revokeObjectURL(photo.url)
+    setPhotos((list) => list.filter((p) => p !== photo))
+  }
+
+  const submit = async () => {
+    if (!kind || !target || !fix || outside !== undefined || uploading) return
+    // 照片先上傳（放進這個分區的 Topo）：失敗時留在這個畫面，位置也還沒記錄，再按一次送出不會重複
+    if (photos.length) {
+      setUploading(true)
+      setUploadError(undefined)
+      try {
+        for (const photo of photos) {
+          const shot: Shot = { lat: fix.coords[0], lng: fix.coords[1], accuracy: fix.accuracy, ...photo.pose, ...(await readExif(photo.file)) }
+          await uploadTopo(target.id, photo.file, undefined, shot)
+          removePhoto(photo)
+        }
+      } catch (err) {
+        setUploadError((err as Error).message)
+        return
+      } finally {
+        setUploading(false)
+      }
+    }
     // 說明：管理頁的清單直接看得懂（「#62 火龍 · 起攀點」「地下二樓 · 牆底」）
     const what = kind === 'base' || !routeName ? localName(target.name, lang).main : routeName
     const note = [`${what} · ${t(`place.kind.${kind}`)}`, extra.trim()].filter(Boolean).join(' · ')
@@ -99,87 +186,108 @@ export function PlaceReport({ data, area, sector, route }: { data: LoadedData; a
           )}
         </svg>
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={t('place.title')}>
+      <Sheet open={open} onClose={() => setOpen(false)} title={t('place.title')} locked={uploading}>
         <form
           className="place-report"
           onSubmit={(e) => {
             e.preventDefault()
-            submit()
+            void submit()
           }}
         >
-          {route ? (
-            <>
-              <p className="map-question">{t('place.which')}</p>
-              <div className="chips">
-                {KINDS.map((k) => (
-                  <button key={k} type="button" className="chip" aria-pressed={kind === k} onClick={() => setKind(kind === k ? undefined : k)}>
-                    {t(`place.kind.${k}`)}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : sector ? (
-            <p className="map-question">
-              {localName(sector.name, lang).main} · {t('place.kind.base')}
-            </p>
-          ) : (
-            <>
-              <p className="map-question">{t('place.whichSector')}</p>
-              <div className="chips">
-                {area.sectors.map((x) => (
-                  <button key={x.id} type="button" className="chip" aria-pressed={chosenSector === x} onClick={() => setSector(chosenSector === x ? undefined : x)}>
-                    {localName(x.name, lang).main}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          <p className="map-question">
-            {t('place.pick')}
-          </p>
-          <div className="place-report-map">
-            {map.status === 'ok' && (
-              <ScaleMap
-                map={map.data}
-                areaNames={areaNames(data, lang)}
-                here={fix}
-                marks={[]}
-                focus={{ key: area.id, area: area.id.split('/').pop() }}
-                lines={Object.entries(map.data.walls).flatMap(([id, walls]) =>
-                  walls.map((points, i) => ({ key: `${id}#${i}`, points, area: data.sectorById.get(id)?.area.id.split('/').pop(), selected: id === target?.id })),
-                )}
-                pick={{ at: picked, onPick: setPicked }}
-              />
-            )}
-          </div>
-          <p className="small">
-            {geo.status === 'error' ? (
+          {/* 上傳照片中：表單全部鎖住（記錄的是按下送出時的內容） */}
+          <fieldset className="place-report-fields" disabled={uploading}>
+            {route ? (
               <>
-                <span className="warn">{t(geo.code === 'denied' ? 'map.denied' : 'map.unavailable')}</span>
-                {geo.code === 'denied' && <LocationHelp />}
+                <p className="map-question">{t('place.which')}</p>
+                <div className="chips">
+                  {KINDS.map((k) => (
+                    <button key={k} type="button" className="chip" aria-pressed={kind === k} onClick={() => setKind(kind === k ? undefined : k)}>
+                      {t(`place.kind.${k}`)}
+                    </button>
+                  ))}
+                </div>
               </>
-            ) : !fix ? (
-              <span className="muted">{t('map.locating')}</span>
-            ) : outside !== undefined ? (
-              <span className="warn">{t('map.outsideReport', { dist: distance(outside) })}</span>
+            ) : sector ? (
+              <p className="map-question">
+                {localName(sector.name, lang).main} · {t('place.kind.base')}
+              </p>
             ) : (
               <>
-                <span className={fix.accuracy <= GOOD_ACCURACY_M ? 'muted' : 'warn'}>{t('map.accuracy', { m: Math.round(fix.accuracy) })}</span>
-                {picked && <span className="muted"> · {t('map.pickedAt', { m: Math.round(distanceM(fix.coords, picked)) })}</span>}
+                <p className="map-question">{t('place.whichSector')}</p>
+                <div className="chips">
+                  {area.sectors.map((x) => (
+                    <button key={x.id} type="button" className="chip" aria-pressed={chosenSector === x} onClick={() => setSector(chosenSector === x ? undefined : x)}>
+                      {localName(x.name, lang).main}
+                    </button>
+                  ))}
+                </div>
               </>
             )}
-          </p>
 
-          <input className="map-extra" type="text" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={t('map.extra')} aria-label={t('map.extra')} />
-          <div className="actions">
-            <button type="submit" className="action primary" disabled={!kind || !target || !fix || outside !== undefined}>
-              {t('map.send')}
-            </button>
-            <button type="button" className="action" onClick={() => setOpen(false)}>
-              {t('map.cancel')}
-            </button>
-          </div>
+            <p className="map-question">
+              {t('place.pick')}
+            </p>
+            <div className="place-report-map">
+              {map.status === 'ok' && (
+                <ScaleMap
+                  map={map.data}
+                  areaNames={areaNames(data, lang)}
+                  here={fix}
+                  marks={[]}
+                  focus={{ key: area.id, area: area.id.split('/').pop() }}
+                  lines={Object.entries(map.data.walls).flatMap(([id, walls]) =>
+                    walls.map((points, i) => ({ key: `${id}#${i}`, points, area: data.sectorById.get(id)?.area.id.split('/').pop(), selected: id === target?.id })),
+                  )}
+                  pick={{ at: picked, onPick: (at) => !uploading && setPicked(at) }}
+                />
+              )}
+            </div>
+            <p className="small">
+              {geo.status === 'error' ? (
+                <>
+                  <span className="warn">{t(geo.code === 'denied' ? 'map.denied' : 'map.unavailable')}</span>
+                  {geo.code === 'denied' && <LocationHelp />}
+                </>
+              ) : !fix ? (
+                <span className="muted">{t('map.locating')}</span>
+              ) : outside !== undefined ? (
+                <span className="warn">{t('map.outsideReport', { dist: distance(outside) })}</span>
+              ) : (
+                <>
+                  <span className={fix.accuracy <= GOOD_ACCURACY_M ? 'muted' : 'warn'}>{t('map.accuracy', { m: Math.round(fix.accuracy) })}</span>
+                  {picked && <span className="muted"> · {t('map.pickedAt', { m: Math.round(distanceM(fix.coords, picked)) })}</span>}
+                </>
+              )}
+            </p>
+
+            <input className="map-extra" type="text" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={t('map.extra')} aria-label={t('map.extra')} />
+            {signedIn && (
+              <div className="place-photos">
+                {photos.map((p) => (
+                  <span key={p.url} className="place-photo">
+                    <img src={p.url} alt="" />
+                    <button type="button" aria-label={t('place.removePhoto')} onClick={() => removePhoto(p)}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <button type="button" className="action place-photo-add" onClick={takePhoto}>
+                  {t('place.photo')}
+                </button>
+                <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (addPhotos(e.target.files), (e.target.value = ''))} />
+              </div>
+            )}
+            {uploading && <p className="small muted">{t('topo.uploading')}</p>}
+            {uploadError && <p className="small warn">{t('topo.uploadError', { error: uploadError })}</p>}
+            <div className="actions">
+              <button type="submit" className="action primary" disabled={!kind || !target || !fix || outside !== undefined || uploading}>
+                {t('map.send')}
+              </button>
+              <button type="button" className="action" onClick={() => setOpen(false)}>
+                {t('map.cancel')}
+              </button>
+            </div>
+          </fieldset>
         </form>
       </Sheet>
     </>

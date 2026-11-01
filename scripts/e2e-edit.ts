@@ -9,6 +9,9 @@
 import { readFileSync } from 'node:fs'
 import { chromium, type BrowserContext, type BrowserContextOptions, type Page } from 'playwright-core'
 import { preview } from 'vite'
+import type { LatLng } from '../src/geo'
+import { faceTrail } from '../src/map/aspect'
+import { project } from '../src/map/mapData'
 
 const DB = 'http://127.0.0.1:9000'
 const asOwner = { headers: { Authorization: 'Bearer owner' } }
@@ -332,6 +335,17 @@ try {
   const otherWallLines = () => editor.page.locator('.edit-canvas .sm-line').count()
   await editor.page.waitForTimeout(1000)
   const linesAtStart = await otherWallLines()
+  // 打開就放大到這個分區的岩壁：岩壁佔地圖的寬或高至少三成
+  const canvasSize = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
+  const ringBox = await editor.page.evaluate(() => {
+    const boxes = [...document.querySelectorAll('.edit-canvas .sm-edit-ring')].map((p) => p.getBoundingClientRect())
+    if (!boxes.length) return undefined
+    const [l, t, r, b] = [Math.min(...boxes.map((x) => x.left)), Math.min(...boxes.map((x) => x.top)), Math.max(...boxes.map((x) => x.right)), Math.max(...boxes.map((x) => x.bottom))]
+    return { w: r - l, h: b - t }
+  })
+  const fill = ringBox ? Math.max(ringBox.w / canvasSize.width, ringBox.h / canvasSize.height) : 0
+  check('岩壁編輯：打開就放大到這個分區的岩壁', fill >= 0.3, `岩壁佔 ${Math.round(fill * 100)}%`)
+  check('岩壁編輯：標出岩壁面朝哪一側', (await editor.page.locator('.edit-canvas .sm-edit-face').count()) > 0)
   const sectorLink = editor.page.locator('.edit-catalog a', { hasText: gateSectorName }).first()
   check('目錄裡的分區連到岩壁的編輯', ((await sectorLink.getAttribute('href')) ?? '').endsWith(`edit/map/wall:${wallSector.replace('/', ':')}`), (await sectorLink.getAttribute('href')) ?? '')
   const topoTiles = () => editor.page.locator('.sm-topo image').evaluateAll((list) => list.map((i) => i.getAttribute('href') ?? ''))
@@ -352,6 +366,10 @@ try {
     }
     return [...seen]
   }, hrefs)
+  // 打開時放大到岩壁，畫面裡不一定有等高線與海岸線：先縮小再看
+  const canvasMid = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
+  await editor.page.mouse.move(canvasMid.x + canvasMid.width / 2, canvasMid.y + canvasMid.height / 2)
+  for (let i = 0; i < 4; i++) await editor.page.mouse.wheel(0, 400)
   let topo: string[] = []
   const colors =
     (await until(async () => {
@@ -363,10 +381,22 @@ try {
   await editor.page.keyboard.press('t')
   check('按 T 關掉地形圖', (await until(async () => (await topoTiles()).length === 0, 3000)) === true)
   await editor.page.keyboard.press('t')
+  const contourOpacity = await until(async () => {
+    const o = await editor.page.locator('.sm-topo').evaluate((g) => Number(getComputedStyle(g).opacity)).catch(() => undefined)
+    return o === undefined ? undefined : o
+  }, 5000)
+  check('等高線畫淡一點（半透明）', contourOpacity !== undefined && contourOpacity < 0.6, String(contourOpacity))
   check('不畫 OpenStreetMap 的岩壁', (await editor.page.locator('.sm-cliff').count()) === 0)
   await editor.page.keyboard.press('n')
   await clickCanvas(editor.page, [[0.3, 0.4], [0.45, 0.5], [0.6, 0.45]])
   await editor.page.keyboard.press('Enter')
+  // 翻面：剛畫好的線（選中的）點的順序反過來；再翻一次回到預設（朝向步道）
+  const selectedPoints = () => editor.page.locator('.edit-canvas .sm-edit-ring.selected').getAttribute('d').then((d) => (d ?? '').slice(1).split('L'))
+  const drawn = await selectedPoints()
+  await editor.page.keyboard.press('f')
+  const flipped = await selectedPoints()
+  check('岩壁按 F 翻面：線反過來', drawn.length === 3 && JSON.stringify(flipped) === JSON.stringify([...drawn].reverse()), `${drawn.join(' ')} → ${flipped.join(' ')}`)
+  await editor.page.keyboard.press('f')
   await submitMap(editor.page)
   const wallKey = `wall:${wallSector.replace('/', ':')}`
   const wall = await until(async () => {
@@ -379,6 +409,12 @@ try {
     submittedLines.length === (baseWalls.get(wallSector) ?? 0) + 1 && submittedLines.at(-1)!.split(' ').length === 3,
     `${submittedLines.length} 條`,
   )
+  // 新畫的岩壁預設朝向最近的步道（岩壁面在線的右手邊，見 aspect.ts）
+  const trails = (JSON.parse(readFileSync('public/rescue/scale-map.geojson', 'utf8')) as { features: { properties: { kind?: string }; geometry: { coordinates: [number, number][][] } }[] }).features
+    .filter((f) => f.properties.kind === 'trail')
+    .flatMap((f) => f.geometry.coordinates.map((l) => l.map(([lng, lat]) => project([lat, lng]))))
+  const newLine = (submittedLines.at(-1) ?? '').split(' ').map((p) => p.split(',').map(Number) as LatLng)
+  check('新畫的岩壁朝向最近的步道', newLine.length === 3 && faceTrail(newLine, trails) === newLine, submittedLines.at(-1))
   // 換到別的分區畫岩壁：地圖停在原處，剛畫的岩壁（別的分區）也畫出來
   const mapTransform = () => editor.page.locator('.edit-canvas svg[role=img] > g[transform]').first().getAttribute('transform')
   const canvasBox = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
@@ -391,7 +427,7 @@ try {
   await otherWallLink.dispatchEvent('click')
   await editor.page.waitForFunction((h) => location.pathname.endsWith(h.slice(h.lastIndexOf('/'))), otherHref)
   await editor.page.waitForTimeout(500)
-  check('換到別的分區畫岩壁：地圖範圍不變', !!viewBefore && (await mapTransform()) === viewBefore, `${viewBefore} → ${await mapTransform()}`)
+  check('換到別的分區畫岩壁：放大到那個分區的岩壁', !!viewBefore && (await mapTransform()) !== viewBefore, `${viewBefore} → ${await mapTransform()}`)
   const shownWall = await until(async () => ((await editor.page.locator('.edit-canvas .sm-line').count()) > 0 && (await editor.page.locator('.edit-canvas .sm-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
   check('畫岩壁時，其他分區已有的岩壁也畫出來', shownWall === true)
   const labelOnTop = await editor.page.evaluate(() => {
@@ -1175,7 +1211,9 @@ try {
   check('首頁完成度：說明已有 1 個項目被修改', ((await stat('說明').textContent()) ?? '').replace(/\s+/g, '').startsWith('1/'))
 
   // ── 5b. 編輯 Topo 的入口：公開頁面沒有「新增 Topo 照片」；編輯選單只有一個「Topo」，沒照片進新增頁、有照片進第一張 ──
-  const emptySector = data.areas.flatMap((a) => a.sectors).find((s) => s.id !== topoSector.id)!
+  // 還沒有照片的分區（e2e-report 回報時附的照片也在同一個模擬器裡）
+  const withPhotos = new Set(Object.values((await read<Record<string, { sector: string }>>('v2/topos')) ?? {}).map((p) => p.sector))
+  const emptySector = data.areas.flatMap((a) => a.sectors).find((s) => s.id !== topoSector.id && !withPhotos.has(s.id))!
   const topoMenu = async (sectorId: string) => {
     await editor.page.goto(base + `sector/${sectorId}`)
     await editor.page.waitForSelector('.tool-button')
@@ -1491,7 +1529,9 @@ try {
   check('電腦版修改記錄：展開清單', (await rp.locator('.page-tools .tool-history li').count()) > 0)
   await rp.keyboard.press('Escape')
   // 這個分區沒有任何修改：選單沒有「修改記錄」
-  const quiet = data.areas.flatMap((a) => a.sectors).find((x) => x.id !== topoSector.id && x.id !== sharedSector.id && x.routes.some((r) => r.number))!
+  // （有照片的分區有上傳記錄：e2e-report 回報時附的照片也在同一個模擬器裡）
+  const photoSectors = new Set(Object.values((await read<Record<string, { sector: string }>>('v2/topos')) ?? {}).map((p) => p.sector))
+  const quiet = data.areas.flatMap((a) => a.sectors).find((x) => x.id !== topoSector.id && x.id !== sharedSector.id && !photoSectors.has(x.id) && x.routes.some((r) => r.number))!
   await rp.goto(base + `route/${quiet.routes.find((r) => r.number)!.id}`)
   await rp.waitForSelector('.page-tools .tool-button.fav')
   await detailTool('更多').click()

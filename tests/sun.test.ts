@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sunTimes } from '../src/sun'
+import { sunPosition, sunTimes } from '../src/sun'
 
 /** 岩場入口（救援點 #2） */
 const LONGDONG: [number, number] = [25.113133, 121.92035]
@@ -30,5 +30,29 @@ describe('sunTimes', () => {
     const day = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(d)
     expect(day(sun.rise)).toBe('2026-10-31')
     expect(day(sun.set)).toBe('2026-10-31')
+  })
+})
+
+describe('sunPosition', () => {
+  it('日出、日落那一刻太陽在地平線下 0.833 度（上緣含折射剛好碰到地平線；0.25 度約一分鐘）', () => {
+    for (const date of ['2026-01-01', '2026-06-21', '2026-10-20']) {
+      const { rise, set } = sunTimes(date, LONGDONG)
+      expect(Math.abs(sunPosition(rise, LONGDONG).altitude + 0.833)).toBeLessThan(0.25)
+      expect(Math.abs(sunPosition(set, LONGDONG).altitude + 0.833)).toBeLessThan(0.25)
+    }
+  })
+
+  it('夏至日出在東北偏東（約 64 度）、日落在西北偏西（約 296 度）', () => {
+    const { rise, set } = sunTimes('2026-06-21', LONGDONG)
+    expect(Math.abs(sunPosition(rise, LONGDONG).azimuth - 64)).toBeLessThan(1)
+    expect(Math.abs(sunPosition(set, LONGDONG).azimuth - 296)).toBeLessThan(1)
+  })
+
+  it('春分正午在正南，高度約 90 − 緯度', () => {
+    const { rise, set } = sunTimes('2026-03-20', LONGDONG)
+    const noon = new Date((rise.getTime() + set.getTime()) / 2)
+    const sun = sunPosition(noon, LONGDONG)
+    expect(Math.abs(sun.azimuth - 180)).toBeLessThan(1)
+    expect(Math.abs(sun.altitude - (90 - LONGDONG[0]))).toBeLessThan(0.5)
   })
 })

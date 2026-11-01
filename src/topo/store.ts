@@ -12,6 +12,8 @@ interface TopoState {
   photos?: Record<string, TopoPhoto>
   /** 照片 id → 所有版本（舊到新）；undefined 表示尚未載入 */
   edits: Record<string, TopoEdit[] | undefined>
+  /** 所有照片的版本都讀過了（loadAllEdits）：這時沒有版本的照片就是還沒人標記 */
+  allEdits?: boolean
   error?: string
 }
 
@@ -72,7 +74,7 @@ export function loadAllEdits(force = false): Promise<void> {
       const edits = Object.fromEntries(
         Object.entries(raw ?? {}).map(([photo, list]) => [photo, Object.entries(list).map(([id, e]) => decodeEdit(id, e)).sort((a, b) => a.createdAt - b.createdAt)]),
       )
-      set({ edits: { ...state.edits, ...edits } })
+      set({ edits: { ...state.edits, ...edits }, allEdits: true })
     })
     .catch((err: Error) => {
       allEditsPromise = undefined

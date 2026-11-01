@@ -33,3 +33,21 @@ export function sunTimes(date: string, [lat, lng]: [number, number]): { rise: Da
   const toDate = (jd: number) => new Date((jd - JD_UNIX) * DAY_MS)
   return { rise: toDate(transit - half), set: toDate(transit + half) }
 }
+
+/** 某個時刻太陽的方位角（正北為 0、順時針，0–360 度）與高度角（度，不含大氣折射）；同上的公式，誤差在 0.1 度內 */
+export function sunPosition(time: Date, [lat, lng]: [number, number]): { azimuth: number; altitude: number } {
+  const n = time.getTime() / DAY_MS + JD_UNIX - J2000
+  const M = (357.5291 + 0.98560028 * n) * rad
+  const C = (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M)) * rad
+  const lambda = M + C + (180 + 102.9372) * rad
+  const tilt = 23.4397 * rad
+  const dec = Math.asin(Math.sin(lambda) * Math.sin(tilt))
+  const ra = Math.atan2(Math.sin(lambda) * Math.cos(tilt), Math.cos(lambda))
+  // 時角：當地恆星時減去赤經
+  const H = (280.16 + 360.9856235 * n + lng) * rad - ra
+  const phi = lat * rad
+  const altitude = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H))
+  // atan2 得到的是從正南起算的方位角，加 180 度換成從正北起算
+  const fromSouth = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi))
+  return { azimuth: (fromSouth / rad + 180 + 360) % 360, altitude: altitude / rad }
+}

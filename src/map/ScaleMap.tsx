@@ -137,6 +137,8 @@ export interface MapFocus {
   area?: string
   /** 其他位置（例如一筆回報的 GPS 與在地圖上點的位置） */
   coords?: LatLng[]
+  /** 放大到只比位置多一點點（畫岩壁：岩壁只有幾十公尺） */
+  tight?: boolean
 }
 
 /**
@@ -178,11 +180,17 @@ export interface MapEdit {
   /** 一次修改開始（按下頂點、加頂點、刪頂點）：復原以這為一步，拖曳中的每次移動不算 */
   onChangeStart?: () => void
   onSelect: (index: number) => void
+  /** 標出線段的右手邊（岩壁面朝向，見 aspect.ts） */
+  faces?: boolean
 }
 
 /** 聚焦範圍外留的邊（公尺）；範圍至少這麼大，只聚焦一個點時也看得到周圍的區域與步道 */
 const FOCUS_PADDING_M = 30
 const FOCUS_MIN_M = 200
+const TIGHT_PADDING_M = 8
+const TIGHT_MIN_M = 50
+/** 岩壁面朝向的箭頭長度（像素） */
+const FACE_ARROW_PX = 9
 /** 放大到每像素不到這麼多公尺時才顯示分區名稱 */
 const SECTOR_LABEL_SCALE = 0.4
 /** 分區名稱的字級 */
@@ -207,8 +215,9 @@ function focusRect(focus: MapFocus, map: ScaleMapData): Rect | undefined {
   if (xy.length === 0) return undefined
   const xs = xy.map((p) => p[0])
   const ys = xy.map((p) => p[1])
-  const w = Math.max(FOCUS_MIN_M, Math.max(...xs) - Math.min(...xs) + 2 * FOCUS_PADDING_M)
-  const h = Math.max(FOCUS_MIN_M, Math.max(...ys) - Math.min(...ys) + 2 * FOCUS_PADDING_M)
+  const [pad, min] = focus.tight ? [TIGHT_PADDING_M, TIGHT_MIN_M] : [FOCUS_PADDING_M, FOCUS_MIN_M]
+  const w = Math.max(min, Math.max(...xs) - Math.min(...xs) + 2 * pad)
+  const h = Math.max(min, Math.max(...ys) - Math.min(...ys) + 2 * pad)
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2
   const cy = (Math.min(...ys) + Math.max(...ys)) / 2
   return { x: cx - w / 2, y: cy - h / 2, w, h }
@@ -239,8 +248,6 @@ interface Props {
   topLeft?: ReactNode
   /** 聚焦的區域、位置（例如回報的區域與位置）；有聚焦時，定位到也不會自動移到目前位置 */
   focus?: MapFocus
-  /** 換頁也沿用的畫面：有記下的就從那裡開始（不聚焦），之後的移動、縮放都記回去 */
-  keepView?: { current?: MapView }
   /** 折線（岩壁標記） */
   lines?: MapLine[]
   /** 點到折線時（不在點位置的模式） */
@@ -264,7 +271,7 @@ interface Props {
  * 第一次定位到、且在龍洞範圍內時，自動移到目前位置。
  * 陸地、區域、道路等圖形隨地圖旋轉；圖示與文字畫在螢幕座標上，旋轉後仍然朝上、維持固定大小。
  */
-export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, lines, onLineTap, sectorLabels: sectorPlaces, edit, hideAreas, ortho, topo, keepView }: Props) {
+export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPress, topLeft, focus, lines, onLineTap, sectorLabels: sectorPlaces, edit, hideAreas, ortho, topo }: Props) {
   const { lang, t } = useLang()
   const box = useRef<HTMLDivElement>(null)
   const [frame, setFrame] = useState<Size>()
@@ -294,7 +301,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
       setFrame(f)
       setView((v) => {
         if (v) return clampView(v, BOUNDS, f)
-        if (keepView?.current) return clampView(keepView.current, BOUNDS, f)
         const target = latestFocus.current
         return target ? focusView(target, BOUNDS, f) : fitRectView(areasRect(latestMap.current), BOUNDS, f)
       })
@@ -302,10 +308,6 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-
-  useEffect(() => {
-    if (keepView && view) keepView.current = view
-  }, [view])
 
   const latestMap = useRef(map)
   latestMap.current = map
@@ -618,7 +620,23 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
           {edit?.rings.map((ring, i) => {
             const pts = ring.map((q) => screen(project(q)))
             const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L') + (edit.closed ? 'Z' : '')
-            return <path key={i} className={`sm-edit-ring${edit.closed ? '' : ' open'}${i === edit.selected ? ' selected' : ''}`} d={d} />
+            return (
+              <g key={i}>
+                <path className={`sm-edit-ring${edit.closed ? '' : ' open'}${i === edit.selected ? ' selected' : ''}`} d={d} />
+                {edit.faces &&
+                  pts.slice(1).map((b, j) => {
+                    const a = pts[j]
+                    const len = Math.hypot(b[0] - a[0], b[1] - a[1])
+                    if (len < 3 * FACE_ARROW_PX) return null
+                    // 螢幕座標 y 向下：(dx, dy) 的右手邊是 (-dy, dx)
+                    const [nx, ny] = [(a[1] - b[1]) / len, (b[0] - a[0]) / len]
+                    const [mx, my] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+                    const [tx, ty] = [mx + nx * FACE_ARROW_PX, my + ny * FACE_ARROW_PX]
+                    const [hx, hy] = [(-ny * FACE_ARROW_PX) / 2, (nx * FACE_ARROW_PX) / 2]
+                    return <path key={j} className="sm-edit-face" d={`M${mx + hx} ${my + hy}L${tx} ${ty}L${mx - hx} ${my - hy}`} />
+                  })}
+              </g>
+            )
           })}
           {/* 分區名稱畫在岩壁線條上面，不被蓋住 */}
           {sectorLabels.map((l) => (
