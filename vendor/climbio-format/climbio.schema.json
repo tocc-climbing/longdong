@@ -62,6 +62,45 @@
             "self",
             "authorized"
           ]
+        },
+        "camera": {
+          "$ref": "#/$defs/camera"
+        }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "required": [
+        "position"
+      ],
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/position"
+        },
+        "accuracy": {
+          "type": "number",
+          "minimum": 0
+        },
+        "heading": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "pitch": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "focal": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "model": {
+          "type": "string"
         }
       }
     },

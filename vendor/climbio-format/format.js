@@ -27,6 +27,20 @@
           license: { type: 'string', minLength: 1 },
           attribution: str,
           origin: { enum: ['self', 'authorized'] },
+          camera: ref('camera'),
+        },
+      },
+      // 拍照資料：作者同意公開才寫；照片檔本身仍不帶 EXIF
+      camera: {
+        type: 'object', required: ['position'],
+        properties: {
+          position: ref('position'),
+          accuracy: { type: 'number', minimum: 0 },
+          heading: { type: 'number', minimum: 0, exclusiveMaximum: 360 },
+          pitch: { type: 'number', minimum: -90, maximum: 90 },
+          t: int,
+          focal: { type: 'number', exclusiveMinimum: 0 },
+          model: str,
         },
       },
       derivedFrom: { type: 'object', required: ['url'], properties: { url: { type: 'string', pattern: '^https://' }, id: str, t: int } },
@@ -109,6 +123,8 @@
     if (typeof v === 'number') {
       if ('minimum' in s && v < s.minimum) out.push(`${where}：不能小於 ${s.minimum}`);
       if ('exclusiveMinimum' in s && v <= s.exclusiveMinimum) out.push(`${where}：要大於 ${s.exclusiveMinimum}`);
+      if ('maximum' in s && v > s.maximum) out.push(`${where}：不能大於 ${s.maximum}`);
+      if ('exclusiveMaximum' in s && v >= s.exclusiveMaximum) out.push(`${where}：要小於 ${s.exclusiveMaximum}`);
     }
     if (Array.isArray(v)) {
       if (s.minItems && v.length < s.minItems) out.push(`${where}：至少 ${s.minItems} 項`);
@@ -126,9 +142,10 @@
     }
   }
 
-  // ---------- SCHEMA 表達不了的：引用的 id 存在、座標在照片範圍內 ----------
+  // ---------- SCHEMA 表達不了的：引用的 id 存在、座標在照片範圍內、經緯度範圍 ----------
   function relations(doc, out) {
-    const { w, h } = doc.photo;
+    const { w, h, camera } = doc.photo;
+    if (camera) { const [lon, lat] = camera.position; if (Math.abs(lon) > 180 || Math.abs(lat) > 90) out.push('photo.camera.position：經度在前，經度 ±180、緯度 ±90'); }
     const inside = (pts, where) => { if (pts.some(([x, y]) => x < 0 || y < 0 || x > w || y > h)) out.push(`${where}：座標超出照片範圍`); };
     if (doc.kind === 'wall') {
       const ids = new Set();

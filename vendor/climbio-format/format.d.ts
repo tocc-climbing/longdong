@@ -15,6 +15,23 @@ export interface Photo {
   attribution: string;
   /** self 自己拍的、authorized 有權利人授權；紙本、來源不明的照片不出裝置 */
   origin: 'self' | 'authorized';
+  camera?: Camera;
+}
+/** 拍照資料：作者同意公開才寫 */
+export interface Camera {
+  /** [經度, 緯度] 或 [經度, 緯度, 高度（公尺）] */
+  position: [number, number] | [number, number, number];
+  /** 水平誤差（公尺） */
+  accuracy?: number;
+  /** 鏡頭朝向，從正北順時針 0–360 度 */
+  heading?: number;
+  /** 俯仰，往上為正，-90–90 度 */
+  pitch?: number;
+  /** 拍攝時間（毫秒） */
+  t?: number;
+  /** 等效 35mm 焦距（公釐） */
+  focal?: number;
+  model?: string;
 }
 export interface DerivedFrom { url: string; id?: string; t?: number }
 export interface Hold { id: string; poly: Point[]; source?: 'detect' | 'edited' | 'manual'; t?: number; [key: string]: unknown }
