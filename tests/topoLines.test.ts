@@ -72,6 +72,25 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     }
   })
 
+  it('實際的 Topo 開著 bolt：565 的編號在箭頭正上方；放大三倍每個 bolt 都標種類', () => {
+    const real = schoolGate as unknown as { photo: TopoPhoto; crop: { x: number; y: number; w: number; h: number }; marks: Marks; routes: { id: string; number: string; grade: string; name: string; type: string }[] }
+    const realLabels = new Map(real.routes.map((r) => [r.id, r.number]))
+    const realInfo = new Map<string, RouteInfo>(
+      real.routes.map((r) => [r.id, { kind: r.type === 'sport' ? 'sport' : 'other', grade: r.grade, name: r.name, bolts: Object.fromEntries(Object.keys(real.marks[r.id]?.bolts ?? {}).map((p) => [p, '316-TW'])) }]),
+    )
+    const cropPx = (real.crop.w / 10000) * real.photo.width
+    const draw = (screen: number) => renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo: real.photo, marks: real.marks, labels: realLabels, k: cropPx / screen, info: realInfo, crop: real.crop, bolts: Object.keys(real.marks) })))
+    const sketch = real.routes.find((r) => r.number === '565')!
+    const [ex, ey] = real.marks[sketch.id].line!.at(-1)!.map((v, i) => (v / 10000) * (i ? real.photo.height : real.photo.width))
+    for (const screen of [340, 375]) {
+      const [x, y, w, h] = draw(screen).match(/<g class="topo-badge"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)"[^>]*><\/rect><text[^>]*>565</)!.slice(1).map(Number)
+      expect(Math.abs(x + w / 2 - ex), `${screen}px`).toBeLessThan(1)
+      expect(y + h, `${screen}px`).toBeLessThan(ey)
+    }
+    const zoomed = draw(375 * 3)
+    expect(count(zoomed, />316-TW</g)).toBe(count(zoomed, /<g class="topo-bolt/g))
+  })
+
   it('說明優先放在編號正上方（自己的線上），一看就知道是哪一條', () => {
     const html = render(1)
     for (const id of ['a', 'b']) {

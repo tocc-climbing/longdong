@@ -110,7 +110,7 @@ export function segmentHitsBox(a: Pt, b: Pt, box: Box): boolean {
 /**
  * 依序放牌子：先放的優先。每個牌子給幾個候選位置，取第一個不超出範圍、不和已放的重疊的；都不行就不放（藏起來），
  * force 時（例如選到的路線）放不下也放第一個候選位置。
- * 說明文字（avoidLines）優先放在不壓到線的位置，沒有的話才壓在線上；牌子之間一律不重疊。
+ * 牌子之間一律不重疊；壓不壓到線由呼叫的地方用 onLine 判斷。
  */
 export class Placer {
   private placed: Box[] = []
@@ -135,20 +135,11 @@ export class Placer {
   }
 
   /** 回傳放在哪一個候選位置（框）；放不下回傳 undefined */
-  place(candidates: Box[], force = false, avoidLines = false): Box | undefined {
-    const fit = (avoidLines && candidates.find((c) => this.fits(c) && !this.onLine(c))) || candidates.find((c) => this.fits(c))
+  place(candidates: Box[], force = false): Box | undefined {
+    const fit = candidates.find((c) => this.fits(c))
     const chosen = fit ?? (force ? candidates[0] : undefined)
     if (chosen) this.placed.push(chosen)
     return chosen
-  }
-
-  /** 第一個放得下的版本（例如一行、換行、少一點資訊），各版本的候選位置依序試；都放不下回傳 undefined */
-  placeFirst<T>(variants: { value: T; candidates: Box[] }[], avoidLines = false): { value: T; box: Box } | undefined {
-    for (const v of variants) {
-      const box = this.place(v.candidates, false, avoidLines)
-      if (box) return { value: v.value, box }
-    }
-    return undefined
   }
 
   /** 先佔住一塊（例如線上已經畫了的點），後面的牌子避開 */

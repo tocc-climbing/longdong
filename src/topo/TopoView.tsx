@@ -278,7 +278,9 @@ export function TopoLines({
     if (line && sketch.has(id)) {
       const [ex, ey] = line[line.length - 1]
       const top = ey - ARROW_UP * dotSize(id) * k
-      spots = [centeredBox([ex, top - 4 * k - h / 2], w, h), centeredBox([ex + w / 2 + h / 2, ey], w, h), centeredBox([ex - w / 2 - h / 2, ey], w, h)]
+      // 終點正上方（被 bolt 等佔住時再往上），其次旁邊
+      const above = [0, 1, 2, 3].map((n) => top - 4 * k - h / 2 - n * h * 1.2)
+      spots = [...above.map((y) => centeredBox([ex, y], w, h)), centeredBox([ex + w / 2 + h / 2, ey], w, h), centeredBox([ex - w / 2 - h / 2, ey], w, h)]
     } else if (line && line.length >= 2) {
       const on = labelLine(id, line)
       const along = (small ? SMALL_SPOTS : LABEL_SPOTS).map((f) => pointAlong(on, f))
@@ -312,10 +314,10 @@ export function TopoLines({
               { x: p.x + p.w + g, y: p.y + p.h / 2 - nh / 2, w: nw, h: nh },
               { x: p.x - nw - g, y: p.y + p.h / 2 - nh / 2, w: nw, h: nh },
             ]
-      // 說明優先放在不壓到別條線的位置（可以壓在自己的線上）；都沒有才壓在別條線上
+      // 編號、說明優先放在不壓到別條線的位置（可以壓在自己的線上）；都沒有才壓在別條線上
       for (const avoid of [true, false]) {
         for (const pill of spots) {
-          if (!placer.fits(pill) || (lines.length > 0 && !roomy([pill.x + pill.w / 2, pill.y + pill.h / 2], id))) continue
+          if (!placer.fits(pill) || (avoid && placer.onLine(pill, drawnOf.get(id))) || (lines.length > 0 && !roomy([pill.x + pill.w / 2, pill.y + pill.h / 2], id))) continue
           if (lines.length === 0) {
             placer.reserve(pill)
             entry.pill = pill
@@ -338,34 +340,28 @@ export function TopoLines({
   const mains = priority.filter((id) => !solo || id === highlight)
   for (const id of mains) if (!short(id)) placePill(id, false)
   for (const id of mains) if (short(id)) placePill(id, false)
-  // 3. bolt 旁邊的種類（材質；旁邊夠寬才顯示）
+  // 3. bolt 旁邊的種類（材質）：這條路線有空間顯示難度名稱時才顯示，而且不壓到別條線
   for (const id of editing ? [] : priority) {
     const entry = plan.get(id)!
     const i = info?.get(id)
     for (const b of entry.bolts) {
       const text = i?.bolts[b.pos]
-      if (!text || !roomy(b.at, id)) continue
-      const versions = [[text]]
+      if (!text || (!solo && !entry.note)) continue
       const g = 4 * k
-      const got = placer.placeFirst(
-        versions.map((lines) => {
-          const w = Math.max(...lines.map((t) => textWidth(t, NOTE_FONT))) * k
-          const h = lines.length * NOTE_LINE * k
-          const y = b.at[1] - h / 2
-          const cx = b.at[0] - w / 2
-          return {
-            value: lines,
-            candidates: [
-              { x: b.pill.x + b.pill.w + g, y, w, h },
-              { x: b.pill.x - w - g, y, w, h },
-              { x: cx, y: b.pill.y + b.pill.h + g, w, h },
-              { x: cx, y: b.pill.y - h - g, w, h },
-            ],
-          }
-        }),
-        true,
-      )
-      if (got) b.note = { box: got.box, lines: got.value }
+      const w = textWidth(text, NOTE_FONT) * k
+      const h = NOTE_LINE * k
+      const y = b.at[1] - h / 2
+      const cx = b.at[0] - w / 2
+      const box = [
+        { x: b.pill.x + b.pill.w + g, y, w, h },
+        { x: b.pill.x - w - g, y, w, h },
+        { x: cx, y: b.pill.y + b.pill.h + g, w, h },
+        { x: cx, y: b.pill.y - h - g, w, h },
+      ].find((c) => placer.fits(c) && !placer.onLine(c, drawnOf.get(id)))
+      if (box) {
+        placer.reserve(box)
+        b.note = { box, lines: [text] }
+      }
     }
   }
 

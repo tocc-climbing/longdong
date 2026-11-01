@@ -77,14 +77,15 @@ describe('牌子的自動排版', () => {
     expect(wrapText('一二三四五六', 10, 30)).toEqual(['一二三', '四五六'])
   })
 
-  it('說明優先放在不壓到線的位置；都會壓到線時才壓', () => {
+  it('壓到線：線段穿過框；自己的線（except）不算', () => {
     const line: Pt[] = [[50, 0], [50, 100]]
     expect(segmentHitsBox(line[0], line[1], { x: 40, y: 40, w: 20, h: 10 })).toBe(true)
     expect(segmentHitsBox(line[0], line[1], { x: 60, y: 40, w: 20, h: 10 })).toBe(false)
     const placer = new Placer({ x: 0, y: 0, w: 100, h: 100 }, 0, [line])
     const onLine = { x: 40, y: 40, w: 20, h: 10 }
     const clear = { x: 60, y: 40, w: 20, h: 10 }
-    expect(placer.place([onLine, clear], false, true)).toBe(clear)
-    expect(placer.place([{ x: 40, y: 70, w: 20, h: 10 }], false, true)).toBeDefined()
+    expect(placer.onLine(onLine)).toBe(true)
+    expect(placer.onLine(clear)).toBe(false)
+    expect(placer.onLine(onLine, line)).toBe(false)
   })
 })
