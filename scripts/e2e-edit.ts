@@ -902,6 +902,7 @@ try {
   await phone.page.locator('.edit-catalog .topo-upload input[type=file]').first().setInputFiles({ name: 'wall.png', mimeType: 'image/png', buffer: png })
   await phone.page.waitForSelector('dialog.topo-upload-crop[open] .topo-crop-handle', { timeout: 5000 })
   check('手機：新增照片時先出現裁切畫面（還沒上傳）', (await phone.page.getByRole('button', { name: '上傳' }).count()) === 1 && Object.keys((await read<Record<string, unknown>>('v2/topos')) ?? {}).length === topoIdsBefore.size)
+  check('手機：裁切畫面寫著以 CC BY-SA 4.0 公開', (await phone.page.locator('dialog.topo-upload-crop[open]').getByText('以 CC BY-SA 4.0 公開').count()) === 1)
   const corner = (await phone.page.locator('.topo-crop-handle').nth(4).boundingBox())!
   const cropFrame = (await phone.page.locator('.topo-upload-crop-frame').boundingBox())!
   const cropCdp = await phone.ctx.newCDPSession(phone.page)

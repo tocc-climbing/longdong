@@ -6293,6 +6293,12 @@ dialog.topo-upload-crop::backdrop {
   -webkit-user-drag: none;
 }
 
+.topo-upload-crop-note {
+  margin: 0 16px;
+  color: rgb(255 255 255 / 70%);
+  text-align: right;
+}
+
 .topo-upload-crop-actions {
   display: flex;
   justify-content: flex-end;

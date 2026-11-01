@@ -96,6 +96,7 @@ function UploadCrop({ file, onCancel, onUpload }: { file: File; onCancel: () => 
           </div>
         )}
       </div>
+      <p className="small topo-upload-crop-note">{t('topo.license')}</p>
       <div className="topo-upload-crop-actions">
         <button type="button" className="action" onClick={onCancel}>
           {t('action.cancel')}

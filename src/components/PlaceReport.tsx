@@ -277,6 +277,7 @@ export function PlaceReport({ data, area, sector, route }: { data: LoadedData; a
                 <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (addPhotos(e.target.files), (e.target.value = ''))} />
               </div>
             )}
+            {photos.length > 0 && <p className="small muted">{t('place.photoLicense')}</p>}
             {uploading && <p className="small muted">{t('topo.uploading')}</p>}
             {uploadError && <p className="small warn">{t('topo.uploadError', { error: uploadError })}</p>}
             <div className="actions">
