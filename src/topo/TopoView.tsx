@@ -4,6 +4,7 @@ import type { Route } from '../data/schema'
 import { centeredBox, pathLength, Placer, pointAlong, smoothPath, textWidth, wrapText, type Box, type Pt } from './annotate'
 import { drawnRuns, ownRuns } from './lines'
 import { FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type Point, type TopoPhoto } from './model'
+import { isSketch } from './viewport'
 
 /**
  * 照片＋疊在上面的 SVG。SVG 的座標是照片的像素，children 收到「一個螢幕像素等於幾個照片像素」（k），
@@ -129,6 +130,10 @@ const MIN_LABEL_LINE_PX = 40
 /** 編輯時線上的點（把手）佔的範圍（半徑，螢幕像素）：牌子不蓋在上面 */
 const EDIT_POINT_PX = 12
 /** 編號牌放在線上的候選位置（占全長的比例）：先放正中間，不行再往兩邊找 */
+/** 示意線終點的向上箭頭：尖端在終點上面幾個圓點半徑 */
+const ARROW_UP = 2.2
+const arrowUp = ([x, y]: Pt, r: number) => `M${x} ${y - ARROW_UP * r}L${x + 1.8 * r} ${y + 0.6 * r}L${x - 1.8 * r} ${y + 0.6 * r}Z`
+
 const LABEL_SPOTS = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82]
 /** 說明文字太長時換行的寬度（螢幕像素）：先試一行，再試這些寬度 */
 const WRAP_PX = [90, 60]
@@ -149,6 +154,7 @@ interface Plan {
  * 有 link 時點線段換到那條路線。兩條路線共用的線段只畫一次。
  * editing（編輯時）：線畫細一點、不顯示難度名稱等說明；牌子避開 highlight 路線的點（點上有把手），放不下就不顯示。
  * solo（路線卡片）：highlight 標編號與說明（不避開其他路線的線，貼著編號放）；其他路線只標小的編號，最後才放，放不下就不標。
+ * 其他（看整張照片）：排版和大小與 highlight 無關，換路線只換顏色，牌子不會跳動。
  */
 export function TopoLines({
   photo,
@@ -187,11 +193,16 @@ export function TopoLines({
   const [bw, bh] = px(photo, [c.w, c.h])
   // 亮色的畫在最上面
   const ids = Object.keys(marks).sort((a, b) => Number(a === highlight) - Number(b === highlight))
-  // 先放的優先：選到的路線，其次依編號
-  const priority = [...ids].sort((a, b) => Number(b === highlight) - Number(a === highlight) || Number(labels.get(a)) - Number(labels.get(b)) || a.localeCompare(b))
+  /** 排版優先的路線：編輯與路線卡片是選到的那條；看整張照片時沒有（換路線不重排） */
+  const lead = editing || solo ? highlight : undefined
+  // 先放的優先：lead，其次依編號
+  const priority = [...ids].sort((a, b) => Number(b === lead) - Number(a === lead) || Number(labels.get(a)) - Number(labels.get(b)) || a.localeCompare(b))
   const drawn = priority.filter((id) => marks[id].line).map((id): [string, Pt[]] => [id, marks[id].line!.map((p) => px(photo, p))])
   const runs = drawnRuns(drawn)
   const own = ownRuns(drawn)
+  const drawnOf = new Map(drawn)
+  /** 起點、終點圓點的半徑（畫面像素） */
+  const dotSize = (id: string) => (editing ? 3 : id === lead ? 4 : 3.2)
   const lineOf = (id: string): Pt[] | undefined => marks[id].line?.map((p) => px(photo, p) as Pt)
   /** 編號牌放的線：獨有線段中最長的一段（分岔的路線標在自己的岔線上）；整條都和別的路線共用時用整條 */
   const labelLine = (id: string, line: Pt[]): Pt[] => own.get(id)!.reduce<Pt[] | undefined>((a, b) => (!a || pathLength(b) > pathLength(a) ? b : a), undefined) ?? line
@@ -228,8 +239,10 @@ export function TopoLines({
   // 2. 路線編號牌與難度、名稱：編號和說明綁在一起放（說明緊貼在編號旁邊），沿著線找空位；
   //    先找放得下完整說明（難度＋名稱）的位置，真的放不下才少一點（換行、只留難度、只有編號）。
   //    solo 時其他路線的編號在 bolt 說明之後才放，見 4.
+  /** 示意的線（主要的路線不在照片裡，例如 565）：編號放在終點上面，終點畫成向上的箭頭 */
+  const sketch = new Set(editing ? [] : ids.filter((id) => (marks[id].line?.length ?? 0) >= 2 && isSketch(photo, c, marks[id])))
   /** 線在畫面上很短（只畫了一小段、縮得很小）的路線：其他編號都放好之後才放，放得下才標 */
-  const short = (id: string) => id !== highlight && !!lineOf(id) && lineOf(id)!.length >= 2 && length.get(id)! < MIN_LABEL_LINE_PX
+  const short = (id: string) => id !== lead && !sketch.has(id) && !!lineOf(id) && lineOf(id)!.length >= 2 && length.get(id)! < MIN_LABEL_LINE_PX
   /** 說明的各種版本：難度＋名稱一行、名稱換行、只有難度、沒有說明 */
   const noteVersions = (id: string, small: boolean): string[][] => {
     const i = info?.get(id)
@@ -254,7 +267,11 @@ export function TopoLines({
     const w = (textWidth(text, PILL_FONT * f) + 14 * f) * k
     const h = PILL_H * f * k
     let spots: Box[]
-    if (line && line.length >= 2) {
+    if (line && sketch.has(id)) {
+      const [ex, ey] = line[line.length - 1]
+      const top = ey - ARROW_UP * dotSize(id) * k
+      spots = [centeredBox([ex, top - 4 * k - h / 2], w, h), centeredBox([ex + w / 2 + h / 2, ey], w, h), centeredBox([ex - w / 2 - h / 2, ey], w, h)]
+    } else if (line && line.length >= 2) {
       const on = labelLine(id, line)
       const along = (small ? SMALL_SPOTS : LABEL_SPOTS).map((f) => pointAlong(on, f))
       spots = along.map((p) => centeredBox(p, w, h))
@@ -264,7 +281,7 @@ export function TopoLines({
         spots.push(centeredBox([ex, ey - h * 0.9], w, h), centeredBox([ex + w / 2 + h / 3, ey], w, h), centeredBox([ex - w / 2 - h / 3, ey], w, h))
       }
       // 選到的路線一定要標：線上都沒空位時放在線的旁邊
-      if (id === highlight) spots.push(...along.flatMap(([x, y]) => [centeredBox([x + w / 2 + h / 2, y], w, h), centeredBox([x - w / 2 - h / 2, y], w, h)]))
+      if (id === lead) spots.push(...along.flatMap(([x, y]) => [centeredBox([x + w / 2 + h / 2, y], w, h), centeredBox([x - w / 2 - h / 2, y], w, h)]))
     } else {
       // 沒有線段：標在最下面的 bolt 旁邊
       const low = lowestBolt(photo, marks[id].bolts)
@@ -277,17 +294,17 @@ export function TopoLines({
     for (const lines of noteVersions(id, small)) {
       const nw = Math.max(0, ...lines.map((t) => textWidth(t, NOTE_FONT))) * k
       const nh = lines.length * NOTE_LINE * k
-      // 說明的位置：編號的右邊、左邊、下面、上面（都貼著編號）
+      // 說明的位置：編號的上面、下面（在自己的線上，一看就知道是哪一條），其次右邊、左邊（都貼著編號）
       const notesBeside = (p: Box): Box[] =>
         lines.length === 0
           ? []
           : [
+              { x: p.x + p.w / 2 - nw / 2, y: p.y - nh - g, w: nw, h: nh },
+              { x: p.x + p.w / 2 - nw / 2, y: p.y + p.h + g, w: nw, h: nh },
               { x: p.x + p.w + g, y: p.y + p.h / 2 - nh / 2, w: nw, h: nh },
               { x: p.x - nw - g, y: p.y + p.h / 2 - nh / 2, w: nw, h: nh },
-              { x: p.x + p.w / 2 - nw / 2, y: p.y + p.h + g, w: nw, h: nh },
-              { x: p.x + p.w / 2 - nw / 2, y: p.y - nh - g, w: nw, h: nh },
             ]
-      // 說明優先放在不壓到線的位置；都沒有才壓在線上
+      // 說明優先放在不壓到別條線的位置（可以壓在自己的線上）；都沒有才壓在別條線上
       for (const avoid of [true, false]) {
         for (const pill of spots) {
           if (!placer.fits(pill)) continue
@@ -296,7 +313,7 @@ export function TopoLines({
             entry.pill = pill
             return
           }
-          const note = notesBeside(pill).find((n) => placer.fits(n) && (!avoid || !placer.onLine(n)))
+          const note = notesBeside(pill).find((n) => placer.fits(n) && (!avoid || !placer.onLine(n, drawnOf.get(id))))
           if (note) {
             placer.reserve(pill)
             placer.reserve(note)
@@ -307,8 +324,8 @@ export function TopoLines({
         }
       }
     }
-    // 選到的路線一定要標（看的時候）：放不下也放在第一個位置
-    if (id === highlight && !editing) entry.pill = placer.place(spots, true)
+    // 路線卡片的主角一定要標：放不下也放在第一個位置
+    if (id === lead && !editing) entry.pill = placer.place(spots, true)
   }
   const mains = priority.filter((id) => !solo || id === highlight)
   for (const id of mains) if (!short(id)) placePill(id, false)
@@ -365,8 +382,9 @@ export function TopoLines({
         const start = line?.[0]
         // 終點（看的時候）：和起點一樣的實心圓點；編輯時每個點都有把手，不另外畫
         const end = !editing && line && line.length >= 2 ? line[line.length - 1] : undefined
-        const on = id === highlight
-        const dotR = (editing ? 3 : on ? 4 : 3.2) * k
+        // 粗細只在編輯、路線卡片時區分；看整張照片時只換顏色
+        const on = id === lead
+        const dotR = dotSize(id) * k
         const cls = clsOf(id)
         const body = (
           <>
@@ -380,7 +398,8 @@ export function TopoLines({
               )
             })}
             {start && !(editing && on) && <circle className="topo-dot" cx={start[0]} cy={start[1]} r={dotR} />}
-            {end && <circle className="topo-dot" cx={end[0]} cy={end[1]} r={dotR} />}
+            {end && sketch.has(id) && <path className="topo-dot" d={arrowUp(end, dotR)} />}
+            {end && !sketch.has(id) && <circle className="topo-dot" cx={end[0]} cy={end[1]} r={dotR} />}
           </>
         )
         return pick ? (

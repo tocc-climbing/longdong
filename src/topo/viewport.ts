@@ -145,3 +145,16 @@ export function widenCrop(photo: { width: number; height: number }, crop: Crop, 
 }
 
 const clampIn = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi))
+
+/** 左右滑超過這個距離（螢幕像素）、而且比上下移動多，才算換路線 */
+const SWIPE_PX = 40
+
+/**
+ * 全螢幕的左右滑：照片沒有跟著橫移（沒放大、或已經拖到邊）時換路線。
+ * 1：往左滑（下一條）；-1：往右滑（上一條）；undefined：不換。
+ */
+export function swipeStep(from: Pt, to: Pt, panned: number): 1 | -1 | undefined {
+  const dx = to.x - from.x
+  if (Math.abs(dx) <= SWIPE_PX || Math.abs(dx) <= Math.abs(to.y - from.y) * 1.5 || Math.abs(panned) >= 1) return undefined
+  return dx < 0 ? 1 : -1
+}

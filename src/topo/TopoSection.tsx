@@ -60,7 +60,7 @@ export function SectorTopos({ sector, onEdit }: { sector: Sector; onEdit?: (phot
                   labels={labels}
                   k={k}
                   highlight={selected}
-                  bolts={showBolts ? (selected ? [selected] : Object.keys(topo.latest.marks)) : []}
+                  bolts={showBolts ? Object.keys(topo.latest.marks) : []}
                   info={info}
                   link={wide ? link : undefined}
                   crop={topo.latest.crop}

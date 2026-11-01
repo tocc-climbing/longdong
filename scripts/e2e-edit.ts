@@ -1340,6 +1340,20 @@ try {
   await viewer.page.keyboard.press('ArrowDown')
   const secondNo = await dialog.locator('.topo-full-row.on .topo-route-no').textContent()
   check('點清單選路線、↓ 換到下一條', !!firstNo && !!secondNo && firstNo !== secondNo, `${firstNo} → ${secondNo}`)
+  // 左右滑換路線（沒放大時）：往右滑回上一條、往左滑到下一條
+  await viewer.page.keyboard.press('0')
+  const swipe = async (dx: number) => {
+    const box = (await dialog.locator('.topo-full-stage').boundingBox())!
+    const [x, y] = [box.x + box.width / 2, box.y + box.height / 2]
+    await viewer.page.mouse.move(x, y)
+    await viewer.page.mouse.down()
+    await viewer.page.mouse.move(x + dx, y + 4, { steps: 6 })
+    await viewer.page.mouse.up()
+    return dialog.locator('.topo-full-row.on .topo-route-no').textContent()
+  }
+  const swipedBack = await swipe(120)
+  const swipedNext = await swipe(-120)
+  check('全螢幕：往右滑換到上一條、往左滑換到下一條', swipedBack === firstNo && swipedNext === secondNo, `${secondNo} → ${swipedBack} → ${swipedNext}`)
   check('選到的路線在下面顯示，可以開啟', (await dialog.getByRole('button', { name: '路線頁' }).count()) === 1)
   await viewer.page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})

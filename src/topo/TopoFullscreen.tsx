@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { GradePill } from '../components/GradePill'
 import type { Route } from '../data/schema'
 import { localName, useLang } from '../i18n'
@@ -7,7 +7,7 @@ import { href, navigate } from '../router'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { fillShared } from './lines'
 import { FULL_CROP, type Crop, type Marks, type TopoPhoto } from './model'
-import { fitSize, IDENTITY, moveView, type Pt, type Size, type View } from './viewport'
+import { fitSize, IDENTITY, moveView, swipeStep, type Pt, type Size, type View } from './viewport'
 import { px, routeInfo, TopoFrame, TopoLines } from './TopoView'
 
 /** 手指移動超過這個距離（螢幕像素）才算拖曳，之前都當作點擊 */
@@ -18,6 +18,7 @@ const STEP = 1.5
 
 /**
  * 全螢幕 Topo：雙指縮放、拖曳平移；點路線只切換高亮，不離開全螢幕。
+ * 左右滑換路線（照片沒有跟著橫移時：沒放大、或已經拖到邊）。
  * 點擊（沒有拖曳）不鎖定指標，click 才會送到路線上；拖曳時才鎖定，放開後不會誤點。
  * 電腦版：滑鼠滾輪以游標為中心縮放、右下角的按鈕與 +／-／0；右邊是這張照片的路線清單（↑／↓ 切換），
  * 選到的路線在最下面顯示並可以開啟；手機版選到的路線顯示在照片下面。
@@ -54,6 +55,8 @@ export function TopoFullscreen({
   const hasBolts = Object.values(marks).some((m) => Object.keys(m.bolts ?? {}).length > 0)
   const pointers = useRef(new Map<number, Pt>())
   const moved = useRef(0)
+  /** 這次手勢：起點、開始時照片的橫向位置；兩指縮放過就不算滑動 */
+  const gesture = useRef<{ from: Pt; x: number; pinched: boolean }>(undefined)
 
   useEffect(() => {
     const el = dialog.current!
@@ -88,7 +91,10 @@ export function TopoFullscreen({
     return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 }
   }
   const down = (e: ReactPointerEvent) => {
-    if (pointers.current.size === 0) moved.current = 0
+    if (pointers.current.size === 0) {
+      moved.current = 0
+      gesture.current = { from: rel(e), x: view.x, pinched: false }
+    } else if (gesture.current) gesture.current.pinched = true
     pointers.current.set(e.pointerId, rel(e))
   }
   const move = (e: ReactPointerEvent) => {
@@ -113,6 +119,17 @@ export function TopoFullscreen({
   }
   const up = (e: ReactPointerEvent) => {
     pointers.current.delete(e.pointerId)
+    const g = gesture.current
+    if (pointers.current.size > 0 || !g) return
+    gesture.current = undefined
+    const dir = !g.pinched && e.type === 'pointerup' ? swipeStep(g.from, rel(e), view.x - g.x) : undefined
+    if (dir) latest.current.step(dir)
+  }
+  /** 拖曳、滑動放開時瀏覽器也會送出 click：擋掉，免得點到手指下面的路線 */
+  const dragged = (e: ReactMouseEvent) => {
+    if (moved.current < DRAG_PX) return
+    e.stopPropagation()
+    e.preventDefault()
   }
   const zoomBy = (ratio: number, at: Pt = { x: 0, y: 0 }) => setView((v) => moveView(v, at, at, ratio, stage, content))
   // 事件處理只註冊一次，從這裡讀最新的狀態
@@ -189,7 +206,7 @@ export function TopoFullscreen({
             )}
           </>
         )}
-        <div ref={stageRef} className="topo-full-stage" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+        <div ref={stageRef} className="topo-full-stage" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onClickCapture={dragged}>
           {stage.w > 0 && (
             <div
               className="topo-full-content"
@@ -209,7 +226,7 @@ export function TopoFullscreen({
                     labels={labels}
                     k={k / view.scale}
                     highlight={selected}
-                    bolts={showBolts ? (selected ? [selected] : Object.keys(marks)) : []}
+                    bolts={showBolts ? Object.keys(marks) : []}
                     info={annotations}
                     onPick={setSelected}
                     crop={crop}

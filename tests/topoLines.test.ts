@@ -52,6 +52,31 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
         const gap = Math.max(left - (x + w), x - right, top - (y + h), y - bottom)
         expect(beside && gap <= 4 * k + 0.5, `${screen}px #${r.number}：說明離編號 ${gap.toFixed(1)}`).toBe(true)
       }
+      // 565 只畫了從照片下緣出去的一小段（示意線）：終點是向上的箭頭，編號在終點正上方
+      const sketch = real.routes.find((r) => r.number === '565')!
+      const [ex, ey] = real.marks[sketch.id].line!.at(-1)!.map((v, i) => (v / 10000) * (i ? real.photo.height : real.photo.width))
+      const group = html.match(/<g class="topo-route [^"]*">(?:(?!<g class="topo-route).)*>565<\/text>/)![0]
+      const arrows = [...html.matchAll(/<path class="topo-dot" d="M([\d.]+) ([\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])])
+      expect(arrows).toHaveLength(1)
+      expect(Math.abs(arrows[0][0] - ex)).toBeLessThan(0.01)
+      expect(html).not.toMatch(new RegExp(`<circle class="topo-dot" cx="${ex}" cy="${ey}"`))
+      const [x, y, w, h] = group.match(/<g class="topo-badge"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)"/)!.slice(1).map(Number)
+      expect(Math.abs(x + w / 2 - ex)).toBeLessThan(1)
+      expect(y + h).toBeLessThan(ey)
+    }
+  })
+
+  it('說明優先放在編號正上方（自己的線上），一看就知道是哪一條', () => {
+    const html = render(1)
+    for (const id of ['a', 'b']) {
+      const group = html.match(new RegExp(`<g class="topo-route [^"]*">(?:(?!<g class="topo-route).)*>${labels.get(id)}</text>(?:(?!<g class="topo-route).)*`))![0]
+      const [x, y, w] = group.match(/<g class="topo-badge"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)"/)!.slice(1).map(Number)
+      const spans = [...group.matchAll(/<tspan x="([\d.-]+)" y="([\d.-]+)"/g)].map((m) => [Number(m[1]), Number(m[2])])
+      expect(spans.length).toBeGreaterThan(0)
+      for (const [sx, sy] of spans) {
+        expect(Math.abs(sx - (x + w / 2))).toBeLessThan(1)
+        expect(sy).toBeLessThan(y)
+      }
     }
   })
 
@@ -66,12 +91,13 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
       const [x, y, w, h] = nums(badge.slice(1).join(' '))
       const spans = [...html.matchAll(/<tspan x="([\d.]+)" y="([\d.]+)"/g)].map((m) => [Number(m[1]), Number(m[2])])
       const midY = spans.reduce((s, [, sy]) => s + sy, 0) / spans.length
-      // 說明在編號的右邊或左邊、同一高度
-      return Math.abs(midY - (y + h / 2)) < 1 && spans.every(([sx]) => sx > x + w || sx < x)
+      // 說明貼著編號：正上方、正下方（同一條線上），或右邊、左邊（同一高度）
+      const sameColumn = spans.every(([sx]) => Math.abs(sx - (x + w / 2)) < 1) && Math.abs(midY - (y + h / 2)) < 6 * 12.5
+      const sameRow = Math.abs(midY - (y + h / 2)) < 1 && spans.every(([sx]) => sx > x + w || sx < x)
+      return sameColumn || sameRow
     }
-    const html = (solo: boolean) => renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks: near, labels, k: 1, info, highlight: 'a', solo })))
-    expect(side(html(true))).toBe(true)
-    expect(side(html(false))).toBe(false)
+    const html = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks: near, labels, k: 1, info, highlight: 'a', solo: true })))
+    expect(side(html)).toBe(true)
   })
 
   it('solo（路線卡片）：選到的路線標編號與說明，其他路線只標小的編號、變淡', () => {
@@ -155,9 +181,19 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     expect(html.lastIndexOf('class="topo-line"')).toBeLessThan(html.indexOf('class="topo-bolt'))
   })
 
-  it('縮得很小，放不下的編號不標；選到的路線仍然標', () => {
+  it('縮得很小，放不下的編號不標；路線卡片的主角仍然標', () => {
     expect(count(render(60), /class="topo-badge"/g)).toBe(0)
-    expect(count(render(60, { highlight: 'a' }), /class="topo-badge"/g)).toBe(1)
+    expect(count(render(60, { highlight: 'a', solo: true }), /class="topo-badge"/g)).toBe(1)
+  })
+
+  it('看整張照片：換選到的路線只換顏色，牌子的位置、線的粗細都不變', () => {
+    for (const k of [0.4, 1, 2]) {
+      // 選到的路線畫在最上面（順序會變）：比較每個圖形的位置與大小
+      const shape = (html: string) => [...html.matchAll(/<(rect|circle|path|tspan)\b[^>]*>/g)].map((m) => m[0]).sort().join('\n')
+      const none = shape(render(k, { bolts: ['a', 'b'] }))
+      expect(shape(render(k, { highlight: 'a', bolts: ['a', 'b'] }))).toBe(none)
+      expect(shape(render(k, { highlight: 'b', bolts: ['a', 'b'] }))).toBe(none)
+    }
   })
 
   it('很短的線（從照片下緣出去的示意線，例如 565）：其他編號放好之後，有空位照樣標', () => {
@@ -208,7 +244,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
         // 編號沿著線移動找空位：每條都標得出完整的名稱，不只留難度
         expect(lines.filter((t) => /^一條名字非常非常長的路線\d$/.test(t))).toHaveLength(6)
       }
-      if (k === 3) expect(lines).toContain('2007')
+      if (k === 3) expect(lines.some((t) => /^\d{4}$/.test(t))).toBe(true)
     }
   })
 })

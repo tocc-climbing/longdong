@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
-import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView } from '../src/topo/viewport'
+import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView, swipeStep } from '../src/topo/viewport'
 import { addLinePoint, drawnRuns, fillShared, ownRuns, forkLine, moveSharedPoint, segmentAt, syncShared } from '../src/topo/lines'
 import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
 
@@ -317,5 +317,20 @@ describe('全螢幕縮放與平移', () => {
       expect(noSlot['r/thin'].bolts).toBeUndefined()
       expect(syncShared(lines, lines, 'r/z', routes)).toBe(lines)
     })
+  })
+})
+
+describe('全螢幕左右滑換路線', () => {
+  const o = { x: 0, y: 0 }
+  it('往左滑是下一條、往右滑是上一條', () => {
+    expect(swipeStep(o, { x: -60, y: 5 }, 0)).toBe(1)
+    expect(swipeStep(o, { x: 60, y: -5 }, 0)).toBe(-1)
+  })
+  it('太短、或上下移動比較多：不換', () => {
+    expect(swipeStep(o, { x: -30, y: 0 }, 0)).toBeUndefined()
+    expect(swipeStep(o, { x: -60, y: 50 }, 0)).toBeUndefined()
+  })
+  it('照片跟著橫移（放大後拖曳）：不換', () => {
+    expect(swipeStep(o, { x: -60, y: 0 }, -60)).toBeUndefined()
   })
 })

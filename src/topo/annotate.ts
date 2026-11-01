@@ -117,9 +117,9 @@ export class Placer {
     return this.inside(c) && !this.placed.some((p) => overlaps(c, p, this.gap))
   }
 
-  /** 壓到線 */
-  onLine(c: Box) {
-    return this.lines.some((line) => line.slice(1).some((p, i) => segmentHitsBox(line[i], p, c)))
+  /** 壓到線（except：不算這條，例如說明壓在自己的線上） */
+  onLine(c: Box, except?: Pt[]) {
+    return this.lines.some((line) => line !== except && line.slice(1).some((p, i) => segmentHitsBox(line[i], p, c)))
   }
 
   /** 回傳放在哪一個候選位置（框）；放不下回傳 undefined */
