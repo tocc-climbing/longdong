@@ -668,9 +668,9 @@
 
 /* 岩壁面朝向：線段右手邊的箭頭 */
 .sm-edit-face {
-  fill: none;
-  stroke: var(--brand);
-  stroke-width: 2px;
+  fill: var(--brand);
+  stroke: #fff;
+  stroke-width: 1.5px;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

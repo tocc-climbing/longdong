@@ -8,7 +8,7 @@ import { angleBetween, meanFacing, photoFacing, wallFaces } from '../map/aspect'
 import type { LatLng } from '../geo'
 import { useScaleMap, withShapes } from '../map/mapData'
 import { ScaleMap } from '../map/ScaleMap'
-import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallLabelAt, type EditTarget, type MapEditVersion } from '../map/shapes'
+import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallLabelAt, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useReportPins } from './useReportPins'
 import { useCloud, withCloud } from '../personal/sync'
 import { TOPO_ADD_PREFIX, goBack, href, navigate, type EditKind } from '../router'
@@ -338,7 +338,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   }
   const isWall = target.startsWith('wall:')
   const sector = isWall ? sectorOf(target) : undefined
-  // 畫岩壁時，其他分區的岩壁也畫出來，包括還沒提交的修改（名稱標在岩壁中間，點不到）
+  // 畫岩壁時，其他分區的岩壁也畫出來，包括還沒提交的修改；點一下換到那個分區編輯
   const allWalls = shown?.walls ?? {}
   const otherSectors = isWall ? Object.keys(allWalls).filter((s) => s !== sector) : []
   const linesOf = (s: string) => allWalls[s]
@@ -460,6 +460,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
               edit={m.edit}
               pick={m.pick}
               lines={[...otherWalls, ...(m.draftLine ? [m.draftLine] : [])]}
+              onLineTap={isWall && !submitting ? (key) => navigate(href.edit('map', wallTarget(key.split('#')[0]))) : undefined}
               focus={focus || undefined}
               sectorLabels={otherLabels}
             />
@@ -483,7 +484,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   )
 }
 
-/** 這個分區回報照片的相機朝向（EXIF）和岩壁的朝向相反時提醒：岩壁可能畫反了，要翻面 */
+/** 這個分區回報照片的相機朝向（EXIF）和岩壁的朝向相反時提醒：岩壁可能畫反了，要換朝向 */
 function WallPhotoCheck({ sector, lines }: { sector: string; lines: LatLng[][] }) {
   const { t } = useLang()
   const { photos } = useTopoState()

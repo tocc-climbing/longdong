@@ -189,8 +189,10 @@ const FOCUS_PADDING_M = 30
 const FOCUS_MIN_M = 200
 const TIGHT_PADDING_M = 8
 const TIGHT_MIN_M = 50
-/** 岩壁面朝向的箭頭長度（像素） */
-const FACE_ARROW_PX = 9
+/** 岩壁面朝向的箭頭長度與底寬（像素） */
+const FACE_ARROW_PX = 16
+/** 箭頭離線條的距離，不蓋住線 */
+const FACE_GAP_PX = 3
 /** 放大到每像素不到這麼多公尺時才顯示分區名稱 */
 const SECTOR_LABEL_SCALE = 0.4
 /** 分區名稱的字級 */
@@ -250,7 +252,7 @@ interface Props {
   focus?: MapFocus
   /** 折線（岩壁標記） */
   lines?: MapLine[]
-  /** 點到折線時（不在點位置的模式） */
+  /** 點到折線時（不在點位置的模式；編輯時沒點到編輯中的形狀才算） */
   onLineTap?: (key: string) => void
   /** 分區名稱與位置（岩壁的中間，見 shapes.ts 的 wallLabelAt）：放大後顯示 */
   sectorLabels?: { id: string; text: string; at: LatLng }[]
@@ -348,8 +350,7 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
         const i = edit.closed
           ? innermost(at, edit.rings.map((r, i) => ({ i, r: r.map(project) })), (x) => [x.r])?.i ?? -1
           : edit.rings.map((r, i) => ({ i, d: near(r) })).filter((x) => x.d <= LINE_HIT_PX).sort((a, b) => a.d - b.d)[0]?.i ?? -1
-        if (i >= 0) edit.onSelect(i)
-        return
+        if (i >= 0) return edit.onSelect(i)
       }
       // 最近的折線
       const line = onLineTap && (lines ?? [])
@@ -627,13 +628,14 @@ export function ScaleMap({ map, areaNames, here, marks, pick, onLocate, onAreaPr
                   pts.slice(1).map((b, j) => {
                     const a = pts[j]
                     const len = Math.hypot(b[0] - a[0], b[1] - a[1])
-                    if (len < 3 * FACE_ARROW_PX) return null
+                    if (len < 2 * FACE_ARROW_PX) return null
                     // 螢幕座標 y 向下：(dx, dy) 的右手邊是 (-dy, dx)
                     const [nx, ny] = [(a[1] - b[1]) / len, (b[0] - a[0]) / len]
                     const [mx, my] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
-                    const [tx, ty] = [mx + nx * FACE_ARROW_PX, my + ny * FACE_ARROW_PX]
+                    const [bx, by] = [mx + nx * FACE_GAP_PX, my + ny * FACE_GAP_PX]
+                    const [tx, ty] = [bx + nx * FACE_ARROW_PX, by + ny * FACE_ARROW_PX]
                     const [hx, hy] = [(-ny * FACE_ARROW_PX) / 2, (nx * FACE_ARROW_PX) / 2]
-                    return <path key={j} className="sm-edit-face" d={`M${mx + hx} ${my + hy}L${tx} ${ty}L${mx - hx} ${my - hy}`} />
+                    return <path key={j} className="sm-edit-face" d={`M${bx + hx} ${by + hy}L${tx} ${ty}L${bx - hx} ${by - hy}Z`} />
                   })}
               </g>
             )

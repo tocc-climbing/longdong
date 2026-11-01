@@ -345,7 +345,8 @@ try {
   })
   const fill = ringBox ? Math.max(ringBox.w / canvasSize.width, ringBox.h / canvasSize.height) : 0
   check('岩壁編輯：打開就放大到這個分區的岩壁', fill >= 0.3, `岩壁佔 ${Math.round(fill * 100)}%`)
-  check('岩壁編輯：標出岩壁面朝哪一側', (await editor.page.locator('.edit-canvas .sm-edit-face').count()) > 0)
+  const faceSize = await editor.page.evaluate(() => Math.max(0, ...[...document.querySelectorAll('.edit-canvas .sm-edit-face')].map((p) => { const b = p.getBoundingClientRect(); return Math.max(b.width, b.height) })))
+  check('岩壁編輯：標出岩壁面朝哪一側，箭頭夠大', faceSize >= 14, `箭頭 ${faceSize.toFixed(1)}px`)
   const sectorLink = editor.page.locator('.edit-catalog a', { hasText: gateSectorName }).first()
   check('目錄裡的分區連到岩壁的編輯', ((await sectorLink.getAttribute('href')) ?? '').endsWith(`edit/map/wall:${wallSector.replace('/', ':')}`), (await sectorLink.getAttribute('href')) ?? '')
   const topoTiles = () => editor.page.locator('.sm-topo image').evaluateAll((list) => list.map((i) => i.getAttribute('href') ?? ''))
@@ -390,12 +391,12 @@ try {
   await editor.page.keyboard.press('n')
   await clickCanvas(editor.page, [[0.3, 0.4], [0.45, 0.5], [0.6, 0.45]])
   await editor.page.keyboard.press('Enter')
-  // 翻面：剛畫好的線（選中的）點的順序反過來；再翻一次回到預設（朝向步道）
+  // 換朝向：剛畫好的線（選中的）點的順序反過來；再翻一次回到預設（朝向步道）
   const selectedPoints = () => editor.page.locator('.edit-canvas .sm-edit-ring.selected').getAttribute('d').then((d) => (d ?? '').slice(1).split('L'))
   const drawn = await selectedPoints()
   await editor.page.keyboard.press('f')
   const flipped = await selectedPoints()
-  check('岩壁按 F 翻面：線反過來', drawn.length === 3 && JSON.stringify(flipped) === JSON.stringify([...drawn].reverse()), `${drawn.join(' ')} → ${flipped.join(' ')}`)
+  check('岩壁按 F 換朝向：線反過來', drawn.length === 3 && JSON.stringify(flipped) === JSON.stringify([...drawn].reverse()), `${drawn.join(' ')} → ${flipped.join(' ')}`)
   await editor.page.keyboard.press('f')
   await submitMap(editor.page)
   const wallKey = `wall:${wallSector.replace('/', ':')}`
@@ -449,6 +450,24 @@ try {
   await editor.page.waitForFunction((h) => location.pathname.endsWith(h.slice(h.lastIndexOf('/'))), otherHref)
   await editor.page.keyboard.press('z')
   check('復原後沒有未提交的項目', (await until(async () => ((await editor.page.locator('.edit-pending li').count()) === 0 ? true : undefined), 3000)) === true)
+  // 地圖上點別的分區的岩壁：直接換到那個分區編輯，不用先在目錄選
+  const canvasNow = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
+  const otherWallAt = await editor.page.evaluate(({ x, y, width, height }) => {
+    const canvas = { left: x, top: y, right: x + width, bottom: y + height }
+    for (const p of document.querySelectorAll<SVGPathElement>('.edit-canvas .sm-line .sm-line-stroke')) {
+      const m = p.getPointAtLength(p.getTotalLength() / 2)
+      const s = new DOMPoint(m.x, m.y).matrixTransform(p.getScreenCTM()!)
+      if (s.x > canvas.left + 20 && s.x < canvas.right - 20 && s.y > canvas.top + 20 && s.y < canvas.bottom - 20) return { x: s.x, y: s.y }
+    }
+    return undefined
+  }, canvasNow)
+  const pathBeforeTap = await editor.page.evaluate(() => location.pathname)
+  if (otherWallAt) await editor.page.mouse.click(otherWallAt.x, otherWallAt.y)
+  const tapped = await until(async () => {
+    const p = await editor.page.evaluate(() => location.pathname)
+    return p !== pathBeforeTap && /\/edit\/map\/wall:[^/]+$/.test(p) && (await editor.page.locator('.edit-canvas .sm-edit-ring').count()) > 0 ? p : undefined
+  }, 5000)
+  check('岩壁編輯：點地圖上別的分區的岩壁，換到那個分區編輯', !!tapped, `${pathBeforeTap} → ${tapped ?? '沒換'}`)
   // 地圖頁：放大到校門口（急救器材 #1 在校門口），分區名稱標在岩壁中間
   await editor.page.goto(base + 'map')
   const gateLabel = await editor.page.waitForSelector('.sm-ems:has(title:text-is("急救器材 #1")) rect', { timeout: 20000 })
