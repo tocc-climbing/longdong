@@ -278,8 +278,8 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
       const lines = [...html.matchAll(/<tspan[^>]*>([^<]+)</g)].map((m) => m[1])
       if (k === 1.5) {
         expect(lines.filter((t) => t === '5.11c')).toHaveLength(6)
-        // 編號沿著線移動找空位：每條都標得出完整的名稱，不只留難度
-        expect(lines.filter((t) => /^一條名字非常非常長的路線\d$/.test(t))).toHaveLength(6)
+        // 編號沿著線移動找空位：每條都標得出完整的名稱（可以換行），不只留難度
+        for (let i = 0; i < 6; i++) expect(lines.join(''), `路線${i}`).toContain(`一條名字非常非常長的路線${i}`)
       }
     }
   })

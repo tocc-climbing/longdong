@@ -1249,6 +1249,8 @@ try {
     routes: {
       [key]: { line: '3000,8000 3200,5000 3000,2000', bolts: { B01: '3080,7600', A01: '3000,1800' } },
       [topoRoutes[1].id.replace(/\//g, ':').replace(/\./g, ',')]: { line: '6000,8000 6200,5000 6000,2000' },
+      // 示意線：只畫了一小段、從照片下緣出去（主要的路線不在照片裡）
+      [topoRoutes[2].id.replace(/\//g, ':').replace(/\./g, ',')]: { line: '8000,9990 8050,9700 8100,9400' },
     },
   })
   const viewer = await newContext()
@@ -1268,6 +1270,19 @@ try {
     return ready && opacity === '1' ? true : undefined
   })
   check('照片載入完：標記淡入', loaded === true)
+  const sketchState = (await viewer.page.evaluate(`(() => {
+    const arrow = document.querySelector('figure.topo path.topo-dot')
+    if (!arrow) return null
+    const a = arrow.getBoundingClientRect()
+    const badge = [...document.querySelectorAll('figure.topo .topo-badge')].find((g) => g.textContent === ${JSON.stringify(topoRoutes[2].number)})
+    const b = badge && badge.querySelector('rect').getBoundingClientRect()
+    return { fill: getComputedStyle(arrow).fill, dx: b ? Math.abs(b.x + b.width / 2 - (a.x + a.width / 2)) : null, gap: b ? a.y - (b.y + b.height) : null }
+  })()`)) as { fill: string; dx: number | null; gap: number | null } | null
+  check(
+    '示意線：終點是看得到的向上箭頭（有填色），編號緊貼在箭頭正上方',
+    !!sketchState && sketchState.fill !== 'none' && sketchState.dx !== null && sketchState.dx < 1 && sketchState.gap !== null && sketchState.gap >= 0 && sketchState.gap < 8,
+    JSON.stringify(sketchState),
+  )
   await viewer.page.unroute(/:9199\//, slowPhoto)
   await viewer.page.waitForSelector('.topo-bolt-toggle', { timeout: 20000 })
   check('bolt 預設不顯示', (await viewer.page.locator('.topo-bolt').count()) === 0)
@@ -1306,8 +1321,15 @@ try {
   await viewer.page.locator('figure.topo .topo-zoom-fit').click()
   check('按倍率回到整張（100%）', (await fit()) === '100%')
 
-  const line = viewer.page.locator('figure.topo g.topo-route.link').first()
-  await line.locator('.topo-hit').first().click({ force: true })
+  // 點最長的那條線的中段（示意線很短，不點它）
+  const lineMid = (await viewer.page.evaluate(`(() => {
+    const hits = [...document.querySelectorAll('figure.topo g.topo-route.link .topo-hit')]
+    const hit = hits.sort((a, b) => b.getTotalLength() - a.getTotalLength())[0]
+    const p = hit.getPointAtLength(hit.getTotalLength() * 0.3)
+    const m = hit.getScreenCTM()
+    return { x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f }
+  })()`)) as { x: number; y: number }
+  await viewer.page.mouse.click(lineMid.x, lineMid.y)
   await viewer.page.waitForSelector('.detail-pane h1', { timeout: 15000 })
   check('點照片上的路線：右邊顯示那條路線', viewer.page.url().includes('r='))
   check('同時看到分區與路線時，Topo 只顯示一張（路線那邊不重複）', (await viewer.page.locator('figure.topo').count()) === 1 && (await viewer.page.locator('.detail-pane figure.topo').count()) === 0)
@@ -1324,7 +1346,7 @@ try {
   await viewer.page.click('.topo-full-open')
   const dialog = viewer.page.locator('dialog.topo-full[open].wide')
   await dialog.waitFor({ timeout: 10000 })
-  check('全螢幕：右邊列出這張照片上有標記的路線', (await dialog.locator('.topo-full-row').count()) === 2)
+  check('全螢幕：右邊列出這張照片上有標記的路線', (await dialog.locator('.topo-full-row').count()) === 3)
   const fullFit = () => dialog.locator('.topo-zoom-fit').textContent()
   check('全螢幕有縮放按鈕，一開始是 100%', (await fullFit()) === '100%')
   const stage = (await dialog.locator('.topo-full-stage').boundingBox())!

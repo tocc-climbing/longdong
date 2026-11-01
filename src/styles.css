@@ -4969,8 +4969,8 @@ dialog.topo-full[open] {
   stroke: var(--topo-line);
 }
 
-/* 起點、終點：同色的實心圓點 */
-.topo-dot {
+/* 起點、終點的圓點與示意線的向上箭頭（箭頭是 path，要蓋過上面 .topo-route path 的 fill: none） */
+.topo-route .topo-dot {
   fill: var(--topo-line);
   stroke: none;
 }

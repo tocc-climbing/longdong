@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react'
 import { navigate } from '../router'
 import type { Route } from '../data/schema'
-import { centeredBox, distanceToLine, pathLength, Placer, pointAlong, smoothPath, textWidth, wrapText, type Box, type Pt } from './annotate'
+import { centeredBox, distanceToLine, overlaps, pathLength, Placer, pointAlong, smoothPath, textWidth, wrapText, type Box, type Pt } from './annotate'
 import { drawnRuns, ownRuns } from './lines'
 import { FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type Point, type TopoPhoto } from './model'
 import { isSketch } from './viewport'
@@ -231,42 +231,49 @@ export function TopoLines({
   }
   const plan = new Map<string, Plan>(priority.map((id) => [id, { bolts: [] }]))
   const length = new Map(priority.map((id) => [id, (lineOf(id) ? pathLength(lineOf(id)!) : 0) / k]))
-  // 1. bolt、anchor 的牌子（位置固定）
-  for (const id of priority) {
-    if (!bolts.includes(id)) continue
-    for (const [pos, p] of Object.entries(marks[id].bolts ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
-      const anchor = pos.startsWith('A')
-      // 編輯時要分得出是哪一顆（拖曳、對照路線資料），看的時候只標位置
-      const label = anchor ? '××' : editing ? `× ${pos}` : '×'
-      const at = px(photo, p) as Pt
-      // 編輯時 bolt 一定要看得到（牌子就是拖曳的地方）
-      const pill = placer.place([centeredBox(at, (textWidth(label, BOLT_FONT) + 12) * k, BOLT_H * k)], editing)
-      if (pill) plan.get(id)!.bolts.push({ pos, at, anchor, label, pill })
-    }
+  // 編號是主要的資訊，先放；bolt 是輔助的，被編號蓋住的就不畫（編輯時一定畫，牌子就是拖曳的地方）。
+  // 編號先避開 bolt 的位置，真的沒地方才蓋在 bolt 上。
+  const boltPills = Object.keys(marks)
+    .filter((id) => bolts.includes(id))
+    .sort((a, b) => priority.indexOf(a) - priority.indexOf(b))
+    .flatMap((id) =>
+      Object.entries(marks[id].bolts ?? {})
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([pos, p]) => {
+          const anchor = pos.startsWith('A')
+          // 編輯時要分得出是哪一顆（拖曳、對照路線資料），看的時候只標位置
+          const label = anchor ? '××' : editing ? `× ${pos}` : '×'
+          const at = px(photo, p) as Pt
+          return { id, pos, at, anchor, label, box: centeredBox(at, (textWidth(label, BOLT_FONT) + 12) * k, BOLT_H * k) }
+        }),
+    )
+  const onBolt = (b: Box) => boltPills.some((p) => overlaps(b, p.box, 3 * k))
+  /** 難度、名稱的各種版本：一行、名稱換行、只留難度 */
+  const noteVersions = (id: string): string[][] => {
+    const i = info?.get(id)
+    if (!i || editing) return []
+    return [[i.grade, i.name], ...WRAP_PX.map((wpx) => [i.grade, ...(i.name ? wrapText(i.name, NOTE_FONT, wpx) : [])]), [i.grade]]
+      .map((v) => v.filter((x): x is string => !!x))
+      .filter((v, j, all) => v.length > 0 && all.findIndex((o) => o.join('|') === v.join('|')) === j)
   }
-  // 2. 路線編號牌與難度、名稱：編號和說明綁在一起放（說明緊貼在編號旁邊），沿著線找空位；
-  //    先找放得下完整說明（難度＋名稱）的位置，真的放不下才少一點（換行、只留難度、只有編號）。
-  //    solo 時其他路線的編號在 bolt 說明之後才放，見 4.
-  /** 示意的線（主要的路線不在照片裡，例如 565）：編號放在終點上面，終點畫成向上的箭頭 */
+  /** 說明貼著編號的位置：上面、下面（在自己的線上，一看就知道是哪一條），其次右邊、左邊 */
+  const besidePill = (pill: Box, lines: string[]): Box[] => {
+    const g = 4 * k
+    const nw = Math.max(...lines.map((t) => textWidth(t, NOTE_FONT))) * k
+    const nh = lines.length * NOTE_LINE * k
+    return [
+      { x: pill.x + pill.w / 2 - nw / 2, y: pill.y - nh - g, w: nw, h: nh },
+      { x: pill.x + pill.w / 2 - nw / 2, y: pill.y + pill.h + g, w: nw, h: nh },
+      { x: pill.x + pill.w + g, y: pill.y + pill.h / 2 - nh / 2, w: nw, h: nh },
+      { x: pill.x - nw - g, y: pill.y + pill.h / 2 - nh / 2, w: nw, h: nh },
+    ]
+  }
+  const center = (b: Box): Pt => [b.x + b.w / 2, b.y + b.h / 2]
+  /** 示意的線（主要的路線不在照片裡，例如 565）：編號緊貼在終點的箭頭正上方 */
   const sketch = new Set(editing ? [] : ids.filter((id) => (marks[id].line?.length ?? 0) >= 2 && isSketch(photo, c, marks[id])))
   /** 線在畫面上很短（只畫了一小段、縮得很小）的路線：其他編號都放好之後才放，放得下才標 */
   const short = (id: string) => id !== lead && !sketch.has(id) && !!lineOf(id) && lineOf(id)!.length >= 2 && length.get(id)! < MIN_LABEL_LINE_PX
-  /** 說明的各種版本：難度＋名稱一行、名稱換行、只有難度、沒有說明 */
-  const noteVersions = (id: string, small: boolean): string[][] => {
-    const i = info?.get(id)
-    const versions: string[][] = []
-    const add = (v: (string | undefined)[]) => {
-      const lines = v.filter((x): x is string => !!x)
-      if (!versions.some((o) => o.join('|') === lines.join('|'))) versions.push(lines)
-    }
-    if (i && !editing && !small) {
-      add([i.grade, i.name])
-      for (const wpx of WRAP_PX) add([i.grade, ...(i.name ? wrapText(i.name, NOTE_FONT, wpx) : [])])
-      add([i.grade])
-    }
-    add([])
-    return versions
-  }
+  // 1. 路線編號：沿著線找空位，優先不壓到別條線、不蓋住 bolt
   const placePill = (id: string, small: boolean) => {
     const text = labels.get(id)
     if (!text) return
@@ -277,10 +284,7 @@ export function TopoLines({
     let spots: Box[]
     if (line && sketch.has(id)) {
       const [ex, ey] = line[line.length - 1]
-      const top = ey - ARROW_UP * dotSize(id) * k
-      // 終點正上方（被 bolt 等佔住時再往上），其次旁邊
-      const above = [0, 1, 2, 3].map((n) => top - 4 * k - h / 2 - n * h * 1.2)
-      spots = [...above.map((y) => centeredBox([ex, y], w, h)), centeredBox([ex + w / 2 + h / 2, ey], w, h), centeredBox([ex - w / 2 - h / 2, ey], w, h)]
+      spots = [centeredBox([ex, ey - ARROW_UP * dotSize(id) * k - 4 * k - h / 2], w, h)]
     } else if (line && line.length >= 2) {
       const on = labelLine(id, line)
       const along = (small ? SMALL_SPOTS : LABEL_SPOTS).map((f) => pointAlong(on, f))
@@ -298,49 +302,50 @@ export function TopoLines({
       if (!low) return
       spots = [centeredBox([low[0], low[1] + h], w, h), centeredBox([low[0], low[1] - h], w, h)]
     }
+    const own = drawnOf.get(id)
+    // 完整的說明（難度＋名稱一行）也放得下的位置優先（不壓到別條線、不蓋住 bolt）
+    const full = small || sketch.has(id) ? undefined : noteVersions(id)[0]
+    const clear = (b: Box) => placer.fits(b) && !placer.onLine(b, own) && !onBolt(b)
+    const pill =
+      (full && spots.find((b) => clear(b) && roomy(center(b), id) && besidePill(b, full).some(clear))) ??
+      spots.find(clear) ??
+      spots.find((b) => placer.fits(b) && !onBolt(b)) ??
+      spots.find((b) => placer.fits(b)) ??
+      // 路線卡片的主角一定要標：放不下也放在第一個位置
+      (id === lead && !editing ? spots[0] : undefined)
+    if (!pill) return
+    placer.reserve(pill)
     const entry = plan.get(id)!
+    entry.pill = pill
     entry.small = small
-    const g = 4 * k
-    for (const lines of noteVersions(id, small)) {
-      const nw = Math.max(0, ...lines.map((t) => textWidth(t, NOTE_FONT))) * k
-      const nh = lines.length * NOTE_LINE * k
-      // 說明的位置：編號的上面、下面（在自己的線上，一看就知道是哪一條），其次右邊、左邊（都貼著編號）
-      const notesBeside = (p: Box): Box[] =>
-        lines.length === 0
-          ? []
-          : [
-              { x: p.x + p.w / 2 - nw / 2, y: p.y - nh - g, w: nw, h: nh },
-              { x: p.x + p.w / 2 - nw / 2, y: p.y + p.h + g, w: nw, h: nh },
-              { x: p.x + p.w + g, y: p.y + p.h / 2 - nh / 2, w: nw, h: nh },
-              { x: p.x - nw - g, y: p.y + p.h / 2 - nh / 2, w: nw, h: nh },
-            ]
-      // 編號、說明優先放在不壓到別條線的位置（可以壓在自己的線上）；都沒有才壓在別條線上
-      for (const avoid of [true, false]) {
-        for (const pill of spots) {
-          if (!placer.fits(pill) || (avoid && placer.onLine(pill, drawnOf.get(id))) || (lines.length > 0 && !roomy([pill.x + pill.w / 2, pill.y + pill.h / 2], id))) continue
-          if (lines.length === 0) {
-            placer.reserve(pill)
-            entry.pill = pill
-            return
-          }
-          const note = notesBeside(pill).find((n) => placer.fits(n) && (!avoid || !placer.onLine(n, drawnOf.get(id))))
-          if (note) {
-            placer.reserve(pill)
-            placer.reserve(note)
-            entry.pill = pill
-            entry.note = { box: note, lines }
-            return
-          }
-        }
-      }
-    }
-    // 路線卡片的主角一定要標：放不下也放在第一個位置
-    if (id === lead && !editing) entry.pill = placer.place(spots, true)
   }
   const mains = priority.filter((id) => !solo || id === highlight)
   for (const id of mains) if (!short(id)) placePill(id, false)
   for (const id of mains) if (short(id)) placePill(id, false)
-  // 3. bolt 旁邊的種類（材質）：這條路線有空間顯示難度名稱時才顯示，而且不壓到別條線
+  // 2. bolt、anchor 的牌子（位置固定）
+  for (const b of boltPills) {
+    const pill = placer.place([b.box], editing)
+    if (pill) plan.get(b.id)!.bolts.push({ pos: b.pos, at: b.at, anchor: b.anchor, label: b.label, pill })
+  }
+  // 3. 難度、名稱：緊貼在編號旁邊；編號旁邊夠寬才顯示，先試完整的（難度＋名稱），放不下才少一點（換行、只留難度）
+  for (const id of mains) {
+    const entry = plan.get(id)!
+    const pill = entry.pill
+    if (!pill || !roomy(center(pill), id)) continue
+    const own = drawnOf.get(id)
+    found: for (const lines of noteVersions(id)) {
+      // 優先不壓到別條線（可以壓在自己的線上）
+      for (const avoid of [true, false]) {
+        const note = besidePill(pill, lines).find((n) => placer.fits(n) && (!avoid || !placer.onLine(n, own)))
+        if (note) {
+          placer.reserve(note)
+          entry.note = { box: note, lines }
+          break found
+        }
+      }
+    }
+  }
+  // 4. bolt 旁邊的種類（材質）：這條路線有空間顯示難度名稱時才顯示，而且不壓到別條線
   for (const id of editing ? [] : priority) {
     const entry = plan.get(id)!
     const i = info?.get(id)
@@ -365,7 +370,7 @@ export function TopoLines({
     }
   }
 
-  // 4. solo：其他路線的編號（小、淡），放得下才標，不帶說明
+  // 5. solo：其他路線的編號（小、淡），放得下才標，不帶說明
   if (solo && !editing) {
     const others = priority.filter((id) => id !== highlight)
     for (const id of others) if (!short(id)) placePill(id, true)
