@@ -7,7 +7,7 @@ import { href, navigate } from '../router'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { fillShared } from './lines'
 import { FULL_CROP, type Crop, type Marks, type TopoPhoto } from './model'
-import { fitSize, IDENTITY, moveView, swipeStep, type Pt, type Size, type View } from './viewport'
+import { doubleTapView, fitSize, IDENTITY, isDoubleTap, moveView, swipeStep, type Pt, type Size, type Tap, type View } from './viewport'
 import { px, routeInfo, TopoFrame, TopoLines } from './TopoView'
 
 /** 手指移動超過這個距離（螢幕像素）才算拖曳，之前都當作點擊 */
@@ -18,7 +18,7 @@ const STEP = 1.5
 
 /**
  * 全螢幕 Topo：雙指縮放、拖曳平移；點路線只切換高亮，不離開全螢幕。
- * 左右滑換路線（照片沒有跟著橫移時：沒放大、或已經拖到邊）。
+ * 左右滑換路線（照片沒有跟著橫移時：沒放大、或已經拖到邊）；點兩下放大，再點兩下回到整張。
  * 點擊（沒有拖曳）不鎖定指標，click 才會送到路線上；拖曳時才鎖定，放開後不會誤點。
  * 電腦版：滑鼠滾輪以游標為中心縮放、右下角的按鈕與 +／-／0；右邊是這張照片的路線清單（↑／↓ 切換），
  * 選到的路線在最下面顯示並可以開啟；手機版選到的路線顯示在照片下面。
@@ -57,6 +57,8 @@ export function TopoFullscreen({
   const moved = useRef(0)
   /** 這次手勢：起點、開始時照片的橫向位置；兩指縮放過就不算滑動 */
   const gesture = useRef<{ from: Pt; x: number; pinched: boolean }>(undefined)
+  /** 上一次點擊（沒有拖曳、沒有兩指），用來判斷點兩下 */
+  const lastTap = useRef<Tap>(undefined)
 
   useEffect(() => {
     const el = dialog.current!
@@ -124,6 +126,11 @@ export function TopoFullscreen({
     gesture.current = undefined
     const dir = !g.pinched && e.type === 'pointerup' ? swipeStep(g.from, rel(e), view.x - g.x) : undefined
     if (dir) latest.current.step(dir)
+    const tap = !g.pinched && e.type === 'pointerup' && moved.current < DRAG_PX ? { at: rel(e), time: e.timeStamp } : undefined
+    if (tap && isDoubleTap(lastTap.current, tap)) {
+      setView((v) => doubleTapView(v, tap.at, stage, content))
+      lastTap.current = undefined
+    } else lastTap.current = tap
   }
   /** 拖曳、滑動放開時瀏覽器也會送出 click：擋掉，免得點到手指下面的路線 */
   const dragged = (e: ReactMouseEvent) => {

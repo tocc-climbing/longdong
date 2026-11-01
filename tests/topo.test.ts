@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
-import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView, swipeStep } from '../src/topo/viewport'
+import { clampView, DOUBLE_TAP_SCALE, doubleTapView, fitSize, IDENTITY, isDoubleTap, MAX_SCALE, moveView, swipeStep } from '../src/topo/viewport'
 import { addLinePoint, drawnRuns, fillShared, ownRuns, forkLine, moveSharedPoint, segmentAt, syncShared } from '../src/topo/lines'
 import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
 
@@ -332,5 +332,28 @@ describe('全螢幕左右滑換路線', () => {
   })
   it('照片跟著橫移（放大後拖曳）：不換', () => {
     expect(swipeStep(o, { x: -60, y: 0 }, -60)).toBeUndefined()
+  })
+})
+
+describe('點兩下放大、再點兩下回到整張', () => {
+  const tap = (x: number, y: number, time: number) => ({ at: { x, y }, time })
+  it('間隔短、位置近才算點兩下', () => {
+    expect(isDoubleTap(undefined, tap(0, 0, 0))).toBe(false)
+    expect(isDoubleTap(tap(0, 0, 0), tap(10, 5, 250))).toBe(true)
+    expect(isDoubleTap(tap(0, 0, 0), tap(0, 0, 400))).toBe(false)
+    expect(isDoubleTap(tap(0, 0, 0), tap(50, 0, 100))).toBe(false)
+  })
+  const stage = { w: 400, h: 800 }
+  const content = { w: 400, h: 600 }
+  it('沒放大：以點的位置為中心放大，點的那一點留在手指下', () => {
+    const at = { x: 60, y: 40 }
+    const v = doubleTapView(IDENTITY, at, stage, content)
+    expect(v.scale).toBe(DOUBLE_TAP_SCALE)
+    // 照片上原本在 at 的點：(at - 0) / 1；放大後在 v.x + at * scale 的位置
+    expect(v.x + at.x * v.scale).toBeCloseTo(at.x)
+    expect(v.y + at.y * v.scale).toBeCloseTo(at.y)
+  })
+  it('放大了（點兩下或雙指）：回到整張', () => {
+    expect(doubleTapView({ scale: 1.2, x: 30, y: 0 }, { x: 0, y: 0 }, stage, content)).toEqual(IDENTITY)
   })
 })

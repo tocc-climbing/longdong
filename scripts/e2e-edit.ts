@@ -1415,6 +1415,16 @@ try {
   const swipedNext = await swipe(-120)
   check('全螢幕：往右滑換到上一條、往左滑換到下一條', swipedBack === firstNo && swipedNext === secondNo, `${secondNo} → ${swipedBack} → ${swipedNext}`)
   check('選到的路線在下面顯示，可以開啟', (await dialog.getByRole('button', { name: '路線頁' }).count()) === 1)
+  // 點兩下放大（點的那一點留在游標下），再點兩下回到整張
+  const fullContent = dialog.locator('.topo-full-content')
+  const tapBefore = (await fullContent.boundingBox())!
+  const tapAt = { x: tapBefore.x + tapBefore.width * 0.3, y: tapBefore.y + tapBefore.height * 0.6 }
+  await viewer.page.mouse.dblclick(tapAt.x, tapAt.y)
+  const tapAfter = (await fullContent.boundingBox())!
+  const stays = Math.abs((tapAt.x - tapAfter.x) / tapAfter.width - 0.3) < 0.01 && Math.abs((tapAt.y - tapAfter.y) / tapAfter.height - 0.6) < 0.01
+  const tapZoomed = await fullFit()
+  await viewer.page.mouse.dblclick(tapAt.x, tapAt.y)
+  check('全螢幕：點兩下放大（點的位置不動），再點兩下回到整張', tapZoomed === '250%' && stays && (await fullFit()) === '100%', `${tapZoomed} → ${await fullFit()}，${stays ? '位置不動' : '位置跑掉'}`)
   await viewer.page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
   check('Esc 關閉全螢幕', (await viewer.page.locator('dialog.topo-full[open]').count()) === 0)

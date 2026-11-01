@@ -158,3 +158,23 @@ export function swipeStep(from: Pt, to: Pt, panned: number): 1 | -1 | undefined 
   if (Math.abs(dx) <= SWIPE_PX || Math.abs(dx) <= Math.abs(to.y - from.y) * 1.5 || Math.abs(panned) >= 1) return undefined
   return dx < 0 ? 1 : -1
 }
+
+/** 點兩下：兩次點擊間隔不超過這麼久（毫秒）、距離不超過這麼遠（螢幕像素） */
+const DOUBLE_TAP_MS = 300
+const DOUBLE_TAP_PX = 30
+/** 點兩下放大到這個倍率 */
+export const DOUBLE_TAP_SCALE = 2.5
+
+export interface Tap {
+  at: Pt
+  time: number
+}
+
+/** 這次點擊和上一次合起來是點兩下 */
+export const isDoubleTap = (prev: Tap | undefined, now: Tap) =>
+  !!prev && now.time - prev.time <= DOUBLE_TAP_MS && Math.hypot(now.at.x - prev.at.x, now.at.y - prev.at.y) <= DOUBLE_TAP_PX
+
+/** 點兩下：沒放大時以點的位置為中心放大到 DOUBLE_TAP_SCALE，放大了就回到整張 */
+export function doubleTapView(view: View, at: Pt, stage: Size, content: Size): View {
+  return view.scale > 1 ? IDENTITY : moveView(view, at, at, DOUBLE_TAP_SCALE / view.scale, stage, content)
+}
