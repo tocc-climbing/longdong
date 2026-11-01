@@ -3,9 +3,11 @@ import './install'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { ImageUrl } from './core/topo/TopoView'
 import { initI18n } from './i18n'
 import { startCloud } from './personal/sync'
 import { startCalibrationSync } from './map/calibration'
+import { imageUrl } from './topo/model'
 import './styles.css'
 
 // 網站是 App 模式，畫面不能縮放（index.html 的 viewport）：iOS Safari 忽略 user-scalable=no，另外擋掉雙指縮放手勢；
@@ -24,7 +26,9 @@ startCalibrationSync()
 void initI18n().then(() =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <ImageUrl value={imageUrl}>
+        <App />
+      </ImageUrl>
     </StrictMode>,
   ),
 )

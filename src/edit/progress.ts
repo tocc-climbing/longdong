@@ -1,4 +1,4 @@
-import type { Marks } from '../topo/model'
+import type { Marks } from '../core/topo/geometry'
 import type { EditItem } from './Catalog'
 
 /** 完成度：done 個，共 total 個 */

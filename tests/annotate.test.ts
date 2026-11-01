@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centeredBox, pathLength, Placer, pointAlong, segmentHitsBox, smoothPath, textWidth, wrapText, type Pt } from '../src/topo/annotate'
+import { centeredBox, pathLength, Placer, pointAlong, segmentHitsBox, smoothPath, textWidth, wrapText, type Pt } from '../src/core/topo/annotate'
 
 const nums = (d: string) => d.match(/-?\d+(\.\d+)?/g)!.map(Number)
 

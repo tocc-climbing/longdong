@@ -1,10 +1,12 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { Marks, TopoPhoto } from '../src/topo/model'
-import { textWidth } from '../src/topo/annotate'
+import type { Marks } from '../src/core/topo/geometry'
+import type { TopoPhoto } from '../src/topo/model'
+import { textWidth } from '../src/core/topo/annotate'
 import type { Route } from '../src/data/schema'
-import { routeInfo, TopoLines, type RouteInfo } from '../src/topo/TopoView'
+import { routeInfo } from '../src/topo/routeInfo'
+import { TopoLines, type RouteInfo } from '../src/core/topo/TopoView'
 import schoolGate from './fixtures/topo-school-gate.json'
 
 const photo = { id: 'p', sector: 's', uid: 'u', width: 2000, height: 1000, image: 'x', createdAt: 0 } as TopoPhoto

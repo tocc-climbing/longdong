@@ -2,9 +2,11 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
-import { clampView, DOUBLE_TAP_SCALE, doubleTapView, fitSize, IDENTITY, isDoubleTap, MAX_SCALE, moveView, swipeStep } from '../src/topo/viewport'
-import { addLinePoint, drawnRuns, fillShared, ownRuns, forkLine, moveSharedPoint, segmentAt, syncShared } from '../src/topo/lines'
-import { boltPositions, decodeEdit, encodeMarks, FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, routeIdFromKey, sameCrop, sameMarks, toCropPoint, toPoint, type Marks, type Point } from '../src/topo/model'
+import { clampView, DOUBLE_TAP_SCALE, doubleTapView, fitSize, IDENTITY, isDoubleTap, MAX_SCALE, moveView, swipeStep } from '../src/core/topo/viewport'
+import { addLinePoint, drawnRuns, ownRuns, forkLine, moveSharedPoint, segmentAt } from '../src/core/topo/lines'
+import { fillShared, syncShared } from '../src/topo/shared'
+import { boltPositions, decodeEdit, encodeMarks, routeIdFromKey, sameMarks } from '../src/topo/model'
+import { FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, sameCrop, toCropPoint, toPoint, type Marks, type Point } from '../src/core/topo/geometry'
 
 const rules = JSON.parse(readFileSync('firebase/database.rules.json', 'utf8')).rules.v2.topoEdits.$photo.$edit.routes.$route
 /** 規則裡 .validate 的 /…/ 正規表示式 */

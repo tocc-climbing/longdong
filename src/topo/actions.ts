@@ -1,7 +1,8 @@
 import { withCloud } from '../personal/sync'
 import { t } from '../i18n'
-import { encodeMarks, FULL_CROP, isFullCrop, MAX_EDGE, SCALE, type Crop, type Marks, type TopoPhoto } from './model'
-import type { Shot } from './shot'
+import { encodeMarks, MAX_EDGE, type TopoPhoto } from './model'
+import { FULL_CROP, isFullCrop, SCALE, type Crop, type Marks } from '../core/topo/geometry'
+import type { Shot } from '../core/topo/shot'
 import { loadEdits, loadPhotos } from './store'
 
 /** 裁切（crop：萬分比，沒給是整張）、縮到長邊不超過 MAX_EDGE，輸出 WebP（瀏覽器不支援時為 JPEG）；照片的方向依 EXIF 轉正 */

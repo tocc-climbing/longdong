@@ -14,7 +14,7 @@ import { Sheet } from './Sheet'
 import { useSimulation } from '../simulate'
 import { useCloud } from '../personal/sync'
 import { uploadTopo } from '../topo/actions'
-import { fromOrientation, readExif, type Orientation, type Shot } from '../topo/shot'
+import { fromOrientation, readExif, type Orientation, type Shot } from '../core/topo/shot'
 
 /** 誤差在這以內才適合當校正點（與地圖頁相同） */
 const GOOD_ACCURACY_M = 10

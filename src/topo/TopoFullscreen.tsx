@@ -5,10 +5,12 @@ import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { href, navigate } from '../router'
 import { BoltToggle, useShowBolts } from './BoltToggle'
-import { fillShared } from './lines'
-import { FULL_CROP, type Crop, type Marks, type TopoPhoto } from './model'
-import { doubleTapView, fitSize, IDENTITY, isDoubleTap, moveView, swipeStep, type Pt, type Size, type Tap, type View } from './viewport'
-import { px, routeInfo, TopoFrame, TopoLines } from './TopoView'
+import { fillShared } from './shared'
+import { FULL_CROP, type Crop, type Marks } from '../core/topo/geometry'
+import type { TopoPhoto } from './model'
+import { doubleTapView, fitSize, IDENTITY, isDoubleTap, moveView, swipeStep, type Pt, type Size, type Tap, type View } from '../core/topo/viewport'
+import { px, TopoFrame, TopoLines } from '../core/topo/TopoView'
+import { routeInfo } from './routeInfo'
 
 /** 手指移動超過這個距離（螢幕像素）才算拖曳，之前都當作點擊 */
 const DRAG_PX = 8

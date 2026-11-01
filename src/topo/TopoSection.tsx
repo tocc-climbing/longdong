@@ -2,14 +2,15 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
-import { useRouteLink } from '../router'
-import { fillShared } from './lines'
-import { FULL_CROP } from './model'
+import { navigate, useRouteLink } from '../router'
+import { fillShared } from './shared'
+import { FULL_CROP } from '../core/topo/geometry'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
-import { px, RouteReveal, routeInfo, TopoFrame, TopoLines } from './TopoView'
-import { routeCrop, widenCrop } from './viewport'
+import { px, RouteReveal, TopoFrame, TopoLines } from '../core/topo/TopoView'
+import { routeInfo } from './routeInfo'
+import { routeCrop, widenCrop } from '../core/topo/viewport'
 import { ZoomPane } from './ZoomPane'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
@@ -61,7 +62,7 @@ export function SectorTopos({ sector, onEdit }: { sector: Sector; onEdit?: (phot
                 highlight={selected}
                 bolts={showBolts ? Object.keys(topo.latest.marks) : []}
                 info={info}
-                link={wide ? link : undefined}
+                link={wide ? (id) => navigate(link(id)) : undefined}
                 crop={topo.latest.crop}
               />
             )}

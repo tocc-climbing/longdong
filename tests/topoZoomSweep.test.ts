@@ -1,10 +1,11 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { distanceToLine, textWidth, type Pt } from '../src/topo/annotate'
-import type { Marks, TopoPhoto } from '../src/topo/model'
-import { TopoLines, type RouteInfo } from '../src/topo/TopoView'
-import { isSketch } from '../src/topo/viewport'
+import { distanceToLine, textWidth, type Pt } from '../src/core/topo/annotate'
+import type { Marks } from '../src/core/topo/geometry'
+import type { TopoPhoto } from '../src/topo/model'
+import { TopoLines, type RouteInfo } from '../src/core/topo/TopoView'
+import { isSketch } from '../src/core/topo/viewport'
 import schoolGate from './fixtures/topo-school-gate.json'
 
 /**

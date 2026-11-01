@@ -1,6 +1,7 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
-import { FULL_CROP, moveCrop, resizeCrop, toPoint, type Crop, type Point, type TopoPhoto } from './model'
-import { px } from './TopoView'
+import { FULL_CROP, moveCrop, resizeCrop, toPoint, type Crop, type Point } from '../core/topo/geometry'
+import type { TopoPhoto } from './model'
+import { px } from '../core/topo/TopoView'
 
 type Axis = -1 | 0 | 1
 

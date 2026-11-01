@@ -5,7 +5,8 @@ import { useCoarse } from '../layout'
 import { href, navigate } from '../router'
 import { uploadTopo } from './actions'
 import { CropBox } from './CropBox'
-import { FULL_CROP, isFullCrop, type Crop, type TopoPhoto } from './model'
+import { FULL_CROP, isFullCrop, type Crop } from '../core/topo/geometry'
+import type { TopoPhoto } from './model'
 
 /**
  * 選照片上傳到分區：選了照片先裁切（只留岩壁），按「上傳」才上傳；成功後進入那張照片的編輯（onUploaded：在這個畫面接著編輯，不換頁）。

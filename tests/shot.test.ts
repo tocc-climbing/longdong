@@ -1,6 +1,6 @@
 import { createCanvas } from '@napi-rs/canvas'
 import { describe, expect, it } from 'vitest'
-import { fromOrientation, readExif } from '../src/topo/shot'
+import { fromOrientation, readExif } from '../src/core/topo/shot'
 import { withExif } from './fixtures/exifJpeg'
 
 const jpeg = () => new Uint8Array(createCanvas(8, 8).toBuffer('image/jpeg'))

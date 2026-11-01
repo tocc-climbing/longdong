@@ -1,10 +1,17 @@
-import { useId, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react'
-import { navigate } from '../router'
-import type { Route } from '../data/schema'
+import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from 'react'
 import { centeredBox, distanceToLine, overlaps, pathLength, Placer, pointAlong, smoothPath, textWidth, wrapText, type Box, type Pt } from './annotate'
 import { drawnRuns, ownRuns } from './lines'
-import { FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type Point, type TopoPhoto } from './model'
+import { FULL_CROP, SCALE, type Crop, type Marks, type Point, type TopoImage } from './geometry'
 import { isSketch } from './viewport'
+
+/** 照片的參照（TopoImage.image）換成網址：照片存在哪裡由使用的 App 決定 */
+export const ImageUrl = createContext<((image: string) => string) | undefined>(undefined)
+
+function useImageUrl(): (image: string) => string {
+  const url = useContext(ImageUrl)
+  if (!url) throw new Error('TopoView 需要外層提供 ImageUrl')
+  return url
+}
 
 /**
  * 照片＋疊在上面的 SVG。SVG 的座標是照片的像素，children 收到「一個螢幕像素等於幾個照片像素」（k），
@@ -18,12 +25,13 @@ export function TopoFrame({
   children,
   svgProps,
 }: {
-  photo: TopoPhoto
+  photo: TopoImage
   alt: string
   crop?: Crop
   children: (k: number) => ReactNode
   svgProps?: SVGProps<SVGSVGElement>
 }) {
+  const imageUrl = useImageUrl()
   const box = useRef<HTMLDivElement>(null)
   const img = useRef<HTMLImageElement>(null)
   const [shown, setShown] = useState(0)
@@ -66,7 +74,8 @@ export function TopoFrame({
  * 灰階底上，選到的路線周圍疊回原色的照片：沿著線一條柔邊的帶子（幾層寬窄不同的半透明線疊出來，不用模糊濾鏡，縮放、拖曳時不吃效能）。
  * width：帶子最寬的寬度（照片像素）。
  */
-export function RouteReveal({ photo, line, width }: { photo: TopoPhoto; line: Point[]; width: number }) {
+export function RouteReveal({ photo, line, width }: { photo: TopoImage; line: Point[]; width: number }) {
+  const imageUrl = useImageUrl()
   const id = useId()
   const d = smoothPath(line.map((p) => px(photo, p) as Pt))
   return (
@@ -82,7 +91,7 @@ export function RouteReveal({ photo, line, width }: { photo: TopoPhoto; line: Po
 }
 
 /** 萬分比換成照片像素 */
-export function px(photo: TopoPhoto, [x, y]: Point): [number, number] {
+export function px(photo: TopoImage, [x, y]: Point): [number, number] {
   return [(x * photo.width) / SCALE, (y * photo.height) / SCALE]
 }
 
@@ -94,23 +103,6 @@ export interface RouteInfo {
   name?: string
   /** 位置（B01、A01）→ 「316-TW · 2007」 */
   bolts: Record<string, string>
-}
-
-/** 材質代號（316-TW、Ti-U…）才顯示；「共用」「待查」之類的特殊值不顯示 */
-const isMaterialCode = (m: string) => /^[A-Za-z0-9-]+$/.test(m)
-
-export function routeInfo(routes: Route[], nameOf: (r: Route) => string): Map<string, RouteInfo> {
-  return new Map(
-    routes.map((r) => [
-      r.id,
-      {
-        kind: r.type === 'sport' ? 'sport' : 'other',
-        grade: r.grade || undefined,
-        name: nameOf(r),
-        bolts: Object.fromEntries([...r.bolts, ...r.anchors].map((b) => [b.position, isMaterialCode(b.material) ? b.material : ''])),
-      },
-    ]),
-  )
 }
 
 /** 牌子的大小與字級（螢幕像素） */
@@ -155,7 +147,7 @@ interface Plan {
  * 線畫成平滑的曲線，編號牌放在線上空的地方（縮小時重疊的先藏起來，選到的路線優先），
  * 放大、空間夠了才多顯示難度、名稱、bolt 的材質與年份。
  * highlight 的路線用亮色、其他變淡；bolts 決定畫哪些路線的 bolt 與 anchor（預設只畫 highlight 的）；
- * 有 link 時點線段換到那條路線。兩條路線共用的線段只畫一次。
+ * 有 link 時點線段換到那條路線（換頁由呼叫的 App 負責）。兩條路線共用的線段只畫一次。
  * editing（編輯時）：線畫細一點、不顯示難度名稱等說明；牌子避開 highlight 路線的點（點上有把手），放不下就不顯示。
  * solo（路線卡片）：highlight 標編號與說明（不避開其他路線的線，貼著編號放）；其他路線只標小的編號，最後才放，放不下就不標。
  * 其他（看整張照片）：排版和大小與 highlight 無關，換路線只換顏色，牌子不會跳動。
@@ -174,7 +166,7 @@ export function TopoLines({
   editing,
   solo,
 }: {
-  photo: TopoPhoto
+  photo: TopoImage
   marks: Marks
   /** 路線 ID → 編號 */
   labels: Map<string, string>
@@ -183,7 +175,8 @@ export function TopoLines({
   bolts?: string[]
   /** 路線 ID → 難度、名稱、bolt 材質；沒有時只標編號與 bolt 位置 */
   info?: Map<string, RouteInfo>
-  link?: (id: string) => string
+  /** 點線段換到那條路線的頁面 */
+  link?: (id: string) => void
   /** 點線段時改為呼叫這個（不換頁）；優先於 link */
   onPick?: (id: string) => void
   crop?: Crop
@@ -377,8 +370,8 @@ export function TopoLines({
     for (const id of others) if (short(id)) placePill(id, true)
   }
 
-  // SVG 的 <a> 的 href 不是字串，站內換頁攔不到（router.ts），改用點擊與 Enter 換頁
-  const pick = onPick ?? (link && ((id: string) => navigate(link(id))))
+  // SVG 的 <a> 的 href 不是字串，站內換頁攔不到，改用點擊與 Enter 換頁
+  const pick = onPick ?? link
   // 沒有路線資料（kind 不明）時用紅色
   const clsOf = (id: string) => `topo-route kind-${info?.get(id)?.kind ?? 'other'}${id === highlight ? ' on' : highlight ? ' dim' : ''}`
 
@@ -476,7 +469,7 @@ export function TopoLines({
 }
 
 /** 沒有線段時，編號標在最下面的 bolt 旁邊 */
-function lowestBolt(photo: TopoPhoto, bolts: Record<string, Point> | undefined): [number, number] | undefined {
+function lowestBolt(photo: TopoImage, bolts: Record<string, Point> | undefined): [number, number] | undefined {
   const lowest = Object.values(bolts ?? {}).reduce<Point | undefined>((a, b) => (!a || b[1] > a[1] ? b : a), undefined)
   return lowest && px(photo, lowest)
 }

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useLang } from '../i18n'
-import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView, type Inset, type Pt, type Size, type View } from './viewport'
+import { clampView, fitSize, IDENTITY, MAX_SCALE, moveView, type Inset, type Pt, type Size, type View } from '../core/topo/viewport'
 
 /** 要縮放到的一塊（照片上的比例 0–1）；seq 不同才算新的一次 */
 export interface ZoomFocus {

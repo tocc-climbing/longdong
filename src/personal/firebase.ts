@@ -26,8 +26,9 @@ import { connectDatabaseEmulator, get, getDatabase, onValue, push, ref, remove, 
 import { isAdminDeletable, type AdminRaw } from '../admin/feed'
 import type { StoredPin } from '../map/reportPins'
 import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social/model'
-import { STORAGE_BUCKET, type Crop, type StoredRoutes, type TopoPhoto } from '../topo/model'
-import type { Shot } from '../topo/shot'
+import { STORAGE_BUCKET, type StoredRoutes, type TopoPhoto } from '../topo/model'
+import type { Crop } from '../core/topo/geometry'
+import type { Shot } from '../core/topo/shot'
 
 const app = initializeApp({
   // 前端用的公開設定（不是密鑰）；存取權限由 Realtime Database 規則控管

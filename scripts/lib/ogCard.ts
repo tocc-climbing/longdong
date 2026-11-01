@@ -8,10 +8,11 @@ import { type Image, type SKRSContext2D, createCanvas, loadImage, Path2D } from 
 import type { Area, Route, Sector } from '../../src/data/schema'
 import { quickdraws } from '../../src/format'
 import { DB_URL } from '../../src/social/model'
-import { pointAlong, smoothPath, type Pt } from '../../src/topo/annotate'
-import { fillShared } from '../../src/topo/lines'
-import { decodeEdit, FULL_CROP, imageUrl, SCALE, type Crop, type Marks, type StoredEdit, type TopoPhoto } from '../../src/topo/model'
-import { routeCrop, widenCrop } from '../../src/topo/viewport'
+import { pointAlong, smoothPath, type Pt } from '../../src/core/topo/annotate'
+import { fillShared } from '../../src/topo/shared'
+import { decodeEdit, imageUrl, type StoredEdit, type TopoPhoto } from '../../src/topo/model'
+import { FULL_CROP, SCALE, type Crop, type Marks } from '../../src/core/topo/geometry'
+import { routeCrop, widenCrop } from '../../src/core/topo/viewport'
 import { areaMap, D, drawToccMark, fit, holdMark, loadToccImage, MARK, OG_SIZE, ogFonts, plainName, rich, splitLine, textWidth, TYPE_ZH, ZOOM, type Box, type OgMap } from './ogImage'
 
 /** 與 App 深色版相同 */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { FULL_CROP } from '../src/topo/model'
-import { clampView, routeCrop, widenCrop } from '../src/topo/viewport'
+import { FULL_CROP } from '../src/core/topo/geometry'
+import { clampView, routeCrop, widenCrop } from '../src/core/topo/viewport'
 
 const photo = { width: 2000, height: 1500 }
 const inside = (c: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) => c.x >= b.x && c.y >= b.y && c.x + c.w <= b.x + b.w + 1 && c.y + c.h <= b.y + b.h + 1

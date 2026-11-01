@@ -1,6 +1,6 @@
 /** 全螢幕 Topo 的縮放與平移。座標以舞台（可視區域）中心為原點，單位是螢幕像素 */
 
-import { SCALE, type Crop, type RouteMarks } from './model'
+import { SCALE, type Crop, type RouteMarks } from './geometry'
 
 export interface View {
   scale: number
