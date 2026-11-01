@@ -51,7 +51,9 @@ jobs:
           CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
 
       # VITE_CHANNEL=dev：畫面上標示「開發版」、不讓搜尋引擎收錄
+      # 平常一兩分鐘：卡住時 15 分鐘就停下來（逾時中止的步驟才留得下記錄）
       - run: npm run build
+        timeout-minutes: 15
         env:
           VITE_CHANNEL: dev
 
@@ -133,6 +135,7 @@ jobs:
 
       - if: steps.data.outputs.deploy == 'true'
         run: npm run build
+        timeout-minutes: 15
 
       - if: steps.data.outputs.deploy == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
