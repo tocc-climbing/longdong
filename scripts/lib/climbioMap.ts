@@ -67,10 +67,14 @@ export function longdongMap(dataset: Dataset): MapView {
     { geometry: area(clipped('land', 'outerLand')), props: { kind: 'land' } },
     { geometry: area(clipped('building', 'outerBuilding')), props: { kind: 'building' } },
     { geometry: area(polys('parking')), props: { kind: 'parking' } },
-    { geometry: multiLine(lines('highway', 'outerHighway')), props: { kind: 'highway' } },
+    // 救援資訊圖的線與頁框外 OpenStreetMap 的線分開（編輯、排道路名稱只用前者，同 App）
+    { geometry: multiLine(lines('highway')), props: { kind: 'highway' } },
+    { geometry: multiLine(lines('outerHighway')), props: { kind: 'highway', source: 'osm' } },
     { geometry: multiLine(lines('tunnel')), props: { kind: 'tunnel' } },
-    { geometry: multiLine(lines('road', 'outerRoad')), props: { kind: 'road' } },
-    { geometry: multiLine(lines('trail', 'outerTrail')), props: { kind: 'trail' } },
+    { geometry: multiLine(lines('road')), props: { kind: 'road' } },
+    { geometry: multiLine(lines('outerRoad')), props: { kind: 'road', source: 'osm' } },
+    { geometry: multiLine(lines('trail')), props: { kind: 'trail' } },
+    { geometry: multiLine(lines('outerTrail')), props: { kind: 'trail', source: 'osm' } },
   ]
   const nodes: Node[] = []
 

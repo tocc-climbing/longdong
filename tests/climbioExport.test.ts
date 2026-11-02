@@ -126,7 +126,7 @@ describe('龍洞地圖（地圖截圖基準的 v2 地圖畫面）', () => {
     const map = longdongMap(dataset)
     expect(validate(map)).toEqual([])
     const kinds = map.marks!.flatMap((m) => (m.node ? [] : [m.props!.kind]))
-    expect(kinds).toEqual(['land', 'building', 'parking', 'highway', 'tunnel', 'road', 'trail'])
+    expect(kinds).toEqual(['land', 'building', 'parking', 'highway', 'highway', 'tunnel', 'road', 'road', 'trail', 'trail'])
     const types = (t: string) => map.nodes!.filter((n) => n.type === t).length
     expect([types('area'), types('sector') > 0, map.nodes!.filter((n) => n.props?.kind === 'rescue').length]).toEqual([9, true, 14])
   })
