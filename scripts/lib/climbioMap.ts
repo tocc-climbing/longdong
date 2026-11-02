@@ -6,6 +6,7 @@ import type { Dataset, LocalizedName } from '../../src/data/schema'
 import { BOUNDS } from '../../src/map/bounds'
 import { EXTENT_LATLNG } from '../../src/map/extent'
 import { unproject } from '../../src/map/mapData'
+import { AREA_COLORS } from '../../src/map/mapkitView'
 import { LINE_TARGETS, type LineTarget, type MapShapes } from '../../src/map/shapes'
 import { fileId, globalId } from './climbio'
 
@@ -26,19 +27,6 @@ interface Feature {
   geometry: { type: 'Point'; coordinates: Pos } | { type: 'Polygon'; coordinates: Pos[][] } | { type: 'MultiPolygon'; coordinates: Pos[][][] } | { type: 'MultiLineString'; coordinates: Pos[][] }
 }
 const read = (name: string) => (JSON.parse(readFileSync(new URL(`../../public/rescue/${name}.geojson`, import.meta.url), 'utf8')) as { features: Feature[] }).features
-
-/** 大區域的顏色（同 src/map/map.css 的 .sm-area-*） */
-export const AREA_COLORS: Record<string, { fill: string; stroke: string }> = {
-  'school-gate': { fill: '#f2b4c6', stroke: '#d40441' },
-  clocktower: { fill: '#dab2d2', stroke: '#820068' },
-  'long-lane': { fill: '#b3c6d8', stroke: '#01417f' },
-  'music-hall': { fill: '#ceedf1', stroke: '#5dc2d0' },
-  'grand-auditorium': { fill: '#d0d6c2', stroke: '#627534' },
-  'first-cave': { fill: '#e4eeb3', stroke: '#a6c702' },
-  'second-cave': { fill: '#f9e8b2', stroke: '#edb100' },
-  'golden-valley': { fill: '#fcdcb7', stroke: '#eb640a' },
-  'back-door': { fill: '#e2b2b2', stroke: '#a00000' },
-}
 
 const text = (n: LocalizedName | { zh: string; en?: string; ja?: string }): Text => ({ 'zh-Hant': n.zh, ...(n.en ? { en: n.en } : {}), ...('ja' in n && n.ja ? { ja: n.ja } : {}) })
 const round = (p: Pos): Position => [Math.round(p[0] * 1e6) / 1e6, Math.round(p[1] * 1e6) / 1e6]

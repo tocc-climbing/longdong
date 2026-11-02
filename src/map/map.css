@@ -718,3 +718,15 @@
 .sm-ortho .sm-trail {
   opacity: 0.7;
 }
+
+/* mapkit 的地圖（src/map/KitMap.tsx）：撐滿外框，左上的按鈕疊在上面 */
+.kit-map {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+.kit-map-host {
+  position: absolute;
+  inset: 0;
+}

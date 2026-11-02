@@ -3,8 +3,8 @@ import { findSector, type LoadedData } from '../data/dataset'
 import { LOCALES, localName, useLang } from '../i18n'
 import { useWide } from '../layout'
 import type { ReportTarget } from '../map/calibration'
-import { areaNames, useScaleMap } from '../map/mapData'
-import { ScaleMap } from '../map/ScaleMap'
+import { useScaleMap } from '../map/mapData'
+import { KitMap } from '../map/KitMap'
 import { reportsOf, type UploadScope, type UploadedReport } from '../map/uploadedReports'
 import type { CalibrationUploads } from '../personal/firebase'
 import { withCloud } from '../personal/sync'
@@ -80,9 +80,9 @@ export function MapReports({ data, profiles }: { data: LoadedData; profiles: Rec
     <div className="map-reports">
       <div className="map-reports-map">
         {map.status === 'ok' && (
-          <ScaleMap
+          <KitMap
             map={map.data}
-            areaNames={areaNames(data, lang)}
+            data={data}
             marks={shown.map((r) => ({ at: r.coords, picked: r.picked, label: String(r.no), selected: r.no === selected }))}
             focus={focused && { key: `report-${focused.no}`, coords: focused.picked ? [focused.coords, focused.picked] : [focused.coords] }}
             ortho={wide && ortho}

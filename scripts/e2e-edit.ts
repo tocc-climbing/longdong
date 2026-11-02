@@ -1548,6 +1548,16 @@ try {
   await until(async () => ((await ap.locator('.admin-row').count()) === 1 ? true : undefined))
   await ap.locator('.admin-row').first().click()
   check('評分：管理員不能刪（顯示「僅本人可刪」，沒有刪除按鈕）', (await ap.getByText('僅本人可刪').count()) === 1 && (await ap.locator('.admin-desk-detail').getByRole('button', { name: '刪除' }).count()) === 0)
+  // 地圖回報：地圖（mapkit）上每一筆回報都有一個點；點清單的一行，地圖上那一筆加大標示
+  await ap.getByRole('tab', { name: '地圖回報' }).click()
+  await ap.locator('.map-reports-list li').first().waitFor({ timeout: 15000 }).catch(() => {})
+  const reportRows = ap.locator('.map-reports-list li')
+  await ap.locator('.kit-map .mk-mark').first().waitFor({ timeout: 15000 }).catch(() => {})
+  const reportCount = await reportRows.count()
+  check('地圖回報：mapkit 的地圖上每一筆回報都有一個點', reportCount > 0 && (await ap.locator('.kit-map .mk-mark').count()) === reportCount, `${reportCount} 筆，${await ap.locator('.kit-map .mk-mark').count()} 個點`)
+  await reportRows.first().locator('button').click()
+  await ap.locator('.kit-map .mk-mark.selected').waitFor({ timeout: 5000 }).catch(() => {})
+  check('地圖回報：點清單的一筆，地圖上那一筆加大標示', (await ap.locator('.kit-map .mk-mark.selected').count()) === 1)
   // 手機寬度：換成上方分頁加可展開的卡片
   await ap.setViewportSize({ width: 390, height: 844 })
   await ap.fill('.admin-search', '')
