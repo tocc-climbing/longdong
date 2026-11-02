@@ -126,7 +126,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 分享路線的網址就是路線頁（`/route/<路線ID>`）：`npm run build` 最後替每條路線產生 `dist/route/<路線ID>.html`（`scripts/gen-share-pages.ts`），內容是 `index.html` 換上這條路線的預覽資訊，Facebook、LINE 的預覽卡片才看得到路線；`firebase.json` 的 `cleanUrls` 讓網址不帶 `.html`。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
 
-岩場站出口：`npm run build` 最後把路線資料、Topo（照片＋線段）與岩壁線輸出成 [Climbio 公開格式 v2](vendor/climbio-format/README.md)，放在 `dist/climbio/`（`scripts/gen-climbio.ts`）。入口是 `/climbio/longdong.json`，不用登入、回 `Access-Control-Allow-Origin: *`；Topo 與岩壁線是部署當時資料庫的最新版本。
+岩場站出口：`npm run build` 最後把路線資料、Topo（照片＋線段）與岩場地圖（底圖、區域、岩壁、地點）輸出成 [Climbio 公開格式 v2](vendor/climbio-format/README.md)，放在 `dist/climbio/`（`scripts/gen-climbio.ts`）。入口是 `/climbio/longdong.json`，不用登入、回 `Access-Control-Allow-Origin: *`；Topo 與地圖是部署當時資料庫的最新版本。地圖只有龍洞自己產生的，不含 OpenStreetMap 的部分，要不要疊由用的人決定。
 
 ## 介面語言
 
@@ -175,6 +175,7 @@ OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetM
 
 - 程式碼：[MIT](LICENSE)
 - TOCC 標誌與由其產生的 App 圖示（`assets/`、`public/icons/`）：屬臺灣戶外攀岩協會所有，不適用 MIT
-- 龍洞岩場救援資訊圖、由其產生的地圖資料（`public/rescue/`）、救援資訊（`src/data/rescue.ts`）：來自 TOCC 龍洞岩場救援計畫，屬臺灣戶外攀岩協會所有，不適用 MIT
+- 龍洞岩場救援資訊圖、救援資訊（`src/data/rescue.ts`）：來自 TOCC 龍洞岩場救援計畫，屬臺灣戶外攀岩協會所有，不適用 MIT
+- 由救援資訊圖產生的地圖資料（`public/rescue/`，含岩場站出口的岩場地圖與救援點位置）：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)，© 臺灣戶外攀岩協會（TOCC）龍洞岩場救援資訊圖
 - 比例尺地圖的道路與海岸校正參考（`scripts/data/osm-reference.json`）、救援資訊圖範圍外的陸地、建物、道路與步道（`scripts/data/osm-extent.json`）：© OpenStreetMap contributors，[ODbL](https://opendatacommons.org/licenses/odbl/)
 - 路線資料（`public/data/`）：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)，© 臺灣戶外攀岩協會（TOCC）固定點更新計畫

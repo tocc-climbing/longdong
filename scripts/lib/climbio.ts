@@ -1,19 +1,18 @@
 import { createHash } from 'node:crypto'
-import type { Layer, MapView, Node, PhotoView, Position, Set, Text } from '../../vendor/climbio-format/format'
+import type { Layer, MapView, Node, PhotoView, Set, Text } from '../../vendor/climbio-format/format'
 import { toCamera } from '../../src/core/format/camera'
 import { toTopoLayer, toTopoView } from '../../src/core/format/topo'
 import type { Crop, Marks } from '../../src/core/topo/geometry'
 import type { Shot } from '../../src/core/topo/shot'
 import type { Area, Dataset, LocalizedName, Route, RouteStatus } from '../../src/data/schema'
-import type { LatLng } from '../../src/geo'
 
 /**
- * 岩場站出口：路線資料、Topo、岩壁線換成 Climbio 公開格式 v2（vendor/climbio-format），放在網站的 /climbio/，
+ * 岩場站出口：路線資料、Topo、岩場地圖換成 Climbio 公開格式 v2（vendor/climbio-format），放在網站的 /climbio/，
  * 不用 Firebase SDK、不登入就能 GET（見 scripts/gen-climbio.ts）。
  *
- *   longdong.json        入口：岩場的組合（type crag），岩場節點，items 是各區域的組合
- *   <id>.json            其他檔案以檔案 id 為檔名：區域的組合（type area：區域、分區、路線節點，items 是岩壁地圖與 Topo）、
- *                        區域的岩壁地圖（地圖畫面）、Topo 的照片畫面、疊在照片上的路線線段與 bolt（圖層）
+ *   longdong.json        入口：岩場的組合（type crag），岩場節點，items 是岩場地圖與各區域的組合
+ *   <id>.json            其他檔案以檔案 id 為檔名：岩場地圖（地圖畫面，scripts/lib/climbioMap.ts：底圖、區域、岩壁、地點）、
+ *                        區域的組合（type area：區域、分區、路線節點，items 是 Topo）、Topo 的照片畫面、疊在照片上的路線線段與 bolt（圖層）
  *   <畫面 id>.webp／.jpg  Topo 的照片
  *
  * 全域 id 由好讀代號算出（globalId）：同一個代號每次輸出都一樣。之後 Sheet 加上全域 id 欄時填入同一組值，id 不變。
@@ -39,7 +38,7 @@ const STATUS: Partial<Record<RouteStatus, string>> = { tested: 'open', rebolted:
 
 const defined = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && !(Array.isArray(v) && v.length === 0)))
 
-/** 路線節點：通用的詞彙加上龍洞自己的（longdong:）；排序、篩選用的衍生值（gradeValue、boltCount）不輸出 */
+/** 路線節點：通用的詞彙加上龍洞自己的（longdong:）；排序、篩選用的衍生值（gradeValue）不輸出 */
 function routeNode(route: Route, parent: string): Node {
   return {
     id: globalId(route.id),
@@ -51,6 +50,7 @@ function routeNode(route: Route, parent: string): Node {
       grade: route.grade ? { yds: route.grade } : undefined,
       style: route.type,
       length: route.heightM,
+      bolts: route.boltCount,
       fa: route.firstAscent,
       status: route.status && STATUS[route.status],
       description: route.description,
@@ -77,8 +77,8 @@ export interface Common {
 const datasetT = (d: Dataset) => Date.parse(d.updatedAt)
 const datasetSource = (d: Dataset, c: Common) => ({ url: c.dataUrl, version: d.version })
 
-/** 岩場的組合：岩場節點（五金代號表放在 props），items 是各區域的組合 */
-export function cragSet(d: Dataset, c: Common): Set {
+/** 岩場的組合：岩場節點（五金代號表放在 props），items 是岩場地圖與各區域的組合 */
+export function cragSet(d: Dataset, map: MapView, c: Common): Set {
   return {
     climbio: 2,
     kind: 'set',
@@ -89,17 +89,16 @@ export function cragSet(d: Dataset, c: Common): Set {
     license: LICENSE,
     attribution: d.source.attribution,
     source: datasetSource(d, c),
-    items: d.areas.map((a) => ({ href: `${fileId(a.id, 'set')}.json`, id: fileId(a.id, 'set'), name: text(a.name) })),
+    items: [{ href: `${map.id}.json`, id: map.id, t: map.t }, ...d.areas.map((a) => ({ href: `${fileId(a.id, 'set')}.json`, id: fileId(a.id, 'set'), name: text(a.name) }))],
     nodes: [{ id: globalId(d.crag.id), type: 'crag', name: text(d.crag.name), props: { code: d.crag.id, 'longdong:hardware': d.hardware } }],
   }
 }
 
 export interface AreaItems {
-  map?: MapView
   topos: { view: PhotoView; layer?: Layer }[]
 }
 
-/** 區域的組合：區域 → 分區 → 路線節點，items 是這個區域的岩壁地圖與 Topo */
+/** 區域的組合：區域 → 分區 → 路線節點，items 是這個區域的 Topo */
 export function areaSet(d: Dataset, area: Area, items: AreaItems, c: Common): Set {
   const id = globalId(area.id)
   return {
@@ -113,7 +112,6 @@ export function areaSet(d: Dataset, area: Area, items: AreaItems, c: Common): Se
     attribution: d.source.attribution,
     source: datasetSource(d, c),
     items: [
-      ...(items.map ? [{ href: `${items.map.id}.json`, id: items.map.id, t: items.map.t }] : []),
       ...items.topos.flatMap(({ view, layer }) => [
         { href: `${view.id}.json`, id: view.id, t: view.t },
         ...(layer ? [{ href: `${layer.id}.json`, id: layer.id, t: layer.t }] : []),
@@ -126,27 +124,6 @@ export function areaSet(d: Dataset, area: Area, items: AreaItems, c: Common): Se
         return [{ id: sid, type: 'sector', parent: id, name: text(s.name), props: { code: s.id } }, ...s.routes.map((r) => routeNode(r, sid))]
       }),
     ],
-  }
-}
-
-/** 區域的岩壁地圖：每個分區一個 MultiLineString（「緯度,經度」換成經度在前）；沒有岩壁的分區不畫，整區都沒有就沒有地圖 */
-export function wallMap(d: Dataset, area: Area, walls: Record<string, LatLng[][]>, t: number): MapView | undefined {
-  const marks = area.sectors.flatMap((s) => {
-    const lines = (walls[s.id] ?? []).filter((l) => l.length >= 2)
-    return lines.length ? [{ node: globalId(s.id), geometry: { type: 'MultiLineString' as const, coordinates: lines.map((l) => l.map(([lat, lng]): Position => [lng, lat])) } }] : []
-  })
-  if (!marks.length) return undefined
-  return {
-    climbio: 2,
-    kind: 'view',
-    surface: 'map',
-    id: fileId(area.id, 'map'),
-    name: text(area.name),
-    t,
-    license: LICENSE,
-    attribution: d.source.attribution,
-    origin: 'self',
-    marks,
   }
 }
 

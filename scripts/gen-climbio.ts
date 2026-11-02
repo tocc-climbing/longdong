@@ -1,5 +1,5 @@
 /**
- * 建置後輸出岩場站出口（dist/climbio/，格式與檔案見 scripts/lib/climbio.ts）：路線資料、Realtime Database 的 Topo 與岩壁線
+ * 建置後輸出岩場站出口（dist/climbio/，格式與檔案見 scripts/lib/climbio.ts）：路線資料、Realtime Database 的 Topo 與地圖編輯
  * （部署時的最新版本）、Topo 照片（從 Cloud Storage 複製過來：Storage 的網址不回 CORS 標頭）。
  * 每份檔案都先通過官方的 validate，不合格就失敗。
  * 沒有授權、署名的照片（2026-11-02 以前上傳、還沒補上的）不輸出，印出警告。
@@ -11,11 +11,11 @@ import { join } from 'node:path'
 import ClimbioFormat, { type Doc } from '../vendor/climbio-format/format'
 import { indexDataset } from '../src/data/dataset'
 import type { Dataset } from '../src/data/schema'
-import type { LatLng } from '../src/geo'
 import { decodeMapEdits } from '../src/map/shapes'
 import { DB_URL } from '../src/social/model'
 import { decodeEdit, imageUrl, type StoredEdit, type TopoPhoto } from '../src/topo/model'
-import { areaSet, CRAG_FILE, cragSet, topo, wallMap, type AreaItems, type TopoInput } from './lib/climbio'
+import { areaSet, CRAG_FILE, cragSet, topo, type AreaItems, type TopoInput } from './lib/climbio'
+import { longdongMap } from './lib/climbioMap'
 import { SITE_URL } from './sheet.config'
 
 const OUT = 'dist/climbio'
@@ -44,14 +44,6 @@ const write = (doc: Doc, file = `${doc.id}.json`) => {
   const errors = ClimbioFormat.validate(doc)
   if (errors.length) throw new Error(`${file} 不符合格式：\n${errors.join('\n')}`)
   writeFileSync(join(OUT, file), JSON.stringify(doc))
-}
-
-// 岩壁：原始版（walls.geojson）套上地圖編輯的最新版本（同 App 的 withShapes）
-const base = JSON.parse(readFileSync('dist/rescue/walls.geojson', 'utf8')) as { features: { properties: { sector: string }; geometry: { coordinates: [number, number][][] } }[] }
-const shapes = decodeMapEdits(mapEdits)
-const walls: Record<string, LatLng[][]> = {
-  ...Object.fromEntries(base.features.map((f) => [f.properties.sector, f.geometry.coordinates.map((l) => l.map(([lng, lat]): LatLng => [lat, lng]))])),
-  ...shapes.walls,
 }
 
 const items = new Map<string, AreaItems>(dataset.areas.map((a) => [a.id, { topos: [] }]))
@@ -90,13 +82,10 @@ for (const [key, p] of Object.entries(photos ?? {})) {
   items.get(found.area.id)!.topos.push(t)
 }
 
-for (const area of dataset.areas) {
-  const it = items.get(area.id)!
-  const times = area.sectors.flatMap((s) => shapes.versions[`wall:${s.id.replace('/', ':')}`]?.map((v) => v.createdAt) ?? [])
-  const map = wallMap(dataset, area, walls, times.length ? Math.max(...times) : Date.parse(dataset.updatedAt))
-  if (map) write(map)
-  write(areaSet(dataset, area, { ...it, map }, common))
-}
-write(cragSet(dataset, common), CRAG_FILE)
+for (const area of dataset.areas) write(areaSet(dataset, area, items.get(area.id)!, common))
+// 岩場地圖：原始版套上地圖編輯的最新版本，只有龍洞自己的（不含 OpenStreetMap）
+const map = longdongMap(dataset, decodeMapEdits(mapEdits), false)
+write(map)
+write(cragSet(dataset, map, common), CRAG_FILE)
 
 console.log(`岩場站出口：${dataset.areas.length} 個區域、${[...items.values()].reduce((n, i) => n + i.topos.length, 0)} 張 Topo → ${OUT}/`)
