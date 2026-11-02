@@ -79,7 +79,7 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
     prepare: async (page) => {
       await page.evaluate(() => localStorage.setItem('longdong.map.intro', '1'))
       await page.reload()
-      await page.waitForSelector('.sm-me')
+      await page.waitForSelector('.mk-me')
       await page.click('.sm-tool.report')
       await page.waitForSelector('.sheet[open] .chip')
     },
