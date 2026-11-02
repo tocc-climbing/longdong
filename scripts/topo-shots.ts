@@ -140,12 +140,15 @@ function sceneHtml(s: Scene, out?: { lines: string }): string {
 
 function sceneJson(s: Scene) {
   const px = ([x, y]: [number, number]) => [(x * s.photo.width) / SCALE, (y * s.photo.height) / SCALE]
+  const keys = Object.keys(s.marks)
+  const order = (id: string) => (keys.includes(id) ? keys.indexOf(id) : keys.length)
   const c = s.crop
   return {
     name: s.name,
     photo: { w: s.photo.width, h: s.photo.height },
     ...(c ? { crop: { x: (c.x * s.photo.width) / SCALE, y: (c.y * s.photo.height) / SCALE, w: (c.w * s.photo.width) / SCALE, h: (c.h * s.photo.height) / SCALE } } : {}),
-    routes: s.routes.map((r) => ({
+    // 路線的順序同 marks（畫的先後、並列時的優先順序都依它）
+    routes: [...s.routes].sort((a, b) => order(a.id) - order(b.id)).map((r) => ({
       id: r.id,
       label: r.label,
       kind: r.kind,
