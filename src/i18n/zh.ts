@@ -16,6 +16,7 @@ export const zh = {
   'home.tideMissing': '沒有今天的潮汐資料',
   'tide.high': '滿潮',
   'tide.low': '乾潮',
+  'tide.range': '潮差',
   'tide.spring': '大潮',
   'tide.mid': '中潮',
   'tide.neap': '小潮',

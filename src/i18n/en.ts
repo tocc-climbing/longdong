@@ -18,6 +18,7 @@ export const en: Messages = {
   'home.tideMissing': 'No tide data for today',
   'tide.high': 'High',
   'tide.low': 'Low',
+  'tide.range': 'Tidal range',
   'tide.spring': 'Spring tide',
   'tide.mid': 'Mid tide',
   'tide.neap': 'Neap tide',

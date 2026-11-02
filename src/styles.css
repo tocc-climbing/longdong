@@ -6376,6 +6376,10 @@ dialog.topo-upload-crop::backdrop {
   font-variant-numeric: tabular-nums;
 }
 
+.tide-range {
+  margin: 4px 0 0;
+}
+
 .weather-source {
   margin: 6px 0 0;
 }

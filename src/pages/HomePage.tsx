@@ -159,14 +159,18 @@ function Tides({ tide, date }: { tide: ReturnType<typeof useTide>; date: string 
   const day = tide.status === 'ready' ? tide.tide.days.find((d) => d.date === date) : undefined
   if (!day) return <p className="small error">{t('home.tideMissing')}</p>
   return (
-    <p className="tide-times">
-      <span className="muted">{t(`tide.${day.range}`)}</span>
-      {day.tides.map((x) => (
-        <span key={x.time}>
-          <span className="muted">{t(`tide.${x.type}`)}</span> <strong>{x.time}</strong>
-        </span>
-      ))}
-    </p>
+    <>
+      <p className="tide-times">
+        {day.tides.map((x) => (
+          <span key={x.time}>
+            <span className="muted">{t(`tide.${x.type}`)}</span> <strong>{x.time}</strong>
+          </span>
+        ))}
+      </p>
+      <p className="tide-range">
+        <span className="muted">{t('tide.range')}</span> {t(`tide.${day.range}`)}
+      </p>
+    </>
   )
 }
 
