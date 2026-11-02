@@ -1,0 +1,19 @@
+{
+  "name": "@climbio/topokit",
+  "version": "1.0.0",
+  "description": "Outdoor climbing topo viewer and editor on a photo: shared lines, auto label layout, draw lines, place bolts, undo/redo. Native SVG, ES modules, no framework, no build step.",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/climb-io/climbio.git", "directory": "topokit" },
+  "keywords": ["climbing", "topo", "crag", "svg", "web-component"],
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./element": { "types": "./element.d.ts", "default": "./element.js" },
+    "./*.js": "./*.js",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": ["./element.js"],
+  "files": ["*.js", "*.d.ts", "demo.html", "README.md", "LICENSE", "NOTICE"]
+}

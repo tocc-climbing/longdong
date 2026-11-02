@@ -1,0 +1,19 @@
+{
+  "name": "@climbio/mapkit",
+  "version": "1.0.0",
+  "description": "Vector crag map viewer and editor: walls, trails, areas, place names with label avoidance, scale bar, toggleable OSM/orthophoto/contour tiles, draw and edit lines and polygons, wall facing, undo/redo. Native SVG, ES modules, no framework, no build step.",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/climb-io/climbio.git", "directory": "mapkit" },
+  "keywords": ["climbing", "crag", "map", "svg", "web-component", "geojson"],
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./element": { "types": "./element.d.ts", "default": "./element.js" },
+    "./*.js": "./*.js",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": ["./element.js"],
+  "files": ["*.js", "*.d.ts", "demo.html", "README.md", "LICENSE", "NOTICE"]
+}

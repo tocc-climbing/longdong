@@ -1,0 +1,368 @@
+// TopoKit Viewer：照片＋疊在上面的原生 SVG。看圖、縮放（滾輪、雙指、點兩下、按鈕）、平移，點路線發 pick 事件。
+// 不做任何上傳、不連後端；資料由呼叫的 App 給（Climbio v2 的照片畫面＋圖層，座標是照片像素）。
+// 所有事件監聽都掛在同一個 AbortController 上，ResizeObserver、計時器也在 destroy() 一起收掉。
+// English: native SVG topo viewer. Zoom/pan/pick; no network; destroy() releases every listener and observer.
+import { readTopo, assertView } from './data.js';
+import { renderLines } from './render.js';
+import { clampView, doubleTapView, fitSize, IDENTITY, isDoubleTap, moveView, MAX_SCALE } from './viewport.js';
+import { injectStyle } from './style.js';
+
+/** 滑鼠、手指移動超過這個距離（螢幕像素）才算拖曳，之前都當作點擊 */
+export const DRAG_PX = 5;
+/** 一次按 ＋／－ 或鍵盤 +／- 的縮放倍率 */
+const STEP = 1.5;
+
+export class TopoViewer extends EventTarget {
+  /**
+   * host：放 Topo 的元素（要有高度）。options：
+   *  - highlight：亮色的路線 id；bolts：true（全部）或路線 id 陣列，預設只畫 highlight 的；solo：路線卡片
+   *  - editing：編輯時的排版（線細一點、不顯示難度名稱，牌子避開 highlight 路線的點）；TopoEditor 一律是這個排版
+   *  - lang、gradeSystems：名稱與難度顯示用哪個語言、哪些難度系統（見 readTopo）
+   *  - ui：牌子與字的倍率，預設寬螢幕（≥900px）1.5、其他 1
+   *  - crop：顯示的範圍（照片像素 { x, y, w, h }），預設用畫面的 props.crop，沒有就整張
+   *  - interactive：路線可以點（預設 true）；wheel：'ctrl'（預設，按著 Ctrl／⌘ 才縮放，頁面照常捲動）或 'always'
+   *  - controls：顯示縮放按鈕（預設 true）
+   */
+  constructor(host, options = {}) {
+    super();
+    this.host = host;
+    this.options = { interactive: true, controls: true, wheel: 'ctrl', ...options };
+    this.data = undefined;
+    this.model = undefined;
+    this.state = { ...IDENTITY };
+    this.stageSize = { w: 0, h: 0 };
+    this.ac = new AbortController();
+    this.pointers = new Map();
+    this.destroyed = false;
+    this.#mount();
+  }
+
+  /** 所有監聽都經過這裡，destroy() 時一次解除 */
+  listen(target, type, fn, opts = {}) {
+    target.addEventListener(type, fn, { ...opts, signal: this.ac.signal });
+  }
+
+  #mount() {
+    const host = this.host;
+    host.classList.add('tk');
+    injectStyle(host);
+    // 舞台是 absolute 鋪滿 host：host 沒有定位就讓它成為定位的基準
+    if (host.ownerDocument.defaultView.getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    host.innerHTML =
+      '<div class="tk-stage"><div class="tk-inner"><div class="topo-frame"><img alt="" draggable="false"><svg></svg></div></div>' +
+      (this.options.controls ? '<div class="tk-zoom"><button type="button" data-zoom="out" aria-label="−">−</button><button type="button" data-zoom="fit" aria-label="100%">100%</button><button type="button" data-zoom="in" aria-label="+">+</button></div>' : '') +
+      '</div>';
+    this.stage = host.querySelector('.tk-stage');
+    this.inner = host.querySelector('.tk-inner');
+    this.frame = host.querySelector('.topo-frame');
+    this.img = host.querySelector('img');
+    this.svg = host.querySelector('svg');
+    this.fitButton = host.querySelector('[data-zoom="fit"]');
+    this.hover = false;
+
+    const ro = new ResizeObserver(() => this.#measure());
+    ro.observe(this.stage);
+    this.ro = ro;
+    this.#measure();
+    this.listen(this.img, 'load', () => this.#loaded());
+    this.listen(this.img, 'error', () => this.#loaded());
+    this.listen(this.stage, 'pointerenter', () => (this.hover = true));
+    this.listen(this.stage, 'pointerleave', () => (this.hover = false));
+    this.listen(this.stage, 'pointerdown', (e) => this.#down(e), { capture: true });
+    this.listen(this.stage, 'pointermove', (e) => this.#move(e));
+    this.listen(this.stage, 'pointerup', (e) => this.#up(e));
+    this.listen(this.stage, 'pointercancel', (e) => this.#up(e));
+    // 要能 preventDefault（不讓頁面捲動），所以不用被動監聽
+    this.listen(this.stage, 'wheel', (e) => this.#wheel(e), { passive: false });
+    // 拖曳、縮放之後放開，不要當作點了一下（選到路線、多出一個點）：旗標留到下一次按下才清
+    this.listen(this.stage, 'click', (e) => this.#click(e), { capture: true });
+    this.listen(this.stage, 'keydown', (e) => this.#key(e));
+    this.listen(this.host.ownerDocument, 'keydown', (e) => this.#hotkey(e));
+    if (this.options.controls) {
+      this.listen(this.host.querySelector('.tk-zoom'), 'click', (e) => {
+        const z = e.target.closest('[data-zoom]')?.dataset.zoom;
+        if (z === 'in') this.zoomBy(STEP);
+        else if (z === 'out') this.zoomBy(1 / STEP);
+        else if (z === 'fit') this.setView(IDENTITY);
+      });
+    }
+    // 寬螢幕牌子放大：視窗寬度跨過 900px 時重畫
+    const mq = this.host.ownerDocument.defaultView?.matchMedia?.('(min-width: 900px)');
+    if (mq && this.options.ui == null) this.listen(mq, 'change', () => this.render());
+    this.mq = mq;
+  }
+
+  /** 換資料：{ view, layers, nodes }（見 readTopo）。不是 v2 照片畫面就丟錯 */
+  setData(data) {
+    assertView(data.view);
+    this.data = data;
+    this.model = this.read();
+    this.ready = false;
+    delete this.host.dataset.ready;
+    if (this.img.getAttribute('src') !== this.model.photo.href) this.img.setAttribute('src', this.model.photo.href);
+    else queueMicrotask(() => this.#loaded());
+    this.state = { ...IDENTITY };
+    this.afterData();
+    this.render();
+  }
+
+  /** 改選項（highlight、bolts、solo、crop、ui、lang…）後重畫；換 lang 會重新讀資料 */
+  setOptions(next) {
+    const lang = this.options.lang;
+    Object.assign(this.options, next);
+    if (this.data && (next.lang !== undefined && next.lang !== lang || next.gradeSystems)) this.model = this.read();
+    this.render();
+  }
+
+  /** 亮色的路線（選到的路線） */
+  select(id) {
+    this.setOptions({ highlight: id });
+  }
+
+  get routes() {
+    return this.model?.routes ?? [];
+  }
+
+  /** 從目前的資料讀出路線模型（編輯器覆蓋，加上還沒有標記的新路線） */
+  read() {
+    return readTopo(this.data, { lang: this.options.lang, gradeSystems: this.options.gradeSystems });
+  }
+
+  afterData() {}
+
+  #loaded() {
+    if (this.ready || !this.model) return;
+    this.ready = true;
+    this.frame.classList.add('ready');
+    this.host.dataset.ready = '1';
+    this.dispatchEvent(new CustomEvent('ready'));
+  }
+
+  #measure() {
+    const r = this.stage.getBoundingClientRect();
+    this.stageSize = { w: r.width, h: r.height };
+    this.schedule();
+  }
+
+  /** 顯示範圍（照片像素） */
+  get crop() {
+    const { photo, crop } = this.model;
+    return this.options.crop ?? crop ?? { x: 0, y: 0, w: photo.w, h: photo.h };
+  }
+
+  get content() {
+    const c = this.crop;
+    return fitSize(this.stageSize, c.w / c.h);
+  }
+
+  /** 一個螢幕像素等於幾個照片像素 */
+  get k() {
+    return this.crop.w / (this.content.w * this.state.scale);
+  }
+
+  get ui() {
+    return this.options.ui ?? (this.mq?.matches ? 1.5 : 1);
+  }
+
+  /** 排到下一個畫面重畫（縮放、拖曳連續變動時合併成一次） */
+  schedule() {
+    if (this.destroyed || this.raf) return;
+    const win = this.host.ownerDocument.defaultView;
+    this.raf = win.requestAnimationFrame(() => {
+      this.raf = 0;
+      this.render();
+    });
+  }
+
+  /** 額外要畫在線上面的 SVG（編輯器的把手等） */
+  extras() {
+    return '';
+  }
+
+  /** 傳給 renderLines 的選項（編輯器覆蓋） */
+  linesOptions() {
+    const { highlight, bolts, solo, editing } = this.options;
+    return { highlight, bolts, solo, editing, interactive: this.options.interactive };
+  }
+
+  render() {
+    if (this.destroyed || !this.model || this.stageSize.w === 0) return;
+    const { photo } = this.model, c = this.crop, size = this.content, s = this.state;
+    const next = clampView(s, this.stageSize, size);
+    if (next.x !== s.x || next.y !== s.y || next.scale !== s.scale) this.state = next;
+    Object.assign(this.inner.style, {
+      width: `${size.w}px`, height: `${size.h}px`,
+      left: `${(this.stageSize.w - size.w) / 2}px`, top: `${(this.stageSize.h - size.h) / 2}px`,
+      transform: `translate(${this.state.x}px, ${this.state.y}px) scale(${this.state.scale})`,
+    });
+    Object.assign(this.img.style, {
+      width: `${(photo.w / c.w) * 100}%`, height: `${(photo.h / c.h) * 100}%`,
+      left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`,
+    });
+    this.svg.setAttribute('viewBox', `${c.x} ${c.y} ${c.w} ${c.h}`);
+    const k = this.k;
+    this.svg.innerHTML = renderLines(this.routes, { photo, crop: c, k, ui: this.ui, ...this.linesOptions() }) + this.extras(k);
+    this.stage.classList.toggle('draggable', this.state.scale > 1);
+    if (this.fitButton) this.fitButton.textContent = `${Math.round(this.state.scale * 100)}%`;
+  }
+
+  // ── 縮放與平移 ──
+  /** 滑鼠位置換成以舞台中心為原點的座標 */
+  rel(e) {
+    const r = this.stage.getBoundingClientRect();
+    return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 };
+  }
+
+  setView(v) {
+    this.state = clampView(v, this.stageSize, this.content);
+    this.schedule();
+    this.dispatchEvent(new CustomEvent('zoom', { detail: { scale: this.state.scale } }));
+  }
+
+  zoomBy(ratio, at = { x: 0, y: 0 }) {
+    this.setView(moveView(this.state, at, at, ratio, this.stageSize, this.content));
+  }
+
+  #wheel(e) {
+    if (this.options.wheel === 'ctrl' && !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    this.zoomBy(Math.exp((-e.deltaY * (e.deltaMode === 1 ? 16 : 1)) / 500), this.rel(e));
+  }
+
+  #hotkey(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea, select')) return;
+    if (this.options.wheel === 'ctrl' && !this.hover) return;
+    if (e.key === '+' || e.key === '=') this.zoomBy(STEP);
+    else if (e.key === '-') this.zoomBy(1 / STEP);
+    else if (e.key === '0') this.setView(IDENTITY);
+  }
+
+  /** 照片上這個位置的拖曳是不是留給別的東西（編輯器的把手）；有的話不平移 */
+  ownsPointer() {
+    return false;
+  }
+
+  #down(e) {
+    if (e.target.closest('.tk-zoom')) return;
+    if (e.pointerType === 'touch' && e.isPrimary) this.pointers.clear();
+    // 第一根手指（或滑鼠）是新的一輪
+    if (this.pointers.size === 0) this.dragged = false;
+    this.pointers.set(e.pointerId, this.rel(e));
+    this.owned = this.ownsPointer(e);
+    if (this.pointers.size >= 2) {
+      // 第二根手指放下：改成捏合，放開時不當作點了一下
+      this.dragged = true;
+      this.press = undefined;
+      this.pan = undefined;
+      for (const id of this.pointers.keys()) this.stage.setPointerCapture?.(id);
+      return;
+    }
+    if (e.button === 0 || e.pointerType === 'touch') this.press = this.rel(e);
+  }
+
+  #move(e) {
+    const prev = this.pointers.get(e.pointerId);
+    if (!prev) return;
+    const now = this.rel(e);
+    if (this.pointers.size >= 2) {
+      const other = [...this.pointers.entries()].find(([id]) => id !== e.pointerId)[1];
+      this.pointers.set(e.pointerId, now);
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y), mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      this.setView(moveView(this.state, mid(prev, other), mid(now, other), dist(now, other) / (dist(prev, other) || 1), this.stageSize, this.content));
+      return;
+    }
+    this.pointers.set(e.pointerId, now);
+    if (this.press && !this.pan && !this.owned && this.canPan(e) && Math.hypot(now.x - this.press.x, now.y - this.press.y) > DRAG_PX) {
+      this.pan = this.press;
+      this.dragged = true;
+      this.stage.setPointerCapture?.(e.pointerId);
+      this.stage.classList.add('panning');
+    }
+    if (this.press && !this.pan && Math.hypot(now.x - this.press.x, now.y - this.press.y) > DRAG_PX) this.dragged = true;
+    if (this.pan) {
+      this.setView(moveView(this.state, this.pan, now, 1, this.stageSize, this.content));
+      this.pan = now;
+    }
+  }
+
+  /** 這次拖曳可以平移：放大了才能平移（編輯器再多加條件） */
+  canPan() {
+    return this.state.scale > 1;
+  }
+
+  #up(e) {
+    this.pointers.delete(e.pointerId);
+    if (e.pointerType === 'touch' && this.pointers.size === 0 && this.press && !this.dragged) this.tapped(e);
+    if (this.pointers.size === 0) {
+      this.pan = undefined;
+      this.press = undefined;
+      this.stage.classList.remove('panning');
+    }
+  }
+
+  /** 手指點一下（沒拖、沒捏合）：連續兩下就是點兩下，放大或回到整張 */
+  tapped(e) {
+    const now = { at: this.rel(e), time: e.timeStamp };
+    if (isDoubleTap(this.lastTap, now)) {
+      this.lastTap = undefined;
+      this.dragged = true;
+      this.doubleTapped(now.at);
+    } else this.lastTap = now;
+  }
+
+  doubleTapped(at) {
+    this.setView(doubleTapView(this.state, at, this.stageSize, this.content));
+  }
+
+  #click(e) {
+    if (e.target.closest('.tk-zoom')) return;
+    if (this.dragged && e.detail !== 0) {
+      this.dragged = false;
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+    this.clicked(e);
+  }
+
+  /** 沒被擋掉的點擊（編輯器覆蓋）：預設點到路線就發 pick */
+  clicked(e) {
+    const id = e.target.closest?.('[data-route]')?.dataset.route;
+    if (id && this.options.interactive) this.pick(id);
+  }
+
+  #key(e) {
+    if (e.key !== 'Enter') return;
+    const id = e.target.closest?.('[data-route]')?.dataset.route;
+    if (id && this.options.interactive) this.pick(id);
+  }
+
+  pick(id) {
+    this.dispatchEvent(new CustomEvent('pick', { detail: { id } }));
+  }
+
+  /** 螢幕座標換成照片像素（取整數，限制在照片內） */
+  pointAt(e) {
+    const r = this.svg.getBoundingClientRect(), c = this.crop, { photo } = this.model;
+    const x = c.x + ((e.clientX - r.left) / r.width) * c.w, y = c.y + ((e.clientY - r.top) / r.height) * c.h;
+    return [Math.round(Math.min(photo.w, Math.max(0, x))), Math.round(Math.min(photo.h, Math.max(0, y)))];
+  }
+
+  /** 解除所有事件監聽、ResizeObserver、計時器，並清空 host；呼叫之後不能再用 */
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.ac.abort();
+    this.ro.disconnect();
+    if (this.raf) this.host.ownerDocument.defaultView.cancelAnimationFrame(this.raf);
+    this.cleanup();
+    this.host.classList.remove('tk');
+    this.host.replaceChildren();
+    this.dispatchEvent(new CustomEvent('destroy'));
+  }
+
+  /** 子類別額外要收的東西 */
+  cleanup() {}
+}
+
+export { MAX_SCALE };
