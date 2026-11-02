@@ -959,6 +959,8 @@ try {
   check('工具列是「路線」（不是「線段」），沒有「移除最後一點」', (await editor.page.locator('.topo-tool', { hasText: '路線' }).count()) >= 1 && (await editor.page.locator('.topo-tool', { hasText: /線段|移除最後一點/ }).count()) === 0)
   check('工具列只有一層：裁切、分岔、清除路線、捨棄都在同一列，沒有「更多」選單', (await editor.page.locator('.topo-edit-toolbar .topo-tool', { hasText: /裁切|分岔|清除|捨棄/ }).count()) === 4 && (await editor.page.locator('.edit-more, .edit-more-btn, .topo-edit-subbar').count()) === 0)
   await editor.page.keyboard.press('b')
+  // 工具換了（TopoKit 的 tool 事件）之後 React 才畫出位置按鈕：等它出現（CI 比較慢）
+  await editor.page.locator('.topo-edit-toolbar .topo-positions .chip').first().waitFor({ timeout: 5000 }).catch(() => {})
   check('選 Bolt：bolt 位置的按鈕在同一列（沒有另開一列）', (await editor.page.locator('.topo-edit-toolbar .topo-positions .chip').count()) > 0 && (await editor.page.locator('.topo-edit-subbar').count()) === 0)
   await editor.page.keyboard.press('l')
   await editor.page.locator('.topo-full-btn').click()
@@ -1326,6 +1328,7 @@ try {
   await editor.page.goto(base + 'edit/topo/e2eshare2')
   await editor.page.waitForSelector('.topo-route-row')
   await row('568').click()
+  await editor.page.locator('.topo-handles rect').first().waitFor({ timeout: 5000 }).catch(() => {})
   check('舊資料只有〈Z字〉標了共用的 anchor：編輯時選〈細縫〉也看得到', (await editor.page.locator('.topo-handles rect').count()) === 1)
 
   // ── 6. 看 Topo：bolt 預設不顯示，按鈕切換 ────────────────────────────
