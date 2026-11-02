@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import type { LoadedData } from '../data/dataset'
 import type { Area, Sector } from '../data/schema'
 import { sectorColor } from '../format'
@@ -30,6 +30,28 @@ function bounds(points: [number, number][]) {
 
 const ringsPath = (rings: Ring[], at: (p: [number, number]) => [number, number]) =>
   rings.map((ring) => `M${ring.map((p) => at(p).map((n) => n.toFixed(1)).join(',')).join('L')}Z`).join('')
+
+/**
+ * 標題卡上的區域形狀：區域圖本來就是示意（照 guidebook 的畫法），放大到分區、路線時多邊形的轉角很硬，
+ * 所以切角兩次（Chaikin：每一段取 1/4、3/4 兩點）修圓，邊緣再用 HeroMap 的柔邊淡化。地圖頁照原樣。
+ */
+export function smoothRing(ring: Ring, times = 2): Ring {
+  let r = ring
+  for (let n = 0; n < times; n++) {
+    const out: Ring = []
+    r.forEach((a, i) => {
+      const b = r[(i + 1) % r.length]
+      out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75])
+    })
+    r = out
+  }
+  return r
+}
+
+const softPath = (rings: Ring[]) => ringsPath(rings.map((ring) => smoothRing(ring)), (p) => p)
+
+/** 區域形狀邊緣的柔邊寬度（螢幕像素）：不論放大多少，看起來一樣寬 */
+const SOFT_EDGE_PX = 3
 
 /** 畫面座標 (x 向東, y 向南) 轉 90 度 → (-y, x)：龍洞橫放，北邊朝右 */
 const turn = ([x, y]: [number, number]): [number, number] => [-y, x]
@@ -80,14 +102,25 @@ function HeroMap({
   angle?: number
   inset?: typeof HERO_INSET
   className?: string
-  children: ReactNode
+  /** soft：區域形狀用的柔邊濾鏡（filter 屬性的值） */
+  children: (soft: string) => ReactNode
 }) {
   const ref = useRef<SVGSVGElement>(null)
+  const id = useId()
   const size = useSize(ref)
   const placed = size && heroFit(fit, { ...size, ...inset }, { spread, minSpan, angle })
   return (
     <svg ref={ref} className={`${className ?? ''} hero-map`} viewBox={placed?.viewBox.join(' ')} preserveAspectRatio="xMidYMid slice" aria-hidden>
-      {placed && <g transform={`rotate(${placed.angle})`}>{children}</g>}
+      {placed && (
+        <>
+          <defs>
+            <filter id={id} x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation={(SOFT_EDGE_PX * placed.viewBox[2]) / size.w} />
+            </filter>
+          </defs>
+          <g transform={`rotate(${placed.angle})`}>{children(`url(#${id})`)}</g>
+        </>
+      )}
     </svg>
   )
 }
@@ -101,10 +134,12 @@ export function CragShape({ data, className }: { data: LoadedData; className?: s
   if (map.status !== 'ok') return <div className={className} aria-hidden />
   return (
     <HeroMap fit={map.data.areas.flatMap((a) => a.rings.flat())} angle={CRAG_ANGLE} inset={CRAG_INSET} className={className}>
-      {data.dataset.areas.map((area) => {
-        const shape = map.data.areas.find((a) => a.id === areaKey(area))
-        return shape && <path key={area.id} d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.55} />
-      })}
+      {(soft) =>
+        data.dataset.areas.map((area) => {
+          const shape = map.data.areas.find((a) => a.id === areaKey(area))
+          return shape && <path key={area.id} d={softPath(shape.rings)} fill={area.color ?? 'var(--brand)'} fillOpacity={0.55} filter={soft} />
+        })
+      }
     </HeroMap>
   )
 }
@@ -118,19 +153,23 @@ export function AreaShape({ area, className }: { area: Area; className?: string 
   const fit = walls.flat(2)
   return (
     <HeroMap fit={fit.length ? fit : shape.rings.flat()} className={className}>
-      <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.3} />
-      {area.sectors.map((sector, i) => (
-        <path
-          key={sector.id}
-          d={walls[i].map(wallPath).join('')}
-          fill="none"
-          stroke={sectorColor(area.color, i, area.sectors.length) ?? 'var(--brand)'}
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
+      {(soft) => (
+        <>
+          <path d={softPath(shape.rings)} fill={area.color ?? 'var(--brand)'} fillOpacity={0.3} filter={soft} />
+          {area.sectors.map((sector, i) => (
+            <path
+              key={sector.id}
+              d={walls[i].map(wallPath).join('')}
+              fill="none"
+              stroke={sectorColor(area.color, i, area.sectors.length) ?? 'var(--brand)'}
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </>
+      )}
     </HeroMap>
   )
 }
@@ -155,9 +194,13 @@ export function SectorShape({ area, sector, color, single, className }: { area: 
   const shape = map.data.areas.find((a) => a.id === areaKey(area))
   return (
     <HeroMap fit={own.flat()} spread={single ? 1 : NEARBY_SPREAD} minSpan={single ? SINGLE_MIN_M : NEARBY_MIN_M} className={className}>
-      {shape && <path d={shape.path} fill={area.color ?? 'var(--brand)'} fillOpacity={0.28} />}
-      <path d={others.map(wallPath).join('')} fill="none" stroke="var(--muted)" strokeOpacity={0.55} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      <path d={own.map(wallPath).join('')} fill="none" stroke={color ?? area.color ?? 'var(--brand)'} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      {(soft) => (
+        <>
+          {shape && <path d={softPath(shape.rings)} fill={area.color ?? 'var(--brand)'} fillOpacity={0.28} filter={soft} />}
+          <path d={others.map(wallPath).join('')} fill="none" stroke="var(--muted)" strokeOpacity={0.55} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <path d={own.map(wallPath).join('')} fill="none" stroke={color ?? area.color ?? 'var(--brand)'} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </>
+      )}
     </HeroMap>
   )
 }
