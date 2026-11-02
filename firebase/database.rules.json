@@ -166,12 +166,21 @@
         ".read": true,
         "$photo": {
           ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('uid').val() === auth.uid || (auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))))))",
-          ".validate": "newData.hasChildren(['uid', 'sector', 'image', 'width', 'height', 'createdAt'])",
+          ".validate": "newData.hasChildren(['uid', 'sector', 'image', 'width', 'height', 'createdAt', 'license', 'attribution', 'origin'])",
           "uid": {
             ".validate": "newData.isString()"
           },
           "sector": {
             ".validate": "newData.isString() && newData.val().matches(/^longdong\\/[a-z0-9-]{1,60}$/)"
+          },
+          "license": {
+            ".validate": "newData.val() === 'CC-BY-SA-4.0'"
+          },
+          "attribution": {
+            ".validate": "newData.isString() && newData.val() === root.child('v2').child('profiles').child(auth.uid).child('name').val()"
+          },
+          "origin": {
+            ".validate": "newData.val() === 'self'"
           },
           "image": {
             ".validate": "newData.val() === 'topos/' + auth.uid + '/' + $photo + '.webp' || newData.val() === 'topos/' + auth.uid + '/' + $photo + '.jpg'"

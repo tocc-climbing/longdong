@@ -300,15 +300,16 @@ async function storage() {
   return { s, instance }
 }
 
-/** 上傳照片（不能覆蓋）並建立 Topo；資料庫寫入失敗時刪掉剛上傳的檔案。回傳照片 id */
+/** 上傳照片（不能覆蓋）並建立 Topo，署名是上傳者目前的顯示名稱；資料庫寫入失敗時刪掉剛上傳的檔案。回傳照片 id */
 export async function createTopo(uid: string, sector: string, image: Blob, width: number, height: number, shot?: Shot): Promise<string> {
+  const { name: attribution } = await ensureProfile(uid, auth.currentUser?.displayName ?? '')
   const id = push(ref(db, 'v2/topos')).key!
   const path = `topos/${uid}/${id}.${image.type === 'image/webp' ? 'webp' : 'jpg'}`
   const { s, instance } = await storage()
   const file = s.ref(instance, path)
   await s.uploadBytes(file, image, { contentType: image.type })
   try {
-    await set(ref(db, `v2/topos/${id}`), { uid, sector, image: path, width, height, createdAt: serverTimestamp(), ...(shot && Object.keys(shot).length ? { shot } : {}) })
+    await set(ref(db, `v2/topos/${id}`), { uid, sector, image: path, width, height, createdAt: serverTimestamp(), license: 'CC-BY-SA-4.0', attribution, origin: 'self', ...(shot && Object.keys(shot).length ? { shot } : {}) })
   } catch (err) {
     await s.deleteObject(file).catch(() => {})
     throw err

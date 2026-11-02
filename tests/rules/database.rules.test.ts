@@ -452,7 +452,17 @@ describe('暱稱不能重複（不分大小寫、看起來一樣的寫法視為�
 describe('Topo（v2/topos、v2/topoEdits）', () => {
   const SECTOR = 'longdong/music-hall-vab61c'
   /** App 寫入的照片（src/personal/firebase.ts 的 createTopo） */
-  const photo = (uid: string, id: string, ext = 'webp') => ({ uid, sector: SECTOR, image: `topos/${uid}/${id}.${ext}`, width: 2560, height: 1707, createdAt: serverTimestamp() })
+  const photo = (uid: string, id: string, ext = 'webp') => ({
+    uid,
+    sector: SECTOR,
+    image: `topos/${uid}/${id}.${ext}`,
+    width: 2560,
+    height: 1707,
+    createdAt: serverTimestamp(),
+    license: 'CC-BY-SA-4.0',
+    attribution: uid === 'mallory' ? 'Mallory' : 'Alice',
+    origin: 'self',
+  })
   /** App 寫入的版本（addTopoEdit，routes 由 src/topo/model.ts 的 encodeMarks 產生） */
   const edit = (uid: string, routes: Record<string, unknown> = { [ROUTE]: { line: '5000,9500 4800,5000 5000,0', bolts: { B01: '5000,8000', A01: '5000,100' } } }) => ({
     uid,
@@ -463,6 +473,7 @@ describe('Topo（v2/topos、v2/topoEdits）', () => {
   beforeEach(async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await ctx.database().ref('v2').update({
+        profiles: { mallory: { name: 'Mallory', updatedAt: iso() } },
         topos: { p1: { uid: 'alice', sector: SECTOR, image: 'topos/alice/p1.webp', width: 100, height: 100, createdAt: 1 } },
         topoEdits: { p1: { e1: { uid: 'alice', createdAt: 1, routes: { [ROUTE]: { line: '1,1 2,2' } } }, e2: { uid: 'mallory', createdAt: 2, routes: { [ROUTE]: { line: '1,1 3,3' } } } } },
       })
@@ -489,6 +500,17 @@ describe('Topo（v2/topos、v2/topoEdits）', () => {
     await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), width: 9000 }))
     await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), createdAt: 1 }))
     await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), note: 'x' }))
+  })
+
+  it('照片的授權固定 CC-BY-SA-4.0、來源固定 self、署名是自己目前的顯示名稱；三項都要有', async () => {
+    for (const field of ['license', 'attribution', 'origin']) {
+      const { [field as 'license']: _, ...rest } = photo('mallory', 'p2')
+      await assertFails(set(mallory, 'v2/topos/p2', rest))
+    }
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), license: 'CC-BY-4.0' }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), origin: 'authorized' }))
+    await assertFails(set(mallory, 'v2/topos/p2', { ...photo('mallory', 'p2'), attribution: 'Alice' }))
+    await assertSucceeds(set(mallory, 'v2/topos/p2', photo('mallory', 'p2')))
   })
 
   it('照片的拍照資料（回報附的照片）：欄位與範圍固定，不能有其他欄位', async () => {

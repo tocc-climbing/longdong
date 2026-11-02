@@ -915,12 +915,14 @@ try {
   await cropCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   await phone.page.getByRole('button', { name: '上傳' }).click()
   const uploaded = await until(async () => {
-    const all = (await read<Record<string, { width: number; height: number; shot?: { exifLat?: number; exifLng?: number; exifHeading?: number; model?: string } }>>('v2/topos')) ?? {}
+    const all = (await read<Record<string, { uid: string; width: number; height: number; license?: string; attribution?: string; origin?: string; shot?: { exifLat?: number; exifLng?: number; exifHeading?: number; model?: string } }>>('v2/topos')) ?? {}
     return Object.entries(all).find(([k]) => !topoIdsBefore.has(k))
   })
   check('手機：裁切後上傳，存的是裁切過的照片（左上那一半），接著打開那張照片的編輯', !!uploaded && Math.abs(uploaded[1].width - 400) <= 8 && Math.abs(uploaded[1].height - 300) <= 8 && (await until(async () => (await phone.page.locator('dialog.topo-phone[open] .topo-phone-title').count()) === 1 || undefined, 10000)) === true, uploaded ? `${uploaded[1].width}×${uploaded[1].height}` : '沒有上傳')
   const shot = uploaded?.[1].shot
   check('手機：存下照片 EXIF 的拍照資料（位置、朝向、機型）', !!shot && Math.abs(shot.exifLat! - exif.lat) < 1e-6 && Math.abs(shot.exifLng! - exif.lng) < 1e-6 && shot.exifHeading === exif.heading && shot.model === exif.model, JSON.stringify(shot))
+  const uploader = uploaded && (await read<{ name: string }>(`v2/profiles/${uploaded[1].uid}`))
+  check('手機：照片存下授權 CC-BY-SA-4.0、署名（上傳者的顯示名稱）、來源 self', !!uploaded && !!uploader?.name && uploaded[1].license === 'CC-BY-SA-4.0' && uploaded[1].attribution === uploader.name && uploaded[1].origin === 'self', JSON.stringify([uploaded?.[1].license, uploaded?.[1].attribution, uploaded?.[1].origin, uploader?.name]))
   if (uploaded) await fetch(url(`v2/topos/${uploaded[0]}`), { method: 'DELETE', ...asOwner })
   await phone.ctx.close()
   // 這張照片只給手機測試用：後面的測試以「分區只有一張照片」為前提

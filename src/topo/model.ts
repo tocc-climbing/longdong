@@ -5,7 +5,7 @@ import { E2E, routeKey } from '../social/model'
 
 /**
  * Topo：岩壁照片上的路線線段與 bolt 位置。照片存在 Cloud Storage，原圖不動；標記另外存，畫面上再疊上去。
- *   /v2/topos/<照片>              { uid, sector, image, width, height, createdAt, shot? }（shot：照片的拍照資料，見 shot.ts）
+ *   /v2/topos/<照片>              { uid, sector, image, width, height, createdAt, license, attribution, origin, shot? }（shot：照片的拍照資料，見 shot.ts）
  *   /v2/topoEdits/<照片>/<版本>   { uid, createdAt, routes: { <routeKey>: { line?, bolts? } }, crop?: { x, y, w, h } }
  * 任何登入者都可以提交新版本（完整的標記，不是差異）；最新的版本就是目前顯示的，刪掉它就回到前一版。
  * 座標與裁切見 core/topo/geometry.ts。
@@ -24,6 +24,10 @@ export interface TopoPhoto extends TopoImage {
   sector: string
   /** 伺服器時間（毫秒） */
   createdAt: number
+  /** 照片的授權（CC-BY-SA-4.0）、署名（上傳時的顯示名稱）、來源（self：上傳者自己的）；2026-11-02 以前上傳的沒有，補上之前不公開輸出 */
+  license?: 'CC-BY-SA-4.0'
+  attribution?: string
+  origin?: 'self'
   shot?: Shot
 }
 
