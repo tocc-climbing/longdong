@@ -8,6 +8,8 @@ export const CSS = `
 .tk-stage.draggable { cursor: grab; }
 .tk-stage.panning { cursor: grabbing; }
 .tk-inner { position: absolute; transform-origin: 50% 50%; }
+.tk-inner.tk-glide { transition: transform 0.35s ease; }
+@media (prefers-reduced-motion: reduce) { .tk-inner.tk-glide { transition: none; } }
 .topo-frame { position: absolute; inset: 0; overflow: hidden; }
 .topo-frame img, .topo-frame svg { position: absolute; opacity: 0; transition: opacity 0.4s ease; }
 .topo-frame.ready img, .topo-frame.ready svg { opacity: 1; }
@@ -42,6 +44,18 @@ g.topo-route.link:is(:hover, :focus-visible) { opacity: 1; outline: none; }
 .topo-hits circle { fill: transparent; cursor: grab; }
 .topo-fork circle { fill: rgba(255, 255, 255, 0.35); stroke: #fff; cursor: copy; }
 .tk-stage.line, .tk-stage.bolt { cursor: crosshair; }
+.tk-stage.hand { cursor: grab; }
+.topo-crop-dim { fill: rgba(0, 0, 0, 0.55); pointer-events: none; }
+.topo-crop-box { fill: transparent; stroke: #fff; cursor: move; }
+.topo-crop-handle { fill: #fff; stroke: #ff5a36; }
+.tk-zoom button[aria-pressed="true"] { background: rgba(0, 0, 0, 0.85); box-shadow: inset 0 0 0 2px #fff; }
+.tk-loupe { position: absolute; z-index: 4; width: 128px; height: 128px; overflow: hidden; border: 2px solid #fff; border-radius: 50%; background: #000; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); pointer-events: none; --topo-line: var(--tk-other-on); }
+.tk-loupe[hidden] { display: none; }
+.tk-loupe.kind-sport { --topo-line: var(--tk-sport-on); }
+.tk-loupe svg { display: block; }
+.tk-loupe-line { fill: none; stroke: var(--topo-line); stroke-linecap: round; }
+.tk-loupe-point { fill: var(--topo-line); }
+.tk-loupe-cross { stroke: #ffd400; stroke-linecap: round; }
 .tk-zoom { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 4px; }
 .tk-zoom button { min-width: 32px; height: 32px; padding: 0 8px; border: 0; border-radius: 16px; background: rgba(0, 0, 0, 0.55); color: #fff; font: 600 13px/1 system-ui, sans-serif; cursor: pointer; }
 .tk-zoom button:hover { background: rgba(0, 0, 0, 0.75); }

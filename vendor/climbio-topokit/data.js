@@ -100,7 +100,7 @@ function boltNodeId(routeId, pos, taken) {
 /**
  * 編輯後的路線 → 圖層。只改這個圖層裡屬於 routes（layer 等於 index 的路線）的線段與 bolt 標註、
  * 以及這些路線自己的 bolt 節點；其他標註和節點照舊。路線節點在別處（畫面、組合）已經有就不重複寫，沒有才補一個。
- * 座標取整數（照片像素）。回傳新的圖層（t 是現在）。
+ * 座標照原樣寫回：編輯器新放的點本來就是整數像素，沒動的點（可能是別的 App 換算來的小數）不因為存檔而移動。回傳新的圖層（t 是現在）。
  */
 export function writeLayer(layer, routes, index, known = new Set()) {
   const mine = routes.filter((r) => r.layer === index);
@@ -114,19 +114,18 @@ export function writeLayer(layer, routes, index, known = new Set()) {
     return m.geometry?.type === 'Point' && !!n && (n.type === 'bolt' || n.type === 'anchor') && mineIds.has(localId(n.parent));
   };
   const marks = (layer.marks ?? []).filter((m) => !isMine(m));
-  const rounded = ([x, y]) => [Math.round(x), Math.round(y)];
   for (const r of mine) {
     // 只有一個點的線留不住（編輯器另外記著），沒有線也沒有 bolt 的路線不寫
     if (!(r.line?.length >= 2) && !Object.keys(r.bolts ?? {}).length) continue;
     if (!known.has(r.id) && !nodes.some((n) => n.id === r.id)) nodes.push({ id: r.id, type: 'route', ...(typeof r.name === 'string' ? { name: r.name } : {}), ...(r.kind === 'sport' ? { props: { style: 'sport' } } : {}) });
     if (r.line && r.line.length >= 2) {
       const props = { ...r.lineProps, ...(r.label != null ? { label: r.label } : {}) };
-      marks.push({ node: r.id, geometry: { type: 'LineString', coordinates: r.line.map(rounded) }, ...(Object.keys(props).length ? { props } : {}) });
+      marks.push({ node: r.id, geometry: { type: 'LineString', coordinates: r.line.map(([x, y]) => [x, y]) }, ...(Object.keys(props).length ? { props } : {}) });
     }
     for (const [pos, b] of Object.entries(r.bolts ?? {})) {
       const id = b.id && !taken.has(b.id) ? (taken.add(b.id), b.id) : boltNodeId(r.id, pos, taken);
       nodes.push({ id, type: b.anchor ? 'anchor' : 'bolt', parent: r.id, name: pos });
-      marks.push({ node: id, geometry: { type: 'Point', coordinates: rounded(b.at) }, ...(b.note != null ? { props: { label: b.note } } : {}) });
+      marks.push({ node: id, geometry: { type: 'Point', coordinates: [b.at[0], b.at[1]] }, ...(b.note != null ? { props: { label: b.note } } : {}) });
     }
   }
   return { ...layer, t: Date.now(), nodes, marks };

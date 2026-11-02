@@ -4949,10 +4949,9 @@ dialog.topo-full[open] {
   --topo-pill: #c8102e;
 }
 
-/* 編輯時的點、放大鏡：和選到的路線同色 */
+/* 編輯時的點：和選到的路線同色 */
 .topo-route.on,
-.topo-handles,
-.topo-loupe {
+.topo-handles {
   --topo-line: #e11d2e;
   --topo-pill: #e11d2e;
 }
@@ -4964,8 +4963,7 @@ dialog.topo-full[open] {
 }
 
 .topo-route.kind-sport.on,
-.topo-handles.kind-sport,
-.topo-loupe.kind-sport {
+.topo-handles.kind-sport {
   --topo-line: #1e7bff;
   --topo-pill: #1e7bff;
 }
@@ -4998,10 +4996,6 @@ g.topo-route.link {
   cursor: pointer;
   /* 點了路線顏色已經變了，不要再出現瀏覽器的焦點方框 */
   outline: none;
-}
-
-.topo-zoom.draggable:not(.panning) {
-  cursor: grab;
 }
 
 g.topo-route.link:is(:hover, :focus-visible) {
@@ -5071,10 +5065,17 @@ g.topo-route.link:is(:hover, :focus-visible) {
   background: var(--surface-2);
 }
 
-.topo-edit-photo .topo-zoom {
+/* 編輯器的照片（TopoKit，src/topo/TopoEditor.tsx）：寬度以照片高度不超過可用高度為準，高度依寬高比 */
+.topo-edit-photo .topo-kit-editor {
   width: min(100%, max(280px, calc((100dvh - var(--topo-chrome, 118px)) * var(--fit-aspect))));
+  aspect-ratio: var(--fit-aspect);
   margin: 0 auto;
   border-radius: 10px;
+  --tk-bg: transparent;
+}
+
+.topo-kit-editor[hidden] {
+  display: none;
 }
 
 /* 照片上方的工具列（和地圖編輯同一個樣式）：最常用的（復原、重做、移除最後一點）在最前面，再來是工具；每顆按鈕都標示快捷鍵 */
@@ -5211,100 +5212,39 @@ button.key-row:disabled {
   flex: none;
 }
 
-.topo-edit-photo svg.editing {
-  cursor: crosshair;
-}
-
-/* 編輯用的縮放區（src/topo/ZoomPane.tsx） */
-.topo-zoom {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-}
-
-.topo-zoom-inner {
-  transform-origin: center;
-}
-
-/* 自動縮放（選路線、選點）：平滑地移過去 */
-.topo-zoom.gliding .topo-zoom-inner {
-  transition: transform 0.3s ease;
-}
-
-.topo-zoom.panning,
-.topo-zoom.panning svg {
-  cursor: grab;
-}
-
-.topo-zoom-controls {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  gap: 1px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
-}
-
-.topo-zoom-controls button {
-  min-width: 36px;
-  height: 32px;
-  padding: 0 10px;
-  border: 0;
-  background: transparent;
-  color: #fff;
-  font: inherit;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.topo-zoom-controls button:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.topo-zoom-hand[aria-pressed='true'] {
-  background: var(--brand);
-}
-
-.topo-zoom-fit {
-  min-width: 56px;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.topo-handles circle,
-.topo-handles rect {
+/* 編輯的把手（TopoKit）：.tk 開頭，比 TopoKit 執行時才放進來的預設樣式高一層 */
+.tk .topo-handles circle,
+.tk .topo-handles rect {
   /* 實心、和線同色的點（起點也一樣），線不會從點的中間穿過；沒有白框 */
   fill: var(--topo-line);
   stroke: none;
   cursor: move;
 }
 
-.topo-handles rect.bolt {
+.tk .topo-handles rect.bolt {
   /* bolt 的牌子本身就是標記：把手是蓋在牌子上的透明框，滑過去才出現外框 */
   fill: transparent;
   stroke: transparent;
 }
 
-.topo-handles rect.bolt:hover {
+.tk .topo-handles rect.bolt:hover {
   stroke: #c8102e;
 }
 
-.topo-hits circle {
+.tk .topo-hits circle {
   /* 手指按點的範圍：比看得到的點大，自己不畫出來 */
   fill: transparent;
   stroke: none;
   pointer-events: all;
 }
 
-.topo-fork circle {
+.tk .topo-fork circle {
   fill: rgba(255, 255, 255, 0.35);
   stroke: #fff;
   cursor: pointer;
 }
 
-.topo-fork circle:hover {
+.tk .topo-fork circle:hover {
   fill: #ff5a36;
 }
 
@@ -5452,21 +5392,14 @@ button.key-row:disabled {
   margin-bottom: 4px;
 }
 
-/* ---------- 編輯：手指（src/topo/ZoomPane.tsx） ---------- */
+/* ---------- 編輯：手指（手勢在 TopoKit） ---------- */
 
-/* 單指、雙指的手勢由 ZoomPane 處理：瀏覽器不要拿去捲動頁面、縮放，長按也不要出現選取、選單 */
-.topo-zoom.pinchable {
-  touch-action: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.topo-handles circle.picked {
+.tk .topo-handles circle.picked {
   /* 選到的點大一點、外面一圈黃色 */
   stroke: #ffd400;
 }
 
-.topo-handles rect.bolt.picked {
+.tk .topo-handles rect.bolt.picked {
   fill: rgba(255, 90, 54, 0.35);
   stroke: #ff5a36;
 }
@@ -5479,11 +5412,11 @@ button.key-row:disabled {
   }
 
   .topo-tool,
-  .topo-zoom-controls button {
+  .tk-zoom button {
     min-height: 44px;
   }
 
-  .topo-zoom-controls button {
+  .tk-zoom button {
     min-width: 44px;
   }
 }
@@ -6020,26 +5953,15 @@ dialog.topo-phone::backdrop {
   background: #000;
 }
 
-/* 縮放區撐滿照片區（照片置中），放大後照片可以佔滿整個畫面 */
-.topo-phone .topo-edit-photo .topo-zoom {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* 編輯器撐滿照片區（照片置中），放大後照片可以佔滿整個畫面 */
+.topo-phone .topo-edit-photo .topo-kit-editor {
   width: 100%;
   height: 100%;
+  aspect-ratio: auto;
   border-radius: 0;
-  /* 上下浮著按鈕佔的高度：照片的上下緣可以拖到按鈕外面（ZoomPane 讀這兩個值） */
+  /* 上下浮著按鈕佔的高度：照片的上下緣可以拖到按鈕外面（TopoKit 讀這兩個值） */
   scroll-padding-top: calc(12px + var(--topo-btn) + 8px + env(safe-area-inset-top));
   scroll-padding-bottom: calc(16px + var(--topo-btn) + 8px + env(safe-area-inset-bottom));
-}
-
-.topo-phone .topo-zoom-inner {
-  flex: none;
-}
-
-/* 手機用雙指縮放、點兩下回到原尺寸：不顯示縮放按鈕與倍率 */
-.topo-phone .topo-zoom-controls {
-  display: none;
 }
 
 .topo-float {
@@ -6181,39 +6103,6 @@ dialog.topo-phone::backdrop {
 .topo-phone-list .topo-route-list {
   max-height: none;
   overflow: visible;
-}
-
-/* 放大鏡：在手指正上方（位置由程式算），十字中心是點的位置 */
-.topo-loupe {
-  position: absolute;
-  z-index: 4;
-  width: 128px;
-  height: 128px;
-  overflow: hidden;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #000;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
-.topo-loupe svg {
-  display: block;
-}
-
-.topo-loupe-line {
-  fill: none;
-  stroke: var(--topo-line);
-  stroke-linecap: round;
-}
-
-.topo-loupe-point {
-  fill: var(--topo-line);
-}
-
-.topo-loupe-cross {
-  stroke: #ffd400;
-  stroke-linecap: round;
 }
 
 .topo-phone-status {

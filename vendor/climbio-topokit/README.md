@@ -88,6 +88,11 @@ editor.undo();
 - 分岔：新路線還沒畫線時 `fork()`，點別條路線的一個點，複製到那個點為止的前段。
 - 復原／重做：`undo()`、`redo()`（`z`、`y`；Ctrl／⌘＋Z）；每個修改發 `change`（`detail.layer` 是編輯後的圖層）與 `history`。
 - 手指：點一下加點，雙指縮放，放大後單指平移，點兩下回到整張（第一下若才加了點就收回）。
+- 裁切：`crop` 工具（`c`）顯示整張照片與裁切框，拖曳框內移動、拖曳邊或角調整大小，`Enter` 結束；結果在 `cropRect`，改了發 `crop` 事件（拖曳完、`setCrop()`、復原重做），裁切也在復原紀錄裡。
+- 平移：手指在放大後的空白處拖曳；滑鼠按住不動一下再拖曳、空白鍵或中鍵拖曳、縮放按鈕旁的「移動」（`setHand()`）。host 的 CSS `scroll-padding-top`／`bottom` 是上下浮著的按鈕高度，照片的上下緣可以拖到按鈕外面。
+- 手機：`aim` 開著時手指按住不動一下出現放大鏡，滑動對準，放開才放點；拖曳點時也顯示放大鏡。選取工具下手指點在點旁邊選那個點。
+- 自動縮放：`zoomToRect(rect, { keepZoom })` 平滑地縮放到照片上的一塊（已經看得到就不動）；目前倍率在 host 的 `data-scale`。
+- App 的資料規則：`positions(routeId)` 決定 bolt 能放哪些位置（放完自動換下一個空位），`transform(routes, before, id)` 在每次修改寫進圖層前改寫路線（例如共用的 bolt 讓另一條路線跟著動），`setLayer()` 換掉整個編輯圖層（可以復原），`keys: { window, modifiers, backspace }` 調整鍵盤。
 - 只改編輯圖層（`editLayer`）裡的路線；畫面或別的圖層的路線只能看、能選，改的時候丟錯。
 
 ## 測試

@@ -13,23 +13,40 @@ export function fitSize(stage, aspect) {
   return { w, h: w / aspect };
 }
 
-/** 縮放限制在 1 到 MAX_SCALE；放大後照片的邊緣不能離開舞台的邊緣，沒放滿舞台的方向置中 */
-export function clampView(view, stage, content) {
+const NO_INSET = { top: 0, bottom: 0 };
+
+/**
+ * 縮放限制在 1 到 MAX_SCALE；放大後照片的邊緣不能離開舞台的邊緣，沒放滿舞台的方向置中。
+ * inset：舞台上下浮著按鈕時按鈕佔的高度（螢幕像素），照片的上下緣可以拖到按鈕外面（沒放大也可以）。
+ */
+export function clampView(view, stage, content, inset = NO_INSET) {
   const scale = clamp(view.scale, 1, MAX_SCALE);
   const lx = Math.max(0, (content.w * scale - stage.w) / 2);
-  const ly = Math.max(0, (content.h * scale - stage.h) / 2);
-  return { scale, x: clamp(view.x, -lx, lx), y: clamp(view.y, -ly, ly) };
+  const half = (content.h * scale - stage.h) / 2;
+  return { scale, x: clamp(view.x, -lx, lx), y: clamp(view.y, Math.min(0, -half - inset.bottom), Math.max(0, half + inset.top)) };
 }
 
 /** 手指從 from 移到 to，兩指距離變成 ratio 倍：照片上原本在 from 的那一點跟著手指走到 to。單指拖曳就是 ratio 為 1 */
-export function moveView(view, from, to, ratio, stage, content) {
+export function moveView(view, from, to, ratio, stage, content, inset) {
   const scale = clamp(view.scale * ratio, 1, MAX_SCALE);
   const f = scale / view.scale;
-  return clampView({ scale, x: to.x - (from.x - view.x) * f, y: to.y - (from.y - view.y) * f }, stage, content);
+  return clampView({ scale, x: to.x - (from.x - view.x) * f, y: to.y - (from.y - view.y) * f }, stage, content, inset);
+}
+
+/**
+ * 縮放到一塊（box：以內容中心為原點的螢幕像素，沒放大時的大小）：放到整塊剛好看得到，keepZoom 時只放大不縮小；
+ * 那一塊已經整個看得到、而且放得夠大時不動。移植自龍洞（MIT）的 ZoomPane。
+ */
+export function focusView(view, box, stage, content, { keepZoom = false, inset } = {}) {
+  const fit = clamp(Math.min(stage.w / Math.max(box.w, 1), stage.h / Math.max(box.h, 1)), 1, MAX_SCALE);
+  const scale = keepZoom ? Math.max(fit, view.scale) : fit;
+  const seen = (at, size, room, shift) => Math.abs(shift + at * view.scale) + (size * view.scale) / 2 <= room / 2;
+  const [cx, cy] = [box.x + box.w / 2, box.y + box.h / 2];
+  if (view.scale >= scale && seen(cx, box.w, stage.w, view.x) && seen(cy, box.h, stage.h, view.y)) return view;
+  return clampView({ scale, x: -cx * scale, y: -cy * scale }, stage, content, inset);
 }
 
 const DOUBLE_TAP_MS = 300, DOUBLE_TAP_PX = 30;
-/** 點兩下放大到這個倍率 */
 /** 左右滑超過這個距離（螢幕像素）、而且比上下移動多，才算換路線 */
 const SWIPE_PX = 40;
 
@@ -43,6 +60,7 @@ export function swipeStep(from, to, panned) {
   return dx < 0 ? 1 : -1;
 }
 
+/** 點兩下放大到這個倍率 */
 export const DOUBLE_TAP_SCALE = 2.5;
 
 /** 這次點擊和上一次合起來是點兩下：{ at: {x, y}, time } */
@@ -50,8 +68,8 @@ export const isDoubleTap = (prev, now) =>
   !!prev && now.time - prev.time <= DOUBLE_TAP_MS && Math.hypot(now.at.x - prev.at.x, now.at.y - prev.at.y) <= DOUBLE_TAP_PX;
 
 /** 點兩下：沒放大時以點的位置為中心放大到 DOUBLE_TAP_SCALE，放大了就回到整張 */
-export const doubleTapView = (view, at, stage, content) =>
-  view.scale > 1 ? IDENTITY : moveView(view, at, at, DOUBLE_TAP_SCALE / view.scale, stage, content);
+export const doubleTapView = (view, at, stage, content, inset) =>
+  view.scale > 1 ? IDENTITY : moveView(view, at, at, DOUBLE_TAP_SCALE / view.scale, stage, content, inset);
 
 const FOCUS_PAD = 0.25, FOCUS_ASPECT = [0.8, 1.5], FOCUS_MAX_ZOOM = 2.2, FOCUS_MARGIN = 0.03;
 const SKETCH_EDGE = 0.02, SKETCH_HEIGHT = 0.35;

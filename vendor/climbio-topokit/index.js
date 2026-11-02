@@ -7,5 +7,5 @@ export { readTopo, writeLayer, assertView, pickName, pickGrade, newId } from './
 export { renderLines, renderReveal } from './render.js';
 export { drawnRuns, ownRuns, segmentAt, addLinePoint, forkLine, moveSharedPoint, removeLinePoint } from './lines.js';
 export { smoothPath, pathLength, pointAlong, textWidth, wrapText, Placer } from './annotate.js';
-export { clampView, moveView, fitSize, routeCrop, isSketch, doubleTapView, isDoubleTap, IDENTITY, MAX_SCALE, DOUBLE_TAP_SCALE, swipeStep } from './viewport.js';
+export { clampView, moveView, focusView, fitSize, routeCrop, isSketch, doubleTapView, isDoubleTap, IDENTITY, MAX_SCALE, DOUBLE_TAP_SCALE, swipeStep } from './viewport.js';
 export { CSS } from './style.js';

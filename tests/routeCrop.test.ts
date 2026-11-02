@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FULL_CROP } from '../src/core/topo/geometry'
-import { clampView, routeCrop, widenCrop } from '../src/core/topo/viewport'
+import { routeCrop, widenCrop } from '../src/core/topo/viewport'
 
 const photo = { width: 2000, height: 1500 }
 const inside = (c: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) => c.x >= b.x && c.y >= b.y && c.x + c.w <= b.x + b.w + 1 && c.y + c.h <= b.y + b.h + 1
@@ -98,22 +98,5 @@ describe('widenCrop', () => {
     const c = widenCrop(photo, { x: 4500, y: 1000, w: 1000, h: 8000 }, base, 0.8)
     expect(inside(c, base)).toBe(true)
     expect(ratio(c)).toBeLessThan(0.8)
-  })
-})
-
-describe('clampView inset', () => {
-  const stage = { w: 400, h: 800 }
-  const content = { w: 400, h: 800 }
-  it('沒有 inset：沒放大時不能上下移動', () => {
-    expect(clampView({ scale: 1, x: 0, y: -300 }, stage, content).y).toBe(0)
-  })
-  it('有 inset：照片的下緣可以拖到下面的按鈕上面、上緣拖到上面的按鈕下面', () => {
-    const inset = { top: 70, bottom: 80 }
-    expect(clampView({ scale: 1, x: 0, y: -300 }, stage, content, inset).y).toBe(-80)
-    expect(clampView({ scale: 1, x: 0, y: 300 }, stage, content, inset).y).toBe(70)
-    expect(clampView({ scale: 2, x: 0, y: -2000 }, stage, content, inset).y).toBe(-480)
-  })
-  it('照片比舞台矮很多：已經露出來，維持置中', () => {
-    expect(clampView({ scale: 1, x: 0, y: -300 }, stage, { w: 400, h: 300 }, { top: 70, bottom: 80 }).y).toBe(0)
   })
 })

@@ -4,15 +4,17 @@
 // English: native SVG topo viewer. Zoom/pan/pick; no network; destroy() releases every listener and observer.
 import { readTopo, assertView } from './data.js';
 import { esc, renderLines, renderReveal } from './render.js';
-import { clampView, doubleTapView, fitSize, IDENTITY, isDoubleTap, moveView, MAX_SCALE, swipeStep } from './viewport.js';
+import { clampView, doubleTapView, fitSize, focusView, IDENTITY, isDoubleTap, moveView, MAX_SCALE, swipeStep } from './viewport.js';
 import { injectStyle } from './style.js';
 
 /** 滑鼠、手指移動超過這個距離（螢幕像素）才算拖曳，之前都當作點擊 */
 export const DRAG_PX = 5;
 /** 一次按 ＋／－ 或鍵盤 +／- 的縮放倍率 */
 const STEP = 1.5;
-/** 灰階遮罩的帶子寬度：顯示範圍寬度的這個比例 */
+/** 灰階遮罩的帶子寬度預設：顯示範圍寬度的這個比例 */
 const REVEAL_WIDTH = 0.14;
+/** 自動縮放（zoomToRect）的動畫時間（毫秒） */
+const GLIDE_MS = 350;
 let maskSeq = 0;
 
 export class TopoViewer extends EventTarget {
@@ -25,7 +27,8 @@ export class TopoViewer extends EventTarget {
    *  - crop：顯示的範圍（照片像素 { x, y, w, h }），預設用畫面的 props.crop，沒有就整張
    *  - interactive：路線可以點（預設 true）；wheel：'ctrl'（預設，按著 Ctrl／⌘ 才縮放，頁面照常捲動）或 'always'
    *  - controls：顯示縮放按鈕（預設 true）；zoom：可以縮放、平移（預設 true；false 時滾輪、雙指、點兩下、按鍵都不縮放）
-   *  - reveal：照片灰階，highlight 路線周圍是原色（路線卡片）
+   *  - reveal：照片灰階，highlight 路線周圍是原色（路線卡片）；revealWidth：原色帶子的寬度（顯示範圍寬度的比例，預設 0.14）
+   *  - 舞台上下浮著按鈕時，host 的 CSS scroll-padding-top／bottom 設成按鈕佔的高度：照片的上下緣可以拖到按鈕外面（沒放大也可以）
    *  - swipe：左右滑（照片沒有跟著橫移時）發 swipe 事件，detail.step 是 1（下一條）或 -1（上一條）
    *  - text：縮放按鈕的說明 { zoomIn, zoomOut, zoomFit }（aria-label、title），預設是按鈕上的符號
    */
@@ -38,6 +41,7 @@ export class TopoViewer extends EventTarget {
     this.model = undefined;
     this.state = { ...IDENTITY };
     this.stageSize = { w: 0, h: 0 };
+    this.inset = { top: 0, bottom: 0 };
     this.ac = new AbortController();
     this.pointers = new Map();
     this.destroyed = false;
@@ -91,6 +95,7 @@ export class TopoViewer extends EventTarget {
         if (z === 'in') this.zoomBy(STEP);
         else if (z === 'out') this.zoomBy(1 / STEP);
         else if (z === 'fit') this.setView(IDENTITY);
+        else if (z === 'hand') this.setHand?.(!this.hand);
       });
     }
     // 寬螢幕牌子放大：視窗寬度跨過 900px 時重畫
@@ -153,6 +158,8 @@ export class TopoViewer extends EventTarget {
   #measure() {
     const r = this.stage.getBoundingClientRect();
     this.stageSize = { w: r.width, h: r.height };
+    const css = this.host.ownerDocument.defaultView.getComputedStyle(this.host);
+    this.inset = { top: parseFloat(css.scrollPaddingTop) || 0, bottom: parseFloat(css.scrollPaddingBottom) || 0 };
     this.schedule();
   }
 
@@ -200,7 +207,7 @@ export class TopoViewer extends EventTarget {
   render() {
     if (this.destroyed || !this.model || this.stageSize.w === 0) return;
     const { photo } = this.model, c = this.crop, size = this.content, s = this.state;
-    const next = clampView(s, this.stageSize, size);
+    const next = clampView(s, this.stageSize, size, this.inset);
     if (next.x !== s.x || next.y !== s.y || next.scale !== s.scale) this.state = next;
     Object.assign(this.inner.style, {
       width: `${size.w}px`, height: `${size.h}px`,
@@ -214,9 +221,10 @@ export class TopoViewer extends EventTarget {
     this.svg.setAttribute('viewBox', `${c.x} ${c.y} ${c.w} ${c.h}`);
     const k = this.k;
     this.host.classList.toggle('tk-gray', !!this.options.reveal);
-    const reveal = this.options.reveal ? renderReveal(this.routes.find((r) => r.id === this.options.highlight)?.line, { photo, width: REVEAL_WIDTH * c.w, id: this.maskId }) : '';
+    const reveal = this.options.reveal ? renderReveal(this.routes.find((r) => r.id === this.options.highlight)?.line, { photo, width: (this.options.revealWidth ?? REVEAL_WIDTH) * c.w, id: this.maskId }) : '';
     this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, ui: this.ui, ...this.linesOptions() }) + this.extras(k);
-    this.stage.classList.toggle('draggable', this.state.scale > 1);
+    this.stage.classList.toggle('draggable', this.movable);
+    this.host.dataset.scale = String(Math.round(this.state.scale * 100) / 100);
     if (this.fitButton) this.fitButton.textContent = `${Math.round(this.state.scale * 100)}%`;
   }
 
@@ -229,13 +237,39 @@ export class TopoViewer extends EventTarget {
 
   setView(v) {
     if (!this.options.zoom) return;
-    this.state = clampView(v, this.stageSize, this.content);
+    this.state = clampView(v, this.stageSize, this.content, this.inset);
     this.schedule();
     this.dispatchEvent(new CustomEvent('zoom', { detail: { scale: this.state.scale } }));
   }
 
+  /**
+   * 平滑地縮放到照片上的一塊（照片像素 { x, y, w, h }）：放到整塊剛好看得到；keepZoom 時只放大不縮小；
+   * 那一塊已經整個看得到、放得夠大時不動。動畫只在這一次（手指一按下就停掉）。
+   */
+  zoomToRect(rect, { keepZoom = false, animate = true } = {}) {
+    if (!this.model || !this.options.zoom) return;
+    const c = this.crop, size = this.content;
+    const box = { x: ((rect.x - c.x) / c.w - 0.5) * size.w, y: ((rect.y - c.y) / c.h - 0.5) * size.h, w: (rect.w / c.w) * size.w, h: (rect.h / c.h) * size.h };
+    const next = focusView(this.state, box, this.stageSize, size, { keepZoom, inset: this.inset });
+    if (next === this.state) return;
+    if (animate) this.#glide();
+    this.setView(next);
+  }
+
+  #glide() {
+    const win = this.host.ownerDocument.defaultView;
+    this.inner.classList.add('tk-glide');
+    win.clearTimeout(this.glideTimer);
+    this.glideTimer = win.setTimeout(() => this.inner.classList.remove('tk-glide'), GLIDE_MS);
+  }
+
+  /** 可以平移：放大了，或照片的上下緣能拖到按鈕外面 */
+  get movable() {
+    return this.state.scale > 1 || this.inset.top > 0 || this.inset.bottom > 0;
+  }
+
   zoomBy(ratio, at = { x: 0, y: 0 }) {
-    this.setView(moveView(this.state, at, at, ratio, this.stageSize, this.content));
+    this.setView(moveView(this.state, at, at, ratio, this.stageSize, this.content, this.inset));
   }
 
   #wheel(e) {
@@ -259,6 +293,7 @@ export class TopoViewer extends EventTarget {
 
   #down(e) {
     if (e.target.closest('.tk-zoom')) return;
+    this.inner.classList.remove('tk-glide');
     if (e.pointerType === 'touch' && e.isPrimary) this.pointers.clear();
     // 第一根手指（或滑鼠）是新的一輪；gesture 記起點與當時照片的橫向位置（判斷左右滑），第二根手指放下就不算滑動
     if (this.pointers.size === 0) {
@@ -286,7 +321,7 @@ export class TopoViewer extends EventTarget {
       const other = [...this.pointers.entries()].find(([id]) => id !== e.pointerId)[1];
       this.pointers.set(e.pointerId, now);
       const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y), mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-      this.setView(moveView(this.state, mid(prev, other), mid(now, other), dist(now, other) / (dist(prev, other) || 1), this.stageSize, this.content));
+      this.setView(moveView(this.state, mid(prev, other), mid(now, other), dist(now, other) / (dist(prev, other) || 1), this.stageSize, this.content, this.inset));
       return;
     }
     this.pointers.set(e.pointerId, now);
@@ -298,14 +333,14 @@ export class TopoViewer extends EventTarget {
     }
     if (this.press && !this.pan && Math.hypot(now.x - this.press.x, now.y - this.press.y) > DRAG_PX) this.dragged = true;
     if (this.pan) {
-      this.setView(moveView(this.state, this.pan, now, 1, this.stageSize, this.content));
+      this.setView(moveView(this.state, this.pan, now, 1, this.stageSize, this.content, this.inset));
       this.pan = now;
     }
   }
 
-  /** 這次拖曳可以平移：放大了才能平移（編輯器再多加條件） */
+  /** 這次拖曳可以平移：放大了（或有上下留白）才能平移（編輯器再多加條件） */
   canPan() {
-    return this.state.scale > 1;
+    return this.movable;
   }
 
   #up(e) {
@@ -338,7 +373,7 @@ export class TopoViewer extends EventTarget {
   }
 
   doubleTapped(at) {
-    this.setView(doubleTapView(this.state, at, this.stageSize, this.content));
+    this.setView(doubleTapView(this.state, at, this.stageSize, this.content, this.inset));
   }
 
   #click(e) {
@@ -382,6 +417,8 @@ export class TopoViewer extends EventTarget {
     this.ac.abort();
     this.ro.disconnect();
     if (this.raf) this.host.ownerDocument.defaultView.cancelAnimationFrame(this.raf);
+    this.host.ownerDocument.defaultView.clearTimeout(this.glideTimer);
+    delete this.host.dataset.scale;
     this.cleanup();
     this.host.classList.remove('tk');
     this.host.replaceChildren();
