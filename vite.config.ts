@@ -53,8 +53,8 @@ export default defineConfig({
         // 離線快取裡沒有首頁（被系統清掉、換版的空檔）時改從網路讀，轉址過的回應不能用在換頁，會出現 ERR_FAILED
         manifestTransforms: [async (entries) => ({ manifest: entries.map((e) => (e.url === 'index.html' ? { ...e, url: '/' } : e)) })],
         navigateFallback: '/',
-        // Firebase 的保留路徑（/__/auth/handler 等，登入用）交給網路
-        navigateFallbackDenylist: [/^\/__\//],
+        // Firebase 的保留路徑（/__/auth/handler 等，登入用）、岩場站出口（/climbio/，公開格式的 JSON 與照片）交給網路
+        navigateFallbackDenylist: [/^\/__\//, /^\/climbio\//],
         // 評分、留言、暱稱、Topo、地圖編輯、說明修改：有網路時讀最新，離線時用最後一次讀到的
         runtimeCaching: [
           {

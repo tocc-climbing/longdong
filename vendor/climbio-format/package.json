@@ -1,0 +1,42 @@
+{
+  "name": "@climbio/format",
+  "version": "2.2.0",
+  "description": "Climbio open format: photos, drawings and maps as views, layers of marks drawn on them, and sets that compose them, with an open vocabulary for routes, holds and crags. JSON Schema and validator, no dependencies, no build step.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/climb-io/climbio.git",
+    "directory": "format"
+  },
+  "keywords": [
+    "climbing",
+    "bouldering",
+    "topo",
+    "route",
+    "json-schema",
+    "geojson",
+    "open-data"
+  ],
+  "main": "format.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./format.js"
+    },
+    "./climbio.schema.json": "./climbio.schema.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "format.js",
+    "index.mjs",
+    "index.d.ts",
+    "climbio.schema.json",
+    "examples/*.json",
+    "README.md",
+    "VOCABULARY.md",
+    "LICENSE",
+    "NOTICE"
+  ]
+}
