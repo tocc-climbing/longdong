@@ -94,12 +94,12 @@
         type: 'object', required: ['climbio', 'kind', 'id', 'on', 't', 'license'],
         properties: { ...common, kind: { const: 'layer' }, on: { type: 'string', pattern: `^${FILE_ID}$` }, href, marks: arr(ref('mark')) },
       },
-      // 組合：放在一起的畫面或組合（items），可以再組合；組合自己也可以有節點
+      // 組合：放在一起的畫面或組合（items），可以再組合；組合自己也可以有節點。項目的 props 是列清單用的資料（縮圖、數量……）
       set: {
         type: 'object', required: ['climbio', 'kind', 'id', 't', 'license'],
         properties: {
           ...common, kind: { const: 'set' }, type: { type: 'string', minLength: 1 },
-          items: arr({ type: 'object', required: ['href'], properties: { href, id: { type: 'string', pattern: `^${FILE_ID}$` }, name: ref('text'), t: int } }),
+          items: arr({ type: 'object', required: ['href'], properties: { href, id: { type: 'string', pattern: `^${FILE_ID}$` }, name: ref('text'), t: int, props: obj } }),
         },
       },
     },

@@ -816,6 +816,9 @@
               "t": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "props": {
+                "type": "object"
               }
             }
           }

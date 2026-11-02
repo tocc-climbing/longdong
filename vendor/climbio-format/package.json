@@ -1,6 +1,6 @@
 {
   "name": "@climbio/format",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Climbio open format: photos, drawings and maps as views, layers of marks drawn on them, and sets that compose them, with an open vocabulary for routes, holds and crags. JSON Schema and validator, no dependencies, no build step.",
   "license": "Apache-2.0",
   "repository": {

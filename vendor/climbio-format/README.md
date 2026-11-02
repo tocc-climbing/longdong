@@ -4,8 +4,6 @@
 
 這個資料夾是 npm 套件 `@climbio/format`：JSON Schema（draft 2020-12）、驗證器、樣本，沒有相依套件、沒有建置步驟。節點的 `type` 和 `props` 用哪些詞彙另見 [VOCABULARY.md](VOCABULARY.md)。
 
-> Climbio App 目前分享出去的仍是 v1（[docs/route-format.md](../docs/route-format.md)），之後改成輸出 v2。
-
 ## 設計原則
 
 - **核心固定，詞彙開放**：本文件只規定結構（畫面、圖層、組合、節點、標註）。節點是什麼（`type`）、帶什麼資料（`props`）都是詞彙，增加詞彙不改規格、不改驗證器、不升版本。
@@ -100,7 +98,7 @@ const errors = validate(doc);                          // [] 就是合格；否�
 | 欄位 | 內容 |
 |---|---|
 | `type` | 這是什麼組合（自由字串，例如 `gym`、`area`、`guidebook`、`site`、`directory`） |
-| `items` | `{ href, id?, name?, t? }`：放進來的畫面、圖層或組合 |
+| `items` | `{ href, id?, name?, t?, props? }`：放進來的畫面、圖層或組合；`props` 是列清單用的資料（縮圖、數量，詞彙），不用打開那份就畫得出清單 |
 
 ## 節點與標註
 

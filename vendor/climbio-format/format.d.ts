@@ -81,7 +81,7 @@ export type View = PhotoView | DrawingView | MapView;
 /** 圖層：疊在畫面 on 上的節點和標註（常變更的資料） */
 export interface Layer extends Common { kind: 'layer'; on: string; href?: string; marks?: Mark[] }
 /** 組合：畫面、圖層或組合放在一起，可以再組合 */
-export interface Set extends Common { kind: 'set'; type?: string; items?: { href: string; id?: string; name?: Text; t?: number }[] }
+export interface Set extends Common { kind: 'set'; type?: string; items?: { href: string; id?: string; name?: Text; t?: number; props?: Record<string, unknown> }[] }
 export type Doc = View | Layer | Set;
 
 export declare const VERSION: 2;
