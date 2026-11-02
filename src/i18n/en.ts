@@ -567,6 +567,7 @@ export const en: Messages = {
   'me.nicknameHint': 'Shown on your comments; must be unique',
   'me.emailPrivate': '{email} (private)',
   'me.language': 'Language',
+  'me.theme': 'Appearance',
   'me.signOut': 'Sign out',
   'me.confirmSignOut': 'Sign out? Your data on this device is cleared and reloads from the cloud next time you sign in.',
   'me.deleteAccount': 'Delete account',
@@ -580,6 +581,10 @@ export const en: Messages = {
   'name.tooLong': 'Nickname can be at most {n} characters',
   'name.taken': 'That nickname is taken',
   'name.default': 'Climber',
+
+  'theme.auto': 'Automatic (system setting)',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
 
   'lang.auto': 'Automatic (system language)',
   'lang.zh': '中文',

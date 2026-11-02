@@ -1,6 +1,6 @@
 /* ==========================================================================
    龍洞攀岩資料庫：視覺系統
-   色彩、字型、間距都定義在 :root 的變數；固定深色。
+   色彩、字型、間距都定義在 :root 的變數；預設深色，淺色只換變數值（最後一節）。
    ========================================================================== */
 
 :root {
@@ -5568,7 +5568,7 @@ button.key-row:disabled {
   width: auto;
 }
 
-/* 根元素也是深色：Android 的系統列（上方狀態列、下方手勢列）跟著深色 */
+/* 根元素也是深色：Android 的系統列（上方狀態列、下方手勢列）跟著深色；淺色見最後一節 */
 html {
   color-scheme: dark;
   background: #0e0e0e;
@@ -6487,4 +6487,77 @@ dialog.topo-upload-crop::backdrop {
   border: 0;
   margin: 0;
   padding: 0;
+}
+
+/* ==========================================================================
+   淺色（「我的」→ 外觀；<html data-theme> 由 src/theme.ts 設定）：上面寫的是深色，這裡只換變數值
+   ========================================================================== */
+
+:root[data-theme='light'] {
+  --bg: #f3f4f1;
+  --surface: #ffffff;
+  --surface-2: #eef0ec;
+  --text: #15191b;
+  --muted: #687176;
+  --faint: #9aa2a6;
+  --border: #e3e6e1;
+  --brand: #00879c;
+  --brand-soft: #dff1f3;
+  --on-brand: #ffffff;
+  --link: #006b7c;
+  --ok: #2e7d4f;
+  --warn: #a86a00;
+  --danger: #b3261e;
+  --star: #e3a008;
+  --band-easy: #dcf1e2;
+  --band-g10: #fbf0c4;
+  --band-g11: #fde1cb;
+  --band-g12: #fbd5d5;
+  --band-g13: #e7dcf6;
+  --chart: #00879c;
+  --chart-track: #eef0ec;
+  --shadow: 0 1px 2px rgba(16, 24, 28, 0.06), 0 2px 8px rgba(16, 24, 28, 0.04);
+  --card-border: transparent;
+  --bar-bg: rgba(243, 244, 241, 0.82);
+  --style-os: #1f7a45;
+  --style-rp: #c62828;
+  --style-tr: #1565c0;
+  --on-style: #fff;
+  color-scheme: light;
+  background: var(--bg);
+}
+
+:root[data-layout][data-theme='light'] {
+  --bg: #efece5;
+  --surface: #ffffff;
+  --surface-2: #f4f1ea;
+  --text: #141414;
+  --muted: #5c5a55;
+  --faint: #8e897f;
+  --border: #ebe6dc;
+  --brand: #0395c3;
+  --brand-soft: #dcf0f8;
+  --brand-dark: #0a6f90;
+  --on-brand: #ffffff;
+  --link: #00739a;
+  --danger: #d40442;
+  --chart: #0395c3;
+  --chart-track: #f4f1ea;
+  --hero: #0395c3;
+  --shadow: 0 1px 0 rgba(20, 20, 20, 0.04);
+  --bar-bg: #ffffff;
+}
+
+/* 標誌是黑色：淺色底上不反白 */
+:root[data-theme='light'] .brand-mark {
+  filter: none;
+}
+
+/* 清單的 OS／RP／TR 一組按鈕：淺色的 --border 在白底上幾乎看不見，框線改深一點 */
+:root[data-theme='light'] .checklist-row-m .checklist-styles {
+  box-shadow: inset 0 0 0 1px var(--faint);
+}
+
+:root[data-theme='light'] .checklist-row-m .checklist-style + .checklist-style:not(.from-log) {
+  box-shadow: inset 1px 0 0 var(--faint);
 }

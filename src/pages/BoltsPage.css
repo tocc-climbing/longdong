@@ -1,6 +1,6 @@
 /* ---------- Bolt 統計（/bolts） ---------- */
 
-/* 材質的顏色（依固定順序，已用 dataviz 驗證色盲可辨） */
+/* 材質的顏色（依固定順序，已用 dataviz 驗證色盲可辨）；淺色另一組 */
 .bolt-stats {
   --bolt-1: #3987e5;
   --bolt-2: #d95926;
@@ -9,6 +9,16 @@
   --bolt-5: #d55181;
   --bolt-6: #008300;
   --bolt-7: #9085e9;
+}
+
+:root[data-theme='light'] .bolt-stats {
+  --bolt-1: #2a78d6;
+  --bolt-2: #eb6834;
+  --bolt-3: #1baf7a;
+  --bolt-4: #eda100;
+  --bolt-5: #e87ba4;
+  --bolt-6: #008300;
+  --bolt-7: #4a3aa7;
 }
 
 .bolt-stats .bolt-tiles {

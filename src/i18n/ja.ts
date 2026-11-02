@@ -569,6 +569,7 @@ export const ja: Messages = {
   'me.nicknameHint': 'コメントに表示されます。重複不可',
   'me.emailPrivate': '{email}（非公開）',
   'me.language': '言語',
+  'me.theme': '外観',
   'me.signOut': 'ログアウト',
   'me.confirmSignOut': 'ログアウトしますか？この端末の記録は消え、次回ログイン時にクラウドから読み込みます。',
   'me.deleteAccount': 'アカウントを削除',
@@ -583,6 +584,10 @@ export const ja: Messages = {
   'name.tooLong': 'ニックネームは {n} 文字以内です',
   'name.taken': 'このニックネームは使われています',
   'name.default': 'クライマー',
+
+  'theme.auto': '自動（システム設定）',
+  'theme.light': 'ライト',
+  'theme.dark': 'ダーク',
 
   'lang.auto': '自動（システムの言語）',
   'lang.zh': '中文',

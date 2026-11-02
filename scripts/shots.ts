@@ -9,6 +9,7 @@
  *   --sim=緯度,經度 模擬位置（同 /map@緯度,經度），例如 --sim=25.1105,121.9228
  *   --mobile        只拍手機（390×844）；--desktop 只拍電腦（1366×860）；--imac 只拍 24 吋 iMac（2240×1260）
  *   --full          拍整頁（預設只拍一個畫面）
+ *   --light         淺色（系統設定是淺色、外觀「自動」）；預設深色
  *   --seed          先放一些測試資料：留言、檢舉、地圖回報（管理頁用）
  *
  * 需要 Java（模擬器）。腳本先建置 e2e 版（dist-e2e），再啟動模擬器、在模擬器裡跑自己一次（SHOTS_ARGS 傳參數）。
@@ -95,6 +96,7 @@ try {
       isMobile: vp.mobile,
       hasTouch: vp.mobile,
       serviceWorkers: 'block',
+      colorScheme: flag('light') ? 'light' : 'dark',
     })
     // 地圖頁第一次的說明不顯示
     await ctx.addInitScript(`localStorage.setItem('longdong.map.intro', '1')`)
@@ -111,7 +113,7 @@ try {
       // 登入狀態是重新載入後才恢復的：等登入提示消失（最多 15 秒）
       if (login) await page.waitForFunction(`!document.querySelector('.signin-prompt')`, undefined, { timeout: 15000 }).catch(() => console.log(`✗ ${path}：還是沒登入`))
       await page.waitForTimeout(800)
-      const file = `${OUT}/${path.replace(/^\//, '').replace(/[/?=&@,]+/g, '_') || 'home'}-${vp.name}.png`
+      const file = `${OUT}/${path.replace(/^\//, '').replace(/[/?=&@,:]+/g, '_') || 'home'}-${vp.name}${flag('light') ? '-light' : ''}.png`
       await page.screenshot({ path: file, fullPage: flag('full') })
       console.log(file)
     }

@@ -15,6 +15,7 @@ import type { LocalizedName, Route, RouteType } from '../data/schema'
 import { deleteTick, setFavorite, usePersonal } from '../personal/store'
 import { signOut, useCloud } from '../personal/sync'
 import { deleteMyAccount, rename } from '../social/actions'
+import { setThemeSetting, useThemeSetting, type ThemeSetting } from '../theme'
 import { NAME_MAX } from '../social/model'
 import { displayName, useSocial } from '../social/store'
 import { useIsAdmin } from '../admin'
@@ -57,6 +58,7 @@ export function MePage({ data, offline }: { data: LoadedData; offline: boolean }
         {/* 語言設定不需要登入 */}
         <section className="card settings">
           <LanguagePicker />
+          <ThemePicker />
           <InstallButton />
           <AppInfo data={data} offline={offline} />
         </section>
@@ -321,6 +323,7 @@ function Settings({ data, offline, uid, email }: { data: LoadedData; offline: bo
       <NameEditor uid={uid} />
       <p className="muted small">{t('me.emailPrivate', { email })}</p>
       <LanguagePicker />
+      <ThemePicker />
       <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
@@ -360,6 +363,22 @@ function LanguagePicker() {
             {t(`lang.${l}`)}
           </option>
         ))}
+      </select>
+    </label>
+  )
+}
+
+/** 外觀：自動（依系統設定）、淺色、深色；選擇存在這台裝置上 */
+function ThemePicker() {
+  const { t } = useLang()
+  const setting = useThemeSetting()
+  return (
+    <label className="lang-picker">
+      <span>{t('me.theme')}</span>
+      <select value={setting} onChange={(e) => setThemeSetting(e.target.value as ThemeSetting)}>
+        <option value="auto">{t('theme.auto')}</option>
+        <option value="light">{t('theme.light')}</option>
+        <option value="dark">{t('theme.dark')}</option>
       </select>
     </label>
   )

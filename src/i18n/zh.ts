@@ -563,6 +563,7 @@ export const zh = {
   'me.nicknameHint': '留言時顯示，不能和別人重複',
   'me.emailPrivate': '{email}（不公開）',
   'me.language': '語言',
+  'me.theme': '外觀',
   'me.signOut': '登出',
   'me.confirmSignOut': '要登出嗎？這台裝置的紀錄會清除，下次登入從雲端載回。',
   'me.deleteAccount': '刪除帳號',
@@ -577,6 +578,10 @@ export const zh = {
   'name.tooLong': '暱稱最多 {n} 字',
   'name.taken': '這個暱稱已經有人使用',
   'name.default': '岩友',
+
+  'theme.auto': '自動（依系統設定）',
+  'theme.light': '淺色',
+  'theme.dark': '深色',
 
   'lang.auto': '自動（依系統語言）',
   'lang.zh': '中文',

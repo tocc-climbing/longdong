@@ -1191,7 +1191,7 @@ try {
   const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
   const nearest = Math.min(...areaColors.filter(Boolean).map((c) => Math.hypot(...rgb(c!).map((v, i) => v - rgb(homeColor)[i]))))
   check('首頁：標題卡的顏色和每個區域看起來都不同', /^#[0-9a-f]{6}$/.test(homeColor) && nearest >= 80, `${homeColor}，最接近的差 ${nearest.toFixed(0)}`)
-  check('根元素是深色（Android 的系統列跟著深色）', (await vp.evaluate(`getComputedStyle(document.documentElement).backgroundColor`)) === 'rgb(14, 14, 14)')
+  check('根元素與頁面同色（Android 的系統列跟著外觀）', (await vp.evaluate(`getComputedStyle(document.documentElement).backgroundColor === getComputedStyle(document.body).backgroundColor`)) === true)
   const barAndDot = await vp.locator('.area-row').first().evaluate((el) => [getComputedStyle(el.querySelector('.grade-dist .bar')!).fill, getComputedStyle(el, '::before').backgroundColor])
   check('首頁：長條圖用區域的顏色（和色點相同）', barAndDot[0] === barAndDot[1], barAndDot.join(' / '))
   const nameSize = (selector: string) => vp.locator(selector).first().evaluate((el) => getComputedStyle(el).fontSize)
@@ -1949,6 +1949,19 @@ try {
   await rp.waitForSelector('.home-m', { state: 'detached' })
   check('電腦版首頁維持原樣：沒有天氣、交通卡片', (await rp.locator('.home-m').count()) === 0 && (await rp.locator('.area-hero.strip').count()) === 1)
   await rp.unroute('https://api.open-meteo.com/**')
+
+  // 外觀：預設依系統（這裡是深色）；在「我的」選淺色，畫面與 Android 系統列換成淺色，重新整理（畫面出現前）也還是淺色
+  const look = await newContext(undefined, { colorScheme: 'dark' })
+  const bg = () => look.page.evaluate(() => [document.documentElement.dataset.theme, getComputedStyle(document.body).backgroundColor, document.querySelector('meta[name="theme-color"]')?.getAttribute('content')])
+  await look.page.goto(base + 'me')
+  await look.page.waitForSelector('.lang-picker')
+  check('外觀：系統是深色時預設深色', JSON.stringify(await bg()) === JSON.stringify(['dark', 'rgb(14, 14, 14)', '#141414']), JSON.stringify(await bg()))
+  await look.page.locator('.lang-picker select').nth(1).selectOption('light')
+  check('外觀：選淺色後畫面與系統列換成淺色', JSON.stringify(await bg()) === JSON.stringify(['light', 'rgb(239, 236, 229)', '#fff']), JSON.stringify(await bg()))
+  await look.page.reload()
+  await look.page.waitForSelector('.lang-picker')
+  check('外觀：重新整理後還是淺色', (await bg())[0] === 'light' && (await look.page.locator('.lang-picker select').nth(1).inputValue()) === 'light', JSON.stringify(await bg()))
+  await look.ctx.close()
 
   await admin.ctx.close()
   await editor.ctx.close()
