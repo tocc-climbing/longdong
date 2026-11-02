@@ -1464,6 +1464,8 @@ try {
     await viewer.page.mouse.down()
     await viewer.page.mouse.move(x + dx, y + 4, { steps: 6 })
     await viewer.page.mouse.up()
+    // 滑動（TopoKit 的 swipe 事件）之後 React 才換選到的路線
+    await settled()
     return dialog.locator('.topo-full-row.on .topo-route-no').textContent()
   }
   const swipedBack = await swipe(120)
