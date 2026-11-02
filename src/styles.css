@@ -4634,6 +4634,11 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 
 .route-topo .topo-frame > img {
   filter: grayscale(1) contrast(0.8);
+}
+
+/* 照片和路線周圍的原色帶（.topo-reveal；照片本身已經用 mask 屬性挖出帶子，淡出掛在外層的 g）一起淡出 */
+.route-topo .topo-frame > img,
+.route-topo .topo-reveal {
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 94%, transparent), linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
   -webkit-mask-composite: source-in;
   mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 94%, transparent), linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
