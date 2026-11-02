@@ -1,26 +1,35 @@
-// ClimbioFormat 的型別。照片上的座標都是照片像素（以 photo 的 w、h 為準）；地理座標是 GeoJSON（經度在前）。
-// English: ClimbioFormat type definitions. Image coordinates are photo pixels; geo coordinates are GeoJSON.
+// ClimbioFormat 的型別。畫面上的座標用畫面的座標系（照片像素、向量圖的 w／h、地圖的經緯度）；節點的 geo 一律是經緯度（經度在前）。
+// English: ClimbioFormat type definitions: views, layers, sets, nodes and marks.
 
-export type Point = [number, number];
-/** s 起攀、h 手點、f 腳點、t 完攀 */
-export type HoldType = 's' | 'h' | 'f' | 't';
+export type Position = [number, number] | [number, number, number];
+export type Geometry =
+  | { type: 'Point'; coordinates: Position }
+  | { type: 'MultiPoint'; coordinates: Position[] }
+  | { type: 'LineString'; coordinates: Position[] }
+  | { type: 'MultiLineString'; coordinates: Position[][] }
+  | { type: 'Polygon'; coordinates: Position[][] }
+  | { type: 'MultiPolygon'; coordinates: Position[][][] };
+/** 字串，或語言代碼 → 字串（例如 { "zh-Hant": "後門", "en": "Back Door" }） */
+export type Text = string | Record<string, string>;
 
-export interface Photo {
-  /** 相對路徑（同一個資料夾、ZIP）或 https 網址 */
-  href: string;
-  w: number; h: number;
-  mime: 'image/jpeg' | 'image/png' | 'image/webp';
-  sha256?: string;
-  license: string;
-  attribution: string;
-  /** self 自己拍的、authorized 有權利人授權；紙本、來源不明的照片不出裝置 */
-  origin: 'self' | 'authorized';
-  camera?: Camera;
+/** 節點：任何東西（路線、岩點、bolt、分區……）。type 是自由字串，描述放 props，詞彙見 VOCABULARY.md */
+export interface Node {
+  id: string;
+  type?: string;
+  name?: Text;
+  /** 上層節點：這個檔案的 id、全域 id，或「檔案id#節點id」 */
+  parent?: string;
+  author?: string; t?: number; license?: string;
+  geo?: Geometry;
+  props?: Record<string, unknown>;
+  [key: string]: unknown;
 }
+/** 標註：畫在畫面上的一個形狀；node 是這個檔案（或圖層底下的畫面）的節點 id，或全域 id */
+export interface Mark { node?: string; geometry: Geometry; props?: Record<string, unknown>; [key: string]: unknown }
 /** 拍照資料：作者同意公開才寫 */
 export interface Camera {
   /** [經度, 緯度] 或 [經度, 緯度, 高度（公尺）] */
-  position: [number, number] | [number, number, number];
+  position: Position;
   /** 水平誤差（公尺） */
   accuracy?: number;
   /** 鏡頭朝向，從正北順時針 0–360 度 */
@@ -33,40 +42,47 @@ export interface Camera {
   focal?: number;
   model?: string;
 }
-export interface DerivedFrom { url: string; id?: string; t?: number }
-export interface Hold { id: string; poly: Point[]; source?: 'detect' | 'edited' | 'manual'; t?: number; [key: string]: unknown }
-export interface Route {
-  id: string;
-  holds: Record<string, HoldType>;
-  name?: string; grade?: string; author?: string; t?: number;
-  seq?: string[];
-  shapes?: Record<string, Hold>;
-  [key: string]: unknown;
-}
 interface Common {
   climbio: 2;
-  name: string;
+  /** 隨機、至少 12 碼小寫英數（新產生的用 16 碼） */
+  id: string;
+  name?: Text;
+  t: number;
   author?: string;
   license: string;
-  t: number;
-  derivedFrom?: DerivedFrom;
-  photo: Photo;
+  attribution?: string;
+  source?: { url: string; version?: string };
+  derivedFrom?: { url: string; id?: string; t?: number };
+  props?: Record<string, unknown>;
+  nodes?: Node[];
   [key: string]: unknown;
 }
-/** 室內：一面牆的照片、岩點、路線 */
-export interface Wall extends Common { kind: 'wall'; id: string; gym?: string; thumb?: string; holds: Hold[]; routes: Route[] }
-export interface TopoRoute { name?: string; grade?: string; line?: Point[]; bolts?: Record<string, Point>; [key: string]: unknown }
-export type GeoLine = { type: 'LineString'; coordinates: number[][] } | { type: 'MultiLineString'; coordinates: number[][][] };
-/** 戶外：一張岩壁照片上的路線線段與 bolt；路線 id 是來源的 id（例如 longdong/7kq2mx） */
-export interface Topo extends Common {
-  kind: 'topo'; id: string;
-  source?: { url: string; version?: string };
-  sector?: string;
-  crop?: { x: number; y: number; w: number; h: number };
-  routes: Record<string, TopoRoute>;
-  geo?: { wall?: GeoLine };
+interface ViewCommon extends Common {
+  kind: 'view';
+  attribution: string;
+  /** self 自己的、authorized 有權利人授權；紙本、來源不明的不出裝置 */
+  origin: 'self' | 'authorized';
+  marks?: Mark[];
 }
-export type Doc = Wall | Topo;
+export interface PhotoView extends ViewCommon {
+  surface: 'photo';
+  href: string; w: number; h: number;
+  mime: 'image/jpeg' | 'image/png' | 'image/webp';
+  sha256?: string;
+  camera?: Camera;
+}
+export interface DrawingView extends ViewCommon {
+  surface: 'drawing';
+  w: number; h: number;
+  href?: string; mime?: 'image/svg+xml' | 'image/png' | 'image/webp' | 'image/jpeg'; sha256?: string;
+}
+export interface MapView extends ViewCommon { surface: 'map' }
+export type View = PhotoView | DrawingView | MapView;
+/** 圖層：疊在畫面 on 上的節點和標註（常變更的資料） */
+export interface Layer extends Common { kind: 'layer'; on: string; href?: string; marks?: Mark[] }
+/** 組合：畫面、圖層或組合放在一起，可以再組合 */
+export interface Set extends Common { kind: 'set'; type?: string; items?: { href: string; id?: string; name?: Text; t?: number }[] }
+export type Doc = View | Layer | Set;
 
 export declare const VERSION: 2;
 /** JSON Schema（draft 2020-12），同 climbio.schema.json */

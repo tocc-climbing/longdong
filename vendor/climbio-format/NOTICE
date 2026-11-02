@@ -3,6 +3,6 @@ Copyright (c) 2026 Kant Kang
 
 本資料夾以 Apache License 2.0 授權（見 LICENSE），不含第三方程式、模型或資料。
 它是 Climbio（AGPL-3.0）的一部分，但不引用 AGPL 的程式（App 的 js/、holdscan/），可以單獨拿去用。
-examples/ 的照片不在本資料夾：wall.json 的示範牆照片（Climbio）與 topo.json 的騙人的牆照片（KK）各自以 CC BY-SA 4.0 授權，見檔案裡的 photo。
+examples/ 的照片不在本資料夾：示範牆照片（Climbio）、騙人的牆照片（KK）各自以 CC BY-SA 4.0 授權；龍洞的路線與岩壁線來自臺灣戶外攀岩協會（TOCC）固定點更新計畫，CC BY-SA 4.0。見各檔案的 license、attribution。
 
-English: format is Apache-2.0 and contains no third-party code, models or data. Example photos are CC BY-SA 4.0 by their authors.
+English: format is Apache-2.0 and contains no third-party code, models or data. Example photos and Long Dong data are CC BY-SA 4.0 by their authors.

@@ -3,295 +3,35 @@
   "title": "Climbio open format",
   "oneOf": [
     {
-      "$ref": "#/$defs/wall"
+      "$ref": "#/$defs/photoView"
     },
     {
-      "$ref": "#/$defs/topo"
+      "$ref": "#/$defs/drawingView"
+    },
+    {
+      "$ref": "#/$defs/mapView"
+    },
+    {
+      "$ref": "#/$defs/layer"
+    },
+    {
+      "$ref": "#/$defs/set"
     }
   ],
   "$defs": {
-    "point": {
-      "type": "array",
-      "items": {
-        "type": "number"
-      },
-      "minItems": 2,
-      "maxItems": 2
-    },
-    "photo": {
-      "type": "object",
-      "required": [
-        "href",
-        "w",
-        "h",
-        "mime",
-        "license",
-        "attribution",
-        "origin"
-      ],
-      "properties": {
-        "href": {
-          "type": "string",
-          "pattern": "^(https://\\S+|(?![/\\\\])(?!(.*/)?\\.\\.(/|$))[^\\s:\\\\]+)$"
-        },
-        "w": {
-          "type": "integer",
-          "exclusiveMinimum": 0
-        },
-        "h": {
-          "type": "integer",
-          "exclusiveMinimum": 0
-        },
-        "mime": {
-          "type": "string",
-          "pattern": "^image/(jpeg|png|webp)$"
-        },
-        "sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
-        },
-        "license": {
-          "type": "string",
-          "minLength": 1
-        },
-        "attribution": {
+    "text": {
+      "oneOf": [
+        {
           "type": "string"
         },
-        "origin": {
-          "enum": [
-            "self",
-            "authorized"
-          ]
-        },
-        "camera": {
-          "$ref": "#/$defs/camera"
-        }
-      }
-    },
-    "camera": {
-      "type": "object",
-      "required": [
-        "position"
-      ],
-      "properties": {
-        "position": {
-          "$ref": "#/$defs/position"
-        },
-        "accuracy": {
-          "type": "number",
-          "minimum": 0
-        },
-        "heading": {
-          "type": "number",
-          "minimum": 0,
-          "exclusiveMaximum": 360
-        },
-        "pitch": {
-          "type": "number",
-          "minimum": -90,
-          "maximum": 90
-        },
-        "t": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "focal": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "model": {
-          "type": "string"
-        }
-      }
-    },
-    "derivedFrom": {
-      "type": "object",
-      "required": [
-        "url"
-      ],
-      "properties": {
-        "url": {
-          "type": "string",
-          "pattern": "^https://"
-        },
-        "id": {
-          "type": "string"
-        },
-        "t": {
-          "type": "integer",
-          "minimum": 0
-        }
-      }
-    },
-    "hold": {
-      "type": "object",
-      "required": [
-        "id",
-        "poly"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "poly": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/point"
-          },
-          "minItems": 3
-        },
-        "source": {
-          "enum": [
-            "detect",
-            "edited",
-            "manual"
-          ]
-        },
-        "t": {
-          "type": "integer",
-          "minimum": 0
-        }
-      }
-    },
-    "route": {
-      "type": "object",
-      "required": [
-        "id",
-        "holds"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[0-9a-z]{1,40}$"
-        },
-        "name": {
-          "type": "string"
-        },
-        "grade": {
-          "type": "string"
-        },
-        "author": {
-          "type": "string"
-        },
-        "t": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "holds": {
+        {
           "type": "object",
           "additionalProperties": {
-            "enum": [
-              "s",
-              "h",
-              "f",
-              "t"
-            ]
+            "type": "string"
           },
           "minProperties": 1
-        },
-        "seq": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "shapes": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/hold"
-          }
         }
-      }
-    },
-    "wall": {
-      "type": "object",
-      "required": [
-        "climbio",
-        "kind",
-        "id",
-        "name",
-        "license",
-        "t",
-        "photo",
-        "holds",
-        "routes"
-      ],
-      "properties": {
-        "climbio": {
-          "const": 2
-        },
-        "kind": {
-          "const": "wall"
-        },
-        "id": {
-          "type": "string",
-          "pattern": "^[0-9a-z]{8,40}$"
-        },
-        "name": {
-          "type": "string"
-        },
-        "gym": {
-          "type": "string"
-        },
-        "author": {
-          "type": "string"
-        },
-        "license": {
-          "type": "string",
-          "minLength": 1
-        },
-        "t": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "derivedFrom": {
-          "$ref": "#/$defs/derivedFrom"
-        },
-        "thumb": {
-          "type": "string",
-          "pattern": "^(data:image/|$)"
-        },
-        "photo": {
-          "$ref": "#/$defs/photo"
-        },
-        "holds": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/hold"
-          }
-        },
-        "routes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/route"
-          }
-        }
-      }
-    },
-    "topoRoute": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "grade": {
-          "type": "string"
-        },
-        "line": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/point"
-          },
-          "minItems": 2
-        },
-        "bolts": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/point"
-          }
-        }
-      }
+      ]
     },
     "position": {
       "type": "array",
@@ -301,8 +41,49 @@
       "minItems": 2,
       "maxItems": 3
     },
-    "line": {
+    "ring": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/position"
+      },
+      "minItems": 4
+    },
+    "geometry": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "properties": {
+            "type": {
+              "const": "Point"
+            },
+            "coordinates": {
+              "$ref": "#/$defs/position"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "properties": {
+            "type": {
+              "const": "MultiPoint"
+            },
+            "coordinates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/position"
+              },
+              "minItems": 1
+            }
+          }
+        },
         {
           "type": "object",
           "required": [
@@ -344,34 +125,175 @@
               "minItems": 1
             }
           }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "properties": {
+            "type": {
+              "const": "Polygon"
+            },
+            "coordinates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ring"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "coordinates"
+          ],
+          "properties": {
+            "type": {
+              "const": "MultiPolygon"
+            },
+            "coordinates": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/ring"
+                },
+                "minItems": 1
+              },
+              "minItems": 1
+            }
+          }
         }
       ]
     },
-    "topo": {
+    "node": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-z][0-9a-z_-]{0,63}$"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "parent": {
+          "type": "string",
+          "pattern": "^[0-9a-z][0-9a-z_-]{0,63}(#[0-9a-z][0-9a-z_-]{0,63})?$"
+        },
+        "author": {
+          "type": "string"
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "geo": {
+          "$ref": "#/$defs/geometry"
+        },
+        "props": {
+          "type": "object"
+        }
+      }
+    },
+    "mark": {
+      "type": "object",
+      "required": [
+        "geometry"
+      ],
+      "properties": {
+        "node": {
+          "type": "string",
+          "pattern": "^([0-9a-z][0-9a-z_-]{0,63}|[0-9a-z]{12,64}#[0-9a-z][0-9a-z_-]{0,63})$"
+        },
+        "geometry": {
+          "$ref": "#/$defs/geometry"
+        },
+        "props": {
+          "type": "object"
+        }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "required": [
+        "position"
+      ],
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/position"
+        },
+        "accuracy": {
+          "type": "number",
+          "minimum": 0
+        },
+        "heading": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "pitch": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "focal": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "model": {
+          "type": "string"
+        }
+      }
+    },
+    "photoView": {
       "type": "object",
       "required": [
         "climbio",
         "kind",
         "id",
-        "name",
-        "license",
+        "surface",
         "t",
-        "photo",
-        "routes"
+        "license",
+        "attribution",
+        "origin",
+        "href",
+        "w",
+        "h",
+        "mime"
       ],
       "properties": {
         "climbio": {
           "const": 2
         },
-        "kind": {
-          "const": "topo"
-        },
         "id": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^[0-9a-z]{12,64}$"
         },
         "name": {
-          "type": "string"
+          "$ref": "#/$defs/text"
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
         },
         "author": {
           "type": "string"
@@ -380,12 +302,8 @@
           "type": "string",
           "minLength": 1
         },
-        "t": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "derivedFrom": {
-          "$ref": "#/$defs/derivedFrom"
+        "attribution": {
+          "type": "string"
         },
         "source": {
           "type": "object",
@@ -402,50 +320,503 @@
             }
           }
         },
-        "sector": {
-          "type": "string"
-        },
-        "photo": {
-          "$ref": "#/$defs/photo"
-        },
-        "crop": {
+        "derivedFrom": {
           "type": "object",
           "required": [
-            "x",
-            "y",
-            "w",
-            "h"
+            "url"
           ],
           "properties": {
-            "x": {
-              "type": "number",
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "id": {
+              "type": "string"
+            },
+            "t": {
+              "type": "integer",
               "minimum": 0
-            },
-            "y": {
-              "type": "number",
-              "minimum": 0
-            },
-            "w": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            },
-            "h": {
-              "type": "number",
-              "exclusiveMinimum": 0
             }
           }
         },
-        "routes": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/topoRoute"
+        "props": {
+          "type": "object"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
           }
         },
-        "geo": {
+        "kind": {
+          "const": "view"
+        },
+        "surface": {
+          "const": "photo"
+        },
+        "origin": {
+          "enum": [
+            "self",
+            "authorized"
+          ]
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mark"
+          }
+        },
+        "href": {
+          "type": "string",
+          "pattern": "^(https://\\S+|(?![/\\\\])(?!(.*/)?\\.\\.(/|$))[^\\s:\\\\#]+)$"
+        },
+        "w": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "mime": {
+          "type": "string",
+          "pattern": "^image/(jpeg|png|webp)$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "camera": {
+          "$ref": "#/$defs/camera"
+        }
+      }
+    },
+    "drawingView": {
+      "type": "object",
+      "required": [
+        "climbio",
+        "kind",
+        "id",
+        "surface",
+        "t",
+        "license",
+        "attribution",
+        "origin",
+        "w",
+        "h"
+      ],
+      "properties": {
+        "climbio": {
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-z]{12,64}$"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "author": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "source": {
           "type": "object",
+          "required": [
+            "url"
+          ],
           "properties": {
-            "wall": {
-              "$ref": "#/$defs/line"
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "derivedFrom": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "id": {
+              "type": "string"
+            },
+            "t": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "props": {
+          "type": "object"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "kind": {
+          "const": "view"
+        },
+        "surface": {
+          "const": "drawing"
+        },
+        "origin": {
+          "enum": [
+            "self",
+            "authorized"
+          ]
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mark"
+          }
+        },
+        "href": {
+          "type": "string",
+          "pattern": "^(https://\\S+|(?![/\\\\])(?!(.*/)?\\.\\.(/|$))[^\\s:\\\\#]+)$"
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "mime": {
+          "type": "string",
+          "pattern": "^image/(svg\\+xml|png|webp|jpeg)$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "mapView": {
+      "type": "object",
+      "required": [
+        "climbio",
+        "kind",
+        "id",
+        "surface",
+        "t",
+        "license",
+        "attribution",
+        "origin"
+      ],
+      "properties": {
+        "climbio": {
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-z]{12,64}$"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "author": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "derivedFrom": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "id": {
+              "type": "string"
+            },
+            "t": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "props": {
+          "type": "object"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "kind": {
+          "const": "view"
+        },
+        "surface": {
+          "const": "map"
+        },
+        "origin": {
+          "enum": [
+            "self",
+            "authorized"
+          ]
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mark"
+          }
+        }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "required": [
+        "climbio",
+        "kind",
+        "id",
+        "on",
+        "t",
+        "license"
+      ],
+      "properties": {
+        "climbio": {
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-z]{12,64}$"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "author": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "derivedFrom": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "id": {
+              "type": "string"
+            },
+            "t": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "props": {
+          "type": "object"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "kind": {
+          "const": "layer"
+        },
+        "on": {
+          "type": "string",
+          "pattern": "^[0-9a-z]{12,64}$"
+        },
+        "href": {
+          "type": "string",
+          "pattern": "^(https://\\S+|(?![/\\\\])(?!(.*/)?\\.\\.(/|$))[^\\s:\\\\#]+)$"
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mark"
+          }
+        }
+      }
+    },
+    "set": {
+      "type": "object",
+      "required": [
+        "climbio",
+        "kind",
+        "id",
+        "t",
+        "license"
+      ],
+      "properties": {
+        "climbio": {
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-z]{12,64}$"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "t": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "author": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "derivedFrom": {
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            },
+            "id": {
+              "type": "string"
+            },
+            "t": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "props": {
+          "type": "object"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "kind": {
+          "const": "set"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "href"
+            ],
+            "properties": {
+              "href": {
+                "type": "string",
+                "pattern": "^(https://\\S+|(?![/\\\\])(?!(.*/)?\\.\\.(/|$))[^\\s:\\\\#]+)$"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-z]{12,64}$"
+              },
+              "name": {
+                "$ref": "#/$defs/text"
+              },
+              "t": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           }
         }

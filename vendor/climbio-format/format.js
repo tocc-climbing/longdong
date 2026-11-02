@@ -1,6 +1,6 @@
-// Climbio 公開格式：可分享的牆面（kind: wall，室內）與 Topo（kind: topo，戶外）的 JSON Schema 和驗證器，規格見 README.md。
+// Climbio 公開格式：以畫面為中心（照片、向量圖、地圖）；常變更的標註放在疊在畫面上的圖層；其他東西都是畫面的組合。JSON Schema 和驗證器，規格見 README.md，詞彙見 VOCABULARY.md。
 // 瀏覽器用 <script> 載入，掛在全域 ClimbioFormat；Node 用 require。climbio.schema.json 是 SCHEMA 原樣輸出給其他語言用（測試會比對）。
-// English: Climbio open format: JSON Schema and validator for shared walls (indoor) and topos (outdoor). Apache-2.0.
+// English: Climbio open format: views (photo, drawing, map), layers drawn on a view, and sets that compose them. JSON Schema and validator. Apache-2.0.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.ClimbioFormat = factory();
@@ -9,32 +9,66 @@
   const VERSION = 2;
   const ref = (name) => ({ $ref: `#/$defs/${name}` });
   const str = { type: 'string' }, int = { type: 'integer', minimum: 0 }, size = { type: 'integer', exclusiveMinimum: 0 };
-  const map = (value) => ({ type: 'object', additionalProperties: value });
+  const obj = { type: 'object' };
+  const arr = (items, minItems) => (minItems ? { type: 'array', items, minItems } : { type: 'array', items });
+  // 檔案 id：隨機、至少 12 碼小寫英數（新產生的用 16 碼）；節點 id：檔案內唯一；跨檔案引用寫「檔案id#節點id」
+  const FILE_ID = '[0-9a-z]{12,64}', NODE_ID = '[0-9a-z][0-9a-z_-]{0,63}';
+  const geometry = (type, coordinates) => ({ type: 'object', required: ['type', 'coordinates'], properties: { type: { const: type }, coordinates } });
+  const pos = ref('position'), ring = ref('ring');
+  const href = { type: 'string', pattern: '^(https://\\S+|(?![/\\\\])(?!(.*/)?\\.\\.(/|$))[^\\s:\\\\#]+)$' };
+  // 畫面和組合共用的欄位
+  const common = {
+    climbio: { const: VERSION },
+    id: { type: 'string', pattern: `^${FILE_ID}$` },
+    name: ref('text'), t: int, author: str,
+    license: { type: 'string', minLength: 1 }, attribution: str,
+    source: { type: 'object', required: ['url'], properties: { url: { type: 'string', pattern: '^https://' }, version: str } },
+    derivedFrom: { type: 'object', required: ['url'], properties: { url: { type: 'string', pattern: '^https://' }, id: str, t: int } },
+    props: obj,
+    nodes: arr(ref('node')),
+  };
+  const view = (surface, required, extra) => ({
+    type: 'object', required: ['climbio', 'kind', 'id', 'surface', 't', 'license', 'attribution', 'origin', ...required],
+    properties: { ...common, kind: { const: 'view' }, surface: { const: surface }, origin: { enum: ['self', 'authorized'] }, marks: arr(ref('mark')), ...extra },
+  });
   const SCHEMA = {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: 'Climbio open format',
-    oneOf: [ref('wall'), ref('topo')],
+    oneOf: [ref('photoView'), ref('drawingView'), ref('mapView'), ref('layer'), ref('set')],
     $defs: {
-      point: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
-      // 照片：href 是相對路徑（不能往上層、不能從根目錄開始）或 https 網址；紙本、來源不明的照片不出裝置，origin 沒有這兩種
-      photo: {
-        type: 'object', required: ['href', 'w', 'h', 'mime', 'license', 'attribution', 'origin'],
+      // 名稱：字串，或語言代碼 → 字串
+      text: { oneOf: [str, { type: 'object', additionalProperties: str, minProperties: 1 }] },
+      position: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 3 },
+      ring: arr(pos, 4),
+      // 幾何：GeoJSON 的寫法；畫面上用畫面的座標（照片像素、向量圖的 w／h），地理位置用經緯度（經度在前）
+      geometry: {
+        oneOf: [
+          geometry('Point', pos),
+          geometry('MultiPoint', arr(pos, 1)),
+          geometry('LineString', arr(pos, 2)),
+          geometry('MultiLineString', arr(arr(pos, 2), 1)),
+          geometry('Polygon', arr(ring, 1)),
+          geometry('MultiPolygon', arr(arr(ring, 1), 1)),
+        ],
+      },
+      // 節點：任何東西（路線、岩點、bolt、分區……），type 是自由字串，描述放 props（詞彙見 VOCABULARY.md）
+      node: {
+        type: 'object', required: ['id'],
         properties: {
-          href: { type: 'string', pattern: '^(https://\\S+|(?![/\\\\])(?!(.*/)?\\.\\.(/|$))[^\\s:\\\\]+)$' },
-          w: size, h: size,
-          mime: { type: 'string', pattern: '^image/(jpeg|png|webp)$' },
-          sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
-          license: { type: 'string', minLength: 1 },
-          attribution: str,
-          origin: { enum: ['self', 'authorized'] },
-          camera: ref('camera'),
+          id: { type: 'string', pattern: `^${NODE_ID}$` },
+          type: { type: 'string', minLength: 1 }, name: ref('text'),
+          parent: { type: 'string', pattern: `^${NODE_ID}(#${NODE_ID})?$` },
+          author: str, t: int, license: { type: 'string', minLength: 1 },
+          geo: ref('geometry'), props: obj,
         },
       },
+      // 標註：畫在畫面上的一個形狀，指向這個檔案的節點，或直接指向全域節點（不必再寫一份節點）
+      mark: { type: 'object', required: ['geometry'], properties: { node: { type: 'string', pattern: `^(${NODE_ID}|${FILE_ID}#${NODE_ID})$` }, geometry: ref('geometry'), props: obj } },
       // 拍照資料：作者同意公開才寫；照片檔本身仍不帶 EXIF
       camera: {
         type: 'object', required: ['position'],
         properties: {
-          position: ref('position'),
+          position: pos,
           accuracy: { type: 'number', minimum: 0 },
           heading: { type: 'number', minimum: 0, exclusiveMaximum: 360 },
           pitch: { type: 'number', minimum: -90, maximum: 90 },
@@ -43,55 +77,29 @@
           model: str,
         },
       },
-      derivedFrom: { type: 'object', required: ['url'], properties: { url: { type: 'string', pattern: '^https://' }, id: str, t: int } },
-      hold: {
-        type: 'object', required: ['id', 'poly'],
-        properties: { id: { type: 'string', minLength: 1 }, poly: { type: 'array', items: ref('point'), minItems: 3 }, source: { enum: ['detect', 'edited', 'manual'] }, t: int },
+      photoView: view('photo', ['href', 'w', 'h', 'mime'], {
+        href, w: size, h: size,
+        mime: { type: 'string', pattern: '^image/(jpeg|png|webp)$' },
+        sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+        camera: ref('camera'),
+      }),
+      drawingView: view('drawing', ['w', 'h'], {
+        href, w: { type: 'number', exclusiveMinimum: 0 }, h: { type: 'number', exclusiveMinimum: 0 },
+        mime: { type: 'string', pattern: '^image/(svg\\+xml|png|webp|jpeg)$' },
+        sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      }),
+      mapView: view('map', [], {}),
+      // 圖層：疊在某個畫面（on）上的節點和標註，座標用那個畫面的；常變更的資料（路線、線段）放這裡，畫面本身不用跟著改
+      layer: {
+        type: 'object', required: ['climbio', 'kind', 'id', 'on', 't', 'license'],
+        properties: { ...common, kind: { const: 'layer' }, on: { type: 'string', pattern: `^${FILE_ID}$` }, href, marks: arr(ref('mark')) },
       },
-      route: {
-        type: 'object', required: ['id', 'holds'],
+      // 組合：放在一起的畫面或組合（items），可以再組合；組合自己也可以有節點
+      set: {
+        type: 'object', required: ['climbio', 'kind', 'id', 't', 'license'],
         properties: {
-          id: { type: 'string', pattern: '^[0-9a-z]{1,40}$' }, name: str, grade: str, author: str, t: int,
-          holds: { ...map({ enum: ['s', 'h', 'f', 't'] }), minProperties: 1 },
-          seq: { type: 'array', items: str },
-          shapes: map(ref('hold')),
-        },
-      },
-      wall: {
-        type: 'object', required: ['climbio', 'kind', 'id', 'name', 'license', 't', 'photo', 'holds', 'routes'],
-        properties: {
-          climbio: { const: VERSION }, kind: { const: 'wall' },
-          id: { type: 'string', pattern: '^[0-9a-z]{8,40}$' }, name: str, gym: str, author: str,
-          license: { type: 'string', minLength: 1 }, t: int, derivedFrom: ref('derivedFrom'),
-          thumb: { type: 'string', pattern: '^(data:image/|$)' },
-          photo: ref('photo'),
-          holds: { type: 'array', items: ref('hold') },
-          routes: { type: 'array', items: ref('route') },
-        },
-      },
-      topoRoute: {
-        type: 'object',
-        properties: { name: str, grade: str, line: { type: 'array', items: ref('point'), minItems: 2 }, bolts: map(ref('point')) },
-      },
-      position: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 3 },
-      line: {
-        oneOf: [
-          { type: 'object', required: ['type', 'coordinates'], properties: { type: { const: 'LineString' }, coordinates: { type: 'array', items: ref('position'), minItems: 2 } } },
-          { type: 'object', required: ['type', 'coordinates'], properties: { type: { const: 'MultiLineString' }, coordinates: { type: 'array', items: { type: 'array', items: ref('position'), minItems: 2 }, minItems: 1 } } },
-        ],
-      },
-      topo: {
-        type: 'object', required: ['climbio', 'kind', 'id', 'name', 'license', 't', 'photo', 'routes'],
-        properties: {
-          climbio: { const: VERSION }, kind: { const: 'topo' },
-          id: { type: 'string', minLength: 1 }, name: str, author: str,
-          license: { type: 'string', minLength: 1 }, t: int, derivedFrom: ref('derivedFrom'),
-          source: { type: 'object', required: ['url'], properties: { url: { type: 'string', pattern: '^https://' }, version: str } },
-          sector: str,
-          photo: ref('photo'),
-          crop: { type: 'object', required: ['x', 'y', 'w', 'h'], properties: { x: { type: 'number', minimum: 0 }, y: { type: 'number', minimum: 0 }, w: { type: 'number', exclusiveMinimum: 0 }, h: { type: 'number', exclusiveMinimum: 0 } } },
-          routes: map(ref('topoRoute')),
-          geo: { type: 'object', properties: { wall: ref('line') } },
+          ...common, kind: { const: 'set' }, type: { type: 'string', minLength: 1 },
+          items: arr({ type: 'object', required: ['href'], properties: { href, id: { type: 'string', pattern: `^${FILE_ID}$` }, name: ref('text'), t: int } }),
         },
       },
     },
@@ -142,33 +150,49 @@
     }
   }
 
-  // ---------- SCHEMA 表達不了的：引用的 id 存在、座標在照片範圍內、經緯度範圍 ----------
+  // ---------- SCHEMA 表達不了的：引用存在、上層不繞圈、座標範圍、多邊形封閉、常用詞彙 ----------
+  const GLOBAL = new RegExp(`^${FILE_ID}(#${NODE_ID})?$`);
+  const positions = (g) => (g.type === 'Point' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates.flat(2) : g.type === 'Polygon' || g.type === 'MultiLineString' ? g.coordinates.flat() : g.coordinates);
+  const rings = (g) => (g.type === 'Polygon' ? g.coordinates : g.type === 'MultiPolygon' ? g.coordinates.flat() : []);
+  function shape(g, where, inside, out) {
+    if (positions(g).some(p => !inside(p))) out.push(`${where}：座標超出範圍`);
+    for (const r of rings(g)) { const a = r[0], b = r[r.length - 1]; if (a[0] !== b[0] || a[1] !== b[1]) { out.push(`${where}：多邊形的第一點和最後一點要相同`); break; } }
+  }
+  const lonLat = ([x, y]) => Math.abs(x) <= 180 && Math.abs(y) <= 90;
   function relations(doc, out) {
-    const { w, h, camera } = doc.photo;
-    if (camera) { const [lon, lat] = camera.position; if (Math.abs(lon) > 180 || Math.abs(lat) > 90) out.push('photo.camera.position：經度在前，經度 ±180、緯度 ±90'); }
-    const inside = (pts, where) => { if (pts.some(([x, y]) => x < 0 || y < 0 || x > w || y > h)) out.push(`${where}：座標超出照片範圍`); };
-    if (doc.kind === 'wall') {
-      const ids = new Set();
-      doc.holds.forEach((hd, i) => { if (ids.has(hd.id)) out.push(`holds[${i}].id：重複的 ${hd.id}`); ids.add(hd.id); inside(hd.poly, `holds[${i}].poly`); });
-      const rids = new Set();
-      doc.routes.forEach((r, i) => {
-        const where = `routes[${i}]`, own = r.shapes || {};
-        if (rids.has(r.id)) out.push(`${where}.id：重複的 ${r.id}`);
-        rids.add(r.id);
-        for (const [k, sh] of Object.entries(own)) inside(sh.poly, `${where}.shapes.${k}.poly`);
-        for (const k of Object.keys(r.holds)) if (!ids.has(k) && !own[k]) out.push(`${where}.holds.${k}：牆上和路線外框都沒有這顆岩點`);
-        for (const k of r.seq || []) if (!(k in r.holds)) out.push(`${where}.seq：${k} 不是這條路線的岩點`);
-      });
-    } else {
-      if (doc.crop) { const c = doc.crop; if (c.x + c.w > w || c.y + c.h > h) out.push('crop：超出照片範圍'); }
-      for (const [k, r] of Object.entries(doc.routes)) {
-        if (r.line) inside(r.line, `routes.${k}.line`);
-        for (const [b, p] of Object.entries(r.bolts || {})) inside([p], `routes.${k}.bolts.${b}`);
+    const nodes = doc.nodes || [], byId = new Map();
+    nodes.forEach((nd, i) => { if (byId.has(nd.id)) out.push(`nodes[${i}].id：重複的 ${nd.id}`); else byId.set(nd.id, nd); });
+    nodes.forEach((nd, i) => {
+      const where = `nodes[${i}]`;
+      if (nd.parent && !byId.has(nd.parent) && !GLOBAL.test(nd.parent)) out.push(`${where}.parent：這個檔案沒有 ${nd.parent}，外部節點要寫全域 id 或「檔案id#節點id」`);
+      for (let p = nd.parent, seen = new Set([nd.id]); p && byId.has(p); p = byId.get(p).parent) { if (seen.has(p)) { out.push(`${where}.parent：上層繞回自己`); break; } seen.add(p); }
+      if (nd.geo) shape(nd.geo, `${where}.geo`, lonLat, out);
+      // 常用詞彙：路線的岩點和出手順序
+      const pr = nd.props || {};
+      // 圖層的岩點可以在底下的畫面裡，這裡查不到，只查角色
+      if (typeOf(pr.holds) === 'object') for (const [k, role] of Object.entries(pr.holds)) {
+        if (!['s', 'h', 'f', 't'].includes(role)) out.push(`${where}.props.holds.${k}：角色要是 s、h、f、t 其中之一`);
+        if (doc.kind === 'view' && (!byId.has(k) || byId.get(k).type !== 'hold')) out.push(`${where}.props.holds.${k}：這個檔案沒有這個岩點`);
       }
+      if (Array.isArray(pr.seq)) for (const k of pr.seq) if (typeOf(pr.holds) !== 'object' || !(k in pr.holds)) out.push(`${where}.props.seq：${k} 不是這條路線的岩點`);
+    });
+    if (doc.kind === 'set') {
+      (doc.items || []).forEach((it, i) => { if (it.id === doc.id) out.push(`items[${i}]：組合不能放自己`); });
+      return;
     }
+    if (doc.kind === 'layer' && doc.on === doc.id) out.push('on：圖層不能疊在自己上面');
+    // 圖層的座標範圍要看底下的畫面，這裡只查多邊形封閉；不在這個檔案的本地 id 在圖層裡指底下的畫面
+    const inside = doc.kind === 'layer' ? () => true : doc.surface === 'map' ? lonLat : ([x, y]) => x >= 0 && y >= 0 && x <= doc.w && y <= doc.h;
+    (doc.marks || []).forEach((m, i) => {
+      if (m.node && doc.kind === 'view' && !byId.has(m.node) && !GLOBAL.test(m.node)) out.push(`marks[${i}].node：這個檔案沒有 ${m.node}`);
+      shape(m.geometry, `marks[${i}].geometry`, inside, out);
+    });
+    if (doc.camera && !lonLat(doc.camera.position)) out.push('camera.position：經度在前，經度 ±180、緯度 ±90');
+    const crop = doc.props && doc.props.crop;
+    if (crop && doc.surface !== 'map' && (crop.x < 0 || crop.y < 0 || crop.x + crop.w > doc.w || crop.y + crop.h > doc.h)) out.push('props.crop：超出畫面範圍');
   }
 
-  // 回傳錯誤清單（`欄位路徑：原因`），空陣列就是合格；不認得的欄位略過
+  // 回傳錯誤清單（`欄位路徑：原因`），空陣列就是合格；不認得的欄位、type、詞彙略過
   function validate(doc) {
     const out = [];
     check(SCHEMA, doc, '', out);

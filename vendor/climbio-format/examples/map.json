@@ -1,0 +1,61 @@
+{
+ "climbio": 2,
+ "kind": "view",
+ "surface": "map",
+ "id": "jj2uzfvie3b4v7i1",
+ "name": {
+  "zh-Hant": "校門口岩壁地圖",
+  "en": "School Gate walls"
+ },
+ "t": 1761620000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "臺灣戶外攀岩協會（TOCC）固定點更新計畫",
+ "origin": "self",
+ "marks": [
+  {
+   "node": "2ri39u58q2fx3tly",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [[121.921457, 25.112471], [121.921477, 25.112489], [121.921516, 25.112501], [121.921524, 25.112516], [121.92152, 25.112549], [121.921494, 25.112562], [121.921487, 25.112593], [121.921492, 25.112619]]
+    ]
+   }
+  },
+  {
+   "node": "dh3oy34jfnrv7smx",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [[121.921576, 25.112752], [121.921548, 25.11272], [121.921485, 25.112706], [121.92145, 25.112684]]
+    ]
+   }
+  },
+  {
+   "node": "bux8k14jw0zqswqn",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [[121.921577, 25.112754], [121.921594, 25.112815], [121.921568, 25.112849], [121.921537, 25.112855]]
+    ]
+   }
+  },
+  {
+   "node": "wkuv8azbvv9yjef6",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [[121.921682, 25.112921], [121.921742, 25.112922], [121.921777, 25.112936], [121.921788, 25.112953]]
+    ]
+   }
+  },
+  {
+   "node": "flwc2x6dysz6mm38",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [[121.921574, 25.112866], [121.92156, 25.112885], [121.921508, 25.112894]]
+    ]
+   }
+  }
+ ]
+}

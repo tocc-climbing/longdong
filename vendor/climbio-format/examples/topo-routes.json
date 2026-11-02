@@ -1,0 +1,297 @@
+{
+ "climbio": 2,
+ "kind": "layer",
+ "on": "v0yvmgjsjo884v1g",
+ "href": "topo.json",
+ "id": "g28nouxh5k6fy4k3",
+ "t": 1761620000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "KK",
+ "author": "KK",
+ "nodes": [
+  {
+   "id": "jag38d-a01",
+   "type": "bolt",
+   "parent": "tdebo72up4xx11pe",
+   "name": "A01"
+  },
+  {
+   "id": "jag38d-a02",
+   "type": "bolt",
+   "parent": "tdebo72up4xx11pe",
+   "name": "A02"
+  },
+  {
+   "id": "jag38d-b01",
+   "type": "bolt",
+   "parent": "tdebo72up4xx11pe",
+   "name": "B01"
+  },
+  {
+   "id": "jag38d-b02",
+   "type": "bolt",
+   "parent": "tdebo72up4xx11pe",
+   "name": "B02"
+  },
+  {
+   "id": "jag38d-b03",
+   "type": "bolt",
+   "parent": "tdebo72up4xx11pe",
+   "name": "B03"
+  },
+  {
+   "id": "jag38d-b04",
+   "type": "bolt",
+   "parent": "tdebo72up4xx11pe",
+   "name": "B04"
+  },
+  {
+   "id": "kj45bv-a01",
+   "type": "bolt",
+   "parent": "p2m0htbin1gw02re",
+   "name": "A01"
+  },
+  {
+   "id": "kj45bv-a02",
+   "type": "bolt",
+   "parent": "p2m0htbin1gw02re",
+   "name": "A02"
+  },
+  {
+   "id": "kj45bv-b01",
+   "type": "bolt",
+   "parent": "p2m0htbin1gw02re",
+   "name": "B01"
+  },
+  {
+   "id": "kj45bv-b02",
+   "type": "bolt",
+   "parent": "p2m0htbin1gw02re",
+   "name": "B02"
+  },
+  {
+   "id": "kj45bv-b03",
+   "type": "bolt",
+   "parent": "p2m0htbin1gw02re",
+   "name": "B03"
+  },
+  {
+   "id": "kj45bv-b04",
+   "type": "bolt",
+   "parent": "p2m0htbin1gw02re",
+   "name": "B04"
+  },
+  {
+   "id": "xfb2fj-a01",
+   "type": "bolt",
+   "parent": "j31p7mr5q9xlxnn3",
+   "name": "A01"
+  },
+  {
+   "id": "xfb2fj-a02",
+   "type": "bolt",
+   "parent": "j31p7mr5q9xlxnn3",
+   "name": "A02"
+  },
+  {
+   "id": "xfb2fj-b01",
+   "type": "bolt",
+   "parent": "j31p7mr5q9xlxnn3",
+   "name": "B01"
+  },
+  {
+   "id": "xfb2fj-b02",
+   "type": "bolt",
+   "parent": "j31p7mr5q9xlxnn3",
+   "name": "B02"
+  },
+  {
+   "id": "xfb2fj-b03",
+   "type": "bolt",
+   "parent": "j31p7mr5q9xlxnn3",
+   "name": "B03"
+  },
+  {
+   "id": "xfb2fj-b04",
+   "type": "bolt",
+   "parent": "j31p7mr5q9xlxnn3",
+   "name": "B04"
+  },
+  {
+   "id": "xfb2fj-b05",
+   "type": "bolt",
+   "parent": "j31p7mr5q9xlxnn3",
+   "name": "B05"
+  }
+ ],
+ "marks": [
+  {
+   "node": "7hzitqfzuss6ta5c",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [[771, 1268], [806, 1230], [824, 1199]]
+   }
+  },
+  {
+   "node": "tdebo72up4xx11pe",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [[1512, 1125], [1580, 845], [1624, 742], [1649, 611], [1634, 494], [1607, 296], [1578, 199]]
+   }
+  },
+  {
+   "node": "jag38d-a01",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1552, 181]
+   }
+  },
+  {
+   "node": "jag38d-a02",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1576, 181]
+   }
+  },
+  {
+   "node": "jag38d-b01",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1529, 841]
+   }
+  },
+  {
+   "node": "jag38d-b02",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1527, 683]
+   }
+  },
+  {
+   "node": "jag38d-b03",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1557, 537]
+   }
+  },
+  {
+   "node": "jag38d-b04",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1560, 365]
+   }
+  },
+  {
+   "node": "p2m0htbin1gw02re",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [[1240, 1247], [1273, 1090], [1301, 970], [1292, 783], [1352, 567], [1392, 372], [1428, 238]]
+   }
+  },
+  {
+   "node": "kj45bv-a01",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1422, 207]
+   }
+  },
+  {
+   "node": "kj45bv-a02",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1463, 212]
+   }
+  },
+  {
+   "node": "kj45bv-b01",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1267, 1040]
+   }
+  },
+  {
+   "node": "kj45bv-b02",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1273, 917]
+   }
+  },
+  {
+   "node": "kj45bv-b03",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1285, 811]
+   }
+  },
+  {
+   "node": "kj45bv-b04",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1313, 687]
+   }
+  },
+  {
+   "node": "u0uuqfwa64owtim3",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [[1436, 1166], [1444, 917], [1466, 674], [1464, 511], [1484, 363], [1513, 268], [1554, 194]]
+   }
+  },
+  {
+   "node": "j31p7mr5q9xlxnn3",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [[964, 1235], [983, 1049], [1015, 951], [1036, 858], [1078, 737], [1058, 606], [1110, 470], [1179, 408]]
+   }
+  },
+  {
+   "node": "xfb2fj-a01",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1175, 381]
+   }
+  },
+  {
+   "node": "xfb2fj-a02",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1196, 381]
+   }
+  },
+  {
+   "node": "xfb2fj-b01",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [854, 1100]
+   }
+  },
+  {
+   "node": "xfb2fj-b02",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [959, 944]
+   }
+  },
+  {
+   "node": "xfb2fj-b03",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [971, 851]
+   }
+  },
+  {
+   "node": "xfb2fj-b04",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1027, 688]
+   }
+  },
+  {
+   "node": "xfb2fj-b05",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [1117, 559]
+   }
+  }
+ ]
+}

@@ -1,0 +1,194 @@
+{
+ "climbio": 2,
+ "kind": "set",
+ "type": "area",
+ "id": "mxwhbzzqxsxl56so",
+ "name": {
+  "zh-Hant": "校門口",
+  "en": "School Gate"
+ },
+ "t": 1761620000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "臺灣戶外攀岩協會（TOCC）固定點更新計畫",
+ "source": {
+  "url": "https://longdong.web.app/data/longdong.json",
+  "version": "f8e35c2a05d5"
+ },
+ "items": [
+  {
+   "href": "map.json",
+   "id": "jj2uzfvie3b4v7i1"
+  },
+  {
+   "href": "topo.json",
+   "id": "v0yvmgjsjo884v1g"
+  },
+  {
+   "href": "topo-routes.json",
+   "id": "g28nouxh5k6fy4k3"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "677kzay8kfybaam4",
+   "type": "crag",
+   "name": {
+    "zh-Hant": "龍洞",
+    "en": "Long Dong"
+   }
+  },
+  {
+   "id": "ccegh4sbrky9q8a9",
+   "type": "area",
+   "parent": "677kzay8kfybaam4",
+   "name": {
+    "zh-Hant": "校門口",
+    "en": "School Gate"
+   },
+   "props": {
+    "code": "longdong/school-gate"
+   }
+  },
+  {
+   "id": "2ri39u58q2fx3tly",
+   "type": "sector",
+   "parent": "ccegh4sbrky9q8a9",
+   "name": {
+    "zh-Hant": "人面岩",
+    "en": "Disco Buttress"
+   },
+   "props": {
+    "code": "longdong/school-gate-ppyc81"
+   }
+  },
+  {
+   "id": "dh3oy34jfnrv7smx",
+   "type": "sector",
+   "parent": "ccegh4sbrky9q8a9",
+   "name": {
+    "zh-Hant": "校門口南面",
+    "en": "School Gate Crag South Face"
+   },
+   "props": {
+    "code": "longdong/school-gate-g6qhy9"
+   }
+  },
+  {
+   "id": "bux8k14jw0zqswqn",
+   "type": "sector",
+   "parent": "ccegh4sbrky9q8a9",
+   "name": {
+    "zh-Hant": "校門口東面",
+    "en": "School Gate Crag East Face"
+   },
+   "props": {
+    "code": "longdong/school-gate-mi6ob7"
+   }
+  },
+  {
+   "id": "wkuv8azbvv9yjef6",
+   "type": "sector",
+   "parent": "ccegh4sbrky9q8a9",
+   "name": {
+    "zh-Hant": "門簷",
+    "en": "Apprentice Rock"
+   },
+   "props": {
+    "code": "longdong/school-gate-56427g"
+   }
+  },
+  {
+   "id": "flwc2x6dysz6mm38",
+   "type": "sector",
+   "parent": "ccegh4sbrky9q8a9",
+   "name": {
+    "zh-Hant": "騙人的牆",
+    "en": "Illusion Wall"
+   },
+   "props": {
+    "code": "longdong/school-gate-4wnzar"
+   }
+  },
+  {
+   "id": "7hzitqfzuss6ta5c",
+   "type": "route",
+   "parent": "flwc2x6dysz6mm38",
+   "name": {
+    "zh-Hant": "第一外角",
+    "en": "First Corner"
+   },
+   "props": {
+    "code": "longdong/cy8qbf",
+    "grade": {
+     "yds": "5.12a"
+    },
+    "style": "sport",
+    "length": 24
+   }
+  },
+  {
+   "id": "j31p7mr5q9xlxnn3",
+   "type": "route",
+   "parent": "flwc2x6dysz6mm38",
+   "name": {
+    "zh-Hant": "代溝",
+    "en": "Above the Groove"
+   },
+   "props": {
+    "code": "longdong/xfb2fj",
+    "grade": {
+     "yds": "5.11a"
+    },
+    "style": "sport"
+   }
+  },
+  {
+   "id": "p2m0htbin1gw02re",
+   "type": "route",
+   "parent": "flwc2x6dysz6mm38",
+   "name": {
+    "zh-Hant": "最後難關",
+    "en": "Final Crux"
+   },
+   "props": {
+    "code": "longdong/kj45bv",
+    "grade": {
+     "yds": "5.12a"
+    },
+    "style": "sport"
+   }
+  },
+  {
+   "id": "u0uuqfwa64owtim3",
+   "type": "route",
+   "parent": "flwc2x6dysz6mm38",
+   "name": {
+    "zh-Hant": "細縫",
+    "en": "Thinset"
+   },
+   "props": {
+    "code": "longdong/udy37z",
+    "grade": {
+     "yds": "5.11b"
+    },
+    "style": "trad"
+   }
+  },
+  {
+   "id": "tdebo72up4xx11pe",
+   "type": "route",
+   "parent": "flwc2x6dysz6mm38",
+   "name": {
+    "zh-Hant": "Z字",
+    "en": "Stone Z"
+   },
+   "props": {
+    "code": "longdong/jag38d",
+    "grade": {
+     "yds": "5.11a"
+    },
+    "style": "sport"
+   }
+  }
+ ]
+}

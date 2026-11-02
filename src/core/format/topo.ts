@@ -1,75 +1,129 @@
-import type { Photo, Topo, TopoRoute } from '../../../vendor/climbio-format/format'
+import type { Camera, Layer, Mark, Node, PhotoView } from '../../../vendor/climbio-format/format'
 import { isFullCrop, SCALE, type Crop, type Marks, type Point } from '../topo/geometry'
 
 /**
- * Topo 與 Climbio 公開格式 v2（kind: topo，見 vendor/climbio-format/README.md）互轉。
- * 內部的座標是照片寬、高的萬分比，v2 是照片像素（以 photo 的 w、h 為準）。
+ * Topo 與 Climbio 公開格式 v2（見 vendor/climbio-format/README.md）互轉：照片是照片畫面（kind: view），
+ * 路線線段與 bolt 是疊在上面的圖層（kind: layer）。
+ * 內部的座標是照片寬、高的萬分比，v2 是照片像素（以畫面的 w、h 為準）。
  * 萬分比換成像素不失真（整數乘整數再除以 10000）；像素換回萬分比時取最近的整數。
+ * 線段的標註指向路線的全域 id；bolt、anchor 是路線底下的節點（本地 id「路線全域 id-位置」），加上一個 Point 標註。
  */
 
-export interface TopoSource {
-  /** 照片的 id */
+export interface TopoViewSource {
   id: string
-  name: string
+  name?: string
   author?: string
-  /** 標註的授權（SPDX） */
+  /** 照片的授權（SPDX）、署名與來源（self 自己的、authorized 有權利人的授權） */
   license: string
+  attribution: string
+  origin: 'self' | 'authorized'
   /** 最後修改時間（毫秒） */
   t: number
-  source?: Topo['source']
-  sector?: string
-  photo: Photo
-  marks: Marks
+  source?: PhotoView['source']
+  href: string
+  w: number
+  h: number
+  mime: PhotoView['mime']
+  sha256?: string
+  camera?: Camera
   crop?: Crop
-  /** 路線 id → 顯示用的名稱與難度 */
-  routes: Map<string, { name?: string; grade?: string }>
 }
 
-const toPx = ([x, y]: Point, { w, h }: Photo): [number, number] => [(x * w) / SCALE, (y * h) / SCALE]
-const fromPx = ([x, y]: [number, number], { w, h }: Photo): Point => [Math.round((x * SCALE) / w), Math.round((y * SCALE) / h)]
+export interface TopoLayerSource {
+  id: string
+  /** 疊在哪個照片畫面上 */
+  view: PhotoView
+  /** 那個畫面在哪裡（相對路徑或網址） */
+  href?: string
+  author?: string
+  license: string
+  attribution?: string
+  t: number
+  source?: Layer['source']
+  marks: Marks
+  /** 路線 ID → 全域 id */
+  globalId: (routeId: string) => string
+}
 
-/** 沒有任何標記的路線、只有一點的線段不輸出（同資料庫的存法，見 topo/model.ts 的 encodeMarks） */
-export function toTopo(src: TopoSource): Topo {
-  const { photo } = src
-  const routes: Record<string, TopoRoute> = {}
-  for (const [id, m] of Object.entries(src.marks)) {
-    const line = m.line && m.line.length >= 2 ? m.line.map((p) => toPx(p, photo)) : undefined
-    const bolts = m.bolts && Object.keys(m.bolts).length > 0 ? Object.fromEntries(Object.entries(m.bolts).map(([pos, p]) => [pos, toPx(p, photo)])) : undefined
-    if (!line && !bolts) continue
-    const info = src.routes.get(id)
-    routes[id] = { ...(info?.name ? { name: info.name } : {}), ...(info?.grade ? { grade: info.grade } : {}), ...(line ? { line } : {}), ...(bolts ? { bolts } : {}) }
-  }
+type Size = { w: number; h: number }
+
+const toPx = ([x, y]: Point, { w, h }: Size): [number, number] => [(x * w) / SCALE, (y * h) / SCALE]
+const fromPx = ([x, y]: number[], { w, h }: Size): Point => [Math.round((x * SCALE) / w), Math.round((y * SCALE) / h)]
+
+/** bolt 的位置 A01… 是 anchor，B01… 是 bolt（同路線資料的 position） */
+const boltType = (position: string) => (position.startsWith('A') ? 'anchor' : 'bolt')
+const boltId = (route: string, position: string) => `${route}-${position.toLowerCase()}`
+
+/** 裁切在 props.crop（像素）；整張照片不寫 */
+export function toTopoView(src: TopoViewSource): PhotoView {
   const c = src.crop
   return {
     climbio: 2,
-    kind: 'topo',
+    kind: 'view',
+    surface: 'photo',
     id: src.id,
-    name: src.name,
-    ...(src.author ? { author: src.author } : {}),
-    license: src.license,
+    ...(src.name ? { name: src.name } : {}),
     t: src.t,
+    license: src.license,
+    attribution: src.attribution,
+    ...(src.author ? { author: src.author } : {}),
+    origin: src.origin,
     ...(src.source ? { source: src.source } : {}),
-    ...(src.sector ? { sector: src.sector } : {}),
-    photo,
-    ...(c && !isFullCrop(c) ? { crop: { x: (c.x * photo.w) / SCALE, y: (c.y * photo.h) / SCALE, w: (c.w * photo.w) / SCALE, h: (c.h * photo.h) / SCALE } } : {}),
-    routes,
+    href: src.href,
+    w: src.w,
+    h: src.h,
+    mime: src.mime,
+    ...(src.sha256 ? { sha256: src.sha256 } : {}),
+    ...(src.camera ? { camera: src.camera } : {}),
+    ...(c && !isFullCrop(c) ? { props: { crop: { x: (c.x * src.w) / SCALE, y: (c.y * src.h) / SCALE, w: (c.w * src.w) / SCALE, h: (c.h * src.h) / SCALE } } } : {}),
   }
 }
 
-/** v2 的 Topo 換回內部的標記與裁切（doc 先通過 validate） */
-export function fromTopo(doc: Topo): { marks: Marks; crop?: Crop } {
-  const { photo } = doc
-  const marks: Marks = Object.fromEntries(
-    Object.entries(doc.routes).map(([id, r]) => [
-      id,
-      {
-        ...(r.line ? { line: r.line.map((p) => fromPx(p, photo)) } : {}),
-        ...(r.bolts ? { bolts: Object.fromEntries(Object.entries(r.bolts).map(([pos, p]) => [pos, fromPx(p, photo)])) } : {}),
-      },
-    ]),
-  )
-  if (!doc.crop) return { marks }
-  const [x, y] = fromPx([doc.crop.x, doc.crop.y], photo)
-  const [w, h] = fromPx([doc.crop.w, doc.crop.h], photo)
+/** 沒有任何標記的路線、只有一點的線段不輸出（同資料庫的存法，見 topo/model.ts 的 encodeMarks） */
+export function toTopoLayer(src: TopoLayerSource): Layer {
+  const nodes: Node[] = []
+  const marks: Mark[] = []
+  for (const [routeId, m] of Object.entries(src.marks)) {
+    const route = src.globalId(routeId)
+    if (m.line && m.line.length >= 2) marks.push({ node: route, geometry: { type: 'LineString', coordinates: m.line.map((p) => toPx(p, src.view)) } })
+    for (const [position, p] of Object.entries(m.bolts ?? {})) {
+      const id = boltId(route, position)
+      nodes.push({ id, type: boltType(position), parent: route, name: position })
+      marks.push({ node: id, geometry: { type: 'Point', coordinates: toPx(p, src.view) } })
+    }
+  }
+  return {
+    climbio: 2,
+    kind: 'layer',
+    id: src.id,
+    on: src.view.id,
+    ...(src.href ? { href: src.href } : {}),
+    t: src.t,
+    license: src.license,
+    ...(src.attribution ? { attribution: src.attribution } : {}),
+    ...(src.author ? { author: src.author } : {}),
+    ...(src.source ? { source: src.source } : {}),
+    ...(nodes.length ? { nodes } : {}),
+    marks,
+  }
+}
+
+/** v2 的照片畫面與線段圖層換回內部的標記與裁切（兩份都先通過 validate）；routeId：全域 id → 路線 ID，不認得的路線略過 */
+export function fromTopo(view: PhotoView, layer: Layer, routeId: (globalId: string) => string | undefined): { marks: Marks; crop?: Crop } {
+  const nodes = new Map((layer.nodes ?? []).map((n) => [n.id, n]))
+  const marks: Marks = {}
+  for (const mark of layer.marks ?? []) {
+    const node = mark.node === undefined ? undefined : nodes.get(mark.node)
+    const route = routeId(node?.parent ?? mark.node ?? '')
+    if (!route) continue
+    const m = (marks[route] ??= {})
+    const g = mark.geometry
+    if (node && g.type === 'Point' && typeof node.name === 'string') m.bolts = { ...m.bolts, [node.name]: fromPx(g.coordinates, view) }
+    else if (!node && g.type === 'LineString') m.line = g.coordinates.map((p) => fromPx(p, view))
+  }
+  const crop = view.props?.crop as Crop | undefined
+  if (!crop) return { marks }
+  const [x, y] = fromPx([crop.x, crop.y], view)
+  const [w, h] = fromPx([crop.w, crop.h], view)
   return { marks, crop: { x, y, w, h } }
 }
