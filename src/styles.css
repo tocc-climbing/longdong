@@ -4605,7 +4605,7 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 }
 
 /*
- * 路線卡片的 Topo：和上面標題卡連成一整塊——固定 4:5（ROUTE_TOPO_ASPECT），上緣淡入卡片的區域色漸層、左右下緣淡出；
+ * 路線卡片的 Topo：和上面標題卡連成一整塊——固定 4:5（ROUTE_TOPO_ASPECT），照片的四邊短短地淡出（只有照片，線與說明文字不淡，貼著上緣的 anchor 也看得清楚）；
  * 照片不夠寬時（narrow）置中，兩邊是卡片底色。照片灰階（同編輯器），只有這條路線周圍是原色（RouteReveal），其他路線淡淡的
  */
 [data-layout] .route-m .route-topo {
@@ -4630,14 +4630,14 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 .route-topo .topo-frame {
   border-radius: 0;
   background: transparent;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 94%, transparent), linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 94%, transparent), linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
-  mask-composite: intersect;
 }
 
 .route-topo .topo-frame > img {
   filter: grayscale(1) contrast(0.8);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 94%, transparent), linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 94%, transparent), linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  mask-composite: intersect;
 }
 
 .route-topo .topo-frame > svg {

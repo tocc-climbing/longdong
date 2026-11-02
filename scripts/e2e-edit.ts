@@ -1082,7 +1082,9 @@ try {
       gray: getComputedStyle(img).filter.includes('grayscale'),
       tint: getComputedStyle(f.querySelector('.topo-frame')!, '::after').content,
       ratio: f.getBoundingClientRect().width / f.getBoundingClientRect().height,
-      fade: getComputedStyle(f.querySelector('.topo-frame')!).maskImage,
+      fade: getComputedStyle(img).maskImage,
+      // 淡出只在照片上：線、編號、bolt 的說明不跟著淡掉
+      linesFaded: [f.querySelector('.topo-frame')!, f.querySelector('.topo-frame > svg')!].some((el) => getComputedStyle(el).maskImage !== 'none'),
       reveal: f.querySelectorAll('.topo-reveal').length,
       zoomed: parseFloat(img.style.width) > 100,
       dim: f.querySelectorAll('.topo-route.dim').length,
@@ -1093,7 +1095,7 @@ try {
     cardState.buttons === 0 && cardState.badges.join(',') === topoRoutes[0].number,
     JSON.stringify(cardState),
   )
-  check('手機路線卡片：照片灰階、上緣淡入卡片的漸層（照片不另外染色），這條路線周圍是原色，放大到這條路線', cardState.gray && cardState.tint === 'none' && cardState.fade.includes('gradient') && cardState.reveal === 1 && cardState.zoomed, JSON.stringify(cardState))
+  check('手機路線卡片：照片灰階、四邊淡出（照片不另外染色），線與說明文字不淡，這條路線周圍是原色，放大到這條路線', cardState.gray && cardState.tint === 'none' && cardState.fade.includes('gradient') && !cardState.linesFaded && cardState.reveal === 1 && cardState.zoomed, JSON.stringify(cardState))
   check('手機路線卡片：Topo 固定 4:5', Math.abs(cardState.ratio - 0.8) < 0.01, String(cardState.ratio))
   await card.click()
   await vp.waitForSelector('dialog.topo-full[open] .topo-route.on', { timeout: 10000 })
