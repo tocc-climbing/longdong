@@ -10,7 +10,7 @@ import { LINE_TARGETS } from './shapes'
  * 區域、分區節點的 id 就是區域 ID、分區 ID：mapkit 的事件（點到岩壁、長按區域）直接拿來用。
  */
 
-/** 大區域的顏色（同 src/map/map.css 的 .sm-area-*） */
+/** 大區域的顏色（填色與外框） */
 export const AREA_COLORS: Record<string, { fill: string; stroke: string }> = {
   'school-gate': { fill: '#f2b4c6', stroke: '#d40441' },
   clocktower: { fill: '#dab2d2', stroke: '#820068' },

@@ -287,7 +287,7 @@ if (hoists.length !== 5) throw new Error(`直升機吊掛點應該有 5 處，�
  * 圖上的文字（地名、道路、步道、海面、紅色的警示）：文字中心的圖上位置，中英日三種語言。
  * tone 是圖上文字的顏色種類，地圖用同樣的配色；產生時檢查圖上該位置有這個顏色的文字，版面改了就停下來。
  * gps（OpenStreetMap 上建物的位置）：救援資訊圖上的文字不在建物上時，地圖上的位置改用它（at 仍用來檢查版面）。
- * 道路、步道的名稱（有 line）不固定位置：輸出名稱與錨點（kind: 'name'），地圖上沿著離錨點最近的那條線、在畫面上看得到的部分排字（src/map/ScaleMap.tsx）。
+ * 道路、步道的名稱（有 line）不固定位置：輸出名稱與錨點（kind: 'name'），地圖上沿著離錨點最近的那條線、在畫面上看得到的部分排字（mapkit 的 line-name，見 scripts/lib/climbioMap.ts）。
  */
 type PlaceTone = 'place' | 'road' | 'trail' | 'sea' | 'warning'
 type NameLine = 'highway' | 'tunnel' | 'road' | 'trail'

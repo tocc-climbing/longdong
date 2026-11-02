@@ -141,26 +141,6 @@ export function simplifyRing(ring: [number, number][], tolerance: number): [numb
   return [...first.slice(0, -1), ...second.slice(0, -1)]
 }
 
-/** 兩點的距離（相對值：經度依緯度縮放，只用來比長短、找中點） */
-const span = ([lat1, lng1]: LatLng, [lat2, lng2]: LatLng) => Math.hypot(lat2 - lat1, (lng2 - lng1) * Math.cos((lat1 * Math.PI) / 180))
-
-/** 分區名稱在地圖上的位置：最長的一段岩壁沿線走到一半的那一點；沒有岩壁時沒有位置 */
-export function wallLabelAt(lines: LatLng[][]): LatLng | undefined {
-  const length = (l: LatLng[]) => l.slice(1).reduce((sum, p, i) => sum + span(l[i], p), 0)
-  const longest = lines.filter((l) => l.length > 0).reduce<LatLng[] | undefined>((best, l) => (!best || length(l) > length(best) ? l : best), undefined)
-  if (!longest) return undefined
-  let rest = length(longest) / 2
-  for (let i = 1; i < longest.length; i++) {
-    const d = span(longest[i - 1], longest[i])
-    if (d >= rest && d > 0) {
-      const t = rest / d
-      return [longest[i - 1][0] + (longest[i][0] - longest[i - 1][0]) * t, longest[i - 1][1] + (longest[i][1] - longest[i - 1][1]) * t]
-    }
-    rest -= d
-  }
-  return longest[0]
-}
-
 /** 地圖上的一段岩壁（分區目前的版本） */
 export interface SectorWall {
   key: string

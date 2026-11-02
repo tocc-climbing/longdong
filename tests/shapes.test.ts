@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sectorWalls, withShapes, type ScaleMapData } from '../src/map/mapData'
-import { decodeMapEdits, encodeShapes, isOpenTarget, sectorOf, simplifyRing, wallLabelAt, wallTarget } from '../src/map/shapes'
+import { decodeMapEdits, encodeShapes, isOpenTarget, sectorOf, simplifyRing, wallTarget } from '../src/map/shapes'
 
 const RING: [number, number][] = [
   [25.11272, 121.92145],
@@ -48,22 +48,6 @@ describe('地圖編輯的版本', () => {
   })
 })
 
-describe('分區名稱的位置', () => {
-  it('最長的一段岩壁沿線走到一半的那一點（不是端點的平均）', () => {
-    // L 形：往東 0.002 度、再往北 0.0002 度；一半在第一段上
-    const wall: [number, number][] = [[25.11, 121.92], [25.11, 121.922], [25.1102, 121.922]]
-    const short: [number, number][] = [[25.1, 121.9], [25.1, 121.9001]]
-    const [lat, lng] = wallLabelAt([short, wall])!
-    expect(lat).toBeCloseTo(25.11, 9)
-    expect(lng).toBeGreaterThan(121.9205)
-    expect(lng).toBeLessThan(121.9215)
-  })
-
-  it('沒有岩壁時沒有位置', () => {
-    expect(wallLabelAt([])).toBeUndefined()
-  })
-})
-
 describe('簡化自動產生的形狀', () => {
   it('邊上多餘的點去掉，轉角留下（封閉多邊形不重複終點）', () => {
     // 10×10 公尺的正方形，每邊中間多一個點，最後重複起點
@@ -74,11 +58,9 @@ describe('簡化自動產生的形狀', () => {
 
 describe('套上編輯的最新版本', () => {
   const base: ScaleMapData = {
-    layers: { trail: 'M0 0L1 1', road: 'M0 0L2 2' },
     markers: [],
-    areas: [{ id: 'school-gate', path: 'M0 0Z', label: [0, 0], size: 1, rings: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, { id: 'clocktower', path: 'M0 0Z', label: [0, 0], size: 1, rings: [] }],
+    areas: [{ id: 'school-gate', rings: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, { id: 'clocktower', rings: [] }],
     lineLayers: { trail: [[[0, 0], [1, 1]]], highway: [], tunnel: [], road: [[[0, 0], [2, 2]]] },
-    names: [],
     walls: { 'longdong/s1': [[[25.11, 121.92], [25.111, 121.92]]], 'longdong/s2': [[[25.12, 121.92], [25.121, 121.92]]] },
   }
 
@@ -102,8 +84,7 @@ describe('套上編輯的最新版本', () => {
     expect(out.areas[0].rings[0]).toHaveLength(3)
     expect(out.areas[1]).toBe(base.areas[1])
     expect(out.lineLayers.trail[0]).toHaveLength(3)
-    expect(out.layers.trail).not.toBe(base.layers.trail)
-    expect(out.layers.road).toBe(base.layers.road)
+    expect(out.lineLayers.trail).not.toBe(base.lineLayers.trail)
     expect(out.lineLayers.road).toBe(base.lineLayers.road)
   })
 
@@ -114,7 +95,6 @@ describe('套上編輯的最新版本', () => {
 
   it('沒有任何版本時與自動產生的相同', () => {
     const out = withShapes(base, decodeMapEdits(null))
-    expect(out.layers).toBe(base.layers)
     expect(out.lineLayers).toBe(base.lineLayers)
   })
 })

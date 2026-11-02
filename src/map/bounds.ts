@@ -2,7 +2,13 @@ import { RESCUE_POINTS } from '../data/rescue'
 import type { LatLng } from '../geo'
 import { EXTENT_LATLNG } from './extent'
 import { project } from './mapData'
-import type { Rect } from './mapView'
+
+export interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
 
 /** 地圖範圍：所有救援點（與龍洞街口）外加這個距離（公尺）；岩場在東邊海岸，右邊多留一些海面；北邊多留，左上的按鈕才不會蓋住 #2；西邊在龍洞街口再多一點 */
 const PADDING_M = { west: 100, east: 220, north: 200, south: 40 }
@@ -26,14 +32,7 @@ export const BOUNDS: Rect = {
   y: Math.min(...ys) - PADDING_M.north,
   w: Math.max(...xs) - Math.min(...xs) + PADDING_M.west + PADDING_M.east,
   h: Math.max(...ys) - Math.min(...ys) + PADDING_M.north + PADDING_M.south,
-  maxW: EXTENT.w,
 }
-
-/** 縮到最小時左右的中心：岩場（校門口到後門的救援點） */
-export const CRAG_X = (() => {
-  const crag = located.filter((p) => p.no >= 3 && p.no <= 13).map((p) => p.at[0])
-  return (Math.min(...crag) + Math.max(...crag)) / 2
-})()
 
 /** 地圖座標在不在範圍內 */
 export const inBounds = ([x, y]: [number, number]) => x >= BOUNDS.x && x <= BOUNDS.x + BOUNDS.w && y >= BOUNDS.y && y <= BOUNDS.y + BOUNDS.h

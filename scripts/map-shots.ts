@@ -1,12 +1,13 @@
 /**
- * 地圖的視覺基準：同一組場景（全圖、區域、岩壁放大、各語言、編輯岩壁與區域與步道、正在畫的多邊形、回報）用實際的瀏覽器畫 ScaleMap 截圖，
- * 與 tests/fixtures/map-shots/ 的基準圖逐像素比對。只有向量（沒有航照、等高線、OpenStreetMap 圖磚），岩壁是原始版。
+ * 地圖的視覺基準：同一組場景（全圖、區域、岩壁放大、各語言、編輯岩壁與區域與步道、正在畫的多邊形、回報）用實際的瀏覽器畫 KitMap（mapkit）截圖，
+ * 與 tests/fixtures/map-shots/ 的基準圖比對（附近 NEAR_PX 個像素內找得到相同顏色就算相同）。只有向量（沒有航照、等高線、OpenStreetMap 圖磚），岩壁是原始版。
+ * 基準圖原本是舊的 ScaleMap 畫的（已刪除）；換成 mapkit 時拿它們比對過，外觀沒變。
  *   npm run test:map-shots            比對，超出容許值就失敗（差異圖寫到 shots/map-diff/）
  *   npm run test:map-shots -- --update 重新產生基準（改了呈現、確認新圖正確才做）
  * 別的實作（climbio 的 mapkit）用同一份資料比對外觀與排版：
  *   longdong-map.json      整張地圖的 v2 地圖畫面（scripts/lib/climbioMap.ts）
  *   <名稱>.scene.json       框的大小、語言、畫面（中心經緯度、每像素幾公尺、旋轉）、疊在上面的東西（座標都是經度在前）
- *   <名稱>.map.svg          ScaleMap 畫出來的 SVG（哪些地名、圖示有畫、畫在哪裡）
+ *   <名稱>.map.svg          舊的 ScaleMap 畫出來的 SVG（哪些地名、圖示有畫、畫在哪裡；ScaleMap 刪除前產生的最後一版，不再更新，climbio 的 mapkit 用它比對版面）
  * 文字用系統字型，所以只在同一台機器上比對（不進 CI 的 npm test）。
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -16,9 +17,13 @@ import { unproject } from '../src/map/mapData'
 import type { Dataset } from '../src/data/schema'
 import { longdongMap } from './lib/climbioMap'
 import { globalId } from './lib/climbio'
-import { diff, launch, TOLERANCE } from './lib/shotDiff'
+import { diff, launch } from './lib/shotDiff'
 import { SCENES, type MapScene } from './map-shots/scenes'
 
+/** 基準圖是舊的 ScaleMap 畫的（座標單位不同），線與邊緣差不到幾個裝置像素；版面、文字、顏色差了還是會被抓到（少畫岩壁之類超過 MAP_TOLERANCE） */
+const NEAR_PX = 2
+/** 同上：正常的差異在 0.12% 以內，少畫岩壁之類的差異超過 0.2% */
+const MAP_TOLERANCE = 0.0015
 const update = process.argv.includes('--update')
 const dir = new URL('../tests/fixtures/map-shots/', import.meta.url)
 const diffDir = new URL('../shots/map-diff/', import.meta.url)
@@ -76,8 +81,6 @@ try {
     await page.addInitScript((scene) => ((window as unknown as { __scene: unknown }).__scene = scene), s)
     await page.goto(`${base}scripts/map-shots/harness.html`)
     await page.waitForFunction(() => (window as unknown as { __ready?: boolean }).__ready, undefined, { timeout: 30000 })
-    const svg = page.locator('#root svg').first()
-    const markup = await svg.evaluate((el) => el.outerHTML)
     const transform = (await page.locator('#root svg > g[transform]').first().getAttribute('transform'))!
     const png = await page.locator('#root').screenshot({ animations: 'disabled' })
     await page.close()
@@ -85,12 +88,11 @@ try {
     if (update) {
       writeFileSync(file, png)
       writeFileSync(new URL(`${s.name}.scene.json`, dir), JSON.stringify(sceneJson(s, transform), null, 1) + '\n')
-      writeFileSync(new URL(`${s.name}.map.svg`, dir), markup + '\n')
       console.log(`更新 ${s.name}`)
       continue
     }
-    const { ratio, image } = await diff(png, readFileSync(file))
-    const ok = ratio <= TOLERANCE
+    const { ratio, image } = await diff(png, readFileSync(file), NEAR_PX)
+    const ok = ratio <= MAP_TOLERANCE
     console.log(`${ok ? '通過' : '失敗'} ${s.name}（差異 ${(ratio * 100).toFixed(3)}%）`)
     if (!ok) {
       failures.push(s.name)

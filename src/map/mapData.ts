@@ -37,46 +37,22 @@ interface FeatureCollection {
 }
 
 export interface ScaleMapData {
-  /** kind → SVG path（land、building、highway、tunnel、road、trail；page 是救援資訊圖的頁框，outer… 是頁框外的 OpenStreetMap 資料） */
-  layers: Record<string, string>
   markers: Marker[]
-  /** 大區域：SVG path、標籤位置（最大一塊的重心）、面積（平方公尺，標籤重疊時先畫大的） */
+  /** 大區域（畫面由 mapkit 畫，見 src/map/mapkitView.ts） */
   areas: AreaShape[]
-  /** 步道、道路的線段（地圖座標，圖層 → 線段）：編輯時的起點；畫面用 layers */
+  /** 步道、道路的線段（地圖座標，圖層 → 線段）：地圖編輯的起點 */
   lineLayers: Record<LineLayer, [number, number][][]>
-  /** 道路、步道的名稱：沿著 line 圖層裡離錨點最近的那條線排字（位置不固定，見 ScaleMap） */
-  names: LineName[]
   /** 分區 ID → 岩壁（沿著牆底的折線，經緯度） */
   walls: Record<string, LatLng[][]>
-}
-
-export interface LineName {
-  zh: string
-  en: string
-  ja?: string
-  tone: PlaceTone
-  line: LineLayer
-  /** 錨點（地圖座標）：用來找是哪一條線 */
-  at: [number, number]
 }
 
 /** 可以編輯的線段圖層 */
 export type LineLayer = (typeof LINE_TARGETS)[LineTarget]
 
+/** 一個大區域：地圖座標的多塊多邊形 */
 export interface AreaShape {
   id: string
-  path: string
-  label: [number, number]
-  size: number
   rings: [number, number][][]
-}
-
-/** 一個區域（地圖座標的多塊多邊形）：SVG path、標籤在最大一塊的重心、總面積 */
-function areaShape(id: string, rings: [number, number][][]): AreaShape {
-  const pieces = rings.map((r) => centroid(r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1] ? r : [...r, r[0]]))
-  const largest = pieces.reduce((a, b) => (b.size > a.size ? b : a))
-  const path = rings.map((r) => 'M' + r.map((p) => p.map((v) => v.toFixed(1)).join(' ')).join('L') + 'Z').join('')
-  return { id, path, label: largest.at, size: pieces.reduce((s, p) => s + p.size, 0), rings }
 }
 
 /** 套上使用者編輯的最新版本：取代原始版 */
@@ -84,12 +60,10 @@ export function withShapes(base: ScaleMapData, shapes: MapShapes): ScaleMapData 
   const toRings = (rings: LatLng[][]) => rings.map((r) => r.map(project))
   const edited = (Object.entries(LINE_TARGETS) as [LineTarget, LineLayer][]).filter(([target]) => shapes.lines[target])
   const lineLayers = { ...base.lineLayers, ...Object.fromEntries(edited.map(([target, layer]) => [layer, toRings(shapes.lines[target]!)])) }
-  const linePath = (lines: [number, number][][]) => lines.map((l) => 'M' + l.map((p) => p.map((v) => v.toFixed(1)).join(' ')).join('L')).join('')
   return {
     ...base,
-    layers: edited.length ? { ...base.layers, ...Object.fromEntries(edited.map(([, layer]) => [layer, linePath(lineLayers[layer])])) } : base.layers,
     // 範圍全刪掉的區域（修改中還沒提交的草稿）不畫，不留下舊的形狀
-    areas: base.areas.flatMap((a) => (shapes.areas[a.id] ? (shapes.areas[a.id].length ? [areaShape(a.id, toRings(shapes.areas[a.id]))] : []) : [a])),
+    areas: base.areas.flatMap((a) => (shapes.areas[a.id] ? (shapes.areas[a.id].length ? [{ id: a.id, rings: toRings(shapes.areas[a.id]) }] : []) : [a])),
     lineLayers: edited.length ? lineLayers : base.lineLayers,
     walls: { ...base.walls, ...shapes.walls },
   }
@@ -127,14 +101,6 @@ export function project([lat, lng]: LatLng): [number, number] {
   return [(lng - ORIGIN[1]) * M_PER_DEG_LNG, (ORIGIN[0] - lat) * M_PER_DEG_LAT]
 }
 
-const point = ([lng, lat]: Position) => project([lat, lng]).map((v) => v.toFixed(1)).join(' ')
-const linePath = (line: Position[]) => 'M' + line.map(point).join('L')
-const polygonPath = (polygons: Position[][][]) => polygons.flatMap((rings) => rings.map((r) => linePath(r) + 'Z')).join('')
-
-function toPath(geometry: Exclude<Feature['geometry'], { type: 'Point' }>): string {
-  return geometry.type === 'MultiPolygon' ? polygonPath(geometry.coordinates) : geometry.coordinates.map(linePath).join('')
-}
-
 function toMarker({ properties: p, geometry }: Feature): Marker {
   if (geometry.type !== 'Point') throw new Error('標示必須是 Point')
   const at = project([geometry.coordinates[1], geometry.coordinates[0]])
@@ -145,22 +111,6 @@ function toMarker({ properties: p, geometry }: Feature): Marker {
   if (p.kind === 'place' && p.zh && p.en) return { kind: 'place', zh: p.zh, en: p.en, ja: p.ja, tone: p.tone ?? 'place', at }
   if (p.kind === 'hazard') return { kind: 'hazard', at }
   throw new Error(`不認得的標示：${JSON.stringify(p)}`)
-}
-
-/** 多邊形的重心與面積（鞋帶公式） */
-export function centroid(ring: [number, number][]): { at: [number, number]; size: number } {
-  let a = 0
-  let cx = 0
-  let cy = 0
-  for (let i = 0; i < ring.length - 1; i++) {
-    const [x0, y0] = ring[i]
-    const [x1, y1] = ring[i + 1]
-    const cross = x0 * y1 - x1 * y0
-    a += cross
-    cx += (x0 + x1) * cross
-    cy += (y0 + y1) * cross
-  }
-  return { at: [cx / (3 * a), cy / (3 * a)], size: Math.abs(a / 2) }
 }
 
 async function fetchJSON(url: string): Promise<FeatureCollection> {
@@ -177,25 +127,11 @@ async function readScaleMap(): Promise<ScaleMapData> {
       f.properties.kind === kind && f.geometry.type === 'MultiLineString' ? f.geometry.coordinates.map((l) => l.map(([lng, lat]) => project([lat, lng]))) : [],
     )
   return {
-    layers: Object.fromEntries(base.features.flatMap((f) => (f.geometry.type === 'Point' ? [] : [[f.properties.kind!, toPath(f.geometry)]]))),
     markers: base.features.filter((f) => f.geometry.type === 'Point' && f.properties.kind !== 'name').map(toMarker),
-    names: base.features.flatMap((f) =>
-      f.properties.kind === 'name' && f.geometry.type === 'Point' && f.properties.zh && f.properties.en && f.properties.line
-        ? [{ zh: f.properties.zh, en: f.properties.en, ja: f.properties.ja, tone: f.properties.tone ?? 'road', line: f.properties.line, at: project([f.geometry.coordinates[1], f.geometry.coordinates[0]]) }]
-        : [],
-    ),
-    areas: areas.features.map((f) => {
-      const rings = (f.geometry.coordinates as Position[][][]).map((polygon) => polygon[0].map(([lng, lat]) => project([lat, lng])))
-      const pieces = rings.map(centroid)
-      const largest = pieces.reduce((a, b) => (b.size > a.size ? b : a))
-      return {
-        id: f.properties.id!,
-        path: toPath(f.geometry as Exclude<Feature['geometry'], { type: 'Point' }>),
-        label: largest.at,
-        size: pieces.reduce((s, p) => s + p.size, 0),
-        rings,
-      }
-    }),
+    areas: areas.features.map((f) => ({
+      id: f.properties.id!,
+      rings: (f.geometry.coordinates as Position[][][]).map((polygon) => polygon[0].map(([lng, lat]) => project([lat, lng]))),
+    })),
     lineLayers: Object.fromEntries(
       Object.values(LINE_TARGETS).map((layer) => [layer, linesOf(layer)]),
     ) as Record<LineLayer, [number, number][][]>,

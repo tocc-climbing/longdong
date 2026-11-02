@@ -458,9 +458,10 @@
   background: var(--surface-2);
 }
 
-.edit-canvas .scale-map-frame {
+.edit-canvas .kit-map {
   position: absolute;
   inset: 0;
+  height: auto;
 }
 
 .edit-message {

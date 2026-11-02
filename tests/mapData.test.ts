@@ -4,7 +4,7 @@ import { hasUnuploaded, toGeoJSON, type Fix } from '../src/map/calibration'
 import { AREA_RESCUE, EMS_LOCATIONS, RESCUE_POINTS } from '../src/data/rescue'
 import { distanceM } from '../src/geo'
 import { parseLocation } from '../src/router'
-import { centroid, loadScaleMap, project, unproject } from '../src/map/mapData'
+import { loadScaleMap, project, unproject } from '../src/map/mapData'
 
 const fix = (lat: number, lng: number, accuracy = 5, time = 0): Fix => ({ coords: [lat, lng], accuracy, time })
 
@@ -82,13 +82,6 @@ describe('地圖座標與經緯度互換', () => {
 })
 
 describe('比例尺地圖資料', () => {
-  it('重心與面積', () => {
-    const square: [number, number][] = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]
-    expect(centroid(square)).toEqual({ at: [5, 5], size: 100 })
-    // 順時針（面積為負）也一樣
-    expect(centroid([...square].reverse())).toEqual({ at: [5, 5], size: 100 })
-  })
-
   it('9 個大區域都有範圍，且就近的救援點在該區範圍附近（60 公尺內；第二洞列的是鄰區的，120 公尺內）', () => {
     const areas = JSON.parse(readFileSync('public/rescue/areas.geojson', 'utf8')) as {
       features: { properties: { id: string }; geometry: { coordinates: [number, number][][][] } }[]

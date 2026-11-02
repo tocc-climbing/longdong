@@ -4,7 +4,7 @@ import type { RescuePoint } from '../src/data/rescue'
 import { project } from '../src/map/mapData'
 
 const square: [number, number][] = [[0, 0], [100, 0], [100, 100], [0, 100], [0, 0]]
-const area = (id: string, dx: number) => ({ id, path: '', label: [dx + 50, 50] as [number, number], size: 1e4, rings: [square.map(([x, y]) => [x + dx, y] as [number, number])] })
+const area = (id: string, dx: number) => ({ id, rings: [square.map(([x, y]) => [x + dx, y] as [number, number])] })
 
 describe('回報位置的選項', () => {
   it('點在多邊形內距離為 0；在外面是到邊界的距離', () => {

@@ -1,5 +1,5 @@
 import type { LatLng } from '../../src/geo'
-import type { MapMark } from '../../src/map/ScaleMap'
+import type { KitMapMark as MapMark } from '../../src/map/KitMap'
 
 /** 地圖截圖基準的一個場景（scripts/map-shots.ts）：框的大小、語言、聚焦的對象、疊在上面的東西 */
 export interface MapScene {
