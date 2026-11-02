@@ -4638,6 +4638,13 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   -webkit-mask-composite: source-in;
   mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 94%, transparent), linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
   mask-composite: intersect;
+  /* 只蓋住看得到的那一塊（照片放大過，元素比畫面大）：大小、位置由 TopoSection.tsx 的 edgeFade 算 */
+  -webkit-mask-size: var(--fade-size);
+  mask-size: var(--fade-size);
+  -webkit-mask-position: var(--fade-pos);
+  mask-position: var(--fade-pos);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .route-topo .topo-frame > svg {

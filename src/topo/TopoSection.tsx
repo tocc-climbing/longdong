@@ -1,11 +1,11 @@
-import { useContext, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useContext, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import type { ViewerOptions } from '../../vendor/climbio-topokit/index.js'
 import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
 import { navigate, useRouteLink } from '../router'
 import { fillShared } from './shared'
-import { FULL_CROP } from '../core/topo/geometry'
+import { FULL_CROP, SCALE } from '../core/topo/geometry'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
@@ -69,6 +69,15 @@ export function SectorTopos({ sector, onEdit }: { sector: Sector; onEdit?: (phot
   )
 }
 
+/**
+ * 路線卡片照片四邊的淡出要落在看得到的那一塊：照片放大過，照片元素比畫面大，
+ * 所以淡出的遮罩（styles.css 的 .route-topo）只蓋住裁切範圍——大小是裁切佔整張的比例，位置換成 mask-position 的百分比。
+ */
+function edgeFade(c: Crop): CSSProperties {
+  const at = (start: number, size: number) => (size >= SCALE ? 0 : (start / (SCALE - size)) * 100)
+  return { '--fade-size': `${(c.w / SCALE) * 100}% ${(c.h / SCALE) * 100}%`, '--fade-pos': `${at(c.x, c.w)}% ${at(c.y, c.h)}%` } as CSSProperties
+}
+
 /** 路線卡片的 Topo 固定的寬高比（同 styles.css 的 .route-topo）；照片不夠寬時兩邊是卡片底色（narrow） */
 const ROUTE_TOPO_ASPECT = 4 / 5
 
@@ -93,7 +102,7 @@ export function RouteTopos({ sector, routeId, onEdit }: { sector: Sector; routeI
         const crop = widenCrop(topo.photo, routeCrop(topo.photo, base, marks[routeId]), base, ROUTE_TOPO_ASPECT)
         const [cw, ch] = px(topo.photo, [crop.w, crop.h])
         return (
-          <TopoFigure key={topo.photo.id} className={`topo route-topo${cw / ch < ROUTE_TOPO_ASPECT ? ' narrow' : ''}`} onOpen={() => setOpen(topo)} label={t('topo.fullscreen')}>
+          <TopoFigure key={topo.photo.id} className={`topo route-topo${cw / ch < ROUTE_TOPO_ASPECT ? ' narrow' : ''}`} style={edgeFade(crop)} onOpen={() => setOpen(topo)} label={t('topo.fullscreen')}>
             <Photo
               photo={topo.photo}
               marks={marks}
@@ -134,10 +143,11 @@ function Fullscreen({ topo, sector, initial, onClose, onEdit }: { topo: SectorTo
 }
 
 /** 一張 Topo；onOpen 有值時整張是按鈕（點了開全螢幕） */
-function TopoFigure({ onOpen, label, className = 'topo', children }: { onOpen?: () => void; label?: string; className?: string; children: ReactNode }) {
+function TopoFigure({ onOpen, label, className = 'topo', style, children }: { onOpen?: () => void; label?: string; className?: string; style?: CSSProperties; children: ReactNode }) {
   return (
     <figure
       className={`${className}${onOpen ? ' openable' : ''}`}
+      style={style}
       {...(onOpen && {
         role: 'button',
         tabIndex: 0,
