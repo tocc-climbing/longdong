@@ -6,14 +6,13 @@
  * 每個場景同時輸出 <名稱>.scene.json（照片尺寸、像素座標的路線、檢視參數）與 <名稱>.lines.svg（TopoLines 畫出來的標記），別的實作（TopoKit）用同一份場景比對外觀與排版。
  * 照片用程式產生的格線，不依賴任何圖檔；文字用系統字型，所以只在同一台機器上比對（不進 CI 的 npm test）。
  */
-import { createCanvas, loadImage } from '@napi-rs/canvas'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { chromium, type Browser } from 'playwright-core'
 import type { Crop, Marks } from '../src/core/topo/geometry'
 import { TopoLines, type RouteInfo } from '../src/core/topo/TopoView'
 import { routeCrop } from '../src/core/topo/viewport'
+import { diff, launch, TOLERANCE } from './lib/shotDiff'
 
 interface Photo {
   width: number
@@ -159,45 +158,6 @@ function sceneJson(s: Scene) {
     })),
     view: { width: s.width, zoom: s.zoom ?? 1, focus: s.focus, highlight: s.highlight, bolts: !!s.bolts, editing: !!s.editing, solo: !!s.solo, desktop: !!s.desktop },
   }
-}
-
-/** 兩張 PNG 的差異像素比例（任一色差超過 24 才算不同） */
-async function diff(actual: Buffer, expected: Buffer): Promise<{ ratio: number; image?: Buffer }> {
-  const [a, b] = [await loadImage(actual), await loadImage(expected)]
-  if (a.width !== b.width || a.height !== b.height) return { ratio: 1 }
-  const read = (img: typeof a) => {
-    const cv = createCanvas(img.width, img.height)
-    const cx = cv.getContext('2d')
-    cx.drawImage(img, 0, 0)
-    return cx.getImageData(0, 0, img.width, img.height).data
-  }
-  const [da, db] = [read(a), read(b)]
-  const out = createCanvas(a.width, a.height)
-  const octx = out.getContext('2d')
-  const o = octx.createImageData(a.width, a.height)
-  let bad = 0
-  for (let i = 0; i < da.length; i += 4) {
-    const d = Math.max(Math.abs(da[i] - db[i]), Math.abs(da[i + 1] - db[i + 1]), Math.abs(da[i + 2] - db[i + 2]))
-    const hit = d > 24
-    if (hit) bad++
-    o.data.set(hit ? [255, 0, 255, 255] : [da[i], da[i + 1], da[i + 2], 80], i)
-  }
-  octx.putImageData(o, 0, 0)
-  return { ratio: bad / (da.length / 4), image: out.toBuffer('image/png') }
-}
-
-/** 差異像素超過這個比例就算外觀不同（字型反鋸齒的差異以內） */
-const TOLERANCE = 0.002
-
-async function launch(): Promise<Browser> {
-  for (const channel of [process.env.BROWSER_CHANNEL, 'chrome', 'msedge'].filter(Boolean) as string[]) {
-    try {
-      return await chromium.launch({ channel, headless: true })
-    } catch {
-      /* 試下一個 */
-    }
-  }
-  throw new Error('找不到 Chrome 或 Edge（可用 BROWSER_CHANNEL 指定）')
 }
 
 mkdirSync(dir, { recursive: true })
