@@ -139,12 +139,12 @@ function sceneHtml(s: Scene, out?: { lines: string }): string {
 }
 
 function sceneJson(s: Scene) {
-  const px = ([x, y]: [number, number]) => [Math.round((x * s.photo.width) / SCALE), Math.round((y * s.photo.height) / SCALE)]
+  const px = ([x, y]: [number, number]) => [(x * s.photo.width) / SCALE, (y * s.photo.height) / SCALE]
   const c = s.crop
   return {
     name: s.name,
     photo: { w: s.photo.width, h: s.photo.height },
-    ...(c ? { crop: { x: Math.round((c.x * s.photo.width) / SCALE), y: Math.round((c.y * s.photo.height) / SCALE), w: Math.round((c.w * s.photo.width) / SCALE), h: Math.round((c.h * s.photo.height) / SCALE) } } : {}),
+    ...(c ? { crop: { x: (c.x * s.photo.width) / SCALE, y: (c.y * s.photo.height) / SCALE, w: (c.w * s.photo.width) / SCALE, h: (c.h * s.photo.height) / SCALE } } : {}),
     routes: s.routes.map((r) => ({
       id: r.id,
       label: r.label,
