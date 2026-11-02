@@ -100,11 +100,14 @@ export interface ViewerOptions {
   /** 區域節點 id：其他區域變淡 */
   dim?: string;
   hideAreas?: boolean;
+  /** 不畫的區域、分區節點 id（點也點不到） */
+  hide?: string[];
   /** 畫岩壁（預設 true） */
   walls?: boolean;
-  /** 放大後標分區名稱（預設 true） */
-  sectorLabels?: boolean;
-  selected?: { node: string; line: number };
+  /** 放大後標分區名稱（預設 true）；分區 id 陣列只標這些 */
+  sectorLabels?: boolean | string[];
+  /** 選中的岩壁：分區節點 id 與第幾條（標名稱）；沒有 line 是整個分區的每一條（不標名稱） */
+  selected?: { node: string; line?: number };
   basemap?: { osm?: boolean; ortho?: boolean; contours?: boolean };
   marks?: MapMarkPoint[];
   here?: { at: LngLat; accuracy: number };
@@ -119,6 +122,8 @@ export interface ViewerOptions {
 }
 
 export interface EditorOptions extends ViewerOptions {
+  /** 受控模式：App 正在畫新的一塊，點地圖一律發 tap */
+  picking?: boolean;
   /** 要接著改的圖層（id、license、attribution 沿用） */
   layer?: Layer;
   license?: string;
@@ -177,6 +182,8 @@ export declare class MapViewer extends EventTarget {
 
 export declare class MapEditor extends MapViewer {
   constructor(host: HTMLElement, options?: EditorOptions);
+  /** 受控模式：形狀由 App 給（經緯度），修改發 editstart、editchange、select；undefined 結束 */
+  setEdit(edit: { rings: LngLat[][]; closed: boolean; selected?: number; faces?: boolean } | undefined): void;
   /** 開始改一個節點的形狀；closed 預設看節點的標註（區域是多邊形），faces 預設分區 */
   edit(target: { node: string; closed?: boolean; faces?: boolean }): void;
   readonly rings: LngLat[][];

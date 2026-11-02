@@ -275,6 +275,7 @@ export class MapViewer extends EventTarget {
       text: this.text,
       dim: o.dim,
       hideAreas: o.hideAreas,
+      hide: o.hide,
       walls: o.walls,
       sectorLabels: o.sectorLabels,
       selected: o.selected,
@@ -313,7 +314,7 @@ export class MapViewer extends EventTarget {
       this.legend.innerHTML = `<span class="mk-bar" style="width: ${bar / v.s}px;"></span>${esc(t.meters.replace('{n}', bar))}`;
     }
     const credit = o.attribution ?? this.data.view.attribution;
-    const parts = typeof credit === 'string' ? [{ text: credit }] : credit;
+    const parts = credit === undefined ? [] : typeof credit === 'string' ? [{ text: credit }] : credit;
     this.attributionEl.innerHTML = parts.map((p) => (p.href ? `<a href="${esc(p.href)}" target="_blank" rel="noreferrer">${esc(p.text)}</a>` : esc(p.text))).join(' · ');
   }
 
@@ -418,7 +419,9 @@ export class MapViewer extends EventTarget {
   onTap(p) {
     this.dispatchEvent(new CustomEvent('tap', { detail: { at: this.toLngLat([p.x, p.y]), metersPerPixel: this.view.s } }));
     if (!this.options.walls) return;
+    const hidden = new Set(this.options.hide ?? []);
     const hit = this.model.walls
+      .filter((w) => !hidden.has(w.id))
       .flatMap((w) => w.lines.map((line, k) => {
         const pts = line.map((q) => toScreen(this.view, this.frame, q));
         return { node: w.id, line: k, d: Math.min(...pts.slice(1).map((b, i) => segmentDistance([p.x, p.y], pts[i], b))) };

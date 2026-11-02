@@ -120,7 +120,7 @@ async function signIn(page: Page, email: string) {
 /** 在地圖頁回報目前位置（選第一個選項、送出） */
 async function report(page: Page) {
   await page.goto(base + 'map')
-  await page.waitForSelector('.sm-me', { timeout: 20000 })
+  await page.waitForSelector('.mk-me', { timeout: 20000 })
   await page.click('.sm-tool.report')
   await page.waitForSelector('.sheet[open] .chip')
   await page.click('.sheet[open] .chip >> nth=0')
@@ -133,7 +133,11 @@ const pins = async () => (await read<Record<string, Pin>>('v2/reportPins')) ?? {
 /** 在編輯畫面（地圖）上依序點幾下：位置是畫布寬高的比例 */
 async function clickCanvas(page: Page, points: [number, number][]) {
   const box = (await page.locator('.edit-canvas svg[role=img]').boundingBox())!
-  for (const [fx, fy] of points) await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy)
+  // 每點一下等畫面更新（mapkit 的事件之後 React 才重畫）
+  for (const [fx, fy] of points) {
+    await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy)
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  }
 }
 /** 手機 Topo 編輯：畫面上看得到的那一塊照片（縮放區和照片重疊的範圍；縮放區比照片大，旁邊是黑邊） */
 async function shownPhoto(page: Page) {
@@ -144,7 +148,7 @@ async function shownPhoto(page: Page) {
   return { x, y, width: Math.min(pane.x + pane.width, svg.x + svg.width) - x, height: Math.min(pane.y + pane.height, svg.y + svg.height) - y }
 }
 
-const rings = (page: Page) => page.locator('.sm-edit-ring').count()
+const rings = (page: Page) => page.locator('.mk-edit-ring').count()
 /** 提交並等畫面說完成（「已儲存」提示）：資料庫收到了、畫面也更新完才繼續，不然接著畫的會被儲存完成時的更新蓋掉 */
 async function submitMap(page: Page) {
   await page.waitForSelector('.edit-toast', { state: 'detached', timeout: 10000 }).catch(() => {})
@@ -193,14 +197,15 @@ try {
   const two = await until(() => added(2))
   check('再回報一次：副本有兩筆', !!two && Object.keys(two).length === 2)
   // 資料庫還沒有任何岩壁的修改：沒登入也畫出各分區岩壁的原始版
-  const anonLines = () => anon.page.locator('.sm-line').count()
+  const anonLines = () => anon.page.locator('.mk-line').count()
   const allBaseWalls = await until(async () => ((await anonLines()) === baseWallLines ? true : undefined), 5000)
   check('沒登入也畫出各分區岩壁的原始版', allBaseWalls === true, `${await anonLines()} 條，應為 ${baseWallLines}`)
   // 每段岩壁的顏色是所屬大區域的外框色，沒有白色外框
   const wallColors = await anon.page.evaluate(() =>
-    [...document.querySelectorAll('.sm-line')].map((g) => {
-      const area = [...g.classList].find((c) => c.startsWith('sm-area-'))
-      const outline = area && document.querySelector(`path.sm-area.${area}`)
+    [...document.querySelectorAll('.mk-line')].map((g) => {
+      // data-line 是「分區 ID#第幾條」；分區 ID 是「大區域 ID-六碼」，大區域的形狀是 data-node 為大區域 ID 的 .mk-area
+      const area = /^(.*)-[0-9a-z]{6}#\d+$/.exec(g.getAttribute('data-line') ?? '')?.[1]
+      const outline = area && document.querySelector(`path.mk-area[data-node="${area}"]`)
       return { area, strokes: [...g.querySelectorAll('path')].map((p) => getComputedStyle(p).stroke), outline: outline ? getComputedStyle(outline).stroke : undefined }
     }),
   )
@@ -218,7 +223,7 @@ try {
   check('頁面標題是「編輯模式」', ((await editor.page.locator('.edit-title').textContent()) ?? '').trim() === '編輯模式')
   const text = (await editor.page.locator('.edit-pins').textContent()) ?? ''
   check('同一個點附近的回報合併成一處、相同的說明標出 ×2', (await editor.page.locator('.edit-pins li').count()) === 1 && text.includes('×2'), text.replace(/\s+/g, ' ').slice(0, 120))
-  check('地圖上有對應的圓點', (await editor.page.locator('.sm-mark').count()) === 1)
+  check('地圖上有對應的圓點', (await editor.page.locator('.mk-mark').count()) === 1)
   const panel = (await editor.page.locator('.edit-panel').textContent()) ?? ''
   check('不顯示是誰、什麼時候回報的', !panel.includes('editor') && !/\d{4}[/-]\d{1,2}[/-]\d{1,2}.*回報/.test(text))
 
@@ -226,7 +231,7 @@ try {
   const n0 = await rings(editor.page)
   await editor.page.keyboard.press('n')
   await clickCanvas(editor.page, [[0.2, 0.2], [0.35, 0.2], [0.35, 0.35]])
-  check('畫多邊形時，沒閉環前顯示半透明的暫時封閉區', (await editor.page.locator('.sm-line-fill').count()) === 1)
+  check('畫多邊形時，沒閉環前顯示半透明的暫時封閉區', (await editor.page.locator('.mk-line-fill').count()) === 1)
   await clickCanvas(editor.page, [[0.2, 0.35]])
   await editor.page.keyboard.press('Enter')
   check('完成多邊形：多一塊', (await rings(editor.page)) === n0 + 1)
@@ -276,12 +281,12 @@ try {
     await editor.page.waitForFunction((x) => location.pathname.endsWith(`area:${x}`), id)
     await editor.page.waitForSelector('.edit-canvas svg[role=img]')
   }
-  const laneAreaPaths = () => editor.page.locator('path.sm-area-long-lane').count()
+  const laneAreaPaths = () => editor.page.locator('path.mk-area[data-node="longdong/long-lane"]').count()
   await openArea('long-lane')
   check('修改龍巷：地圖上有龍巷的區域', (await laneAreaPaths()) === 1)
   // Delete 刪的是選中的那一塊：沒選中時先點一塊再刪
   for (let i = 0; i < 20 && (await rings(editor.page)) > 0; i++) {
-    if ((await editor.page.locator('.sm-edit-ring.selected').count()) === 0) await editor.page.locator('.sm-edit-ring').first().click()
+    if ((await editor.page.locator('.mk-edit-ring.selected').count()) === 0) await editor.page.locator('.mk-edit-ring').first().click()
     await editor.page.keyboard.press('Delete')
   }
   check('刪光所有的塊：編輯的形狀沒有了', (await rings(editor.page)) === 0)
@@ -297,7 +302,7 @@ try {
   await clickCanvas(editor.page, [[0.3, 0.23], [0.33, 0.23], [0.33, 0.26]])
   await editor.page.keyboard.press('Enter')
   await clickCanvas(editor.page, [[0.22, 0.21]])
-  const selectedRing = () => editor.page.locator('.sm-edit-ring').evaluateAll((els) => els.findIndex((e) => e.classList.contains('selected')))
+  const selectedRing = () => editor.page.locator('.mk-edit-ring').evaluateAll((els) => els.findIndex((e) => e.classList.contains('selected')))
   const outer = await selectedRing()
   await clickCanvas(editor.page, [[0.325, 0.245]])
   check('大塊中間另外畫的小塊點得到', outer === clockRings && (await selectedRing()) === clockRings + 1, `大塊 ${outer}，小塊 ${await selectedRing()}`)
@@ -333,24 +338,24 @@ try {
   await editor.page.goto(base + `edit/map/wall:${wallSector.replace('/', ':')}`)
   await editor.page.waitForSelector('.edit-canvas svg[role=img]')
   check('分區只有岩壁：工具列沒有「範圍／岩壁」切換', (await editor.page.locator('.edit-toolbar button', { hasText: '範圍' }).count()) === 0)
-  const otherWallLines = () => editor.page.locator('.edit-canvas .sm-line').count()
+  const otherWallLines = () => editor.page.locator('.edit-canvas .mk-line').count()
   await editor.page.waitForTimeout(1000)
   const linesAtStart = await otherWallLines()
   // 打開就放大到這個分區的岩壁：岩壁佔地圖的寬或高至少三成
   const canvasSize = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
   const ringBox = await editor.page.evaluate(() => {
-    const boxes = [...document.querySelectorAll('.edit-canvas .sm-edit-ring')].map((p) => p.getBoundingClientRect())
+    const boxes = [...document.querySelectorAll('.edit-canvas .mk-edit-ring')].map((p) => p.getBoundingClientRect())
     if (!boxes.length) return undefined
     const [l, t, r, b] = [Math.min(...boxes.map((x) => x.left)), Math.min(...boxes.map((x) => x.top)), Math.max(...boxes.map((x) => x.right)), Math.max(...boxes.map((x) => x.bottom))]
     return { w: r - l, h: b - t }
   })
   const fill = ringBox ? Math.max(ringBox.w / canvasSize.width, ringBox.h / canvasSize.height) : 0
   check('岩壁編輯：打開就放大到這個分區的岩壁', fill >= 0.3, `岩壁佔 ${Math.round(fill * 100)}%`)
-  const faceSize = await editor.page.evaluate(() => Math.max(0, ...[...document.querySelectorAll('.edit-canvas .sm-edit-face')].map((p) => { const b = p.getBoundingClientRect(); return Math.max(b.width, b.height) })))
+  const faceSize = await editor.page.evaluate(() => Math.max(0, ...[...document.querySelectorAll('.edit-canvas .mk-edit-face')].map((p) => { const b = p.getBoundingClientRect(); return Math.max(b.width, b.height) })))
   check('岩壁編輯：標出岩壁面朝哪一側，箭頭夠大', faceSize >= 14, `箭頭 ${faceSize.toFixed(1)}px`)
   const sectorLink = editor.page.locator('.edit-catalog a', { hasText: gateSectorName }).first()
   check('目錄裡的分區連到岩壁的編輯', ((await sectorLink.getAttribute('href')) ?? '').endsWith(`edit/map/wall:${wallSector.replace('/', ':')}`), (await sectorLink.getAttribute('href')) ?? '')
-  const topoTiles = () => editor.page.locator('.sm-topo image').evaluateAll((list) => list.map((i) => i.getAttribute('href') ?? ''))
+  const topoTiles = () => editor.page.locator('.mk-topo image').evaluateAll((list) => list.map((i) => i.getAttribute('href') ?? ''))
   // 地形圖只留等高線與海岸線：畫上去的圖裡只有這兩種顏色，沒有黑色的高程點、注記（等圖磚處理到兩種都出現）
   const tileColors = (hrefs: string[]) => editor.page.evaluate(async (hrefs) => {
     const seen = new Set<string>()
@@ -384,16 +389,16 @@ try {
   check('按 T 關掉地形圖', (await until(async () => (await topoTiles()).length === 0, 3000)) === true)
   await editor.page.keyboard.press('t')
   const contourOpacity = await until(async () => {
-    const o = await editor.page.locator('.sm-topo').evaluate((g) => Number(getComputedStyle(g).opacity)).catch(() => undefined)
+    const o = await editor.page.locator('.mk-topo').evaluate((g) => Number(getComputedStyle(g).opacity)).catch(() => undefined)
     return o === undefined ? undefined : o
   }, 5000)
   check('等高線畫淡一點（半透明）', contourOpacity !== undefined && contourOpacity < 0.6, String(contourOpacity))
-  check('不畫 OpenStreetMap 的岩壁', (await editor.page.locator('.sm-cliff').count()) === 0)
+  check('不畫 OpenStreetMap 的岩壁', (await editor.page.locator('.mk-cliff').count()) === 0)
   await editor.page.keyboard.press('n')
   await clickCanvas(editor.page, [[0.3, 0.4], [0.45, 0.5], [0.6, 0.45]])
   await editor.page.keyboard.press('Enter')
   // 換朝向：剛畫好的線（選中的）點的順序反過來；再翻一次回到預設（朝向步道）
-  const selectedPoints = () => editor.page.locator('.edit-canvas .sm-edit-ring.selected').getAttribute('d').then((d) => (d ?? '').slice(1).split('L'))
+  const selectedPoints = () => editor.page.locator('.edit-canvas .mk-edit-ring.selected').getAttribute('d').then((d) => (d ?? '').slice(1).split('L'))
   const drawn = await selectedPoints()
   await editor.page.keyboard.press('f')
   const flipped = await selectedPoints()
@@ -430,11 +435,11 @@ try {
   await editor.page.waitForFunction((h) => location.pathname.endsWith(h.slice(h.lastIndexOf('/'))), otherHref)
   await editor.page.waitForTimeout(500)
   check('換到別的分區畫岩壁：放大到那個分區的岩壁', !!viewBefore && (await mapTransform()) !== viewBefore, `${viewBefore} → ${await mapTransform()}`)
-  const shownWall = await until(async () => ((await editor.page.locator('.edit-canvas .sm-line').count()) > 0 && (await editor.page.locator('.edit-canvas .sm-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
+  const shownWall = await until(async () => ((await editor.page.locator('.edit-canvas .mk-line').count()) > 0 && (await editor.page.locator('.edit-canvas .mk-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
   check('畫岩壁時，其他分區已有的岩壁也畫出來', shownWall === true)
   const labelOnTop = await editor.page.evaluate(() => {
-    const label = document.querySelector('.edit-canvas .sm-sector-label')
-    const lines = [...document.querySelectorAll('.edit-canvas .sm-line, .edit-canvas .sm-edit-ring')]
+    const label = document.querySelector('.edit-canvas .mk-sector-label')
+    const lines = [...document.querySelectorAll('.edit-canvas .mk-line, .edit-canvas .mk-edit-ring')]
     return !!label && lines.length > 0 && lines.every((l) => l.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING)
   })
   check('分區名稱畫在岩壁線條上面', labelOnTop)
@@ -455,7 +460,7 @@ try {
   const canvasNow = (await editor.page.locator('.edit-canvas svg[role=img]').boundingBox())!
   const otherWallAt = await editor.page.evaluate(({ x, y, width, height }) => {
     const canvas = { left: x, top: y, right: x + width, bottom: y + height }
-    for (const p of document.querySelectorAll<SVGPathElement>('.edit-canvas .sm-line .sm-line-stroke')) {
+    for (const p of document.querySelectorAll<SVGPathElement>('.edit-canvas .mk-line .mk-line-stroke')) {
       const m = p.getPointAtLength(p.getTotalLength() / 2)
       const s = new DOMPoint(m.x, m.y).matrixTransform(p.getScreenCTM()!)
       if (s.x > canvas.left + 20 && s.x < canvas.right - 20 && s.y > canvas.top + 20 && s.y < canvas.bottom - 20) return { x: s.x, y: s.y }
@@ -466,19 +471,19 @@ try {
   if (otherWallAt) await editor.page.mouse.click(otherWallAt.x, otherWallAt.y)
   const tapped = await until(async () => {
     const p = await editor.page.evaluate(() => location.pathname)
-    return p !== pathBeforeTap && /\/edit\/map\/wall:[^/]+$/.test(p) && (await editor.page.locator('.edit-canvas .sm-edit-ring').count()) > 0 ? p : undefined
+    return p !== pathBeforeTap && /\/edit\/map\/wall:[^/]+$/.test(p) && (await editor.page.locator('.edit-canvas .mk-edit-ring').count()) > 0 ? p : undefined
   }, 5000)
   check('岩壁編輯：點地圖上別的分區的岩壁，換到那個分區編輯', !!tapped, `${pathBeforeTap} → ${tapped ?? '沒換'}`)
   // 地圖頁：放大到校門口（急救器材 #1 在校門口），分區名稱標在岩壁中間
   await editor.page.goto(base + 'map')
-  const gateLabel = await editor.page.waitForSelector('.sm-ems:has(title:text-is("急救器材 #1")) rect', { timeout: 20000 })
+  const gateLabel = await editor.page.waitForSelector('.mk-aid:has(title:text-is("急救器材 #1")) rect', { timeout: 20000 })
   const gateBox = (await gateLabel.boundingBox())!
   await editor.page.mouse.move(gateBox.x + gateBox.width / 2, gateBox.y + gateBox.height / 2)
   for (let i = 0; i < 8; i++) {
     await editor.page.mouse.wheel(0, -300)
     await editor.page.waitForTimeout(150)
   }
-  const sectorLabel = await until(async () => ((await editor.page.locator('.sm-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
+  const sectorLabel = await until(async () => ((await editor.page.locator('.mk-sector-label', { hasText: gateSectorName }).count()) > 0 ? true : undefined), 5000)
   check('地圖放大後，分區名稱標在岩壁上', sectorLabel === true)
 
   // 分區頁的標題卡：和區域頁同一個樣式，右側是放大到這個分區岩壁的地圖
@@ -1631,10 +1636,19 @@ try {
   await rp.keyboard.press('Escape')
   await tool('回報位置').click()
   check('區域頁回報位置：先選分區（每個分區一個選項）', (await rp.locator('.place-report .chip').count()) === favArea.sectors.length)
-  await rp.waitForSelector('.place-report .sm-line')
-  check('回報位置的地圖畫出岩壁', (await rp.locator('.place-report .sm-line').count()) > 0)
+  await rp.waitForSelector('.place-report .mk-line')
+  check('回報位置的地圖畫出岩壁', (await rp.locator('.place-report .mk-line').count()) > 0)
   await rp.locator('.place-report .chip').first().click()
-  check('選了分區：地圖上那個分區的岩壁標成選取', (await rp.locator('.place-report .sm-line.selected').count()) > 0)
+  await rp.locator('.place-report .mk-line.selected').first().waitFor({ timeout: 5000 }).catch(() => {})
+  // 選中的是那個分區的每一條岩壁（不是別的分區的）
+  const chosenLines = await rp.locator('.place-report .mk-line.selected').evaluateAll((els) => els.map((el) => el.getAttribute('data-line') ?? ''))
+  check('選了分區：地圖上那個分區的岩壁標成選取', chosenLines.length > 0 && chosenLines.every((key) => key.startsWith(`${favArea.sectors[0].id}#`)), chosenLines.join(' '))
+  // 在地圖上點一下：那裡出現圖釘（回報的位置；圖釘的尖端在點的位置，外框的線多出幾個像素）
+  const reportMap = (await rp.locator('.place-report .kit-map').boundingBox())!
+  await rp.mouse.click(reportMap.x + reportMap.width * 0.4, reportMap.y + reportMap.height * 0.6)
+  await rp.locator('.place-report .mk-pick').waitFor({ timeout: 5000 }).catch(() => {})
+  const pin = await rp.locator('.place-report .mk-pick path').boundingBox()
+  check('在回報的地圖上點一下：點的地方出現圖釘', !!pin && Math.abs(pin.x + pin.width / 2 - (reportMap.x + reportMap.width * 0.4)) < 3 && Math.abs(pin.y + pin.height - (reportMap.y + reportMap.height * 0.6)) < 5, `${JSON.stringify(pin)} 點 ${reportMap.x + reportMap.width * 0.4},${reportMap.y + reportMap.height * 0.6}`)
   await rp.keyboard.press('Escape')
   // 最愛的區域：首頁排在最前面、名稱旁有愛心；「我的」的最愛也列出來
   await tool('加入最愛').click()

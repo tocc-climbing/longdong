@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useWide } from '../layout'
 import { inMapBounds } from '../map/bounds'
-import { ScaleMap } from '../map/ScaleMap'
+import { KitMap } from '../map/KitMap'
 import { useGeolocation } from '../components/MyLocation'
 import { LocationHelp } from '../components/LocationHelp'
 import { Sheet } from '../components/Sheet'
@@ -16,10 +16,10 @@ import { href, navigate } from '../router'
 import { areaNames, project, sectorWalls, useScaleMap } from '../map/mapData'
 import { ORTHO_DOWNLOAD_MB, cachedOrthoCount, downloadOrtho, orthoDownloadUrls } from '../map/ortho'
 import { innermost } from '../map/reportOptions'
-import { useMapShapes, wallLabelAt } from '../map/shapes'
+import { useMapShapes } from '../map/shapes'
 import { setSimulation, useSimulation } from '../simulate'
 import { displayName, useSocial } from '../social/store'
-import { ManualReportForm, WallDetails, sectorLabel } from './MapTools'
+import { ManualReportForm, WallDetails } from './MapTools'
 
 /** 誤差在這以內才適合當校正點 */
 const GOOD_ACCURACY_M = 10
@@ -77,11 +77,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const walls = map.status === 'ok' ? sectorWalls(map.data, shapes) : []
   const { profiles } = useSocial()
   const uid = cloud.status === 'signed-in' ? cloud.user?.uid : undefined
-  // 分區名稱標在岩壁中間（沒有岩壁的分區不標）
-  const sectorLabels = [...data.sectorById].flatMap(([id, { sector }]) => {
-    const at = wallLabelAt(walls.filter((w) => w.sector === id).map((w) => w.points))
-    return at ? [{ id, text: localName(sector.name, lang).main, at }] : []
-  })
 
   const names = areaNames(data, lang)
   const fix = geo.status === 'ok' ? { coords: geo.coords, accuracy: geo.accuracy, time: geo.time } : undefined
@@ -194,19 +189,17 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   return (
     <div className="map-page">
       {map.status === 'ok' ? (
-        <ScaleMap
+        <KitMap
           map={map.data}
-          areaNames={names}
+          data={data}
           here={fix}
           marks={[...records.marks, ...simulatedMarks].map((m) => ({ at: m.coords, picked: 'manual' in m ? undefined : m.picked }))}
           pick={pick}
           ortho={ortho}
-          lines={[
-            ...walls.map((w) => ({ key: w.key, points: w.points, label: sectorLabel(data, w.sector, lang), area: data.sectorById.get(w.sector)?.area.id.split('/').pop(), selected: w.key === selectedWall })),
-          ]}
-          onLineTap={setSelectedWall}
-          sectorLabels={sectorLabels}
-          onAreaPress={(key) => navigate(href.area(`${data.dataset.crag.id}/${key}`))}
+          selected={wall && { sector: wall.sector, line: Number(wall.key.split('#')[1]) }}
+          onWallTap={(sector, line) => setSelectedWall(`${sector}#${line}`)}
+          sectorLabels
+          onAreaPress={(area) => navigate(href.area(area))}
           onLocate={() => {
             if (outside !== undefined) setToast(t('map.outside', { dist: distance(outside) }))
             else if (geo.status === 'locating') setToast(t('map.locating'))

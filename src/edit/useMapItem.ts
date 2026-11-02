@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { LatLng } from '../geo'
 import { faceTrail, nearestOnSegment } from '../map/aspect'
 import { project, unproject, type ScaleMapData } from '../map/mapData'
-import type { MapEdit, MapLine } from '../map/ScaleMap'
+import type { MapEdit } from '../map/KitMap'
 import { LINE_TARGETS, isLineTarget, isOpenTarget, sectorOf, simplifyLine, useMapShapes, type EditTarget } from '../map/shapes'
 import { canSubmitDraft, changeDraft, checkpointDraft, redoDraft, setDraftRings, undoDraft, useDrafts } from './mapDrafts'
 
@@ -98,9 +98,9 @@ export function useMapItem({ target, map }: { target: EditTarget; map?: ScaleMap
           onSelect: setSelectedRing,
           faces: isWall,
         }
-  const pick = drawing && !submitting ? { onPick: (at: LatLng, metersPerPixel: number) => setDrawing([...drawing, snap(at, metersPerPixel)]) } : undefined
-  // 多邊形還沒閉環：點本身不補起點，暫時封閉的區域由地圖用半透明顯示（MapLine.closed）
-  const draftLine: MapLine | undefined = drawing && { key: 'edit-draft', points: drawing, draft: true, closed }
+  const pick = drawing && !submitting ? { onPick: (at: LatLng, metersPerPixel: number) => setDrawing((d) => d && [...d, snap(at, metersPerPixel)]) } : undefined
+  // 多邊形還沒閉環：點本身不補起點，暫時封閉的區域由地圖用半透明顯示（closed）
+  const drawn = drawing && { points: drawing, closed }
 
   return {
     ready: !!map,
@@ -108,7 +108,7 @@ export function useMapItem({ target, map }: { target: EditTarget; map?: ScaleMap
     closed,
     edit,
     pick,
-    draftLine,
+    drawn,
     drawing,
     selected,
     count: rings.length,

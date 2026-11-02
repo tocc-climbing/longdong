@@ -45,12 +45,14 @@ export function wallLabelAt(lines) {
 /**
  * model：readMap 的結果；v：畫面；frame：框的大小；o：
  *   lang、text（介面文字，見 view.js 的 TEXT）、id（這張地圖的 id，給 clipPath、textPath 用）
- *   dim（區域節點 id：其他區域變淡）、hideAreas、walls（畫岩壁）、sectorLabels（放大後標分區名稱）、selected（{ node, line }）
+ *   dim（區域節點 id：其他區域變淡）、hideAreas、hide（不畫的區域、分區節點 id）、walls（畫岩壁）、sectorLabels（放大後標分區名稱；true 全部，或分區 id 陣列只標這些）、selected（{ node, line }；沒有 line 是整個分區的每一條，不標名稱）
  *   tiles（{ ortho?: 圖磚[], contours?: 圖磚[], osm?: 圖磚[] }，平面座標）、ortho（航照模式：區域只畫邊框）
  *   draft（{ points（經緯度）, closed }）、marks、here、pick、edit（{ rings（經緯度）, closed, selected, faces }）
  * 回傳 { svg（<svg> 的內容）, labels（畫出來的區域、分區、地點，給測試比對）}
  */
 export function renderMap(model, v, frame, o) {
+  const hidden = new Set(o.hide ?? []);
+  model = { ...model, areas: model.areas.filter((a) => !hidden.has(a.id)), walls: model.walls.filter((w) => !hidden.has(w.id)) };
   const { proj } = model;
   const id = o.id;
   const screen = (p) => toScreen(v, frame, p);
@@ -99,6 +101,7 @@ export function renderMap(model, v, frame, o) {
   const sectorTexts =
     o.sectorLabels && !o.hideAreas && v.s < SECTOR_LABEL_SCALE
       ? model.walls.flatMap((w) => {
+          if (Array.isArray(o.sectorLabels) && !o.sectorLabels.includes(w.id)) return [];
           const at = wallLabelAt(w.lngLat);
           return at ? [{ id: w.id, text: name(w.node), at: ll(at) }] : [];
         })
@@ -144,7 +147,7 @@ export function renderMap(model, v, frame, o) {
 
   // 岩壁與正在畫的線
   const lines = [
-    ...(o.walls ? model.walls.flatMap((w) => w.lngLat.map((pts, k) => ({ key: `${w.id}#${k}`, pts, stroke: w.style.stroke, label: name(w.node), selected: o.selected?.node === w.id && o.selected.line === k }))) : []),
+    ...(o.walls ? model.walls.flatMap((w) => w.lngLat.map((pts, k) => ({ key: `${w.id}#${k}`, pts, stroke: w.style.stroke, label: name(w.node), selected: o.selected?.node === w.id && (o.selected.line === undefined || o.selected.line === k), named: o.selected?.line === k }))) : []),
     ...(o.draft ? [{ key: 'draft', pts: o.draft.points, draft: true, closed: o.draft.closed }] : []),
   ];
   for (const l of lines) {
@@ -156,7 +159,7 @@ export function renderMap(model, v, frame, o) {
     if (preview) out.push(`<path class="mk-line-fill" d="${path}Z"></path><path class="mk-line-close" d="M${f1(pts.at(-1)[0])} ${f1(pts.at(-1)[1])}L${f1(pts[0][0])} ${f1(pts[0][1])}"></path>`);
     if (pts.length > 1) out.push(`<path class="mk-line-stroke" d="${path}"></path>`);
     if (l.draft) for (const [x, y] of pts) out.push(`<circle class="mk-line-vertex" cx="${x}" cy="${y}" r="4"></circle>`);
-    if (l.selected && l.label && mid) out.push(`<text class="mk-line-label" x="${mid[0]}" y="${mid[1] - 10}" font-size="12" text-anchor="middle"${l.stroke ? ` style="fill:${esc(l.stroke)}"` : ''}>${esc(l.label)}</text>`);
+    if (l.selected && l.named && l.label && mid) out.push(`<text class="mk-line-label" x="${mid[0]}" y="${mid[1] - 10}" font-size="12" text-anchor="middle"${l.stroke ? ` style="fill:${esc(l.stroke)}"` : ''}>${esc(l.label)}</text>`);
     out.push('</g>');
   }
 

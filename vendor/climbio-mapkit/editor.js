@@ -65,6 +65,11 @@ export class MapEditor extends MapViewer {
   /**
    * options 同 MapViewer，另外：layer（要接著改的圖層：id、license、attribution 沿用）、license、attribution（新圖層用）。
    * 一次改一個節點：edit({ node, closed?, faces? })。輸出的圖層只放改過的節點的標註（每個節點一個）。
+   *
+   * 受控模式（App 自己存草稿、記復原）：setEdit({ rings, closed, selected?, faces? })，形狀由 App 給（經緯度，可以不是節點，例如步道）；
+   * 修改發 editstart（一次修改開始：按下頂點、加頂點、刪頂點）與 editchange（{ rings }，拖曳中每次移動都發），點一塊發 select（{ index }）；
+   * 沒點到形狀時照常發 tap、pick（換到別的分區）。options.picking 為 true 時（App 正在畫新的一塊）點地圖一律發 tap。
+   * 受控模式不用內建的復原、快捷鍵與 draw()；正在畫的線用 options.draft。setEdit(undefined) 結束。
    */
   constructor(host, options = {}) {
     super(host, options);
@@ -109,8 +114,16 @@ export class MapEditor extends MapViewer {
     this.#sync();
   }
 
+  /** 受控模式：顯示、編輯 App 給的形狀；undefined 結束 */
+  setEdit(e) {
+    this.controlled = e && { rings: e.rings, closed: !!e.closed, selected: e.selected, faces: !!e.faces };
+    this.editing = this.controlled && { rings: e.rings, closed: !!e.closed, selected: e.selected, faces: !!e.faces };
+    this.render();
+  }
+
   /** 目前這個節點的形狀（經緯度，多邊形不重複第一點） */
   get rings() {
+    if (this.controlled) return this.controlled.rings;
     return this.target ? this.shapes.get(this.target.node) : [];
   }
 
@@ -236,8 +249,33 @@ export class MapEditor extends MapViewer {
     this.render();
   }
 
+  /** 點到的那塊：多邊形是點在裡面的最小一塊（大塊裡的小塊點得到），線是 LINE_HIT_PX 內最近的；沒有是 -1 */
+  #hitRing(p, closed) {
+    const at = this.toLngLat([p.x, p.y]), v = this.view, f = this.frame, proj = this.model.proj;
+    if (closed) {
+      const inside = this.rings.map((r, i) => ({ i, r: r.map(proj.project) })).filter(({ r }) => inRing(proj.project(at), r));
+      const area = (r) => Math.abs(r.reduce((s, [x, y], k) => { const [x2, y2] = r[(k + 1) % r.length]; return s + x * y2 - x2 * y; }, 0));
+      return inside.sort((a, b) => area(a.r) - area(b.r))[0]?.i ?? -1;
+    }
+    return (
+      this.rings
+        .map((r, i) => {
+          const pts = r.map((q) => toScreen(v, f, proj.project(q)));
+          return { i, d: Math.min(...pts.slice(1).map((b, j) => segmentDistance([p.x, p.y], pts[j], b))) };
+        })
+        .filter((x) => x.d <= LINE_HIT_PX)
+        .sort((a, b) => a.d - b.d)[0]?.i ?? -1
+    );
+  }
+
   /** 點一下：畫的時候加點；不然選點到的那塊（多邊形：點在裡面；線：LINE_HIT_PX 內最近的） */
   onTap(p) {
+    if (this.controlled) {
+      const hit = this.options.picking ? -1 : this.#hitRing(p, this.controlled.closed);
+      if (hit >= 0) this.dispatchEvent(new CustomEvent('select', { detail: { index: hit } }));
+      else super.onTap(p);
+      return;
+    }
     if (!this.target) return super.onTap(p);
     const at = this.toLngLat([p.x, p.y]);
     if (this.drawing) {
@@ -264,6 +302,7 @@ export class MapEditor extends MapViewer {
     if (!el || e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    if (this.controlled) return this.#controlledDrag(e, el);
     const i = this.selected;
     let index = Number(el.dataset.vertex ?? Number(el.dataset.mid) + 1);
     const before = copy(this.rings);
@@ -302,16 +341,58 @@ export class MapEditor extends MapViewer {
     this.#sync();
   }
 
+  /** 受控模式的拖曳：按下發 editstart（中點先插一個頂點），移動時發 editchange；形狀等 App 用 setEdit 給回來 */
+  #controlledDrag(e, el) {
+    const c = this.controlled, i = c.selected;
+    if (i === undefined || !c.rings[i]) return;
+    const index = Number(el.dataset.vertex ?? Number(el.dataset.mid) + 1);
+    let rings = copy(c.rings);
+    this.dispatchEvent(new CustomEvent('editstart'));
+    if (el.dataset.mid !== undefined) {
+      const ring = rings[i], a = ring[index - 1], b = ring[index % ring.length];
+      rings = rings.map((r, k) => (k === i ? [...r.slice(0, index), [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ...r.slice(index)] : r));
+      this.dispatchEvent(new CustomEvent('editchange', { detail: { rings } }));
+    }
+    this.dragging = index;
+    this.svg.setPointerCapture?.(e.pointerId);
+    const move = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      const r = this.box.getBoundingClientRect();
+      const at = this.model.proj.unproject(toMap(this.view, this.frame, [ev.clientX - r.left, ev.clientY - r.top])).map((v) => Math.round(v * 1e6) / 1e6);
+      rings = rings.map((ring, k) => (k === i ? ring.map((q, j) => (j === index ? at : q)) : ring));
+      this.dispatchEvent(new CustomEvent('editchange', { detail: { rings } }));
+    };
+    const up = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      this.svg.removeEventListener('pointermove', move);
+      this.svg.removeEventListener('pointerup', up);
+      this.svg.removeEventListener('pointercancel', up);
+      this.dragging = undefined;
+      this.render();
+    };
+    this.listen(this.svg, 'pointermove', move);
+    this.listen(this.svg, 'pointerup', up);
+    this.listen(this.svg, 'pointercancel', up);
+    this.render();
+  }
+
   #handleMenu(e) {
     const el = e.target.closest?.('.mk-handle');
     if (!el || el.dataset.vertex === undefined) return;
     e.preventDefault();
     e.stopPropagation();
+    if (this.controlled) {
+      const c = this.controlled, i = c.selected, v = Number(el.dataset.vertex);
+      if (i === undefined || c.rings[i].length <= (c.closed ? 3 : 2)) return;
+      this.dispatchEvent(new CustomEvent('editstart'));
+      this.dispatchEvent(new CustomEvent('editchange', { detail: { rings: c.rings.map((r, k) => (k === i ? r.filter((_, j) => j !== v) : r)) } }));
+      return;
+    }
     this.removeVertex(Number(el.dataset.vertex));
   }
 
   #key(e) {
-    if (this.destroyed || !this.target || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    if (this.destroyed || this.controlled || !this.target || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === 'z') {
       e.preventDefault();

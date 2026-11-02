@@ -7,8 +7,8 @@ import { useWide } from '../layout'
 import { angleBetween, meanFacing, photoFacing, wallFaces } from '../map/aspect'
 import type { LatLng } from '../geo'
 import { useScaleMap, withShapes } from '../map/mapData'
-import { ScaleMap } from '../map/ScaleMap'
-import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallLabelAt, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
+import { KitMap } from '../map/KitMap'
+import { isLineTarget, loadMapShapes, sectorOf, useMapShapes, wallTarget, type EditTarget, type MapEditVersion } from '../map/shapes'
 import { useReportPins } from './useReportPins'
 import { useCloud, withCloud } from '../personal/sync'
 import { TOPO_ADD_PREFIX, goBack, href, navigate, type EditKind } from '../router'
@@ -316,7 +316,7 @@ const typing = (e: KeyboardEvent) => {
 
 /** 地圖的編輯畫面：工具列（選取、新增、刪除、復原、重做、航照、提交）、地圖、右側面板（說明、修改紀錄、快捷鍵） */
 function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTarget }) {
-  const { lang, t } = useLang()
+  const { t } = useLang()
   const cloud = useCloud()
   const map = useScaleMap()
   const shapes = useMapShapes()
@@ -338,16 +338,8 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   }
   const isWall = target.startsWith('wall:')
   const sector = isWall ? sectorOf(target) : undefined
-  // 畫岩壁時，其他分區的岩壁也畫出來，包括還沒提交的修改；點一下換到那個分區編輯
-  const allWalls = shown?.walls ?? {}
-  const otherSectors = isWall ? Object.keys(allWalls).filter((s) => s !== sector) : []
-  const linesOf = (s: string) => allWalls[s]
-  const otherWalls = otherSectors.flatMap((s) => linesOf(s).map((points, i) => ({ key: `${s}#${i}`, points, area: data.sectorById.get(s)?.area.id.split('/').pop() })))
-  const otherLabels = otherSectors.flatMap((id) => {
-    const at = wallLabelAt(linesOf(id))
-    const found = data.sectorById.get(id)
-    return at && found ? [{ id, text: localName(found.sector.name, lang).main, at }] : []
-  })
+  // 畫岩壁時，其他分區的岩壁也畫出來（標名稱），包括還沒提交的修改；點一下換到那個分區編輯。正在改的分區只畫編輯中的形狀
+  const otherSectors = isWall ? Object.keys(shown?.walls ?? {}).filter((s) => s !== sector) : []
   // 範圍、岩壁（不含步道）：這個區域的回報位置與說明畫在地圖上當參考（不顯示是誰、什麼時候）
   const pins = useReportPins(m.closed || isWall ? { target, data, map: map.status === 'ok' ? map.data : undefined } : undefined)
   const [pinOn, setPinOn] = useState<string>()
@@ -381,7 +373,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   })
 
   // 打開時放大到這個項目（岩壁放大到只比岩壁多一點）；分區還沒有岩壁時放大到所在的大區域；步道看整個地圖
-  const focusArea = sector ? data.sectorById.get(sector)?.area.id.split('/').pop() : undefined
+  const focusArea = sector ? data.sectorById.get(sector)?.area.id : undefined
   const focus =
     m.ready && !isLineTarget(target)
       ? m.rings.length
@@ -450,19 +442,22 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
         </div>
         <div className="edit-canvas">
           {map.status === 'ok' ? (
-            <ScaleMap
+            <KitMap
               map={shown!}
-              areaNames={{}}
+              data={data}
+              editable
               marks={pins.map((p) => ({ at: p.at, picked: p.picked, label: String(Number(p.id) + 1), selected: p.id === pinOn }))}
               ortho={ortho}
               topo={topo}
               hideAreas={isLineTarget(target)}
+              walls={isWall}
+              hide={sector ? [sector] : undefined}
               edit={m.edit}
               pick={m.pick}
-              lines={[...otherWalls, ...(m.draftLine ? [m.draftLine] : [])]}
-              onLineTap={isWall && !submitting ? (key) => navigate(href.edit('map', wallTarget(key.split('#')[0]))) : undefined}
+              draft={m.drawn}
+              onWallTap={isWall && !submitting ? (s) => navigate(href.edit('map', wallTarget(s))) : undefined}
               focus={focus || undefined}
-              sectorLabels={otherLabels}
+              sectorLabels={otherSectors}
             />
           ) : (
             <p className="muted edit-message">{map.status === 'error' ? map.message : t('app.loading')}</p>

@@ -6,8 +6,8 @@ import { distanceM, nearestPoints, type LatLng } from '../geo'
 import { localName, useLang } from '../i18n'
 import { inMapBounds } from '../map/bounds'
 import { addMark, type ReportTarget } from '../map/calibration'
-import { areaNames, useScaleMap } from '../map/mapData'
-import { ScaleMap } from '../map/ScaleMap'
+import { useScaleMap } from '../map/mapData'
+import { KitMap } from '../map/KitMap'
 import { LocationHelp } from './LocationHelp'
 import { useGeolocation } from './MyLocation'
 import { Sheet } from './Sheet'
@@ -229,15 +229,12 @@ export function PlaceReport({ data, area, sector, route }: { data: LoadedData; a
             </p>
             <div className="place-report-map">
               {map.status === 'ok' && (
-                <ScaleMap
+                <KitMap
                   map={map.data}
-                  areaNames={areaNames(data, lang)}
+                  data={data}
                   here={fix}
-                  marks={[]}
-                  focus={{ key: area.id, area: area.id.split('/').pop() }}
-                  lines={Object.entries(map.data.walls).flatMap(([id, walls]) =>
-                    walls.map((points, i) => ({ key: `${id}#${i}`, points, area: data.sectorById.get(id)?.area.id.split('/').pop(), selected: id === target?.id })),
-                  )}
+                  focus={{ key: area.id, area: area.id }}
+                  selected={target && { sector: target.id }}
                   pick={{ at: picked, onPick: (at) => !uploading && setPicked(at) }}
                 />
               )}
