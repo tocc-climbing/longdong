@@ -1,0 +1,18 @@
+{
+ "name": "overview-ja-375",
+ "frame": {
+  "w": 375,
+  "h": 700
+ },
+ "lang": "ja",
+ "view": {
+  "center": [
+   121.9227595,
+   25.10884
+  ],
+  "metersPerPixel": 1.834716289634894,
+  "rotation": 0
+ },
+ "walls": true,
+ "sectorLabels": true
+}

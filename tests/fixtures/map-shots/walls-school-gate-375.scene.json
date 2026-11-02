@@ -1,0 +1,22 @@
+{
+ "name": "walls-school-gate-375",
+ "frame": {
+  "w": 375,
+  "h": 700
+ },
+ "lang": "zh",
+ "view": {
+  "center": [
+   121.92161899999999,
+   25.112712000000002
+  ],
+  "metersPerPixel": 0.13342092192767557,
+  "rotation": 0
+ },
+ "walls": true,
+ "sectorLabels": true,
+ "selected": {
+  "node": "18c3okc0sdp788vl",
+  "line": 0
+ }
+}

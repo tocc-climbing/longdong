@@ -1,0 +1,19 @@
+{
+ "name": "area-school-gate-375",
+ "frame": {
+  "w": 375,
+  "h": 700
+ },
+ "lang": "zh",
+ "view": {
+  "center": [
+   121.92256,
+   25.112509534499466
+  ],
+  "metersPerPixel": 0.7695034302777572,
+  "rotation": 0
+ },
+ "dim": "3iorb7wklpgwrmph",
+ "walls": true,
+ "sectorLabels": true
+}

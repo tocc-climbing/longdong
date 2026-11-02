@@ -1,0 +1,21 @@
+{
+ "name": "edit-trails-900",
+ "frame": {
+  "w": 900,
+  "h": 600
+ },
+ "lang": "zh",
+ "view": {
+  "center": [
+   121.9227595,
+   25.10884
+  ],
+  "metersPerPixel": 2.1405023379073764,
+  "rotation": 0
+ },
+ "hideAreas": true,
+ "edit": {
+  "node": "trail",
+  "selected": 3
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "name": "edit-wall-faces-375",
+ "frame": {
+  "w": 375,
+  "h": 700
+ },
+ "lang": "zh",
+ "view": {
+  "center": [
+   121.921541,
+   25.11288
+  ],
+  "metersPerPixel": 0.13333333333333333,
+  "rotation": 0
+ },
+ "walls": true,
+ "sectorLabels": true,
+ "edit": {
+  "node": "18c3okc0sdp788vl",
+  "selected": 0,
+  "faces": true
+ }
+}

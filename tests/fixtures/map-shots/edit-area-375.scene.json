@@ -1,0 +1,21 @@
+{
+ "name": "edit-area-375",
+ "frame": {
+  "w": 375,
+  "h": 700
+ },
+ "lang": "zh",
+ "view": {
+  "center": [
+   121.922839,
+   25.110211
+  ],
+  "metersPerPixel": 0.5333333333333333,
+  "rotation": 0
+ },
+ "dim": "zghswfh7ltf2m466",
+ "edit": {
+  "node": "zghswfh7ltf2m466",
+  "selected": 0
+ }
+}

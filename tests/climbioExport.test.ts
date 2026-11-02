@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { validate, type Layer, type MapView, type PhotoView } from '../vendor/climbio-format/format'
 import { areaSet, cragSet, fileId, globalId, topo, wallMap, type TopoInput } from '../scripts/lib/climbio'
+import { longdongMap } from '../scripts/lib/climbioMap'
 import type { Dataset } from '../src/data/schema'
 import type { LatLng } from '../src/geo'
 
@@ -117,5 +118,20 @@ describe('Topo', () => {
     const map = wallMap(dataset, schoolGate, walls, 1) as MapView
     const { view } = topo(input)
     expect(areaSet(dataset, schoolGate, { map, topos: [{ view }] }, common).items!.map((i) => i.id)).toEqual([map.id, view.id])
+  })
+})
+
+describe('龍洞地圖（地圖截圖基準的 v2 地圖畫面）', () => {
+  it('通過官方驗證；陸地與建物裁切合併成一塊，區域、分區、救援點都在', () => {
+    const map = longdongMap(dataset)
+    expect(validate(map)).toEqual([])
+    const kinds = map.marks!.flatMap((m) => (m.node ? [] : [m.props!.kind]))
+    expect(kinds).toEqual(['land', 'building', 'parking', 'highway', 'tunnel', 'road', 'trail'])
+    const types = (t: string) => map.nodes!.filter((n) => n.type === t).length
+    expect([types('area'), types('sector') > 0, map.nodes!.filter((n) => n.props?.kind === 'rescue').length]).toEqual([9, true, 14])
+  })
+
+  it('基準裡的 longdong-map.json 是目前的轉換結果', () => {
+    expect(read('tests/fixtures/map-shots/longdong-map.json')).toEqual(JSON.parse(JSON.stringify(longdongMap(dataset))))
   })
 })
