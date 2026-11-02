@@ -1359,10 +1359,10 @@ try {
   check('再按一次：隱藏', (await viewer.page.locator('.topo-bolt').count()) === 0)
 
   // ── 6b. 看 Topo（電腦版）：縮放、拖曳平移、不重複顯示、沒有焦點方框 ──
-  const fit = () => viewer.page.locator('figure.topo .topo-zoom-fit').textContent()
-  const zoomIn = () => viewer.page.locator('figure.topo .topo-zoom-controls button[aria-label=放大]').click()
+  const fit = () => viewer.page.locator('figure.topo .tk-zoom [data-zoom=fit]').textContent()
+  const zoomIn = () => viewer.page.locator('figure.topo .tk-zoom [data-zoom=in]').click()
   check('電腦版有縮放按鈕，一開始是 100%', (await fit()) === '100%')
-  const photoBox = (await viewer.page.locator('figure.topo .topo-zoom').boundingBox())!
+  const photoBox = (await viewer.page.locator('figure.topo .tk-stage').boundingBox())!
   const center = { x: photoBox.x + photoBox.width / 2, y: photoBox.y + photoBox.height / 2 }
   await viewer.page.mouse.move(center.x, center.y)
   await viewer.page.mouse.wheel(0, -300)
@@ -1373,8 +1373,11 @@ try {
   const zoomed = Number.parseInt((await fit()) ?? '0')
   check('Ctrl＋滾輪縮放', zoomed > 100, `${zoomed}%`)
   await zoomIn()
+  // 倍率在下一個畫面才更新（TopoKit 合併連續的縮放）
+  const settled = () => viewer.page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  await settled()
   check('按「放大」：倍率變大', Number.parseInt((await fit()) ?? '0') > zoomed)
-  const moved = async () => viewer.page.locator('figure.topo .topo-zoom-inner').getAttribute('style')
+  const moved = async () => viewer.page.locator('figure.topo .tk-inner').getAttribute('style')
   const styleBefore = await moved()
   await viewer.page.mouse.move(center.x, center.y)
   await viewer.page.mouse.down()
@@ -1382,7 +1385,8 @@ try {
   await viewer.page.mouse.up()
   check('放大後按住左鍵拖曳可以平移', (await moved()) !== styleBefore, `${styleBefore} → ${await moved()}`)
   check('拖曳平移不會誤選路線', !viewer.page.url().includes('?r='))
-  await viewer.page.locator('figure.topo .topo-zoom-fit').click()
+  await viewer.page.locator('figure.topo .tk-zoom [data-zoom=fit]').click()
+  await settled()
   check('按倍率回到整張（100%）', (await fit()) === '100%')
 
   // 點最長的那條線的中段（示意線很短，不點它）
@@ -1411,7 +1415,7 @@ try {
   const dialog = viewer.page.locator('dialog.topo-full[open].wide')
   await dialog.waitFor({ timeout: 10000 })
   check('全螢幕：右邊列出這張照片上有標記的路線', (await dialog.locator('.topo-full-row').count()) === 3)
-  const fullFit = () => dialog.locator('.topo-zoom-fit').textContent()
+  const fullFit = async () => (await settled(), dialog.locator('.tk-zoom [data-zoom=fit]').textContent())
   check('全螢幕有縮放按鈕，一開始是 100%', (await fullFit()) === '100%')
   const stage = (await dialog.locator('.topo-full-stage').boundingBox())!
   await viewer.page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2)
@@ -1442,10 +1446,11 @@ try {
   check('全螢幕：往右滑換到上一條、往左滑換到下一條', swipedBack === firstNo && swipedNext === secondNo, `${secondNo} → ${swipedBack} → ${swipedNext}`)
   check('選到的路線在下面顯示，可以開啟', (await dialog.getByRole('button', { name: '路線頁' }).count()) === 1)
   // 點兩下放大（點的那一點留在游標下），再點兩下回到整張
-  const fullContent = dialog.locator('.topo-full-content')
+  const fullContent = dialog.locator('.tk-inner')
   const tapBefore = (await fullContent.boundingBox())!
   const tapAt = { x: tapBefore.x + tapBefore.width * 0.3, y: tapBefore.y + tapBefore.height * 0.6 }
   await viewer.page.mouse.dblclick(tapAt.x, tapAt.y)
+  await settled()
   const tapAfter = (await fullContent.boundingBox())!
   const stays = Math.abs((tapAt.x - tapAfter.x) / tapAfter.width - 0.3) < 0.01 && Math.abs((tapAt.y - tapAfter.y) / tapAfter.height - 0.6) < 0.01
   const tapZoomed = await fullFit()

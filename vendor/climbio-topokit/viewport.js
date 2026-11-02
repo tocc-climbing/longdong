@@ -30,6 +30,19 @@ export function moveView(view, from, to, ratio, stage, content) {
 
 const DOUBLE_TAP_MS = 300, DOUBLE_TAP_PX = 30;
 /** 點兩下放大到這個倍率 */
+/** 左右滑超過這個距離（螢幕像素）、而且比上下移動多，才算換路線 */
+const SWIPE_PX = 40;
+
+/**
+ * 左右滑：照片沒有跟著橫移（沒放大、或已經拖到邊）時換路線。移植自龍洞（MIT）。
+ * from、to：起點與終點（螢幕像素）；panned：這次手勢照片橫移了多少。1：往左滑（下一條）；-1：往右滑（上一條）；undefined：不換。
+ */
+export function swipeStep(from, to, panned) {
+  const dx = to.x - from.x;
+  if (Math.abs(dx) <= SWIPE_PX || Math.abs(dx) <= Math.abs(to.y - from.y) * 1.5 || Math.abs(panned) >= 1) return undefined;
+  return dx < 0 ? 1 : -1;
+}
+
 export const DOUBLE_TAP_SCALE = 2.5;
 
 /** 這次點擊和上一次合起來是點兩下：{ at: {x, y}, time } */

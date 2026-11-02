@@ -43,6 +43,18 @@ const noteText = (note, fontPx, k, lineH) =>
  *  - editing：線畫細一點、沒有說明，牌子避開 highlight 路線的點；solo：路線卡片，highlight 標編號與說明，其他只標小的編號
  *  - interactive：路線的線可以點（role=button、可用 Enter）；ui：牌子與字的倍率（電腦版 1.5，預設 1）
  */
+/**
+ * 路線卡片的灰階遮罩：照片整張灰階（.tk-gray），選到的路線周圍疊回原色的照片——沿著線一條柔邊的帶子
+ * （幾層寬窄不同的半透明線疊出來，不用模糊濾鏡，縮放、拖曳時不吃效能）。width：帶子最寬的寬度（照片像素）；id：mask 的 id（同一頁不重複）。
+ * 移植自龍洞（MIT）的 RouteReveal。
+ */
+export function renderReveal(line, { photo, width, id }) {
+  if (!line || line.length < 2) return '';
+  const d = smoothPath(line);
+  const bands = [1, 0.7, 0.45].map((f) => `<path d="${d}" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="${width * f}" stroke-linecap="round" stroke-linejoin="round"></path>`).join('');
+  return `<g class="topo-reveal" aria-hidden="true"><mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${photo.w}" height="${photo.h}">${bands}</mask><image href="${esc(photo.href)}" x="0" y="0" width="${photo.w}" height="${photo.h}" preserveAspectRatio="none" mask="url(#${id})"></image></g>`;
+}
+
 export function renderLines(routes, opts) {
   const { photo, k, highlight, editing, solo, interactive, ui: u = 1 } = opts;
   const c = opts.crop ?? { x: 0, y: 0, w: photo.w, h: photo.h };

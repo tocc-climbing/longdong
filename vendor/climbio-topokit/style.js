@@ -19,6 +19,7 @@ export const CSS = `
 .topo-route.kind-sport { --topo-line: var(--tk-sport); --topo-pill: var(--tk-sport); }
 .topo-route.kind-sport.on { --topo-line: var(--tk-sport-on); --topo-pill: var(--tk-sport-on); }
 .topo-route.dim { opacity: 0.6; }
+.tk.tk-gray .topo-frame img { filter: grayscale(1) contrast(0.8); }
 .topo-route path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .topo-hit { stroke: transparent; }
 .topo-line { stroke: var(--topo-line); }

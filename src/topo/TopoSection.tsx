@@ -1,4 +1,5 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useContext, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import type { ViewerOptions } from '../../vendor/climbio-topokit/index.js'
 import type { Sector } from '../data/schema'
 import { localName, useLang } from '../i18n'
 import { useWide } from '../layout'
@@ -8,10 +9,11 @@ import { FULL_CROP } from '../core/topo/geometry'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
-import { px, RouteReveal, TopoFrame, TopoLines } from '../core/topo/TopoView'
+import { ImageUrl, px, type RouteInfo } from '../core/topo/TopoView'
+import type { Crop, Marks, TopoImage } from '../core/topo/geometry'
 import { routeInfo } from './routeInfo'
 import { routeCrop, widenCrop } from '../core/topo/viewport'
-import { ZoomPane } from './ZoomPane'
+import { KitTopo, topoData } from './KitTopo'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
 export function routeLabels(sector: Sector): Map<string, string> {
@@ -19,17 +21,16 @@ export function routeLabels(sector: Sector): Map<string, string> {
 }
 
 /**
- * 一張 Topo 的照片與線：電腦版可以縮放、拖曳平移（Ctrl＋滾輪、右下角的按鈕、+／-／0），手機用全螢幕（雙指縮放）。
- * render 收到「一個螢幕像素等於幾個照片像素」，線與編號依此維持相同的螢幕大小。
+ * 一張 Topo 的照片與線（TopoKit）：電腦版可以縮放、拖曳平移（Ctrl＋滾輪、右下角的按鈕、+／-／0），手機用全螢幕（雙指縮放）。
+ * 大小：寬度跟外層，高度依顯示範圍的寬高比。
  */
-function Photo({ topo, alt, render }: { topo: SectorTopo; alt: string; render: (k: number) => ReactNode }) {
-  const wide = useWide()
-  const frame = (zoom: number) => (
-    <TopoFrame photo={topo.photo} crop={topo.latest?.crop} alt={alt}>
-      {(k) => render(k / zoom)}
-    </TopoFrame>
-  )
-  return wide ? <ZoomPane viewing>{frame}</ZoomPane> : frame(1)
+function Photo({ photo, marks, crop, labels, info, alt, options, onPick }: { photo: TopoImage; marks: Marks; crop?: Crop; labels: Map<string, string>; info: Map<string, RouteInfo>; alt: string; options: ViewerOptions; onPick?: (id: string) => void }) {
+  const imageUrl = useContext(ImageUrl)!
+  // 標記、裁切每次重畫都是新的物件（fillShared、routeCrop）；內容沒變就不重新 setData（縮放會回到整張）
+  const same = JSON.stringify([marks, crop])
+  const data = useMemo(() => topoData(photo, imageUrl(photo.image), marks, crop, labels, info), [photo, imageUrl, same, labels, info])
+  const [cw, ch] = px(photo, [(crop ?? FULL_CROP).w, (crop ?? FULL_CROP).h])
+  return <KitTopo data={data} options={options} onPick={onPick} className="topo-kit" style={{ aspectRatio: `${cw} / ${ch}` }} label={alt} />
 }
 
 /**
@@ -43,29 +44,22 @@ export function SectorTopos({ sector, onEdit }: { sector: Sector; onEdit?: (phot
   const { link, selected } = useRouteLink()
   const [showBolts] = useShowBolts()
   const [open, setOpen] = useState<SectorTopo>()
+  const labels = useMemo(() => routeLabels(sector), [sector])
+  const info = useMemo(() => routeInfo(sector.routes, (r) => localName(r.name, lang).main), [sector, lang])
   if (!topos || topos.length === 0) return null
-  const labels = routeLabels(sector)
-  const info = routeInfo(sector.routes, (r) => localName(r.name, lang).main)
   return (
     <section className="topos" aria-label={t('topo.title')}>
       {topos.map((topo) => (
         <TopoFigure key={topo.photo.id} onOpen={wide ? undefined : () => setOpen(topo)} label={t('topo.fullscreen')}>
           <Photo
-            topo={topo}
+            photo={topo.photo}
+            marks={fillShared(topo.latest.marks, sector.routes)}
+            crop={topo.latest.crop}
+            labels={labels}
+            info={info}
             alt={t('topo.alt', { name: localName(sector.name, lang).main })}
-            render={(k) => (
-              <TopoLines
-                photo={topo.photo}
-                marks={fillShared(topo.latest.marks, sector.routes)}
-                labels={labels}
-                k={k}
-                highlight={selected}
-                bolts={showBolts ? Object.keys(topo.latest.marks) : []}
-                info={info}
-                link={wide ? (id) => navigate(link(id)) : undefined}
-                crop={topo.latest.crop}
-              />
-            )}
+            options={{ highlight: selected, bolts: showBolts, interactive: wide, zoom: wide, controls: wide }}
+            onPick={(id) => navigate(link(id))}
           />
           {wide && <FullscreenButton topo={topo} sector={sector} initial={selected} />}
         </TopoFigure>
@@ -88,9 +82,9 @@ export function RouteTopos({ sector, routeId, onEdit }: { sector: Sector; routeI
   const topos = useSectorTopos(sector.id)?.filter((x) => x.latest?.marks[routeId])
   const [showBolts] = useShowBolts()
   const [open, setOpen] = useState<SectorTopo>()
+  const labels = useMemo(() => routeLabels(sector), [sector])
+  const info = useMemo(() => routeInfo(sector.routes, (r) => localName(r.name, lang).main), [sector, lang])
   if (!topos || topos.length === 0) return null
-  const labels = routeLabels(sector)
-  const info = routeInfo(sector.routes, (r) => localName(r.name, lang).main)
   return (
     <section className="route-block topos" aria-label={t('topo.title')}>
       {topos.map((topo) => {
@@ -98,17 +92,17 @@ export function RouteTopos({ sector, routeId, onEdit }: { sector: Sector; routeI
         const base = topo.latest!.crop ?? FULL_CROP
         const crop = widenCrop(topo.photo, routeCrop(topo.photo, base, marks[routeId]), base, ROUTE_TOPO_ASPECT)
         const [cw, ch] = px(topo.photo, [crop.w, crop.h])
-        const line = marks[routeId]?.line
         return (
           <TopoFigure key={topo.photo.id} className={`topo route-topo${cw / ch < ROUTE_TOPO_ASPECT ? ' narrow' : ''}`} onOpen={() => setOpen(topo)} label={t('topo.fullscreen')}>
-            <TopoFrame photo={topo.photo} crop={crop} alt={t('topo.alt', { name: localName(sector.name, lang).main })}>
-              {(k) => (
-                <>
-                  {line && line.length >= 2 && <RouteReveal photo={topo.photo} line={line} width={0.14 * px(topo.photo, [crop.w, 0])[0]} />}
-                  <TopoLines photo={topo.photo} marks={marks} labels={labels} k={k} highlight={routeId} bolts={showBolts ? [routeId] : []} info={info} crop={crop} solo />
-                </>
-              )}
-            </TopoFrame>
+            <Photo
+              photo={topo.photo}
+              marks={marks}
+              crop={crop}
+              labels={labels}
+              info={info}
+              alt={t('topo.alt', { name: localName(sector.name, lang).main })}
+              options={{ highlight: routeId, bolts: showBolts ? [routeId] : [], solo: true, reveal: true, interactive: false, zoom: false, controls: false }}
+            />
           </TopoFigure>
         )
       })}

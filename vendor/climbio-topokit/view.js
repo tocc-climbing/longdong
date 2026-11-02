@@ -3,14 +3,17 @@
 // 所有事件監聽都掛在同一個 AbortController 上，ResizeObserver、計時器也在 destroy() 一起收掉。
 // English: native SVG topo viewer. Zoom/pan/pick; no network; destroy() releases every listener and observer.
 import { readTopo, assertView } from './data.js';
-import { renderLines } from './render.js';
-import { clampView, doubleTapView, fitSize, IDENTITY, isDoubleTap, moveView, MAX_SCALE } from './viewport.js';
+import { esc, renderLines, renderReveal } from './render.js';
+import { clampView, doubleTapView, fitSize, IDENTITY, isDoubleTap, moveView, MAX_SCALE, swipeStep } from './viewport.js';
 import { injectStyle } from './style.js';
 
 /** 滑鼠、手指移動超過這個距離（螢幕像素）才算拖曳，之前都當作點擊 */
 export const DRAG_PX = 5;
 /** 一次按 ＋／－ 或鍵盤 +／- 的縮放倍率 */
 const STEP = 1.5;
+/** 灰階遮罩的帶子寬度：顯示範圍寬度的這個比例 */
+const REVEAL_WIDTH = 0.14;
+let maskSeq = 0;
 
 export class TopoViewer extends EventTarget {
   /**
@@ -21,12 +24,16 @@ export class TopoViewer extends EventTarget {
    *  - ui：牌子與字的倍率，預設寬螢幕（≥900px）1.5、其他 1
    *  - crop：顯示的範圍（照片像素 { x, y, w, h }），預設用畫面的 props.crop，沒有就整張
    *  - interactive：路線可以點（預設 true）；wheel：'ctrl'（預設，按著 Ctrl／⌘ 才縮放，頁面照常捲動）或 'always'
-   *  - controls：顯示縮放按鈕（預設 true）
+   *  - controls：顯示縮放按鈕（預設 true）；zoom：可以縮放、平移（預設 true；false 時滾輪、雙指、點兩下、按鍵都不縮放）
+   *  - reveal：照片灰階，highlight 路線周圍是原色（路線卡片）
+   *  - swipe：左右滑（照片沒有跟著橫移時）發 swipe 事件，detail.step 是 1（下一條）或 -1（上一條）
+   *  - text：縮放按鈕的說明 { zoomIn, zoomOut, zoomFit }（aria-label、title），預設是按鈕上的符號
    */
   constructor(host, options = {}) {
     super();
     this.host = host;
-    this.options = { interactive: true, controls: true, wheel: 'ctrl', ...options };
+    this.options = { interactive: true, controls: true, zoom: true, wheel: 'ctrl', ...options };
+    this.maskId = `tk-reveal-${++maskSeq}`;
     this.data = undefined;
     this.model = undefined;
     this.state = { ...IDENTITY };
@@ -50,7 +57,7 @@ export class TopoViewer extends EventTarget {
     if (host.ownerDocument.defaultView.getComputedStyle(host).position === 'static') host.style.position = 'relative';
     host.innerHTML =
       '<div class="tk-stage"><div class="tk-inner"><div class="topo-frame"><img alt="" draggable="false"><svg></svg></div></div>' +
-      (this.options.controls ? '<div class="tk-zoom"><button type="button" data-zoom="out" aria-label="−">−</button><button type="button" data-zoom="fit" aria-label="100%">100%</button><button type="button" data-zoom="in" aria-label="+">+</button></div>' : '') +
+      (this.options.controls ? `<div class="tk-zoom">${this.#zoomButton('out', '−', 'zoomOut')}${this.#zoomButton('fit', '100%', 'zoomFit')}${this.#zoomButton('in', '+', 'zoomIn')}</div>` : '') +
       '</div>';
     this.stage = host.querySelector('.tk-stage');
     this.inner = host.querySelector('.tk-inner');
@@ -90,6 +97,11 @@ export class TopoViewer extends EventTarget {
     const mq = this.host.ownerDocument.defaultView?.matchMedia?.('(min-width: 900px)');
     if (mq && this.options.ui == null) this.listen(mq, 'change', () => this.render());
     this.mq = mq;
+  }
+
+  #zoomButton(zoom, sign, key) {
+    const label = esc(this.options.text?.[key] ?? sign);
+    return `<button type="button" data-zoom="${zoom}" aria-label="${label}" title="${label}">${sign}</button>`;
   }
 
   /** 換資料：{ view, layers, nodes }（見 readTopo）。不是 v2 照片畫面就丟錯 */
@@ -201,7 +213,9 @@ export class TopoViewer extends EventTarget {
     });
     this.svg.setAttribute('viewBox', `${c.x} ${c.y} ${c.w} ${c.h}`);
     const k = this.k;
-    this.svg.innerHTML = renderLines(this.routes, { photo, crop: c, k, ui: this.ui, ...this.linesOptions() }) + this.extras(k);
+    this.host.classList.toggle('tk-gray', !!this.options.reveal);
+    const reveal = this.options.reveal ? renderReveal(this.routes.find((r) => r.id === this.options.highlight)?.line, { photo, width: REVEAL_WIDTH * c.w, id: this.maskId }) : '';
+    this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, ui: this.ui, ...this.linesOptions() }) + this.extras(k);
     this.stage.classList.toggle('draggable', this.state.scale > 1);
     if (this.fitButton) this.fitButton.textContent = `${Math.round(this.state.scale * 100)}%`;
   }
@@ -214,6 +228,7 @@ export class TopoViewer extends EventTarget {
   }
 
   setView(v) {
+    if (!this.options.zoom) return;
     this.state = clampView(v, this.stageSize, this.content);
     this.schedule();
     this.dispatchEvent(new CustomEvent('zoom', { detail: { scale: this.state.scale } }));
@@ -224,7 +239,7 @@ export class TopoViewer extends EventTarget {
   }
 
   #wheel(e) {
-    if (this.options.wheel === 'ctrl' && !(e.ctrlKey || e.metaKey)) return;
+    if (!this.options.zoom || (this.options.wheel === 'ctrl' && !(e.ctrlKey || e.metaKey))) return;
     e.preventDefault();
     this.zoomBy(Math.exp((-e.deltaY * (e.deltaMode === 1 ? 16 : 1)) / 500), this.rel(e));
   }
@@ -245,8 +260,11 @@ export class TopoViewer extends EventTarget {
   #down(e) {
     if (e.target.closest('.tk-zoom')) return;
     if (e.pointerType === 'touch' && e.isPrimary) this.pointers.clear();
-    // 第一根手指（或滑鼠）是新的一輪
-    if (this.pointers.size === 0) this.dragged = false;
+    // 第一根手指（或滑鼠）是新的一輪；gesture 記起點與當時照片的橫向位置（判斷左右滑），第二根手指放下就不算滑動
+    if (this.pointers.size === 0) {
+      this.dragged = false;
+      this.gesture = { from: this.rel(e), x: this.state.x, pinched: false };
+    } else if (this.gesture) this.gesture.pinched = true;
     this.pointers.set(e.pointerId, this.rel(e));
     this.owned = this.ownsPointer(e);
     if (this.pointers.size >= 2) {
@@ -292,15 +310,24 @@ export class TopoViewer extends EventTarget {
 
   #up(e) {
     this.pointers.delete(e.pointerId);
-    if (e.pointerType === 'touch' && this.pointers.size === 0 && this.press && !this.dragged) this.tapped(e);
+    if (this.tapsWith(e) && this.pointers.size === 0 && this.press && !this.dragged) this.tapped(e);
     if (this.pointers.size === 0) {
+      const g = this.gesture;
+      this.gesture = undefined;
+      const step = this.options.swipe && g && !g.pinched && e.type === 'pointerup' ? swipeStep(g.from, this.rel(e), this.state.x - g.x) : undefined;
+      if (step) this.dispatchEvent(new CustomEvent('swipe', { detail: { step } }));
       this.pan = undefined;
       this.press = undefined;
       this.stage.classList.remove('panning');
     }
   }
 
-  /** 手指點一下（沒拖、沒捏合）：連續兩下就是點兩下，放大或回到整張 */
+  /** 這種指標的點兩下要放大或回到整張：看圖時手指與滑鼠都是（編輯器只有手指，滑鼠點兩下是加兩個點） */
+  tapsWith() {
+    return true;
+  }
+
+  /** 點一下（沒拖、沒捏合）：連續兩下就是點兩下，放大或回到整張 */
   tapped(e) {
     const now = { at: this.rel(e), time: e.timeStamp };
     if (isDoubleTap(this.lastTap, now)) {

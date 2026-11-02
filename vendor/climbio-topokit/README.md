@@ -71,6 +71,10 @@ editor.undo();
 | `highlight` | 亮色的路線 id |
 | `bolts` | `true` 畫全部路線的 bolt，或路線 id 陣列；預設只畫 `highlight` 的 |
 | `solo` | 路線卡片：`highlight` 標編號與說明，其他只標小的編號（配合 `crop` 與 `routeCrop()`） |
+| `reveal` | 照片灰階，`highlight` 路線周圍是原色 |
+| `zoom` | `false`：不能縮放、平移（路線卡片） |
+| `swipe` | 左右滑（照片沒有跟著橫移時）發 `swipe` 事件，`detail.step` 是 `1`（下一條）或 `-1`（上一條） |
+| `text` | 縮放按鈕的說明 `{ zoomIn, zoomOut, zoomFit }`（`aria-label`、`title`） |
 | `lang`、`gradeSystems` | 名稱用哪個語言、難度用哪些系統（`yds`、`french`…） |
 | `wheel` | `'ctrl'`（預設，Viewer：按著 Ctrl／⌘ 才縮放，頁面照常捲動）或 `'always'`（Editor 預設） |
 
@@ -78,7 +82,7 @@ editor.undo();
 
 ### 編輯
 
-- 畫線：點照片加點；點在線段中間就插進那一段，其他地方接在線尾。拖曳點移動（真的移動才記一次復原點）。
+- 畫線：點照片加點；點在線段中間就插進那一段，其他地方接在線尾。拖曳點移動（真的移動才記一次復原點）。`setLine(points)` 把整條換掉（例如從別處描來的線），一次復原。
 - Bolt：`bolt` 工具點一下放下一個空的位置（`B01`、`B02`…，`setBoltPos('A01')` 放 anchor）。
 - 刪除：右鍵、`Delete` 鍵或 `deletePicked()`；手指點在點旁邊選取，再按刪除。
 - 分岔：新路線還沒畫線時 `fork()`，點別條路線的一個點，複製到那個點為止的前段。

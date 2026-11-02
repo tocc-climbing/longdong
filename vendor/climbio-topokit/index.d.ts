@@ -118,6 +118,14 @@ export interface ViewerOptions extends ReadOptions {
   wheel?: 'ctrl' | 'always';
   /** 顯示縮放按鈕（預設 true） */
   controls?: boolean;
+  /** 可以縮放、平移（預設 true）；false 時滾輪、雙指、點兩下、按鍵都不縮放（路線卡片） */
+  zoom?: boolean;
+  /** 照片灰階，highlight 路線周圍是原色（路線卡片） */
+  reveal?: boolean;
+  /** 左右滑（照片沒有跟著橫移時）發 swipe 事件 */
+  swipe?: boolean;
+  /** 縮放按鈕的說明（aria-label、title），預設是按鈕上的符號 */
+  text?: { zoomIn?: string; zoomOut?: string; zoomFit?: string };
 }
 
 export interface ViewState {
@@ -130,6 +138,8 @@ export interface ViewerEventMap {
   ready: CustomEvent<undefined>;
   pick: CustomEvent<{ id: string }>;
   zoom: CustomEvent<{ scale: number }>;
+  /** 左右滑：1 往左滑（下一條），-1 往右滑（上一條）；要開 swipe 選項 */
+  swipe: CustomEvent<{ step: 1 | -1 }>;
   destroy: CustomEvent<undefined>;
 }
 
@@ -196,6 +206,8 @@ export class TopoEditor extends TopoViewer {
   /** 在這一點（照片像素）加線上的點或放 bolt，看目前的工具 */
   placeAt(p: Point): void;
   deletePicked(): void;
+  /** 把選取路線的線段整條換成這些點（照片像素，第一點是起攀點）；一次復原 */
+  setLine(points: Point[]): void;
   clearRoute(): void;
   fork(on?: boolean): void;
   undo(): void;
@@ -229,6 +241,8 @@ export interface RenderOptions {
 }
 /** 路線、編號、bolt 的 SVG 字串（沒有 DOM 也能跑） */
 export function renderLines(routes: TopoRoute[], options: RenderOptions): string;
+/** 灰階遮罩：沿著線疊回原色照片的 SVG（線不到兩點時是空字串）；width 是帶子寬度（照片像素），id 是 mask 的 id */
+export function renderReveal(line: Point[] | undefined, options: { photo: { href: string; w: number; h: number }; width: number; id: string }): string;
 
 export function drawnRuns(lines: [string, Point[]][]): Map<string, Point[][]>;
 export function ownRuns(lines: [string, Point[]][]): Map<string, Point[][]>;
@@ -254,6 +268,8 @@ export class Placer {
 export const IDENTITY: ViewState;
 export const MAX_SCALE: number;
 export const DOUBLE_TAP_SCALE: number;
+/** 左右滑：照片沒有跟著橫移（panned 小於 1 螢幕像素）時，1 往左滑（下一條）、-1 往右滑（上一條），其他 undefined */
+export function swipeStep(from: { x: number; y: number }, to: { x: number; y: number }, panned: number): 1 | -1 | undefined;
 export const DRAG_PX: number;
 export function clampView(view: ViewState, stage: { w: number; h: number }, content: { w: number; h: number }): ViewState;
 export function moveView(view: ViewState, from: { x: number; y: number }, to: { x: number; y: number }, ratio: number, stage: { w: number; h: number }, content: { w: number; h: number }): ViewState;

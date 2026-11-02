@@ -233,6 +233,15 @@ export class TopoEditor extends TopoViewer {
     this.dispatchEvent(new CustomEvent('selectpoint', { detail: { picked: undefined } }));
   }
 
+  /** 把選取路線的線段整條換成 points（照片像素，第一點是起攀點）；一次復原 */
+  setLine(points) {
+    if (!this.selected) throw new Error('先選一條路線');
+    if (points.length < 2) throw new Error('線段至少要兩個點');
+    const id = this.selected;
+    this.picked = undefined;
+    this.#commit((routes) => routes.map((r) => (r.id === id ? { ...r, line: points.map((p) => [p[0], p[1]]) } : r)), 'line');
+  }
+
   /** 清掉選取路線的線段與 bolt（路線留著，回到還沒有標記的新路線） */
   clearRoute() {
     const id = this.selected;
@@ -305,6 +314,10 @@ export class TopoEditor extends TopoViewer {
 
   canPan(e) {
     return (e.pointerType === 'touch' && this.state.scale > 1) || this.space || (e.buttons & 4) !== 0;
+  }
+
+  tapsWith(e) {
+    return e.pointerType === 'touch';
   }
 
   /** 手指點兩下回到整張；第一下若才加了點，收回來 */

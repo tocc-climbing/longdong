@@ -4618,11 +4618,11 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   aspect-ratio: 4 / 5;
 }
 
-.route-topo .topo-frame {
+.route-topo .topo-kit {
   width: 100%;
 }
 
-.route-topo.narrow .topo-frame {
+.route-topo.narrow .topo-kit {
   width: auto;
   height: 100%;
 }
@@ -4840,10 +4840,6 @@ dialog.topo-full[open] {
   touch-action: none;
 }
 
-.topo-full-content {
-  position: absolute;
-}
-
 .topo-full-info {
   display: flex;
   align-items: center;
@@ -4870,6 +4866,17 @@ dialog.topo-full[open] {
   overflow: hidden;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
+}
+
+/* TopoKit 的看圖（src/topo/KitTopo.tsx）：寬度跟外層，高度依寬高比；舞台透明，載入中是上面 .topo-frame 的流光 */
+.topo-kit {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  --tk-bg: transparent;
+}
+
+.route-topo .topo-kit {
+  border-radius: 0;
 }
 
 /* 照片載入中：淡淡的流光；載入完照片與標記一起淡入 */

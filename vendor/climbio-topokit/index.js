@@ -4,8 +4,8 @@
 export { TopoViewer, DRAG_PX } from './view.js';
 export { TopoEditor } from './editor.js';
 export { readTopo, writeLayer, assertView, pickName, pickGrade, newId } from './data.js';
-export { renderLines } from './render.js';
+export { renderLines, renderReveal } from './render.js';
 export { drawnRuns, ownRuns, segmentAt, addLinePoint, forkLine, moveSharedPoint, removeLinePoint } from './lines.js';
 export { smoothPath, pathLength, pointAlong, textWidth, wrapText, Placer } from './annotate.js';
-export { clampView, moveView, fitSize, routeCrop, isSketch, doubleTapView, isDoubleTap, IDENTITY, MAX_SCALE, DOUBLE_TAP_SCALE } from './viewport.js';
+export { clampView, moveView, fitSize, routeCrop, isSketch, doubleTapView, isDoubleTap, IDENTITY, MAX_SCALE, DOUBLE_TAP_SCALE, swipeStep } from './viewport.js';
 export { CSS } from './style.js';
