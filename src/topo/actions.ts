@@ -30,7 +30,7 @@ async function shrink(file: File, crop: Crop = FULL_CROP): Promise<{ blob: Blob;
   return { blob, width, height }
 }
 
-/** 上傳照片到分區（先裁切成 crop），回傳照片 id；shot：回報附的照片的拍照資料 */
+/** 上傳照片到分區（先裁切成 crop），回傳照片 id；shot：照片的拍照資料 */
 export async function uploadTopo(sector: string, file: File, crop?: Crop, shot?: Shot): Promise<string> {
   const { m, uid } = await withCloud()
   const { blob, width, height } = await shrink(file, crop)

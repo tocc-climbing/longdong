@@ -4,6 +4,7 @@ import { useLang } from '../i18n'
 import { useCoarse } from '../layout'
 import { href, navigate } from '../router'
 import { uploadTopo } from './actions'
+import { readExif } from '../core/topo/shot'
 import { CropBox } from './CropBox'
 import { FULL_CROP, isFullCrop, type Crop } from '../core/topo/geometry'
 import type { TopoPhoto } from './model'
@@ -28,7 +29,7 @@ export function useTopoUpload(sector: string, onUploaded: (photo: string) => voi
     setError(undefined)
     reset()
     try {
-      onUploaded(await uploadTopo(sector, file, isFullCrop(crop) ? undefined : crop))
+      onUploaded(await uploadTopo(sector, file, isFullCrop(crop) ? undefined : crop, await readExif(file)))
     } catch (err) {
       setError(t('topo.uploadError', { error: (err as Error).message }))
     } finally {
@@ -96,7 +97,7 @@ function UploadCrop({ file, onCancel, onUpload }: { file: File; onCancel: () => 
           </div>
         )}
       </div>
-      <p className="small topo-upload-crop-note">{t('topo.license')}</p>
+      <p className="small topo-upload-crop-note">{t('place.photoLicense')}</p>
       <div className="topo-upload-crop-actions">
         <button type="button" className="action" onClick={onCancel}>
           {t('action.cancel')}

@@ -484,7 +484,7 @@ function MapEditor({ item, data, onToast, target }: ItemProps & { target: EditTa
   )
 }
 
-/** 這個分區回報照片的相機朝向（EXIF）和岩壁的朝向相反時提醒：岩壁可能畫反了，要換朝向 */
+/** 這個分區照片的相機朝向（EXIF）和岩壁的朝向相反時提醒：岩壁可能畫反了，要換朝向 */
 function WallPhotoCheck({ sector, lines }: { sector: string; lines: LatLng[][] }) {
   const { t } = useLang()
   const { photos } = useTopoState()

@@ -12,6 +12,7 @@ import { preview } from 'vite'
 import type { LatLng } from '../src/geo'
 import { faceTrail } from '../src/map/aspect'
 import { project } from '../src/map/mapData'
+import { withExif } from '../tests/fixtures/exifJpeg'
 
 const DB = 'http://127.0.0.1:9000'
 const asOwner = { headers: { Authorization: 'Bearer owner' } }
@@ -895,14 +896,15 @@ try {
   check('手機：目錄的分區下有上傳 Topo 照片的按鈕', (await phone.page.locator('.edit-catalog .topo-upload').count()) > 0)
   // 新增照片時先裁切：選了照片出現裁切畫面，拖曳右下角縮小，按「上傳」，存的是裁切過的照片
   const topoIdsBefore = new Set(Object.keys((await read<Record<string, unknown>>('v2/topos')) ?? {}))
-  const png = Buffer.from(
-    (await phone.page.evaluate(`(() => { const c = document.createElement('canvas'); c.width = 800; c.height = 600; const g = c.getContext('2d'); g.fillStyle = '#7a6a5a'; g.fillRect(0, 0, 800, 600); g.fillStyle = '#c33'; g.fillRect(0, 0, 400, 300); return c.toDataURL('image/png').split(',')[1] })()`)) as string,
+  const jpeg = Buffer.from(
+    (await phone.page.evaluate(`(() => { const c = document.createElement('canvas'); c.width = 800; c.height = 600; const g = c.getContext('2d'); g.fillStyle = '#7a6a5a'; g.fillRect(0, 0, 800, 600); g.fillStyle = '#c33'; g.fillRect(0, 0, 400, 300); return c.toDataURL('image/jpeg').split(',')[1] })()`)) as string,
     'base64',
   )
-  await phone.page.locator('.edit-catalog .topo-upload input[type=file]').first().setInputFiles({ name: 'wall.png', mimeType: 'image/png', buffer: png })
+  const exif = { make: 'Apple', model: 'iPhone 15', time: '2026:10:31 09:12:30', focal35: 26, lat: 25.1105, lng: 121.9228, alt: 12.5, heading: 59.5, headingRef: 'T' as const }
+  await phone.page.locator('.edit-catalog .topo-upload input[type=file]').first().setInputFiles({ name: 'wall.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(withExif(new Uint8Array(jpeg), exif)) })
   await phone.page.waitForSelector('dialog.topo-upload-crop[open] .topo-crop-handle', { timeout: 5000 })
   check('手機：新增照片時先出現裁切畫面（還沒上傳）', (await phone.page.getByRole('button', { name: '上傳' }).count()) === 1 && Object.keys((await read<Record<string, unknown>>('v2/topos')) ?? {}).length === topoIdsBefore.size)
-  check('手機：裁切畫面寫著以 CC BY-SA 4.0 公開', (await phone.page.locator('dialog.topo-upload-crop[open]').getByText('以 CC BY-SA 4.0 公開').count()) === 1)
+  check('手機：裁切畫面寫著照片以 CC BY-SA 4.0 公開、含拍照位置與方向', (await phone.page.locator('dialog.topo-upload-crop[open]').getByText('照片以 CC BY-SA 4.0 公開，含拍照位置與方向').count()) === 1)
   const corner = (await phone.page.locator('.topo-crop-handle').nth(4).boundingBox())!
   const cropFrame = (await phone.page.locator('.topo-upload-crop-frame').boundingBox())!
   const cropCdp = await phone.ctx.newCDPSession(phone.page)
@@ -913,10 +915,12 @@ try {
   await cropCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   await phone.page.getByRole('button', { name: '上傳' }).click()
   const uploaded = await until(async () => {
-    const all = (await read<Record<string, { width: number; height: number }>>('v2/topos')) ?? {}
+    const all = (await read<Record<string, { width: number; height: number; shot?: { exifLat?: number; exifLng?: number; exifHeading?: number; model?: string } }>>('v2/topos')) ?? {}
     return Object.entries(all).find(([k]) => !topoIdsBefore.has(k))
   })
   check('手機：裁切後上傳，存的是裁切過的照片（左上那一半），接著打開那張照片的編輯', !!uploaded && Math.abs(uploaded[1].width - 400) <= 8 && Math.abs(uploaded[1].height - 300) <= 8 && (await until(async () => (await phone.page.locator('dialog.topo-phone[open] .topo-phone-title').count()) === 1 || undefined, 10000)) === true, uploaded ? `${uploaded[1].width}×${uploaded[1].height}` : '沒有上傳')
+  const shot = uploaded?.[1].shot
+  check('手機：存下照片 EXIF 的拍照資料（位置、朝向、機型）', !!shot && Math.abs(shot.exifLat! - exif.lat) < 1e-6 && Math.abs(shot.exifLng! - exif.lng) < 1e-6 && shot.exifHeading === exif.heading && shot.model === exif.model, JSON.stringify(shot))
   if (uploaded) await fetch(url(`v2/topos/${uploaded[0]}`), { method: 'DELETE', ...asOwner })
   await phone.ctx.close()
   // 這張照片只給手機測試用：後面的測試以「分區只有一張照片」為前提
