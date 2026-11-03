@@ -5,6 +5,7 @@ import type { Safety } from '../data/schema'
 import { formatDate } from '../format'
 import { useLang, type Lang } from '../i18n'
 import { APP_VERSION, formatVersion } from '../version'
+import { href } from '../router'
 
 /** 關於頁的長篇說明每種語言一個檔案，用到時才載入；資料表、圖例共用 */
 const ABOUT_TEXT: Record<Lang, ReturnType<typeof lazy<typeof import('./about/zh').default>>> = {
@@ -21,6 +22,7 @@ export function AboutPage({ data }: { data: LoadedData }) {
   return (
     <article className="prose">
       <h1>{t('about.title')}</h1>
+      <p><a href={href.collaboration()}>{t('collab.title')}</a></p>
 
       <Suspense fallback={<p className="muted">{t('app.loading')}</p>}>
         <AboutText projectUrl={dataset.source.projectUrl} attribution={dataset.source.attribution} sheetUrl={dataset.source.url} />

@@ -134,6 +134,9 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
 
       {/* 側邊欄底部的次要連結；Bolt 統計只在電腦版有入口（手機版只能從連結進入） */}
       <div className="side-about small">
+        <a className={page.name === 'collaboration' ? 'active' : undefined} href={href.collaboration()} aria-current={page.name === 'collaboration' ? 'page' : undefined}>
+          {t('collab.title')}
+        </a>
         <a className={page.name === 'bolts' ? 'active' : undefined} href={href.bolts()} aria-current={page.name === 'bolts' ? 'page' : undefined}>
           {t('bolts.title')}
         </a>

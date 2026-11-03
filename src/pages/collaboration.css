@@ -1,0 +1,36 @@
+.collaboration-page { max-width: 780px; margin: 0 auto; }
+.collaboration-head { display: flex; gap: 18px; align-items: center; margin: 12px 0 28px; }
+.collaboration-head h1 { margin: 0 0 8px; }
+.collaboration-head p { margin: 0; }
+.collaboration-mark { display: grid; place-items: center; flex: 0 0 52px; height: 52px; border-radius: 16px; background: var(--brand-soft); color: var(--link); font-size: 32px; }
+.collaboration-form { display: grid; gap: 24px; padding: 24px; }
+.collaboration-form h2, .collaboration-result h2 { font-size: 1.1rem; margin: 0 0 8px; }
+.collaboration-drive { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.collaboration-drive p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.collaboration-drive .signin-prompt p { margin-top: 0; }
+.collaboration-picker { display: grid; gap: 6px; padding: 22px; border: 1px dashed var(--faint); border-radius: 12px; background: var(--surface-2); }
+.collaboration-picker input { max-width: 100%; margin-top: 10px; font: inherit; font-size: .85rem; color: var(--muted); }
+.collaboration-location { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.collaboration-location label { display: grid; gap: 8px; font-size: .9rem; min-width: 0; }
+.collaboration-location select { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); font: inherit; }
+.collaboration-photos { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.collaboration-photos li { display: flex; gap: 12px; align-items: center; }
+.collaboration-photos img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: var(--surface-2); }
+.collaboration-photos li > div { min-width: 0; display: grid; gap: 5px; }
+.collaboration-filename { overflow-wrap: anywhere; font-size: .9rem; }
+.collaboration-notice { margin: 0; color: var(--muted); }
+.collaboration-consent { display: flex; align-items: flex-start; gap: 10px; font-size: .9rem; }
+.collaboration-consent input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 3px; accent-color: var(--brand); }
+.collaboration-submit, .collaboration-result { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.collaboration-result { margin-top: 20px; padding: 24px; }
+.collaboration-result h2 { flex-basis: 100%; }
+.collaboration-result .action { margin-left: auto; }
+@media (max-width: 600px) {
+  .collaboration-form { padding: 18px; gap: 20px; }
+  .collaboration-head { gap: 12px; }
+  .collaboration-mark { flex-basis: 40px; height: 40px; border-radius: 12px; }
+  .collaboration-head h1 { font-size: 1.5rem; }
+  .collaboration-drive { flex-direction: column; gap: 12px; }
+  .collaboration-picker { padding: 16px; }
+  .collaboration-result { padding: 18px; }
+}

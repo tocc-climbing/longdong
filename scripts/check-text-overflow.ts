@@ -93,6 +93,7 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
   },
   { name: '路線清單（未登入）', path: '/checklist' },
   { name: '關於', path: '/about' },
+  { name: '紅點貓合作', path: '/collaboration' },
 ]
 
 interface Problem {

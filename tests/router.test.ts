@@ -69,6 +69,11 @@ describe('站內連結由路由換頁', () => {
 })
 
 describe('網址都不帶 #', () => {
+  it('合作頁可直接開啟並由站內路由換頁', () => {
+    expect(parseLocation('/collaboration')).toEqual({ name: 'collaboration' })
+    expect(href.collaboration()).toBe('/collaboration')
+    expect(appPath(new URL('/collaboration', 'https://longdong.web.app'), 'https://longdong.web.app')).toBe('/collaboration')
+  })
   it('站內連結是從根目錄開始的路徑', () => {
     expect(href.home()).toBe('/')
     expect(href.route('longdong/jar2yu')).toBe('/route/longdong/jar2yu')

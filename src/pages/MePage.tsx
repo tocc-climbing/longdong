@@ -63,6 +63,7 @@ export function MePage({ data, offline }: { data: LoadedData; offline: boolean }
           <AppInfo data={data} offline={offline} />
         </section>
         <p className="center small">
+          <a href={href.collaboration()}>{t('collab.title')}</a> ·{' '}
           <a href={href.about()}>{t('footer.about')}</a>
         </p>
     </article>
@@ -160,6 +161,7 @@ function SignedIn({ data, offline, uid, email }: { data: LoadedData; offline: bo
       {settings && <Settings data={data} offline={offline} uid={uid} email={email} />}
 
       {/* 寬度夠時（電腦版）統計在左、紀錄在右 */}
+      <p><a href={href.collaboration()}>{t('collab.title')}</a></p>
       <div className="me-grid">
         <div className="me-stats">
           <section className="stat-row">

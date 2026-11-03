@@ -13,6 +13,7 @@ import type { LatLng } from '../src/geo'
 import { faceTrail } from '../src/map/aspect'
 import { project } from '../src/map/mapData'
 import { withExif } from '../tests/fixtures/exifJpeg'
+import { testCollaboration } from './e2e-collaboration'
 
 const DB = 'http://127.0.0.1:9000'
 const asOwner = { headers: { Authorization: 'Bearer owner' } }
@@ -216,6 +217,7 @@ try {
   // ── 2. 修改區域範圍：看到該區的回報（合併、有幾筆） ──────────────────
   const editor = await newContext()
   await signIn(editor.page, 'editor@example.com')
+  await testCollaboration(editor.page, check)
   await editor.page.goto(base + 'edit/map/area:school-gate')
   await editor.page.waitForSelector('.edit-canvas svg[role=img]')
   const list = await editor.page.waitForSelector('.edit-pins li', { timeout: 15000 }).catch(() => undefined)

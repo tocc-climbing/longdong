@@ -18,7 +18,7 @@ export function activeTab(page: Page): (typeof TABS)[number]['key'] | undefined 
   if (page.name === 'rescue') return undefined
   if (page.name === 'map') return 'map'
   if (page.name === 'search') return 'search'
-  if (page.name === 'me' || page.name === 'about' || page.name === 'reports' || page.name === 'admin' || page.name === 'checklist') return 'me'
+  if (page.name === 'me' || page.name === 'about' || page.name === 'collaboration' || page.name === 'reports' || page.name === 'admin' || page.name === 'checklist') return 'me'
   return 'crags'
 }
 

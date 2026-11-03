@@ -120,6 +120,18 @@ export function signOutUser(): Promise<void> {
   return signOut(auth)
 }
 
+/** 只有合作頁面主動授權時要求 Drive 存取；權杖僅供當次上傳使用。 */
+export async function authorizeDrive(): Promise<string> {
+  const provider = new GoogleAuthProvider()
+  provider.addScope('https://www.googleapis.com/auth/drive.file')
+  const user = auth.currentUser
+  if (!user) throw new Error('auth/user-signed-out')
+  const result = await reauthenticateWithPopup(user, provider)
+  const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken
+  if (!token) throw new Error('auth/missing-drive-token')
+  return token
+}
+
 export function watchRemote(uid: string, callback: (value: unknown) => void, onError: (err: Error) => void): Unsubscribe {
   return onValue(ref(db, `v2/personal/${uid}`), (snap) => callback(snap.val()), onError)
 }

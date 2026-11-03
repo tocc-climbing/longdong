@@ -18,6 +18,7 @@ export type Page = (
   | { name: 'route'; id: string }
   | { name: 'me' }
   | { name: 'about' }
+  | { name: 'collaboration' }
   | { name: 'rescue' }
   /** simulate：/map@緯度,經度 的模擬位置（src/simulate.ts） */
   | { name: 'map'; simulate?: LatLng }
@@ -52,6 +53,7 @@ export function parseLocation(location: string): Page {
   if (kind === 'search') return { name: 'search', q: params.get('q') ?? '', ...extra }
   if (kind === 'me') return { name: 'me', ...extra }
   if (kind === 'about') return { name: 'about' }
+  if (kind === 'collaboration') return { name: 'collaboration' }
   if (kind === 'map') return { name: 'map' }
   if (kind?.startsWith('map@')) {
     const simulate = parseSimulation(kind.slice(4))
@@ -92,6 +94,7 @@ export const href = {
   route: (id: string) => `/route/${id}`,
   me: () => '/me',
   about: () => '/about',
+  collaboration: () => '/collaboration',
   /** 救援資訊；area 為大區域的救援 key（golden-valley），會先顯示該區的資訊 */
   rescue: () => '/rescue',
   /** 照比例尺的龍洞地圖（測試版，可回報位置幫忙校正） */
@@ -157,6 +160,7 @@ function depth(): number {
  */
 export function parentHref(location: string, data: LoadedData): string | undefined {
   const page = parseLocation(location)
+  if (page.name === 'collaboration') return href.me()
   if (page.detail) return withDetail(location)
   if (page.name === 'route') {
     const ref = data.routeById.get(page.id)

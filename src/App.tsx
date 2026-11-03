@@ -31,6 +31,7 @@ const MapPage = lazy(() => import('./pages/MapPage').then((m) => ({ default: m.M
 const BoltsPage = lazy(() => import('./pages/BoltsPage').then((m) => ({ default: m.BoltsPage })))
 /** 路線清單（我的 → 路線清單） */
 const ChecklistPage = lazy(() => import('./pages/ChecklistPage').then((m) => ({ default: m.ChecklistPage })))
+const CollaborationPage = lazy(() => import('./pages/CollaborationPage').then((m) => ({ default: m.CollaborationPage })))
 /** 管理員的回報紀錄，只有少數人用 */
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 /** Topo 編輯（電腦版） */
@@ -185,6 +186,8 @@ function PageView({ page, data, offline }: { page: Page; data: LoadedData; offli
       return <RescuePage />
     case 'about':
       return <AboutPage data={data} />
+    case 'collaboration':
+      return <Suspense><CollaborationPage data={data} /></Suspense>
     case 'map':
       return (
         <Suspense>
