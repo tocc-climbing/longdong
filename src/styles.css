@@ -4606,7 +4606,7 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 
 /*
  * 路線卡片的 Topo：和上面標題卡連成一整塊——固定 4:5（ROUTE_TOPO_ASPECT），照片的四邊短短地淡出（只有照片，線與說明文字不淡，貼著上緣的 anchor 也看得清楚）；
- * 照片不夠寬時（narrow）置中，兩邊是卡片底色。照片灰階（同編輯器），只有這條路線周圍是原色（RouteReveal），其他路線淡淡的
+ * 照片不夠寬時（narrow）置中，兩邊是卡片底色。照片灰階（同編輯器），只有這條路線周圍是原色（TopoKit 的 reveal），其他路線淡淡的
  */
 [data-layout] .route-m .route-topo {
   margin: -6px -16px 0 -14px;
@@ -4936,7 +4936,7 @@ dialog.topo-full[open] {
   height: 100%;
 }
 
-/* 寬高與位置由 TopoFrame 依裁切範圍設定 */
+/* 寬高與位置由 TopoKit 依裁切範圍設定 */
 .topo-frame img {
   max-width: none;
   object-fit: fill;
@@ -5926,7 +5926,7 @@ dialog.topo-phone::backdrop {
   color: #fff;
 }
 
-/* 灰階底：路線的線比較清楚；選到的路線周圍疊回原色（RouteReveal），其他路線淡一點 */
+/* 灰階底：路線的線比較清楚；選到的路線周圍疊回原色（TopoKit 的 reveal），其他路線淡一點 */
 .topo-phone-photo.gray .topo-frame > img {
   filter: grayscale(1) contrast(0.8);
 }

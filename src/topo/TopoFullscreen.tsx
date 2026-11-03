@@ -8,8 +8,9 @@ import { BoltToggle, useShowBolts } from './BoltToggle'
 import { fillShared } from './shared'
 import type { Crop, Marks } from '../core/topo/geometry'
 import type { TopoPhoto } from './model'
-import { ImageUrl } from '../core/topo/TopoView'
-import { KitTopo, topoData } from './KitTopo'
+import { ImageUrl } from './imageUrl'
+import { KitTopo } from './KitTopo'
+import { topoData } from './topoData'
 import { routeInfo } from './routeInfo'
 
 /**

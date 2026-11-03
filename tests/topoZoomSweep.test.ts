@@ -1,10 +1,24 @@
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { distanceToLine, textWidth, type Pt } from '../src/core/topo/annotate'
+import { textWidth } from '../vendor/climbio-topokit/index.js'
+
+type Pt = [number, number]
+
+/** 點到折線的最短距離 */
+function distanceToLine(p: Pt, line: Pt[]): number {
+  let best = Infinity
+  for (let i = 1; i < line.length; i++) {
+    const [a, b] = [line[i - 1], line[i]]
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]]
+    const len2 = dx * dx + dy * dy
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2))
+    best = Math.min(best, Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy))
+  }
+  return best
+}
 import type { Marks } from '../src/core/topo/geometry'
 import type { TopoPhoto } from '../src/topo/model'
-import { TopoLines, type RouteInfo } from '../src/core/topo/TopoView'
+import type { RouteInfo } from '../src/topo/routeInfo'
+import { topoLines } from './helpers/topoLines'
 import { isSketch } from '../src/core/topo/viewport'
 import schoolGate from './fixtures/topo-school-gate.json'
 
@@ -52,9 +66,7 @@ const adjacent = (pill: Box, note: Box, gap: number) => {
 
 function layout(screen: number, zoom: number, bolts: boolean) {
   const k = cropPx / (screen * zoom)
-  const html = renderToStaticMarkup(
-    createElement('svg', null, createElement(TopoLines, { photo: real.photo, marks: real.marks, labels, k, info, crop: real.crop, bolts: bolts ? Object.keys(real.marks) : [] })),
-  )
+  const html = topoLines({ photo: real.photo, marks: real.marks, labels, k, info, crop: real.crop, bolts: bolts ? Object.keys(real.marks) : [] })
   // 牌子那一層：每條路線一個 <g class="topo-route">，裡面依序是 bolt、編號、說明
   const groups = [...html.matchAll(/<g class="topo-route [^"]*">((?:(?!<g class="topo-route ).)*)/g)].map((m) => m[1]).filter((g) => g.includes('topo-badge'))
   const routes = groups.map((g) => {

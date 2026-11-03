@@ -31,7 +31,7 @@ export interface RouteMarks {
 /** 路線 ID → 標記 */
 export type Marks = Record<string, RouteMarks>
 
-/** 標記所在的照片：image 是照片的參照，由 TopoView 的 ImageUrl 換成網址 */
+/** 標記所在的照片：image 是照片的參照，由 src/topo/imageUrl.ts 的 ImageUrl 換成網址 */
 export interface TopoImage {
   image: string
   width: number
@@ -49,12 +49,6 @@ export const isFullCrop = (c: Crop | undefined): boolean => !c || (c.x === 0 && 
 export function sameCrop(a: Crop | undefined, b: Crop | undefined): boolean {
   const [p, q] = [a ?? FULL_CROP, b ?? FULL_CROP]
   return p.x === q.x && p.y === q.y && p.w === q.w && p.h === q.h
-}
-
-/** 裁切範圍內的相對位置（0–1）換成整張照片上的點 */
-export function toCropPoint(crop: Crop | undefined, fx: number, fy: number): Point {
-  const c = crop ?? FULL_CROP
-  return toPoint((c.x + fx * c.w) / SCALE, (c.y + fy * c.h) / SCALE)
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -80,3 +74,11 @@ export function resizeCrop(crop: Crop, dx: -1 | 0 | 1, dy: -1 | 0 | 1, [px, py]:
 export function moveCrop(crop: Crop, [fx, fy]: Point, [tx, ty]: Point): Crop {
   return { ...crop, x: clamp(crop.x + tx - fx, 0, SCALE - crop.w), y: clamp(crop.y + ty - fy, 0, SCALE - crop.h) }
 }
+
+/** 萬分比換成照片像素 */
+export function px(photo: TopoImage, [x, y]: Point): [number, number] {
+  return [(x * photo.width) / SCALE, (y * photo.height) / SCALE]
+}
+
+/** 兩個點是同一個位置 */
+export const sameSpot = (a: Point, b: Point) => a[0] === b[0] && a[1] === b[1]

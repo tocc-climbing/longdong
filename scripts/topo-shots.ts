@@ -1,17 +1,18 @@
 /**
- * Topo 的視覺基準：同一組場景（共用線段、分岔、標籤避讓、裁切、手機縮放、電腦版）用實際的瀏覽器截圖，
+ * Topo 的視覺基準：同一組場景（共用線段、分岔、標籤避讓、裁切、手機縮放、電腦版）用實際的瀏覽器截圖（標記由 TopoKit 的 renderLines 畫），
  * 與 tests/fixtures/topo-shots/ 的基準圖逐像素比對。
  *   npm run test:topo-shots            比對，超出容許值就失敗（差異圖寫到 shots/topo-diff/）
  *   npm run test:topo-shots -- --update 重新產生基準（改了呈現、確認新圖正確才做）
- * 每個場景同時輸出 <名稱>.scene.json（照片尺寸、像素座標的路線、檢視參數）與 <名稱>.lines.svg（TopoLines 畫出來的標記），別的實作（TopoKit）用同一份場景比對外觀與排版。
+ * 每個場景同時輸出 <名稱>.scene.json（照片尺寸、像素座標的路線、檢視參數），climbio 的 TopoKit 用同一份場景比對外觀與排版。
+ * 基準圖與 <名稱>.lines.svg 原本是舊的 TopoLines 畫的（已刪除）；換成 TopoKit 時拿它們逐像素比對過，完全一樣。.lines.svg 是最後一版，不再更新。
  * 照片用程式產生的格線，不依賴任何圖檔；文字用系統字型，所以只在同一台機器上比對（不進 CI 的 npm test）。
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import type { Crop, Marks } from '../src/core/topo/geometry'
-import { TopoLines, type RouteInfo } from '../src/core/topo/TopoView'
+import type { RouteInfo } from '../src/topo/routeInfo'
+import { topoData } from '../src/topo/topoData'
 import { routeCrop } from '../src/core/topo/viewport'
+import { readTopo, renderLines } from '../vendor/climbio-topokit/index.js'
 import { diff, launch, TOLERANCE } from './lib/shotDiff'
 
 interface Photo {
@@ -104,7 +105,7 @@ const SCALE = 10000
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
 
 /** 同 TopoFrame 的 DOM：照片＋SVG，k 是一個螢幕像素等於幾個照片像素 */
-function sceneHtml(s: Scene, out?: { lines: string }): string {
+function sceneHtml(s: Scene): string {
   const c = s.crop ?? { x: 0, y: 0, w: SCALE, h: SCALE }
   const { width: pw, height: ph } = s.photo
   const [cx, cy, cw, ch] = [(c.x * pw) / SCALE, (c.y * ph) / SCALE, (c.w * pw) / SCALE, (c.h * ph) / SCALE]
@@ -112,13 +113,8 @@ function sceneHtml(s: Scene, out?: { lines: string }): string {
   const k = cw / (s.width * zoom)
   const labels = new Map(s.routes.map((r) => [r.id, r.label]))
   const info = new Map<string, RouteInfo>(s.routes.map((r) => [r.id, { kind: r.kind, grade: r.grade, name: r.name, bolts: r.bolts ?? {} }]))
-  const g = globalThis as { window?: unknown }
-  g.window = s.desktop ? { matchMedia: () => ({ matches: true }) } : undefined
-  const lines = renderToStaticMarkup(
-    createElement(TopoLines, { photo: { image: 'x', width: pw, height: ph }, marks: s.marks, labels, k, info, crop: c, highlight: s.highlight, editing: s.editing, solo: s.solo, bolts: s.bolts ? Object.keys(s.marks) : undefined }),
-  )
-  g.window = undefined
-  if (out) out.lines = lines
+  const { routes } = readTopo(topoData({ image: 'x', width: pw, height: ph }, 'x', s.marks, undefined, labels, info), { lang: 'zh-Hant' })
+  const lines = renderLines(routes, { photo: { w: pw, h: ph }, crop: { x: cx, y: cy, w: cw, h: ch }, k, ui: s.desktop ? 1.5 : 1, highlight: s.highlight, editing: s.editing, solo: s.solo, bolts: s.bolts ? true : undefined, interactive: false })
   const frameW = s.width * zoom
   const frameH = frameW * (ch / cw)
   // 放大時以 focus 路線的中心為舞台中心（不超出照片邊緣）
@@ -166,15 +162,13 @@ const failures: string[] = []
 try {
   const page = await browser.newPage({ viewport: { width: 1000, height: 1400 }, deviceScaleFactor: 2 })
   for (const s of scenes) {
-    const out = { lines: '' }
-    await page.setContent(`<!doctype html><meta charset="utf-8"><style>${css}</style><body style="margin:0;padding:10px;background:#fff;width:fit-content">${sceneHtml(s, out)}</body>`)
+    await page.setContent(`<!doctype html><meta charset="utf-8"><style>${css}</style><body style="margin:0;padding:10px;background:#fff;width:fit-content">${sceneHtml(s)}</body>`)
     await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode())))
     const png = await page.locator('#scene').screenshot({ animations: 'disabled' })
     const file = new URL(`${s.name}.png`, dir)
     if (update) {
       writeFileSync(file, png)
       writeFileSync(new URL(`${s.name}.scene.json`, dir), JSON.stringify(sceneJson(s), null, 1) + '\n')
-      writeFileSync(new URL(`${s.name}.lines.svg`, dir), out.lines + '\n')
       console.log(`更新 ${s.name}`)
       continue
     }

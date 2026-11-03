@@ -9,11 +9,13 @@ import { FULL_CROP, SCALE } from '../core/topo/geometry'
 import { useSectorTopos, type SectorTopo } from './store'
 import { BoltToggle, useShowBolts } from './BoltToggle'
 import { TopoFullscreen } from './TopoFullscreen'
-import { ImageUrl, px, type RouteInfo } from '../core/topo/TopoView'
+import { ImageUrl } from './imageUrl'
+import { px } from '../core/topo/geometry'
 import type { Crop, Marks, TopoImage } from '../core/topo/geometry'
-import { routeInfo } from './routeInfo'
+import { routeInfo, type RouteInfo } from './routeInfo'
 import { routeCrop, widenCrop } from '../core/topo/viewport'
-import { KitTopo, topoData } from './KitTopo'
+import { KitTopo } from './KitTopo'
+import { topoData } from './topoData'
 
 /** 路線 ID → 照片上顯示的編號（沒有編號的固定點等不顯示） */
 export function routeLabels(sector: Sector): Map<string, string> {

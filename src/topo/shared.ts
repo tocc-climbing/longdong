@@ -1,5 +1,4 @@
-import type { Marks, Point, RouteMarks } from '../core/topo/geometry'
-import { sameSpot } from '../core/topo/lines'
+import { sameSpot, type Marks, type Point, type RouteMarks } from '../core/topo/geometry'
 import type { Route } from '../data/schema'
 
 /** 共用的 bolt、anchor：新標的點離另一條路線的線在這個距離內（萬分比）才算在同一個位置 */

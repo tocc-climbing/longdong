@@ -2,10 +2,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { Dataset, Route } from '../src/data/schema'
 import { routeKey } from '../src/social/model'
-import { addLinePoint, drawnRuns, ownRuns, forkLine, moveSharedPoint, segmentAt } from '../src/core/topo/lines'
 import { fillShared, syncShared } from '../src/topo/shared'
 import { boltPositions, decodeEdit, encodeMarks, routeIdFromKey, sameMarks } from '../src/topo/model'
-import { FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, sameCrop, toCropPoint, toPoint, type Marks, type Point } from '../src/core/topo/geometry'
+import { FULL_CROP, isFullCrop, MIN_CROP, moveCrop, resizeCrop, sameCrop, toPoint, type Marks, type Point } from '../src/core/topo/geometry'
 
 const rules = JSON.parse(readFileSync('firebase/database.rules.json', 'utf8')).rules.v2.topoEdits.$photo.$edit.routes.$route
 /** 規則裡 .validate 的 /…/ 正規表示式 */
@@ -95,13 +94,6 @@ describe('裁切', () => {
     expect(decodeEdit('e', { uid: 'a', createdAt: 1, routes: {} })).not.toHaveProperty('crop')
   })
 
-  it('裁切範圍內的位置換回整張照片上的點，標記座標與裁切無關', () => {
-    expect(toCropPoint(undefined, 0.25, 0.5)).toEqual([2500, 5000])
-    expect(toCropPoint(crop, 0, 0)).toEqual([2000, 1000])
-    expect(toCropPoint(crop, 1, 1)).toEqual([6000, 7000])
-    expect(toCropPoint(crop, 0.5, 0.5)).toEqual([4000, 4000])
-  })
-
   it('拖曳邊與角：只動被拖的邊，對邊不動', () => {
     expect(resizeCrop(crop, -1, 0, [3000, 9999])).toEqual({ x: 3000, y: 1000, w: 3000, h: 6000 })
     expect(resizeCrop(crop, 1, 1, [7000, 8000])).toEqual({ x: 2000, y: 1000, w: 5000, h: 7000 })
@@ -120,111 +112,6 @@ describe('裁切', () => {
     expect(moveCrop(crop, [3000, 3000], [3500, 2500])).toEqual({ x: 2500, y: 500, w: 4000, h: 6000 })
     expect(moveCrop(crop, [0, 0], [-9999, -9999])).toEqual({ x: 0, y: 0, w: 4000, h: 6000 })
     expect(moveCrop(crop, [0, 0], [9999, 9999])).toEqual({ x: 6000, y: 4000, w: 4000, h: 6000 })
-  })
-})
-
-describe('共用線段', () => {
-  const trunk: Point[] = [[5000, 9000], [4800, 6000], [5000, 3000]]
-  const branch: Point[] = [...forkLine(trunk, 1), [3000, 2000], [2900, 500]]
-
-  it('分岔出來的路線複製到分岔點為止的前段', () => {
-    expect(forkLine(trunk, 1)).toEqual([[5000, 9000], [4800, 6000]])
-    expect(forkLine(trunk, 0)).toEqual([[5000, 9000]])
-  })
-
-  it('共用的線段只畫一次，歸排在前面的路線；各自的部分接成折線', () => {
-    const runs = drawnRuns([['a', trunk], ['b', branch]])
-    expect(runs.get('a')).toEqual([trunk])
-    expect(runs.get('b')).toEqual([[[4800, 6000], [3000, 2000], [2900, 500]]])
-    // 順序對調：共用段歸 b，a 只剩自己的一段
-    const flipped = drawnRuns([['b', branch], ['a', trunk]])
-    expect(flipped.get('b')).toEqual([branch])
-    expect(flipped.get('a')).toEqual([[[4800, 6000], [5000, 3000]]])
-  })
-
-  it('端點相同但方向相反的線段視為同一段；只差一點座標就不算共用', () => {
-    expect(drawnRuns([['a', [[1, 1], [2, 2]]], ['b', [[2, 2], [1, 1]]]]).get('b')).toEqual([])
-    expect(drawnRuns([['a', [[1, 1], [2, 2]]], ['b', [[1, 1], [2, 3]]]]).get('b')).toEqual([[[1, 1], [2, 3]]])
-  })
-
-  it('ownRuns：只留不和任何路線共用的線段，與順序無關', () => {
-    const trunk: Point[] = [[5000, 9000], [5000, 5000], [4000, 1000]]
-    const branch: Point[] = [[5000, 9000], [5000, 5000], [6000, 1000]]
-    const own = ownRuns([['a', trunk], ['b', branch]])
-    expect(own.get('a')).toEqual([[[5000, 5000], [4000, 1000]]])
-    expect(own.get('b')).toEqual([[[5000, 5000], [6000, 1000]]])
-    // 整條都共用：沒有獨有的線段
-    expect(ownRuns([['a', trunk], ['b', [...trunk].reverse()]]).get('a')).toEqual([])
-  })
-
-  it('被共用段隔開的兩段各自成一條折線', () => {
-    const middle: Point[] = [[0, 0], [1, 1], [2, 2], [3, 3]]
-    const runs = drawnRuns([['a', [[1, 1], [2, 2]]], ['b', middle]])
-    expect(runs.get('b')).toEqual([[[0, 0], [1, 1]], [[2, 2], [3, 3]]])
-  })
-
-  it('拖曳共用的點時，所有落在同一點的線段端點一起移動，bolt 不動', () => {
-    const marks: Marks = { a: { line: trunk, bolts: { B01: [4800, 6000] } }, b: { line: branch } }
-    const moved = moveSharedPoint(marks, [4800, 6000], [4700, 6100])
-    expect(moved.a.line![1]).toEqual([4700, 6100])
-    expect(moved.b.line![1]).toEqual([4700, 6100])
-    expect(moved.a.bolts!.B01).toEqual([4800, 6000])
-    expect(moved.b.line![2]).toEqual([3000, 2000])
-  })
-})
-
-describe('點在線段中間', () => {
-  const line: Point[] = [[3000, 9000], [3000, 5000], [3000, 1000]]
-
-  it('找到點所在的那一段；離線太遠、在兩端之外、在把手上都不算', () => {
-    expect(segmentAt(line, [3050, 7000], 1)).toBe(0)
-    expect(segmentAt(line, [3050, 3000], 1)).toBe(1)
-    expect(segmentAt(line, [3400, 7000], 1)).toBe(-1)
-    expect(segmentAt(line, [3000, 900], 1)).toBe(-1)
-    expect(segmentAt(line, [3000, 9100], 1)).toBe(-1)
-    expect(segmentAt([[3000, 9000]], [3000, 9000], 1)).toBe(-1)
-  })
-
-  it('距離依照片的寬高比計算：橫向的 100 在寬照片上比縱向的 100 長', () => {
-    // 寬高比 2：橫向差 100（萬分比）= 200 單位，超過 150
-    expect(segmentAt(line, [3100, 7000], 1)).toBe(0)
-    expect(segmentAt(line, [3100, 7000], 2)).toBe(-1)
-  })
-
-  it('橫向的線段：寬高比不影響垂足的位置', () => {
-    const across: Point[] = [[0, 5000], [1000, 5000]]
-    expect(segmentAt(across, [500, 5100], 2)).toBe(0)
-    expect(segmentAt(across, [900, 5100], 2)).toBe(0)
-    expect(segmentAt(across, [1100, 5100], 2)).toBe(-1)
-  })
-
-  it('點在線段中間：插進那一段；其他地方接在線尾', () => {
-    expect(addLinePoint({ a: { line } }, 'a', [3050, 7000], 1).a.line).toEqual([[3000, 9000], [3050, 7000], [3000, 5000], [3000, 1000]])
-    expect(addLinePoint({ a: { line } }, 'a', [6000, 500], 1).a.line).toEqual([...line, [6000, 500]])
-    expect(addLinePoint({}, 'a', [10, 20], 1)).toEqual({ a: { line: [[10, 20]] } })
-  })
-
-  it('保留 bolt；插入不改其他路線', () => {
-    const marks: Marks = { a: { line, bolts: { B01: [3000, 7000] } }, b: { line: [[6000, 9000], [6000, 1000]] } }
-    const next = addLinePoint(marks, 'a', [3050, 7000], 1)
-    expect(next.a.bolts).toEqual({ B01: [3000, 7000] })
-    expect(next.b).toEqual(marks.b)
-  })
-
-  it('插進共用的線段：分岔的路線一起插入，兩條線不會分開', () => {
-    const trunk: Point[] = [[5000, 9000], [4800, 6000], [5000, 3000]]
-    const branch: Point[] = [...forkLine(trunk, 1), [3000, 2000]]
-    const next = addLinePoint({ a: { line: trunk }, b: { line: branch } }, 'b', [4900, 7500], 1)
-    expect(next.b.line).toEqual([[5000, 9000], [4900, 7500], [4800, 6000], [3000, 2000]])
-    expect(next.a.line).toEqual([[5000, 9000], [4900, 7500], [4800, 6000], [5000, 3000]])
-    expect(drawnRuns([['a', next.a.line!], ['b', next.b.line!]]).get('b')).toEqual([[[4800, 6000], [3000, 2000]]])
-  })
-
-  it('方向相反的同一段也算共用', () => {
-    const marks: Marks = { a: { line: [[0, 0], [0, 1000]] }, b: { line: [[0, 1000], [0, 0]] } }
-    const next = addLinePoint(marks, 'a', [20, 500], 1)
-    expect(next.a.line).toEqual([[0, 0], [20, 500], [0, 1000]])
-    expect(next.b.line).toEqual([[0, 1000], [20, 500], [0, 0]])
   })
 })
 

@@ -8,8 +8,10 @@ import { type Image, type SKRSContext2D, createCanvas, loadImage, Path2D } from 
 import type { Area, Route, Sector } from '../../src/data/schema'
 import { quickdraws } from '../../src/format'
 import { DB_URL } from '../../src/social/model'
-import { pointAlong, smoothPath, type Pt } from '../../src/core/topo/annotate'
+import { readTopo, renderLines, smoothPath } from '../../vendor/climbio-topokit/index.js'
 import { fillShared } from '../../src/topo/shared'
+import { routeInfo } from '../../src/topo/routeInfo'
+import { topoData } from '../../src/topo/topoData'
 import { decodeEdit, imageUrl, type StoredEdit, type TopoPhoto } from '../../src/topo/model'
 import { FULL_CROP, SCALE, type Crop, type Marks } from '../../src/core/topo/geometry'
 import { routeCrop, widenCrop } from '../../src/core/topo/viewport'
@@ -19,8 +21,31 @@ import { areaMap, D, drawToccMark, fit, holdMark, loadToccImage, MARK, OG_SIZE, 
 const DARK = { surface: '#1a1a1a', text: '#f2f2f2', muted: '#a8a49c', brand: '#0395c3' }
 /** 深色的地圖（沒有 Topo 時）：海、陸地 */
 const MAP = { sea: '#141819', land: '#2a2a2a', areaLine: '#555555', brand: DARK.brand }
-/** 線的顏色：運攀藍色，其他紅色（與 App 相同；主角用亮一點的） */
+/** 線、編號牌的顏色：運攀藍色，其他紅色（與 App 相同；主角用亮一點的）；bolt 的牌子是藍色 */
 const LINE = { sport: ['#1565c0', '#1e7bff'], other: ['#c8102e', '#e11d2e'] }
+/** 標記（TopoKit 的 renderLines）的大小：一個「螢幕像素」是幾個卡片像素（App 的路線卡片在手機上 375 寬，卡片是 840 寬的設計） */
+const MARK_UI = 2.6
+
+/** renderLines 畫出來的 SVG 用的樣式（TopoKit 的 style.js 用 CSS 變數，這裡的轉成 SVG 渲染器看得懂的顏色） */
+const markCss = () =>
+  [
+    '.topo-route path { fill: none; stroke-linecap: round; stroke-linejoin: round }',
+    '.topo-hit { stroke: transparent }',
+    '.topo-route.dim { opacity: 0.45 }',
+    '.topo-badge text, .topo-bolt text { fill: #fff; font-weight: 700 }',
+    '.topo-bolt rect { fill: #1ea0e6; fill-opacity: 0.6; stroke: none }',
+    '.topo-bolt text.topo-note { font-weight: 500 }',
+    '.topo-note { fill: #fff; stroke: none }',
+    '.topo-note-halo { fill: none; stroke: rgba(0, 0, 0, 0.7); stroke-linejoin: round }',
+    '.topo-badge rect { stroke: none }',
+    ...(['sport', 'other'] as const).flatMap((kind) =>
+      [false, true].map((on) => {
+        const c = LINE[kind][on ? 1 : 0]
+        const sel = `.topo-route.kind-${kind}${on ? '.on' : ':not(.on)'}`
+        return `${sel} .topo-line { stroke: ${c} } ${sel} .topo-dot { fill: ${c}; stroke: none } ${sel} .topo-badge rect, ${sel} .topo-bolt.anchor rect { fill: ${c} }`
+      }),
+    ),
+  ].join(' ')
 
 const BAR = 10
 const LEFT = 56
@@ -224,7 +249,7 @@ async function drawTopo(ctx: SKRSContext2D, box: Box, topo: OgTopo, sector: Sect
   const s = Math.min(box.w / cw, box.h / ch)
   const dx = (box.w - cw * s) / 2
   const dy = (box.h - ch * s) / 2
-  const at = ([x, y]: [number, number]): Pt => [dx + ((x * photo.width) / SCALE - cx) * s, dy + ((y * photo.height) / SCALE - cy) * s]
+  const at = ([x, y]: [number, number]): [number, number] => [dx + ((x * photo.width) / SCALE - cx) * s, dy + ((y * photo.height) / SCALE - cy) * s]
   const k = image.width / photo.width
   const W = Math.round(box.w * ZOOM)
   const H = Math.round(box.h * ZOOM)
@@ -235,7 +260,7 @@ async function drawTopo(ctx: SKRSContext2D, box: Box, topo: OgTopo, sector: Sect
   g.filter = 'grayscale(1) contrast(0.8)'
   drawPhoto(g)
   g.filter = 'none'
-  // 主角周圍疊回原色（同 App 的 RouteReveal：幾層寬窄不同的半透明帶子）
+  // 主角周圍疊回原色（同 App 的 reveal：幾層寬窄不同的半透明帶子）
   const own = highlight && marks[highlight]?.line
   if (own && own.length >= 2) {
     const reveal = createCanvas(W, H)
@@ -265,117 +290,23 @@ async function drawTopo(ctx: SKRSContext2D, box: Box, topo: OgTopo, sector: Sect
     g.fillStyle = edge
     g.fillRect(Math.min(x0, x1), shown.y, 30, shown.h)
   }
-  // 左下角的標誌那一塊不放編號
-  const logo = { x: MARK.x - box.x - 10, y: MARK.y - box.y - 10, w: 330, h: MARK.h + 20, r: 0 }
-  drawLines(g, marks, sector, at, highlight, box, [logo])
+  const labels = new Map(sector.routes.filter((r) => r.number).map((r) => [r.id, r.number!]))
+  const { routes } = readTopo(topoData({ image: '', width: photo.width, height: photo.height }, '', marks, undefined, labels, routeInfo(sector.routes, (r) => plainName(r.name.zh))), { lang: 'zh-Hant' })
+  // SVG 渲染器不支援 paint-order：說明文字的深色描邊另外先畫一份（在白字下面）
+  // 中文與英數各自指定字型（同 ogImage 的 rich）
+  const unescape = (t: string) => t.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+  const fonted = (svg: string) => svg.replace(/(<tspan x="[^"]*" y="[^"]*"[^>]*>)([^<]+)(<\/tspan>)/g, (_, a: string, t: string, z: string) => a + rich(unescape(t)) + z)
+  const halo = (svg: string) => svg.replace(/<text class="topo-note"[^>]*>[\s\S]*?<\/text>/g, (t) => t.replace('class="topo-note"', 'class="topo-note-halo"') + t)
+  // 左下角的標誌那一塊不放編號（照片像素）
+  const logo = { x: cx + (MARK.x - box.x - 10 - dx) / s, y: cy + (MARK.y - box.y - 10 - dy) / s, w: 330 / s, h: (MARK.h + 20) / s }
+  const markup = halo(fonted(renderLines(routes, { photo: { w: photo.width, h: photo.height }, crop: { x: cx, y: cy, w: cw, h: ch }, k: (highlight ? MARK_UI : MARK_UI * 0.88) / s, highlight, solo: !!highlight, bolts: [], interactive: false, reserved: [logo] })))
+  const fonts = ogFonts()
+  const marksSvg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="${cx - dx / s} ${cy - dy / s} ${box.w / s} ${box.h / s}" font-family="${fonts.latin}, ${fonts.cjk}">` +
+    `<style>${markCss()}</style>${markup}</svg>`
+  g.drawImage(await loadImage(Buffer.from(marksSvg)), 0, 0, box.w, box.h)
   fade(g, shown, { top: 0.22, bottom: 0.2, left: 0.06, right: 0.06 })
   ctx.drawImage(layer, box.x, box.y, box.w, box.h)
-}
-
-/** 線、起點（實心）、終點（空心）、編號；主角的編號旁邊是難度與名稱 */
-function drawLines(g: SKRSContext2D, marks: Marks, sector: Sector, at: (p: [number, number]) => Pt, highlight: string | undefined, box: Box, reserved: Box[]) {
-  const routes = new Map(sector.routes.map((r) => [r.id, r]))
-  const ids = Object.keys(marks)
-    .filter((id) => marks[id].line && marks[id].line!.length >= 2)
-    .sort((a, b) => Number(a === highlight) - Number(b === highlight))
-  const fonts = ogFonts()
-  const font = (size: number, weight = 700) => `${weight} ${size}px "${fonts.latin}", "${fonts.cjk}"`
-  const taken: Box[] = [...reserved]
-  const free = (b: Box) => b.x >= 4 && b.y >= 4 && b.x + b.w <= box.w - 4 && b.y + b.h <= box.h - 4 && !taken.some((o) => b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h)
-  const pills: (() => void)[] = []
-  const place = (id: string, line: Pt[], spots: number[], size: number, alpha: number, kind: string) => {
-    const text = routes.get(id)?.number
-    if (!text) return undefined
-    g.font = font(size)
-    const w = g.measureText(text).width + size * 0.9
-    const h = size * 1.6
-    for (const f of spots) {
-      const [x, y] = pointAlong(line, f)
-      const b = { x: x - w / 2, y: y - h / 2, w, h, r: h / 2 }
-      if (!free(b)) continue
-      taken.push(b)
-      pills.push(() => {
-        g.globalAlpha = alpha
-        g.fillStyle = kind
-        g.beginPath()
-        g.roundRect(b.x, b.y, b.w, b.h, b.r)
-        g.fill()
-        g.fillStyle = '#ffffff'
-        g.font = font(size)
-        g.textAlign = 'center'
-        g.textBaseline = 'middle'
-        g.fillText(text, x, y + size * 0.04)
-        g.globalAlpha = 1
-      })
-      return b
-    }
-    return undefined
-  }
-  const order = highlight ? [highlight, ...ids.filter((id) => id !== highlight)] : ids
-  for (const id of order) {
-    const route = routes.get(id)
-    const line = marks[id].line!.map(at)
-    const on = id === highlight
-    const kind = LINE[route?.type === 'sport' ? 'sport' : 'other'][on || !highlight ? 1 : 0]
-    if (on) {
-      const pill = place(id, line, [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74], 30, 1, kind)
-      // 難度與名稱貼在編號旁邊
-      if (pill && route) {
-        const lines = [route.grade?.replace(/\s.*$/, ''), plainName(route.name.zh)].filter(Boolean) as string[]
-        g.font = font(24)
-        const w = Math.max(...lines.map((t) => g.measureText(t).width))
-        const h = lines.length * 30
-        const right = { x: pill.x + pill.w + 10, y: pill.y + pill.h / 2 - h / 2, w, h, r: 0 }
-        const left = { ...right, x: pill.x - 10 - w }
-        const note = free(right) ? right : free(left) ? left : undefined
-        if (note) {
-          taken.push(note)
-          pills.push(() => {
-            g.font = font(24)
-            g.textAlign = 'center'
-            g.textBaseline = 'middle'
-            g.lineJoin = 'round'
-            g.lineWidth = 6
-            g.strokeStyle = 'rgba(0,0,0,0.75)'
-            g.fillStyle = '#ffffff'
-            lines.forEach((t, i) => {
-              g.strokeText(t, note.x + w / 2, note.y + 15 + i * 30)
-              g.fillText(t, note.x + w / 2, note.y + 15 + i * 30)
-            })
-          })
-        }
-      }
-    } else if (highlight) place(id, line, [0.14, 0.22, 0.08, 0.3], 22, 0.6, kind)
-    else place(id, line, [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74], 26, 1, kind)
-  }
-  // 先畫線（淡的在下面），再畫起點、終點、編號
-  for (const id of ids) {
-    const route = routes.get(id)
-    const on = id === highlight
-    const dim = !!highlight && !on
-    const kind = LINE[route?.type === 'sport' ? 'sport' : 'other'][on || !highlight ? 1 : 0]
-    const line = marks[id].line!.map(at)
-    g.globalAlpha = dim ? 0.45 : 1
-    g.strokeStyle = kind
-    g.lineCap = 'round'
-    g.lineJoin = 'round'
-    g.lineWidth = on ? 9 : 6.5
-    g.stroke(new Path2D(smoothPath(line)))
-    const [sx, sy] = line[0]
-    const [ex, ey] = line[line.length - 1]
-    g.fillStyle = kind
-    g.beginPath()
-    g.arc(sx, sy, on ? 9 : 7, 0, Math.PI * 2)
-    g.fill()
-    g.fillStyle = '#141414'
-    g.lineWidth = on ? 4.5 : 3.5
-    g.beginPath()
-    g.arc(ex, ey, on ? 8 : 6.5, 0, Math.PI * 2)
-    g.fill()
-    g.stroke()
-    g.globalAlpha = 1
-  }
-  for (const draw of pills) draw()
 }
 
 /** 圖層裡 r 這一塊的邊緣淡出（各邊淡出的範圍，佔寬或高的比例） */

@@ -1,6 +1,6 @@
 # 來源
 
-`climb-io/climbio-internal` 的 `mapkit/`，commit `a6dbbc134571fedcfda4a8068da6853d9ac200a2`（1.0.0）。
+`climb-io/climbio-internal` 的 `mapkit/`，commit `30c6c42196e4df5c8e00c62e1023d00e6dfcfdb7`（1.0.0）。
 
 這裡不改：要改回 climbio-internal 改，再用 `npx tsx scripts/vendor-climbio.ts <climbio-internal 路徑> <提交>` 重新複製；`npm test` 核對下面的雜湊。
 套件上了 npm 之後改成依賴 npm 套件，刪掉這個資料夾。

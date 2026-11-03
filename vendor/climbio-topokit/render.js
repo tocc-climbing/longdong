@@ -42,6 +42,7 @@ const noteText = (note, fontPx, k, lineH) =>
  *  - highlight：亮色的路線；bolts：畫哪些路線的 bolt（路線 id 陣列、true 是全部，預設只畫 highlight）
  *  - editing：線畫細一點、沒有說明，牌子避開 highlight 路線的點；solo：路線卡片，highlight 標編號與說明，其他只標小的編號
  *  - interactive：路線的線可以點（role=button、可用 Enter）；ui：牌子與字的倍率（電腦版 1.5，預設 1）
+ *  - reserved：不放牌子與說明的範圍（照片像素 { x, y, w, h }[]，例如分享卡片左下角的標誌）
  */
 /**
  * 路線卡片的灰階遮罩：照片整張灰階（.tk-gray），選到的路線周圍疊回原色的照片——沿著線一條柔邊的帶子
@@ -81,6 +82,7 @@ export function renderLines(routes, opts) {
 
   // ── 自動排版：同一張 Topo 的所有牌子、說明一起排，互不重疊；依優先順序放，放不下的藏起來 ──
   const placer = new Placer({ x: c.x, y: c.y, w: c.w, h: c.h }, 3 * k, drawn.filter(([id]) => !solo || id === highlight).map(([, line]) => line));
+  for (const r of opts.reserved ?? []) placer.reserve(r);
   if (editing && highlight) {
     const r = EDIT_POINT_PX * k;
     for (const [x, y] of byId.get(highlight)?.line ?? []) placer.reserve({ x: x - r, y: y - r, w: 2 * r, h: 2 * r });

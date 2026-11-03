@@ -271,6 +271,8 @@ export interface RenderOptions {
   solo?: boolean;
   interactive?: boolean;
   ui?: number;
+  /** 不放牌子與說明的範圍（照片像素），例如分享卡片左下角的標誌 */
+  reserved?: Rect[];
 }
 /** 路線、編號、bolt 的 SVG 字串（沒有 DOM 也能跑） */
 export function renderLines(routes: TopoRoute[], options: RenderOptions): string;

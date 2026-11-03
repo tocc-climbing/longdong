@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readTopo } from '../vendor/climbio-topokit/index.js'
 import { cropFromKit, dropFilled, kitMarks, rectToKit, withMarks } from '../src/topo/kitEdit'
-import { topoData } from '../src/topo/KitTopo'
+import { topoData } from '../src/topo/topoData'
 import type { Marks } from '../src/core/topo/geometry'
 
 const photo = { image: 'p', width: 2560, height: 1711 }

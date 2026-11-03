@@ -1,12 +1,11 @@
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Marks } from '../src/core/topo/geometry'
 import type { TopoPhoto } from '../src/topo/model'
-import { textWidth } from '../src/core/topo/annotate'
+import { textWidth } from '../vendor/climbio-topokit/index.js'
 import type { Route } from '../src/data/schema'
 import { routeInfo } from '../src/topo/routeInfo'
-import { TopoLines, type RouteInfo } from '../src/core/topo/TopoView'
+import type { RouteInfo } from '../src/topo/routeInfo'
+import { topoLines } from './helpers/topoLines'
 import schoolGate from './fixtures/topo-school-gate.json'
 
 const photo = { id: 'p', sector: 's', uid: 'u', width: 2000, height: 1000, image: 'x', createdAt: 0 } as TopoPhoto
@@ -19,7 +18,7 @@ const info = new Map<string, RouteInfo>([
   ['a', { kind: 'sport', grade: '5.10a', name: '路線甲', bolts: { B01: '316-TW', A01: 'Ti-U' } }],
   ['b', { kind: 'other', grade: '5.11b', name: '路線乙', bolts: {} }],
 ])
-const render = (k: number, extra: object = {}) => renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks, labels, k, info, ...extra })))
+const render = (k: number, extra: object = {}) => topoLines({ photo, marks, labels, k, info, ...extra })
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length
 
 describe('Topo 標記的自動排版（畫面上的大小）', () => {
@@ -38,13 +37,13 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     // 手機的分區頁約 340 個螢幕像素寬、全螢幕約 375（k = 照片像素／螢幕像素）
     const cropPx = (real.crop.w / 10000) * real.photo.width
     for (const screen of [340, 375]) {
-      const fit = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo: real.photo, marks: real.marks, labels: realLabels, k: cropPx / screen, info: realInfo, crop: real.crop })))
+      const fit = topoLines({ photo: real.photo, marks: real.marks, labels: realLabels, k: cropPx / screen, info: realInfo, crop: real.crop })
       expect(count(fit, /class="topo-badge"/g), `${screen}px`).toBe(real.routes.length)
       expect(fit, `${screen}px`).not.toContain('topo-note')
     }
     for (const screen of [340 * 3, 375 * 3]) {
       const k = cropPx / screen
-      const html = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo: real.photo, marks: real.marks, labels: realLabels, k, info: realInfo, crop: real.crop })))
+      const html = topoLines({ photo: real.photo, marks: real.marks, labels: realLabels, k, info: realInfo, crop: real.crop })
       for (const r of real.routes) {
         const group = html.match(new RegExp(`<g class="topo-route [^"]*">(?:(?!<g class="topo-route).)*>${r.number}</text>(?:(?!<g class="topo-route).)*`))?.[0] ?? ''
         expect(group, `${screen}px #${r.number}`).toContain(r.name)
@@ -81,7 +80,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
       real.routes.map((r) => [r.id, { kind: r.type === 'sport' ? 'sport' : 'other', grade: r.grade, name: r.name, bolts: Object.fromEntries(Object.keys(real.marks[r.id]?.bolts ?? {}).map((p) => [p, '316-TW'])) }]),
     )
     const cropPx = (real.crop.w / 10000) * real.photo.width
-    const draw = (screen: number) => renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo: real.photo, marks: real.marks, labels: realLabels, k: cropPx / screen, info: realInfo, crop: real.crop, bolts: Object.keys(real.marks) })))
+    const draw = (screen: number) => topoLines({ photo: real.photo, marks: real.marks, labels: realLabels, k: cropPx / screen, info: realInfo, crop: real.crop, bolts: Object.keys(real.marks) })
     const sketch = real.routes.find((r) => r.number === '565')!
     const [ex, ey] = real.marks[sketch.id].line!.at(-1)!.map((v, i) => (v / 10000) * (i ? real.photo.height : real.photo.width))
     for (const screen of [340, 375]) {
@@ -123,7 +122,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
       const sameRow = Math.abs(midY - (y + h / 2)) < 1 && spans.every(([sx]) => sx > x + w || sx < x)
       return sameColumn || sameRow
     }
-    const html = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks: near, labels, k: 1, info, highlight: 'a', solo: true })))
+    const html = topoLines({ photo, marks: near, labels, k: 1, info, highlight: 'a', solo: true })
     expect(side(html)).toBe(true)
   })
 
@@ -207,7 +206,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
       a: { line: [[5000, 9500], [5000, 3000], [4000, 1000]] },
       b: { line: [[5000, 9500], [5000, 3000], [6000, 1000]] },
     }
-    const html = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks: fork, labels, k: 1 })))
+    const html = topoLines({ photo, marks: fork, labels, k: 1 })
     const centers = [...html.matchAll(/class="topo-badge"><rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)"/g)].map((m) => Number(m[1]) + Number(m[3]) / 2)
     expect(centers).toHaveLength(2)
     expect(centers[0]).toBeLessThan(1000)
@@ -238,7 +237,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
   it('很短的線（從照片下緣出去的示意線，例如 565）：其他編號放好之後，有空位照樣標', () => {
     const withSketch: Marks = { ...marks, c: { line: [[1000, 9990], [1030, 9900], [1050, 9800]] } }
     const sketchLabels = new Map([...labels, ['c', '9']])
-    const html = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks: withSketch, labels: sketchLabels, k: 1, info })))
+    const html = topoLines({ photo, marks: withSketch, labels: sketchLabels, k: 1, info })
     expect(html).toContain('>9<')
     expect(html).toContain('>10<')
     expect(html).toContain('>11<')
@@ -257,7 +256,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     }
     const ids = Object.keys(crowded)
     for (const k of [0.4, 0.8, 1.5, 3]) {
-      const html = renderToStaticMarkup(createElement('svg', null, createElement(TopoLines, { photo, marks: crowded, labels: crowdedLabels, k, info: crowdedInfo, highlight: 'r2', bolts: ids })))
+      const html = topoLines({ photo, marks: crowded, labels: crowdedLabels, k, info: crowdedInfo, highlight: 'r2', bolts: ids })
       const boxes: { x: number; y: number; w: number; h: number; what: string }[] = []
       for (const m of html.matchAll(/<rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
         const [x, y, w, h] = m.slice(1).map(Number)

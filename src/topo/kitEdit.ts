@@ -1,7 +1,5 @@
 import type { Rect, TopoRoute } from '../../vendor/climbio-topokit/index.js'
-import { SCALE, type Crop, type Marks, type Point, type RouteMarks, type TopoImage } from '../core/topo/geometry'
-import { sameSpot } from '../core/topo/lines'
-import { px } from '../core/topo/TopoView'
+import { px, sameSpot, SCALE, type Crop, type Marks, type Point, type RouteMarks, type TopoImage } from '../core/topo/geometry'
 
 /**
  * TopoKit 編輯器（照片像素）與龍洞的標記（萬分比）之間的換算。
