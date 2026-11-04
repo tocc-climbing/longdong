@@ -398,6 +398,8 @@ export const ja: Messages = {
   'dir.sw': '南西',
   'dir.w': '西',
   'dir.nw': '北西',
+  'rescue.points': '救助地点',
+  'rescue.equipment': '救急用具',
   'rescue.title': '緊急救助',
   'rescue.place': '通報する場所',
   'rescue.nearestEms': '最寄りの救急用具',

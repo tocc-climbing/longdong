@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { CopyButton } from '../components/CopyButton'
 import { LocationHelp } from '../components/LocationHelp'
 import { useGeolocation, type GeoState } from '../components/MyLocation'
-import { EMERGENCY_NUMBERS, RESCUE_SOURCE, formatCoords } from '../data/rescue'
+import { EMERGENCY_NUMBERS, EMS_LOCATIONS, RESCUE_POINTS, RESCUE_SOURCE, formatCoords } from '../data/rescue'
 import { whereabouts, type Direction, type Whereabouts } from '../geo'
 import { LOCALES, localName, useLang, type Translate } from '../i18n'
 
@@ -11,7 +11,7 @@ const POOR_ACCURACY_M = 50
 
 /**
  * 救援：撥緊急電話、說出自己在哪裡。一打開就定位，依位置調整顯示：
- * 在岩場附近時是最近的救援點（通報的地點）與最近的急救器材；不在岩場附近只有座標。
+ * 準確定位於岩場附近時顯示最近的救援點與器材；其餘情況保留完整清單。
  * 全部在離線快取裡，GPS 不需要網路。
  */
 export function RescuePage() {
@@ -19,6 +19,7 @@ export function RescuePage() {
   const [geo, start] = useGeolocation()
   useEffect(start, [start])
   const where = geo.status === 'ok' ? whereabouts(geo.coords) : undefined
+  const nearby = geo.status === 'ok' && geo.accuracy <= POOR_ACCURACY_M && where?.kind === 'crag'
   const [first, ...others] = EMERGENCY_NUMBERS
 
   return (
@@ -37,17 +38,15 @@ export function RescuePage() {
         ))}
       </div>
 
-      <Location geo={geo} where={where} start={start} />
+      <Location geo={geo} where={where} start={start} nearby={nearby} />
+      {!nearby && <AllRescueInfo />}
 
-      {/* 通報社群只有在岩場附近（或還不知道在哪裡）時有用 */}
-      {where?.kind !== 'outside' && (
-        <p className="sos-line">
-          <a href={RESCUE_SOURCE.lineGroupUrl} target="_blank" rel="noreferrer">
-            {t('rescue.line')}
-          </a>
-          <span className="muted small"> {t('rescue.linePassword', { password: RESCUE_SOURCE.lineGroupPassword })}</span>
-        </p>
-      )}
+      <p className="sos-line">
+        <a href={RESCUE_SOURCE.lineGroupUrl} target="_blank" rel="noreferrer">
+          {t('rescue.line')}
+        </a>
+        <span className="muted small"> {t('rescue.linePassword', { password: RESCUE_SOURCE.lineGroupPassword })}</span>
+      </p>
 
       <p className="muted small">{t('rescue.disclaimer')}</p>
     </article>
@@ -59,7 +58,7 @@ function formatDistance(m: number, t: Translate): string {
 }
 
 /** 定位的結果：通報地點與最近的急救器材（在岩場附近時）、座標（可複製唸給 119）、誤差；定位失敗時說明怎麼處理 */
-function Location({ geo, where, start }: { geo: GeoState; where?: Whereabouts; start: () => void }) {
+function Location({ geo, where, start, nearby }: { geo: GeoState; where?: Whereabouts; start: () => void; nearby: boolean }) {
   const { lang, t } = useLang()
 
   if (geo.status === 'error')
@@ -91,7 +90,7 @@ function Location({ geo, where, start }: { geo: GeoState; where?: Whereabouts; s
   const away = (n: { direction: Direction; distance: number }) => t('myloc.away', { dir: t(`dir.${n.direction}`), dist: formatDistance(n.distance, t) })
   return (
     <section className="sos-where" aria-label={t('myloc.title')}>
-      {where.kind === 'crag' ? (
+      {where.kind === 'crag' && nearby ? (
         <>
           <h2>{t('rescue.place')}</h2>
           <p className="sos-spot">
@@ -108,9 +107,9 @@ function Location({ geo, where, start }: { geo: GeoState; where?: Whereabouts; s
             </span>
           </p>
         </>
-      ) : (
+      ) : where.kind === 'outside' ? (
         <p className="muted small">{t('myloc.outside', { dist: formatDistance(where.distance, t) })}</p>
-      )}
+      ) : null}
 
       <div className="my-coords">
         <span className="mono" aria-label={t('myloc.coordsAria')}>
@@ -126,7 +125,7 @@ function Location({ geo, where, start }: { geo: GeoState; where?: Whereabouts; s
       </p>
       {geo.accuracy > POOR_ACCURACY_M && <p className="small warn">{t('myloc.poor')}</p>}
 
-      {where.kind === 'crag' && (
+      {where.kind === 'crag' && nearby && (
         <>
           <h2>{t('rescue.nearestEms')}</h2>
           <p className="sos-spot">
@@ -150,6 +149,51 @@ function Location({ geo, where, start }: { geo: GeoState; where?: Whereabouts; s
           </p>
         </>
       )}
+    </section>
+  )
+}
+
+/** 無可靠的岩場內定位時，包含沒有座標的救援點，全部都能查閱。 */
+function AllRescueInfo() {
+  const { lang, t } = useLang()
+  return (
+    <section className="rescue-all">
+      <h2>{t('rescue.points')}</h2>
+      <ul className="list-card rescue-points">
+        {RESCUE_POINTS.map((point) => (
+          <li key={point.key}>
+            <p className="sos-spot">
+              <span className="point-no" aria-hidden>{point.no}</span>
+              <strong><span className="visually-hidden">#{point.no} </span>{localName(point.name, lang).main}</strong>
+            </p>
+            {point.coords && (
+              <div className="my-coords">
+                <span className="mono">{formatCoords(point.coords)}</span>
+                <CopyButton text={formatCoords(point.coords)} className="action" />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      <h2>{t('rescue.equipment')}</h2>
+      <ul className="list-card rescue-equipment">
+        {EMS_LOCATIONS.map((ems) => (
+          <li key={ems.no}>
+            <p className="sos-spot">
+              <span className="ems-icon" aria-hidden>+</span>
+              <span>
+                <strong>{localName(ems.name, lang).main}</strong>
+                <span className="muted"> · {localName(ems.where, lang).main}</span>
+                {ems.sked && <> <span className="sked-badge" title={t('rescue.skedTitle')}>SKED</span></>}
+              </span>
+            </p>
+            <div className="my-coords">
+              <span className="mono">{formatCoords(ems.coords)}</span>
+              <CopyButton text={formatCoords(ems.coords)} className="action" />
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

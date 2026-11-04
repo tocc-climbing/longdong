@@ -2699,6 +2699,14 @@ a.action {
   flex: none;
 }
 
+.rescue-all .list-card > li {
+  padding: 16px;
+}
+
+.rescue-all .my-coords {
+  flex-wrap: wrap;
+}
+
 .sos-line {
   margin-top: 16px;
 }

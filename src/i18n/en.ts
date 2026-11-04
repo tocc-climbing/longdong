@@ -394,6 +394,8 @@ export const en: Messages = {
   'dir.sw': 'southwest',
   'dir.w': 'west',
   'dir.nw': 'northwest',
+  'rescue.points': 'Rescue points',
+  'rescue.equipment': 'First-aid equipment',
   'rescue.title': 'Emergency',
   'rescue.place': 'Tell rescuers',
   'rescue.nearestEms': 'Nearest first-aid kit',

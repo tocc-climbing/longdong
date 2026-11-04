@@ -142,6 +142,67 @@ const browser = await launch()
 const found: string[] = []
 
 try {
+  // 紅案：移除完整清單、取消精度門檻，或把岩場外誤判成附近，都應失敗。
+  for (const lang of LANGS as readonly Lang[]) {
+    for (const state of ['near', 'outside', 'inaccurate', 'denied', 'pending', 'unsupported']) {
+      const context = await browser.newContext({
+        viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true, serviceWorkers: 'block',
+      })
+      try {
+        await context.addInitScript(`
+          localStorage.setItem('longdong.lang', ${JSON.stringify(lang)})
+          const state = ${JSON.stringify(state)}
+          Object.defineProperty(navigator, 'geolocation', { configurable: true, value: state === 'unsupported' ? undefined : {
+            watchPosition(ok, fail) {
+              if (state === 'pending') return 1
+              setTimeout(() => {
+                if (state === 'denied') {
+                  fail({ code: 1, PERMISSION_DENIED: 1, TIMEOUT: 3 })
+                } else {
+                  ok({ coords: {
+                    latitude: state === 'outside' ? 25.033 : 25.1067,
+                    longitude: state === 'outside' ? 121.5654 : 121.922483,
+                    accuracy: state === 'inaccurate' ? 500 : 8,
+                  }, timestamp: Date.now() })
+                }
+              }, 20)
+              return 1
+            },
+            clearWatch() {},
+          } })
+        `)
+        const page = await context.newPage()
+        await page.goto(new URL('/rescue', base).href)
+        if (['near', 'outside', 'inaccurate'].includes(state)) {
+          await page.waitForSelector('.sos-where .my-coords')
+        } else if (state !== 'pending') {
+          await page.waitForSelector('.sos-where [role="alert"]')
+        } else {
+          await page.waitForSelector('.sos-where [role="status"]')
+        }
+        if (state === 'near') {
+          if (await page.locator('.rescue-all').count()) throw new Error('龍洞內準確定位仍顯示全部資料')
+          const spot = page.locator('.sos-where .sos-spot')
+          if (await spot.count() !== 2 || !(await spot.first().textContent())?.includes('#10')) {
+            throw new Error('黃金谷未顯示最近的救援點與器材')
+          }
+        } else {
+          await page.waitForSelector('.rescue-all')
+          if (await page.locator('.rescue-points > li').count() !== 16 ||
+              await page.locator('.rescue-equipment > li').count() !== 6 ||
+              await page.locator('.sos-where .sos-spot').count() !== 0) {
+            throw new Error(`[${lang}・${state}] 未顯示完整救援資料，或仍顯示不可靠的附近資料`)
+          }
+        }
+        if (await page.locator('.sos-line a').count() !== 1) throw new Error('救援通報社群連結遺失')
+        for (const problem of (await page.evaluate(`(${FIND_PROBLEMS})()`)) as Problem[]) {
+          found.push(`[${lang}・救援・${state}] ${problem.kind}：${problem.element}「${problem.text}」（${problem.detail}）`)
+        }
+      } finally {
+        await context.close()
+      }
+    }
+  }
   for (const lang of LANGS as readonly Lang[]) {
     for (const vp of VIEWPORTS) {
       const context = await browser.newContext({

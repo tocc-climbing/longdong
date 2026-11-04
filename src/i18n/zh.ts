@@ -392,6 +392,8 @@ export const zh = {
   'dir.sw': '西南',
   'dir.w': '西',
   'dir.nw': '西北',
+  'rescue.points': '救援點',
+  'rescue.equipment': '急救器材',
   'rescue.title': '緊急救援',
   'rescue.place': '通報地點',
   'rescue.nearestEms': '最近的急救器材',
