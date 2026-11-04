@@ -69,6 +69,12 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
       </div>
 
       <nav className="side-nav" aria-label={t('nav.main')}>
+        <a href={href.rescue()} className={page.name === 'rescue' ? 'active' : undefined} aria-current={page.name === 'rescue' ? 'page' : undefined}>
+          <svg viewBox="0 0 24 24" aria-hidden width="20" height="20">
+            <path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" fill="currentColor" />
+          </svg>
+          {t('rescue.title')}
+        </a>
         {/* 電腦版由上到下：我的、地圖、岩場（岩場緊接下面的區域清單）；搜尋用上面的搜尋框 */}
         {TABS.filter((tab) => tab.key !== 'search').reverse().map((tab) => (
           <a key={tab.key} href={tab.href} className={tab.key === active ? 'active' : ''} aria-current={tab.key === active ? 'page' : undefined}>

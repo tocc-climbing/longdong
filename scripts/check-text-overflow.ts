@@ -27,7 +27,24 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
     name: '首頁',
     path: '/',
     prepare: async (page, mobile) => {
-      if (mobile) await page.waitForSelector('.weather-now')
+      if (mobile) {
+        await page.waitForSelector('.weather-now')
+        return
+      }
+      // 紅案：還原 SVG 的 width: auto，或移除側欄救援入口。
+      await page.waitForSelector('.area-hero.strip .hero-map path')
+      const size = await page.locator('.area-hero.strip').evaluate((hero) => {
+        const map = hero.querySelector('.hero-map')!.getBoundingClientRect()
+        return { mapWidth: map.width, heroWidth: hero.getBoundingClientRect().width, mapHeight: map.height }
+      })
+      if (size.mapWidth < size.heroWidth * 0.6 || size.mapHeight < 200) {
+        throw new Error('桌面首頁龍洞地圖未填滿右側空間，或高度不足')
+      }
+      await page.locator('.sidebar a[href="/rescue"]').click()
+      await page.waitForSelector('.rescue .sos-call[href="tel:119"]')
+      await page.waitForSelector('.sidebar a[href="/rescue"][aria-current="page"]')
+      await page.goto(new URL('/', page.url()).href)
+      await page.waitForSelector('.area-hero.strip .hero-map path')
     },
   },
   { name: '區域', path: '/area/longdong/golden-valley' },

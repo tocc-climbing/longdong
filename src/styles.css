@@ -4523,9 +4523,9 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
   padding: 24px 28px 24px 32px;
 }
 
-/* 首頁的標題卡：和區域頁一樣高 */
+/* 首頁的標題卡：留足高度讓整個龍洞的地圖清楚呈現 */
 [data-layout='wide'] .area-hero.strip {
-  min-height: 11.5rem;
+  min-height: 14rem;
 }
 
 [data-layout='wide'] .area-hero h1 {
@@ -5523,7 +5523,7 @@ button.key-row:disabled {
 /* 電腦版卡片很寬：地圖放在右邊三分之二（左邊是名稱） */
 [data-layout='wide'] .area-hero.strip > .area-hero-shape.hero-map {
   left: 33%;
-  width: auto;
+  width: 67%;
 }
 
 /* 根元素也是深色：Android 的系統列（上方狀態列、下方手勢列）跟著深色；淺色見最後一節 */
