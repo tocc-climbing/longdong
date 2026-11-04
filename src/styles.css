@@ -2128,7 +2128,13 @@ a.action {
 }
 
 .shell main.roomy .area-list {
-  grid-template-columns: repeat(auto-fill, minmax(21.25rem, 1fr));
+  /* 圖表固定佔約 10.5rem；欄寬太窄時，區域名稱與統計會各自被擠成兩行。 */
+  grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+}
+
+.shell main.roomy .area-row {
+  /* 同一個 grid row 依最長內容決定高度，其他卡片也要填滿該列。 */
+  height: 100%;
 }
 
 .shell main.split {
