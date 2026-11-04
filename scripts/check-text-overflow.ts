@@ -127,13 +127,17 @@ interface Problem {
 
 /** 黃金谷聚焦後仍要看得到鄰近的鱷魚岬與南側停車場，不只看見單點。 */
 async function checkRescueContext(page: Page) {
-  const map = (await page.locator('.rescue-map').boundingBox())!
-  for (const no of [11, 14]) {
-    const marker = await page.locator('.rescue-map .mk-rescue').filter({ hasText: new RegExp(`^${no}$`) }).locator('circle').boundingBox()
-    if (!marker || marker.x < map.x || marker.y < map.y || marker.x + marker.width > map.x + map.width || marker.y + marker.height > map.y + map.height) {
-      throw new Error(`救援地圖放大過近，看不到附近的救援點 #${no}`)
-    }
-  }
+  // mapkit 重繪會替換 SVG 子節點；同一次讀取中量測，避免跨幀拿到已移除的標記。
+  const missing = await page.locator('.rescue-map').evaluate((map) => {
+    const box = map.getBoundingClientRect()
+    return [10, 11, 14].filter((no) => {
+      const marker = [...map.querySelectorAll('.mk-rescue')].find((point) => point.querySelector('text')?.textContent === String(no))?.querySelector('circle')
+      if (!marker) return true
+      const r = marker.getBoundingClientRect()
+      return r.x < box.x || r.y < box.y || r.right > box.right || r.bottom > box.bottom
+    })
+  })
+  if (missing.length) throw new Error(`救援地圖放大過近，看不到附近的救援點 #${missing.join('、#')}`)
 }
 
 async function launch(): Promise<Browser> {
@@ -224,10 +228,6 @@ try {
         if (state === 'near') {
           await page.waitForSelector('.rescue-map .mk-me')
           await checkRescueContext(page)
-          const near = (await page.locator('.rescue-map .mk-rescue').filter({ hasText: /^10$/ }).boundingBox())!
-          if (near.x < mapBox.x || near.y < mapBox.y || near.x + near.width > mapBox.x + mapBox.width || near.y + near.height > mapBox.y + mapBox.height) {
-            throw new Error('附近的救援點未聚焦在地圖範圍內')
-          }
           const transform = page.locator('.rescue-map svg[role=img] > g[transform]').first()
           const before = await transform.getAttribute('transform')
           await page.locator('.rescue-map svg[role=img]').dblclick({ position: { x: 100, y: 100 } })
