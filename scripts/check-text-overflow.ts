@@ -125,6 +125,17 @@ interface Problem {
   detail: string
 }
 
+/** 黃金谷聚焦後仍要看得到鄰近的鱷魚岬與南側停車場，不只看見單點。 */
+async function checkRescueContext(page: Page) {
+  const map = (await page.locator('.rescue-map').boundingBox())!
+  for (const no of [11, 14]) {
+    const marker = await page.locator('.rescue-map .mk-rescue').filter({ hasText: new RegExp(`^${no}$`) }).locator('circle').boundingBox()
+    if (!marker || marker.x < map.x || marker.y < map.y || marker.x + marker.width > map.x + map.width || marker.y + marker.height > map.y + map.height) {
+      throw new Error(`救援地圖放大過近，看不到附近的救援點 #${no}`)
+    }
+  }
+}
+
 async function launch(): Promise<Browser> {
   const channels = [process.env.BROWSER_CHANNEL, 'chrome', 'msedge'].filter(Boolean) as string[]
   for (const channel of channels) {
@@ -212,6 +223,7 @@ try {
         if (mapBox.height < 300) throw new Error('救援地圖高度不足')
         if (state === 'near') {
           await page.waitForSelector('.rescue-map .mk-me')
+          await checkRescueContext(page)
           const near = (await page.locator('.rescue-map .mk-rescue').filter({ hasText: /^10$/ }).boundingBox())!
           if (near.x < mapBox.x || near.y < mapBox.y || near.x + near.width > mapBox.x + mapBox.width || near.y + near.height > mapBox.y + mapBox.height) {
             throw new Error('附近的救援點未聚焦在地圖範圍內')
@@ -250,6 +262,15 @@ try {
           await point.click()
           await page.waitForSelector('.rescue-map .mk-area.mk-dim', { state: 'detached' })
           await page.waitForTimeout(100)
+          const highlight = page.locator('.rescue-map .mk-mark.selected .mk-mark-gps')
+          if (await highlight.count() !== 1) throw new Error('點選的救援位置沒有突顯')
+          const style = await highlight.evaluate((circle) => {
+            const style = getComputedStyle(circle)
+            return { fill: style.fill, stroke: style.stroke, radius: parseFloat(style.r) }
+          })
+          if (style.fill !== 'none' || style.radius < 18 || ['black', 'rgb(0, 0, 0)'].includes(style.stroke)) {
+            throw new Error('點選位置應用中空色暈突顯，不遮住圖示或加黑邊')
+          }
           const center = await page.locator('.rescue-map .mk-rescue').filter({ hasText: /^10$/ }).locator('circle').boundingBox()
           const map = (await page.locator('.rescue-map').boundingBox())!
           if (!center || Math.abs(center.x + center.width / 2 - map.x - map.width / 2) > 3 || Math.abs(center.y + center.height / 2 - map.y - map.height / 2) > 3) {
@@ -259,6 +280,16 @@ try {
           const zoomed = await transform.getAttribute('transform')
           await point.click()
           await page.waitForFunction((previous) => document.querySelector('.rescue-map svg[role=img] > g[transform]')?.getAttribute('transform') !== previous, zoomed)
+          // 紅案：還原單點 tight 聚焦或縮小保留範圍，鄰近標示就會超出地圖。
+          for (const [width, height] of [[360, 740], [390, 844], [768, 1024], [1023, 768], [1024, 600], [1280, 720], [1440, 900], [1920, 1080]]) {
+            await page.setViewportSize({ width, height })
+            for (const target of [point, page.locator('.rescue-equipment > li').nth(4).locator('button')]) {
+              await target.click()
+              await page.waitForTimeout(100)
+              await checkRescueContext(page)
+            }
+          }
+          await page.setViewportSize({ width: 360, height: 740 })
         }
         for (const problem of (await page.evaluate(`(${FIND_PROBLEMS})()`)) as Problem[]) {
           found.push(`[${lang}・救援・${state}] ${problem.kind}：${problem.element}「${problem.text}」（${problem.detail}）`)

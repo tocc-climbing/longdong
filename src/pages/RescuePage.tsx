@@ -31,7 +31,7 @@ export function RescuePage({ data }: { data: LoadedData }) {
     setFocus({ ...target, key: `selected:${++selection.current}` })
     mapElement.current?.scrollIntoView({ block: 'nearest' })
   }
-  const selectAt = (at: LatLng) => select({ coords: [at], tight: true })
+  const selectAt = (at: LatLng) => select({ coords: [at] })
   const selectPoint = (point: RescuePoint) => {
     if (point.coords) return selectAt(point.coords)
     // 沒有官方座標的點只顯示資料中對應的區域，不推測精確位置。

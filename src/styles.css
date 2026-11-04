@@ -2732,6 +2732,15 @@ a.action {
   overflow: hidden;
 }
 
+/* 點選位置用半透明色暈，中央留空，保留救援編號與器材圖示。 */
+.rescue-map .mk-mark.selected .mk-mark-gps {
+  r: 20px;
+  fill: none;
+  stroke: color-mix(in srgb, var(--brand) 35%, transparent);
+  stroke-width: 10px;
+  filter: blur(1px);
+}
+
 .rescue-all .my-coords {
   flex-wrap: wrap;
 }
