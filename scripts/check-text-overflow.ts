@@ -140,6 +140,15 @@ async function checkRescueContext(page: Page) {
   if (missing.length) throw new Error(`救援地圖放大過近，看不到附近的救援點 #${missing.join('、#')}`)
 }
 
+async function resizeRescue(page: Page, width: number, height: number) {
+  await page.setViewportSize({ width, height })
+  await page.waitForFunction(
+    (wide) => document.documentElement.dataset.layout === (wide ? 'wide' : 'mobile') && !!document.querySelector(wide ? '.shell' : '.topbar'),
+    width >= 1024,
+  )
+  await page.waitForSelector('.rescue-map .mk-rescue')
+}
+
 async function launch(): Promise<Browser> {
   const channels = [process.env.BROWSER_CHANNEL, 'chrome', 'msedge'].filter(Boolean) as string[]
   for (const channel of channels) {
@@ -282,14 +291,14 @@ try {
           await page.waitForFunction((previous) => document.querySelector('.rescue-map svg[role=img] > g[transform]')?.getAttribute('transform') !== previous, zoomed)
           // 紅案：還原單點 tight 聚焦或縮小保留範圍，鄰近標示就會超出地圖。
           for (const [width, height] of [[360, 740], [390, 844], [768, 1024], [1023, 768], [1024, 600], [1280, 720], [1440, 900], [1920, 1080]]) {
-            await page.setViewportSize({ width, height })
+            await resizeRescue(page, width, height)
             for (const target of [point, page.locator('.rescue-equipment > li').nth(4).locator('button')]) {
               await target.click()
               await page.waitForTimeout(100)
               await checkRescueContext(page)
             }
           }
-          await page.setViewportSize({ width: 360, height: 740 })
+          await resizeRescue(page, 360, 740)
         }
         for (const problem of (await page.evaluate(`(${FIND_PROBLEMS})()`)) as Problem[]) {
           found.push(`[${lang}・救援・${state}] ${problem.kind}：${problem.element}「${problem.text}」（${problem.detail}）`)
