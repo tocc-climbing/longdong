@@ -2699,12 +2699,64 @@ a.action {
   flex: none;
 }
 
-.rescue-all .list-card > li {
+.rescue-select {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rescue-select:hover {
+  background: var(--surface-2);
+}
+
+.rescue-select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.rescue-row-select {
+  display: block;
   padding: 16px;
+}
+
+.rescue-map {
+  height: clamp(320px, 50vh, 520px);
+  margin: 20px 0;
+  scroll-margin-top: 68px;
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .rescue-all .my-coords {
   flex-wrap: wrap;
+}
+
+[data-layout='wide'] .rescue {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.85fr) minmax(0, 1.15fr);
+  gap: 0 24px;
+  align-items: start;
+}
+
+[data-layout='wide'] .rescue > :not(.rescue-map) {
+  grid-column: 1;
+}
+
+[data-layout='wide'] .rescue-map {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  position: sticky;
+  top: 24px;
+  height: calc(100dvh - 48px);
+  min-height: 420px;
+  max-height: 900px;
+  margin: 0;
+  scroll-margin-top: 24px;
 }
 
 .sos-line {

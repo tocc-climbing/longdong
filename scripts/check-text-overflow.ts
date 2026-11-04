@@ -79,8 +79,14 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
   {
     name: '救援（在岩場：通報地點與急救器材）',
     path: '/rescue',
-    prepare: async (page) => {
+    prepare: async (page, mobile) => {
       await page.waitForSelector('.sos-where .my-coords')
+      await page.waitForSelector('.rescue-map .mk-rescue')
+      if (!mobile) {
+        const map = (await page.locator('.rescue-map').boundingBox())!
+        const info = (await page.locator('.rescue-intro').boundingBox())!
+        if (map.x < info.x + info.width) throw new Error('桌面救援地圖未放在右側')
+      }
     },
   },
   {
@@ -154,6 +160,7 @@ try {
           const state = ${JSON.stringify(state)}
           Object.defineProperty(navigator, 'geolocation', { configurable: true, value: state === 'unsupported' ? undefined : {
             watchPosition(ok, fail) {
+              window.__rescueFail = fail
               if (state === 'pending') return 1
               setTimeout(() => {
                 if (state === 'denied') {
@@ -195,6 +202,64 @@ try {
           }
         }
         if (await page.locator('.sos-line a').count() !== 1) throw new Error('救援通報社群連結遺失')
+        // 紅案：地圖被移除、未畫出救援點或器材，或恢復任何座標複製按鈕。
+        await page.waitForSelector('.rescue-map .mk-rescue')
+        if (await page.locator('.rescue-map .mk-rescue').count() !== 14 || await page.locator('.rescue-map .mk-aid').count() !== 6) {
+          throw new Error('救援地圖缺少救援點或急救器材')
+        }
+        if (await page.locator('.rescue .my-coords button').count()) throw new Error('救援頁仍有複製按鈕')
+        const mapBox = (await page.locator('.rescue-map').boundingBox())!
+        if (mapBox.height < 300) throw new Error('救援地圖高度不足')
+        if (state === 'near') {
+          await page.waitForSelector('.rescue-map .mk-me')
+          const near = (await page.locator('.rescue-map .mk-rescue').filter({ hasText: /^10$/ }).boundingBox())!
+          if (near.x < mapBox.x || near.y < mapBox.y || near.x + near.width > mapBox.x + mapBox.width || near.y + near.height > mapBox.y + mapBox.height) {
+            throw new Error('附近的救援點未聚焦在地圖範圍內')
+          }
+          const transform = page.locator('.rescue-map svg[role=img] > g[transform]').first()
+          const before = await transform.getAttribute('transform')
+          await page.locator('.rescue-map svg[role=img]').dblclick({ position: { x: 100, y: 100 } })
+          if (await transform.getAttribute('transform') === before) throw new Error('救援地圖無法縮放')
+          // 原本有附近定位，後來權限被撤回：清單與地圖都必須回到全區。
+          await page.evaluate('window.__rescueFail({ code: 1, PERMISSION_DENIED: 1, TIMEOUT: 3 })')
+          await page.waitForSelector('.rescue-all')
+          await page.waitForSelector('.rescue-map .mk-rescue')
+        }
+        if (await page.locator('.rescue-map .mk-me').count()) throw new Error('無可靠定位仍顯示舊的位置')
+        const outsideMap = await page.locator('.rescue-map').evaluate((map) => {
+          const box = map.getBoundingClientRect()
+          return [...map.querySelectorAll('.mk-rescue')].some((point) => {
+            const r = point.getBoundingClientRect()
+            return r.x < box.x || r.y < box.y || r.right > box.right || r.bottom > box.bottom
+          })
+        })
+        if (outsideMap) throw new Error('全區地圖未包含所有有座標的救援點')
+        if (state === 'unsupported' && lang === 'zh') {
+          const transform = page.locator('.rescue-map svg[role=img] > g[transform]').first()
+          // 每一個救援點與器材都是實際入口；移除任一 onClick 都會使此檢查失敗。
+          const choices = page.locator('.rescue-all .rescue-select')
+          if (await choices.count() !== 22) throw new Error('救援點與器材未全部提供地圖定位')
+          for (let i = 0; i < await choices.count(); i++) {
+            const before = await transform.getAttribute('transform')
+            await choices.nth(i).click()
+            await page.waitForFunction((previous) => document.querySelector('.rescue-map svg[role=img] > g[transform]')?.getAttribute('transform') !== previous, before)
+          }
+          const point = page.locator('.rescue-points > li').filter({ hasText: '#10 ' }).locator('button')
+          await page.locator('.rescue-points > li').filter({ hasText: '#9 ' }).locator('button').click()
+          await page.waitForSelector('.rescue-map .mk-area.mk-dim')
+          await point.click()
+          await page.waitForSelector('.rescue-map .mk-area.mk-dim', { state: 'detached' })
+          await page.waitForTimeout(100)
+          const center = await page.locator('.rescue-map .mk-rescue').filter({ hasText: /^10$/ }).locator('circle').boundingBox()
+          const map = (await page.locator('.rescue-map').boundingBox())!
+          if (!center || Math.abs(center.x + center.width / 2 - map.x - map.width / 2) > 3 || Math.abs(center.y + center.height / 2 - map.y - map.height / 2) > 3) {
+            throw new Error('點選救援點後未以該位置置中')
+          }
+          await page.locator('.rescue-map svg[role=img]').dblclick({ position: { x: 100, y: 100 } })
+          const zoomed = await transform.getAttribute('transform')
+          await point.click()
+          await page.waitForFunction((previous) => document.querySelector('.rescue-map svg[role=img] > g[transform]')?.getAttribute('transform') !== previous, zoomed)
+        }
         for (const problem of (await page.evaluate(`(${FIND_PROBLEMS})()`)) as Problem[]) {
           found.push(`[${lang}・救援・${state}] ${problem.kind}：${problem.element}「${problem.text}」（${problem.detail}）`)
         }

@@ -182,7 +182,7 @@ function PageView({ page, data, offline }: { page: Page; data: LoadedData; offli
     case 'me':
       return <MePage data={data} offline={offline} />
     case 'rescue':
-      return <RescuePage />
+      return <RescuePage data={data} />
     case 'about':
       return <AboutPage data={data} />
     case 'map':
