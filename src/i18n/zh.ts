@@ -379,7 +379,7 @@ export const zh = {
   'myloc.away': '{dir}方 {dist}',
   'myloc.m': '{n} 公尺',
   'myloc.km': '{n} 公里',
-  'myloc.denied': '沒有定位權限：請在手機設定允許瀏覽器使用位置，再按「再試一次」',
+  'myloc.denied': '沒有定位權限：請允許瀏覽器使用位置，再按「再試一次」',
   'myloc.unavailable': '無法定位，請到開闊處再試',
   'myloc.timeout': '定位逾時，請到開闊處再試',
   'myloc.unsupported': '這個瀏覽器不支援定位',

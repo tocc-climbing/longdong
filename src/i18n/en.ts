@@ -381,7 +381,7 @@ export const en: Messages = {
   'myloc.away': '{dist} {dir}',
   'myloc.m': '{n} m',
   'myloc.km': '{n} km',
-  'myloc.denied': 'No location permission: allow your browser to use location in your phone’s settings, then tap “Try again”',
+  'myloc.denied': 'No location permission: allow your browser to use location, then choose “Try again”',
   'myloc.unavailable': 'Can’t get a location — try again in the open',
   'myloc.timeout': 'Location timed out — try again in the open',
   'myloc.unsupported': 'This browser doesn’t support location',

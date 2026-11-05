@@ -385,7 +385,7 @@ export const ja: Messages = {
   'myloc.away': '{dir} {dist}',
   'myloc.m': '{n} m',
   'myloc.km': '{n} km',
-  'myloc.denied': '位置情報の許可がありません：端末の設定でブラウザの位置情報を許可し、「再試行」をタップしてください',
+  'myloc.denied': '位置情報の許可がありません：ブラウザの位置情報を許可し、「再試行」を押してください',
   'myloc.unavailable': '測位できません。開けた場所で再試行してください',
   'myloc.timeout': '測位がタイムアウトしました。開けた場所で再試行してください',
   'myloc.unsupported': 'このブラウザは位置情報に対応していません',
