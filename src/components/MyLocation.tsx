@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { LatLng } from '../geo'
+import { useWide } from '../layout'
 import { SIMULATED_ACCURACY_M, useSimulation } from '../simulate'
 
 export type GeoState =
@@ -44,15 +45,18 @@ export function geoLocator(geolocation: Geolocation | undefined, onChange: (stat
 /**
  * 手機 GPS 定位：按下才開始（瀏覽器會先詢問權限），之後持續更新；離開頁面時停止，不在背景耗電。
  * GPS 不需要網路；沒有網路時第一次定位可能較久。模擬位置時（src/simulate.ts）直接回傳模擬的座標。
+ * 電腦版（寬螢幕）不定位：位置對在電腦前的人沒有意義，start 不做事、狀態一直是 idle（也就不會問權限）。
  */
 export function useGeolocation(): [GeoState, () => void] {
   const [state, setState] = useState<GeoState>({ status: 'idle' })
   const [locator] = useState(() => geoLocator('geolocation' in navigator ? navigator.geolocation : undefined, setState))
   const simulated = useSimulation()
+  const wide = useWide()
 
   useEffect(() => () => locator.stop(), [locator])
 
   // 模擬位置（/map@緯度,經度）：不用 GPS，直接回傳模擬的座標
   if (simulated) return [{ status: 'ok', coords: simulated, accuracy: SIMULATED_ACCURACY_M, time: Date.now() }, () => {}]
+  if (wide) return [{ status: 'idle' }, () => {}]
   return [state, locator.start]
 }

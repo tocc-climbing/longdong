@@ -6,6 +6,7 @@ import { AREA_RESCUE, EMERGENCY_NUMBERS, EMS_LOCATIONS, RESCUE_POINTS, RESCUE_SO
 import { whereabouts, type Direction, type LatLng, type Whereabouts } from '../geo'
 import type { KitMapFocus } from '../map/KitMap'
 import { LOCALES, localName, useLang, type Translate } from '../i18n'
+import { useWide } from '../layout'
 
 /** 誤差超過這個距離（公尺）時提醒到開闊處 */
 const POOR_ACCURACY_M = 50
@@ -20,6 +21,7 @@ const RescueMap = lazy(() => import('./RescueMap').then((m) => ({ default: m.Res
 export function RescuePage({ data }: { data: LoadedData }) {
   const { t } = useLang()
   const [geo, start] = useGeolocation()
+  const wide = useWide()
   useEffect(start, [start])
   const where = geo.status === 'ok' ? whereabouts(geo.coords) : undefined
   const nearby = geo.status === 'ok' && geo.accuracy <= POOR_ACCURACY_M && where?.kind === 'crag'
@@ -56,7 +58,8 @@ export function RescuePage({ data }: { data: LoadedData }) {
           ))}
         </div>
 
-        <Location geo={geo} where={where} start={start} nearby={nearby} onSelect={selectAt} />
+        {/* 電腦版不定位：不顯示「我的位置」，下面是完整的救援資訊 */}
+        {!wide && <Location geo={geo} where={where} start={start} nearby={nearby} onSelect={selectAt} />}
       </div>
       <div className="rescue-map" ref={mapElement}>
         <Suspense fallback={<p className="muted small map-status" role="status">{t('app.loading')}</p>}>

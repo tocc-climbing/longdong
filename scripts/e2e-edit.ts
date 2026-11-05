@@ -91,7 +91,8 @@ async function newContext(location?: { lat: number; lng: number }, device: Brows
     ${
       location
         ? `const fix = () => ({ coords: { latitude: ${location.lat}, longitude: ${location.lng}, accuracy: 8 }, timestamp: Date.now() })
-    const stub = { getCurrentPosition: (ok) => setTimeout(() => ok(fix()), 50), watchPosition: (ok) => (setTimeout(() => ok(fix()), 50), 1), clearWatch: () => {} }
+    window.__geoCalls = 0
+    const stub = { getCurrentPosition: (ok) => (window.__geoCalls++, setTimeout(() => ok(fix()), 50)), watchPosition: (ok) => (window.__geoCalls++, setTimeout(() => ok(fix()), 50), 1), clearWatch: () => {} }
     Object.defineProperty(Navigator.prototype, 'geolocation', { configurable: true, get: () => stub })`
         : ''
     }
@@ -181,7 +182,8 @@ try {
     const fresh = Object.fromEntries(Object.entries(all).filter(([k]) => !(k in existing)))
     return Object.keys(fresh).length >= count ? fresh : undefined
   }
-  const anon = await newContext(AT)
+  // 現場回報用手機（電腦版不定位）
+  const anon = await newContext(AT, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
   await report(anon.page)
   const first = await until(() => added(1))
   check('沒登入的回報：資料庫收到去識別的副本', !!first && Object.keys(first).length === 1)
@@ -212,6 +214,24 @@ try {
   const offColor = wallColors.filter((w) => !w.outline || w.strokes.some((s) => s !== w.outline))
   check('岩壁用所屬大區域的外框色、沒有白邊', wallColors.length === baseWallLines && offColor.length === 0, JSON.stringify(offColor.slice(0, 2)))
   await anon.ctx.close()
+
+  // 電腦版不定位：打開地圖、救援頁都不向瀏覽器要位置，沒有「回到我的位置」「我的位置」「回報位置」
+  const desk = await newContext(AT)
+  await desk.page.goto(base + 'map')
+  await desk.page.waitForSelector('.kit-map .mk-frame svg')
+  await desk.page.goto(base + 'rescue')
+  await desk.page.waitForSelector('.sos-call')
+  await desk.page.waitForTimeout(500)
+  const deskGeo = (await desk.page.evaluate(() => (window as unknown as { __geoCalls: number }).__geoCalls)) as number
+  check('電腦版：打開救援頁不向瀏覽器要位置、沒有「我的位置」', deskGeo === 0 && (await desk.page.locator('.sos-where').count()) === 0, `${deskGeo} 次`)
+  await desk.page.goto(base + 'map')
+  await desk.page.waitForSelector('.kit-map .mk-frame svg')
+  await desk.page.waitForTimeout(500)
+  check('電腦版：地圖頁不向瀏覽器要位置，沒有目前位置與「回到我的位置」', ((await desk.page.evaluate(() => (window as unknown as { __geoCalls: number }).__geoCalls)) as number) === 0 && (await desk.page.locator('.mk-me').count()) === 0 && (await desk.page.locator('.mk-locate').count()) === 0)
+  await desk.page.goto(base + 'area/longdong/school-gate')
+  await desk.page.waitForSelector('.page-tools')
+  check('電腦版：區域頁沒有「回報位置」', (await desk.page.locator('.page-tools').getByRole('button', { name: '回報位置', exact: true }).count()) === 0)
+  await desk.ctx.close()
 
   // ── 2. 修改區域範圍：看到該區的回報（合併、有幾筆） ──────────────────
   const editor = await newContext()

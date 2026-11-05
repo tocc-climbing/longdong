@@ -70,7 +70,8 @@ export function TitleTools({
           </svg>
         </button>
       )}
-      <PlaceReport data={data} {...report} />
+      {/* 回報位置要用手機的 GPS：電腦版沒有 */}
+      {!wide && <PlaceReport data={data} {...report} />}
       <div className="tool-wrap" ref={box}>
         <button
           type="button"

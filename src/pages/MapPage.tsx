@@ -200,7 +200,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           onWallTap={(sector, line) => setSelectedWall(`${sector}#${line}`)}
           sectorLabels
           onAreaPress={(area) => navigate(href.area(area))}
-          onLocate={() => {
+          onLocate={wide ? undefined : () => {
             if (outside !== undefined) setToast(t('map.outside', { dist: distance(outside) }))
             else if (geo.status === 'locating') setToast(t('map.locating'))
             else if (geo.status !== 'ok') {
