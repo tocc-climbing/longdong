@@ -164,7 +164,7 @@ OpenStreetMap 的資料存在 `scripts/data/osm-reference.json`（© OpenStreetM
 
 畫面由 mapkit（`vendor/climbio-mapkit/`，React 外殼在 `src/map/KitMap.tsx`）畫。底圖（陸地、建物、停車場、頁框外 OpenStreetMap 的線、地點）建置時先合併成 `public/rescue/kitbase.json`；上面的 geojson 改了要跑 `npm run kit-base` 重新產生（`npm test` 會檢查是不是最新的）。區域、岩壁與步道由 App 套上編輯模式的最新版本後組上去（`src/map/mapkitView.ts`）。外觀基準：`npm run test:map-shots`。
 
-控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），打開就開始定位；
+控制點上完全吻合，控制點之間可能還有幾十公尺的誤差。底部分頁的「地圖」（`/map`）顯示這張圖，操作像 Google 地圖（拖曳、雙指縮放與旋轉、羅盤回到北方朝上），手機打開就開始定位（電腦版不定位）；
 第一次使用會說明地圖還在校正、可能有誤差。左上「回報」依目前位置列出附近的區域、救援點與標示（`src/map/reportOptions.ts`）；網頁在背景或螢幕關閉時無法定位，所以不記錄軌跡。
 記錄先存在手機上，連上網路時在背景自動上傳（`src/map/calibration.ts`，不必停在地圖頁）：登入的上傳到 `v2/calibration/<uid>`（本人與管理員讀得到），沒登入的上傳到 `v2/anonReports/<裝置代號>`（只有管理員讀得到）。管理員（`/role` 名單）在「我的 → 設定」有「回報紀錄」（`/reports`），地圖上標出所有人的回報、下面依使用者列出說明、座標、誤差與時間。校正點加進 `scripts/gen-scale-map.ts` 的 `FIELD_POINTS` 後重跑即可。
 
