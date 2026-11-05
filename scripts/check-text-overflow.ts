@@ -80,7 +80,9 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
     name: '救援（在岩場：通報地點與急救器材）',
     path: '/rescue',
     prepare: async (page, mobile) => {
-      await page.waitForSelector('.sos-where .my-coords')
+      // 電腦版不定位：沒有「我的位置」，直接是完整的救援資訊
+      if (mobile) await page.waitForSelector('.sos-where .my-coords')
+      else if (await page.locator('.sos-where').count()) throw new Error('電腦版不應該有「我的位置」')
       await page.waitForSelector('.rescue-map .mk-rescue')
       if (!mobile) {
         const map = (await page.locator('.rescue-map').boundingBox())!
@@ -99,9 +101,11 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
   {
     name: '地圖（定位後的回報彈窗）',
     path: '/map',
-    prepare: async (page) => {
+    prepare: async (page, mobile) => {
       await page.evaluate(() => localStorage.setItem('longdong.map.intro', '1'))
       await page.reload()
+      // 電腦版不定位：沒有目前位置，也就沒有定位後的回報彈窗（只檢查地圖本身）
+      if (!mobile) return
       await page.waitForSelector('.mk-me')
       await page.click('.sm-tool.report')
       await page.waitForSelector('.sheet[open] .chip')
