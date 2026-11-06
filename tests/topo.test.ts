@@ -157,6 +157,12 @@ describe('Topo 編輯', () => {
       expect(fillShared(withAnchor(lines, 'r/z', [9000, 100]), routes)['r/thin'].bolts).toBeUndefined()
     })
 
+    it('顯示：旁邊另一條路線（排在前面）的 anchor 也不遠時，補的是離線最近的（〈細縫〉不會接到〈最後難關〉的頂端）', () => {
+      const near = route('r/near', [], [slot('A01', '316-TW')])
+      const marks = withAnchor(withAnchor({ ...lines, 'r/near': { line: [[3500, 9000], [3700, 1300]] } }, 'r/near', [3700, 1100]), 'r/z', [4250, 900])
+      expect(fillShared(marks, [thin, near, z, other])['r/thin'].bolts).toEqual({ A01: [4250, 900] })
+    })
+
     it('移動、刪除：原本在同一個點的一起移動、刪除；另一條已經標在別處的不動', () => {
       const both = syncShared(withAnchor(lines, 'r/z', [4250, 900]), lines, 'r/z', routes)
       const moved = syncShared(withAnchor(both, 'r/z', [4300, 800]), both, 'r/z', routes)

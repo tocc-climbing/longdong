@@ -19,7 +19,8 @@ function distanceToLine(p: Point, line: Point[]): number {
 
 /**
  * 顯示用：共用的 bolt、anchor 只有一條路線標過時，另一條路線也顯示（選到〈細縫〉也看得到只標在〈Z字〉的頂端 anchor）。
- * 條件和 syncShared 一樣：兩條路線資料裡這個位置有一邊標「共用」、這條路線有線、點離它的線不遠、這個位置還沒標。不改資料，只補畫。
+ * 條件和 syncShared 一樣：兩條路線資料裡這個位置有一邊標「共用」、這條路線有線、點離它的線不遠、這個位置還沒標；
+ * 有好幾條符合時取離線最近的。不改資料，只補畫。
  */
 export function fillShared(marks: Marks, routes: Route[]): Marks {
   const slots = (r: Route) => [...r.bolts, ...r.anchors]
@@ -29,13 +30,16 @@ export function fillShared(marks: Marks, routes: Route[]): Marks {
     if (!mine?.line) continue
     for (const slot of slots(route)) {
       if (mine.bolts?.[slot.position]) continue
+      // 同分區可能有好幾條路線在這個位置標了點（A01 每條都有）：取離這條線最近的
+      let best: { at: Point; d: number } | undefined
       for (const other of routes) {
         const at = other.id === route.id ? undefined : marks[other.id]?.bolts?.[slot.position]
         const theirs = other.id === route.id ? undefined : slots(other).find((b) => b.position === slot.position)
-        if (!at || !theirs || (slot.material !== '共用' && theirs.material !== '共用') || distanceToLine(at, mine.line) > SHARED_NEAR) continue
-        out = { ...out, [route.id]: { ...out[route.id], bolts: { ...out[route.id].bolts, [slot.position]: at } } }
-        break
+        if (!at || !theirs || (slot.material !== '共用' && theirs.material !== '共用')) continue
+        const d = distanceToLine(at, mine.line)
+        if (d <= SHARED_NEAR && (!best || d < best.d)) best = { at, d }
       }
+      if (best) out = { ...out, [route.id]: { ...out[route.id], bolts: { ...out[route.id].bolts, [slot.position]: best.at } } }
     }
   }
   return out
