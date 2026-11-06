@@ -4,6 +4,8 @@
 // English: stylesheet string injected once per root; colours are CSS variables.
 export const CSS = `
 .tk { display: block; overflow: hidden; --tk-sport: #1565c0; --tk-sport-on: #1e7bff; --tk-other: #c8102e; --tk-other-on: #e11d2e; --tk-bolt: #1ea0e6; }
+/* 不受 App 全域樣式影響（例如 App 把所有 svg 圖示設成 stroke: currentColor，會讓 Topo 的字描上外框）；字型固定，各 App 看到同一種字 */
+.tk svg { fill: initial; stroke: initial; stroke-width: initial; stroke-linecap: initial; stroke-linejoin: initial; font-family: system-ui, -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
 .tk-stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--tk-bg, #222); }
 .tk-stage.draggable { cursor: grab; }
 .tk-stage.panning { cursor: grabbing; }
@@ -58,7 +60,7 @@ g.topo-route.link:is(:hover, :focus-visible) { opacity: 1; outline: none; }
 .tk-loupe { position: absolute; z-index: 4; width: 128px; height: 128px; overflow: hidden; border: 2px solid #fff; border-radius: 50%; background: #000; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); pointer-events: none; --topo-line: var(--tk-other-on); }
 .tk-loupe[hidden] { display: none; }
 .tk-loupe.kind-sport { --topo-line: var(--tk-sport-on); }
-.tk-loupe svg { display: block; }
+.tk-loupe svg { display: block; width: 100%; height: 100%; }
 .tk-loupe-line { fill: none; stroke: var(--topo-line); stroke-linecap: round; }
 .tk-loupe-point { fill: var(--topo-line); }
 .tk-loupe-cross { stroke: #ffd400; stroke-linecap: round; }

@@ -83,7 +83,7 @@ editor.undo();
 | `lang`、`gradeSystems` | 名稱用哪個語言、難度用哪些系統（`yds`、`french`…） |
 | `wheel` | `'ctrl'`（預設，Viewer：按著 Ctrl／⌘ 才縮放，頁面照常捲動）或 `'always'`（Editor 預設） |
 
-顏色用 CSS 變數：`--tk-sport`、`--tk-sport-on`、`--tk-other`、`--tk-other-on`、`--tk-bolt`、`--tk-bg`。
+顏色用 CSS 變數：`--tk-sport`、`--tk-sport-on`、`--tk-other`、`--tk-other-on`、`--tk-bolt`、`--tk-bg`。字型固定（系統字），不跟 App 的字型走；App 對所有 `svg` 設的全域樣式（例如圖示的 `stroke`）不會套到路線圖上。
 
 ### 編輯
 
