@@ -5,11 +5,11 @@
 // 兩條路線共用的線段（分岔的前段）只畫一次。移植自龍洞（MIT）src/core/topo/TopoView.tsx 的 TopoLines。
 // English: renders routes/labels/bolts to an SVG string. Ported from Longdong (MIT) TopoLines.
 import { centeredBox, distanceToLine, overlaps, pathLength, Placer, pointAlong, smoothPath, textWidth, wrapText } from './annotate.js';
-import { drawnRuns, ownRuns } from './lines.js';
+import { drawnRuns, ownRuns, sameSpot } from './lines.js';
 import { isSketch } from './viewport.js';
 
 // 牌子的大小與字級（螢幕像素）
-const PILL_H_BASE = 20, PILL_FONT_BASE = 11.5, BOLT_H_BASE = 18, BOLT_FONT_BASE = 11;
+const PILL_H_BASE = 20, PILL_FONT_BASE = 11.5;
 // 看的時候 bolt 是輔助資訊：小的半透明牌子，只有 ×（anchor ××）
 const BOLT_VIEW_H_BASE = 12, BOLT_VIEW_FONT_BASE = 9, NOTE_FONT_BASE = 10, NOTE_LINE_BASE = 12.5;
 // solo 時其他路線的編號牌縮成這個比例，放在線的下段
@@ -25,6 +25,10 @@ const arrowUp = ([x, y], r) => `M${x} ${y - ARROW_UP * r}L${x + 1.8 * r} ${y + 0
 const NOTE_ROOM_PX = 90;
 // 編號牌放在線上的候選位置（占全長的比例）：先放正中間，不行再往兩邊找
 const LABEL_SPOTS = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82];
+// 分岔出去的路線：編號放在自己那段線靠近分岔點的位置（占那段長度的比例），看得出是哪一支
+const BRANCH_SPOTS = [0.2, 0.28, 0.12, 0.36, 0.45, 0.55, 0.65, 0.75];
+// 兩條線的第一段相同（分岔的共用前段）
+const sameSegment = (a, b) => sameSpot(a[0], b[0]) && sameSpot(a[1], b[1]);
 // 說明文字太長時換行的寬度（螢幕像素）：先試一行，再試這些寬度
 const WRAP_PX = [90, 60];
 
@@ -40,8 +44,10 @@ const noteText = (note, fontPx, k, lineH) =>
  * opts：
  *  - photo { w, h }、crop { x, y, w, h }（顯示的範圍，沒有就是整張）、k（一個螢幕像素＝幾個照片像素）
  *  - highlight：亮色的路線；bolts：畫哪些路線的 bolt（路線 id 陣列、true 是全部，預設只畫 highlight）
- *  - editing：線畫細一點、沒有說明，牌子避開 highlight 路線的點；solo：路線卡片，highlight 標編號與說明，其他只標小的編號
+ *  - editing：編輯中：樣子跟看的時候一樣，只有 highlight（正在編的）頭尾照原樣、牌子避開它的點；solo：路線卡片，highlight 標編號與說明，其他只標小的編號
  *  - interactive：路線的線可以點（role=button、可用 Enter）；ui：牌子與字的倍率（電腦版 1.5，預設 1）
+ *  - gradePill：編號牌直接帶難度（「3 5.11a」），說明只剩名稱；說明排在 bolt 前面（看全景：編號難度＞名稱＞bolt）；預設開，false 關
+ *  - boltCodes：bolt 牌子帶位置（「× B01」，有在管理 bolt 編號的岩場用）；names：false 不顯示路線名稱（預設顯示）
  *  - reserved：不放牌子與說明的範圍（照片像素 { x, y, w, h }[]，例如分享卡片左下角的標誌）
  */
 /**
@@ -56,14 +62,49 @@ export function renderReveal(line, { photo, width, id }) {
   return `<g class="topo-reveal" aria-hidden="true"><mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${photo.w}" height="${photo.h}">${bands}</mask><image href="${esc(photo.href)}" x="0" y="0" width="${photo.w}" height="${photo.h}" preserveAspectRatio="none" mask="url(#${id})"></image></g>`;
 }
 
+/**
+ * 看路線時線頭、線尾自然一點（TopoViewer 預設；編輯時不用，資料照原樣）：
+ * - 頭尾不要突然橫著彎一下：最前（後）一段跟下一段的方向差超過 60 度、又不到整條長度的 15%，就不畫那一段
+ *   （自動描的線常把兩顆確保站、編號牌接成一個勾）
+ * - 有確保站：線結束在確保站（幾顆的中間）；本來就在附近（畫面高度 6% 內）就換成它，離得遠就接上去
+ * 回傳新的 routes（不改傳進來的）
+ */
+export function naturalEnds(routes, photoH) {
+  const turn = (a, b, c) => {
+    const u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]], nu = Math.hypot(...u), nv = Math.hypot(...v);
+    return !nu || !nv ? 0 : (Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / nu / nv))) * 180) / Math.PI;
+  };
+  const len = (q) => q.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - q[i][0], p[1] - q[i][1]), 0);
+  return routes.map((r) => {
+    if (!r.line || r.line.length < 2) return r;
+    let line = r.line.slice();
+    while (line.length >= 3 && turn(line.at(-3), line.at(-2), line.at(-1)) > 60 && len(line.slice(-2)) < 0.15 * len(line)) line.pop();
+    while (line.length >= 3 && turn(line[2], line[1], line[0]) > 60 && len(line.slice(0, 2)) < 0.15 * len(line)) line.shift();
+    const anchors = Object.values(r.bolts ?? {}).filter((b) => b.anchor).map((b) => b.at);
+    if (anchors.length) {
+      const mid = [anchors.reduce((s, p) => s + p[0], 0) / anchors.length, anchors.reduce((s, p) => s + p[1], 0) / anchors.length];
+      line = Math.hypot(line.at(-1)[0] - mid[0], line.at(-1)[1] - mid[1]) < 0.06 * photoH ? [...line.slice(0, -1), mid] : [...line, mid];
+    }
+    return { ...r, line };
+  });
+}
+
 export function renderLines(routes, opts) {
   const { photo, k, highlight, editing, solo, interactive, ui: u = 1 } = opts;
   const c = opts.crop ?? { x: 0, y: 0, w: photo.w, h: photo.h };
   const boltIds = opts.bolts === true ? routes.map((r) => r.id) : Array.isArray(opts.bolts) ? opts.bolts : highlight ? [highlight] : [];
   const byId = new Map(routes.map((r) => [r.id, r]));
   const labels = new Map(routes.filter((r) => r.label != null).map((r) => [r.id, String(r.label)]));
+  const gradePill = opts.gradePill !== false;
+  // gradePill 的牌子分兩段：左邊路線色底的編號，右邊白色小膠囊裡的難度（沒有編號就只有難度那段）；寬度以畫面像素算
+  const numW = (id, f) => (labels.get(id) ? textWidth(labels.get(id), PILL_FONT * f) + 12 * f : 3 * f);
+  const gradePart = (id, f) => (gradePill && byId.get(id).grade ? textWidth(byId.get(id).grade, PILL_FONT * f) + 14 * f : 0);
+  // 數字、英文用字母基線置中（dominant-baseline: central 在中文字型會偏上）：基線在中線往下 0.36 個字高
+  const midY = (box, size) => box.y + box.h / 2 + size * 0.36;
+  // gradePill：沒有編號的路線也用難度當牌子
+  const pillText = (id) => (gradePill ? [labels.get(id), byId.get(id).grade].filter((x) => x != null && x !== '').join(' ') : labels.get(id)) || undefined;
   const [PILL_H, PILL_FONT, NOTE_FONT, NOTE_LINE, ROOM] = [PILL_H_BASE, PILL_FONT_BASE, NOTE_FONT_BASE, NOTE_LINE_BASE, NOTE_ROOM_PX].map((v) => v * u);
-  const [BOLT_H, BOLT_FONT] = (editing ? [BOLT_H_BASE, BOLT_FONT_BASE] : [BOLT_VIEW_H_BASE, BOLT_VIEW_FONT_BASE]).map((v) => v * u);
+  const [BOLT_H, BOLT_FONT] = [BOLT_VIEW_H_BASE, BOLT_VIEW_FONT_BASE].map((v) => v * u);
   // 亮色的畫在最上面
   const ids = routes.map((r) => r.id).sort((a, b) => Number(a === highlight) - Number(b === highlight));
   // 排版優先的路線：編輯與路線卡片是選到的那條；看整張照片時沒有（換路線不重排）
@@ -75,7 +116,7 @@ export function renderLines(routes, opts) {
   // 這個位置旁邊夠寬，可以多顯示說明（路線卡片已經放大到這條路線，一律可以）
   const roomy = (at, id) => solo || drawn.every(([other, line]) => other === id || distanceToLine(at, line) >= ROOM * k);
   // 起點、終點圓點的半徑（畫面像素）
-  const dotSize = (id) => (editing ? 3 : id === lead ? 4 : 3.2);
+  const dotSize = (id) => (id === lead ? 4 : 3.2);
   const lineOf = (id) => byId.get(id).line;
   // 編號牌放的線：獨有線段中最長的一段；整條都和別的路線共用時用整條
   const labelLine = (id, line) => own.get(id).reduce((a, b) => (!a || pathLength(b) > pathLength(a) ? b : a), undefined) ?? line;
@@ -99,8 +140,8 @@ export function renderLines(routes, opts) {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([pos, b]) => {
           const anchor = b.anchor ?? pos.startsWith('A');
-          // 編輯時要分得出是哪一顆，看的時候只標位置
-          const label = anchor ? '××' : editing ? `× ${pos}` : '×';
+          // 管理 bolt 編號的岩場（boltCodes）標出是哪一顆，其他只標位置
+          const label = anchor ? '××' : opts.boltCodes ? `× ${pos}` : '×';
           return { id, pos, at: b.at, anchor, label, note: b.note, box: centeredBox(b.at, (textWidth(label, BOLT_FONT) + 12) * k, BOLT_H * k) };
         }),
     );
@@ -108,33 +149,35 @@ export function renderLines(routes, opts) {
   // 難度、名稱的各種版本：一行、名稱換行、只留難度
   const noteVersions = (id) => {
     const i = byId.get(id);
-    if (editing || !(i.grade || i.name)) return [];
-    return [[i.grade, i.name], ...WRAP_PX.map((wpx) => [i.grade, ...(i.name ? wrapText(i.name, NOTE_FONT, wpx) : [])]), [i.grade]]
+    const name = opts.names === false ? undefined : i.name;
+    if (!(i.grade || name)) return [];
+    if (gradePill) return name ? [[name], ...WRAP_PX.map((wpx) => wrapText(name, NOTE_FONT, wpx))].filter((v, j, all) => all.findIndex((o) => o.join('|') === v.join('|')) === j) : [];
+    return [[i.grade, name], ...WRAP_PX.map((wpx) => [i.grade, ...(name ? wrapText(name, NOTE_FONT, wpx) : [])]), [i.grade]]
       .map((v) => v.filter((x) => !!x))
       .filter((v, j, all) => v.length > 0 && all.findIndex((o) => o.join('|') === v.join('|')) === j);
   };
-  // 說明貼著編號的位置：上面、下面（在自己的線上），其次右邊、左邊
+  // 說明貼著編號的位置：上面、下面（在自己的線上；gradePill 先下面），其次右邊、左邊
   const besidePill = (pill, lines) => {
     const g = 4 * k, nw = Math.max(...lines.map((t) => textWidth(t, NOTE_FONT))) * k, nh = lines.length * NOTE_LINE * k;
+    const above = { x: pill.x + pill.w / 2 - nw / 2, y: pill.y - nh - g, w: nw, h: nh }, below = { x: pill.x + pill.w / 2 - nw / 2, y: pill.y + pill.h + g, w: nw, h: nh };
     return [
-      { x: pill.x + pill.w / 2 - nw / 2, y: pill.y - nh - g, w: nw, h: nh },
-      { x: pill.x + pill.w / 2 - nw / 2, y: pill.y + pill.h + g, w: nw, h: nh },
+      ...(gradePill ? [below, above] : [above, below]),   // gradePill：名稱優先放在牌子下面
       { x: pill.x + pill.w + g, y: pill.y + pill.h / 2 - nh / 2, w: nw, h: nh },
       { x: pill.x - nw - g, y: pill.y + pill.h / 2 - nh / 2, w: nw, h: nh },
     ];
   };
   const center = (b) => [b.x + b.w / 2, b.y + b.h / 2];
   // 示意的線（主要的路線不在照片裡）：編號緊貼在終點的箭頭正上方
-  const sketch = new Set(editing ? [] : ids.filter((id) => (byId.get(id).line?.length ?? 0) >= 2 && isSketch(c, byId.get(id))));
+  const sketch = new Set(ids.filter((id) => (byId.get(id).line?.length ?? 0) >= 2 && isSketch(c, byId.get(id))));
   // 線在畫面上很短的路線：其他編號都放好之後才放，放得下才標
   const short = (id) => id !== lead && !sketch.has(id) && !!lineOf(id) && lineOf(id).length >= 2 && length.get(id) < MIN_LABEL_LINE_PX;
   // 1. 路線編號：沿著線找空位，優先不壓到別條線、不蓋住 bolt
   const placePill = (id, small) => {
-    const text = labels.get(id);
+    const text = pillText(id);
     if (!text) return;
     const f = small ? SMALL_PILL : 1, line = lineOf(id);
-    const w = (textWidth(text, PILL_FONT * f) + 14 * f) * k, h = PILL_H * f * k;
-    let spots;
+    const h = PILL_H * f * k, w = gradePart(id, f) ? (numW(id, f) + gradePart(id, f)) * k : (textWidth(text, PILL_FONT * f) + 14 * f) * k;
+    let spots, bottom = [];
     if (line && sketch.has(id)) {
       const [ex, ey] = line[line.length - 1];
       spots = [centeredBox([ex, ey - ARROW_UP * dotSize(id) * k - 4 * k - h / 2], w, h)];
@@ -142,6 +185,16 @@ export function renderLines(routes, opts) {
       const on = labelLine(id, line);
       const along = (small ? SMALL_SPOTS : LABEL_SPOTS).map((s) => pointAlong(on, s));
       spots = along.map((p) => centeredBox(p, w, h));
+      // gradePill（看全景）：編號照一般路線書的習慣放在路線最下面（起點的正下方），放不下才沿著線往上找。
+      // 分岔出去的路線（第一段線和排在前面的路線共用）：起點下面留給主線，編號標在自己分岔出去那段線上、靠近分岔點
+      const forked = gradePill && !small && line.length >= 2 && drawn.some(([other, o]) => other !== id && priority.indexOf(other) < priority.indexOf(id) && o.length >= 2 && sameSegment(o, line));
+      if (forked) spots = BRANCH_SPOTS.map((s) => centeredBox(pointAlong(own.get(id)[0] ?? line, s), w, h));
+      else if (gradePill && !small) {
+        const [sx, sy] = line[0];
+        // 起點相同（共用起攀、沒有共用線段）的路線：編號在起點下面一個接一個往下排
+        const below = sy + h / 2 + dotSize(id) * k + 2 * k;
+        bottom = [centeredBox([sx, below], w, h), centeredBox([sx, below + h + 4 * k], w, h), centeredBox([sx, below + 2 * (h + 4 * k)], w, h), centeredBox([sx, sy], w, h), ...[0.06, 0.12, 0.2].map((f) => centeredBox(pointAlong(line, f), w, h))];
+      }
       // 很短的線：線上放不下時，放在線的終點上面或旁邊
       if (short(id)) {
         const [ex, ey] = line[line.length - 1];
@@ -160,12 +213,14 @@ export function renderLines(routes, opts) {
     const full = small || sketch.has(id) ? undefined : noteVersions(id)[0];
     const clear = (b) => placer.fits(b) && !placer.onLine(b, mine) && !onBolt(b);
     const pill =
+      // 最下面的位置：蓋到自己的線也可以（編號就是標在起點），只要不壓到別的牌子、bolt
+      bottom.find((b) => placer.fits(b) && !onBolt(b)) ??
       (full && spots.find((b) => clear(b) && roomy(center(b), id) && besidePill(b, full).some(clear))) ??
       spots.find(clear) ??
       spots.find((b) => placer.fits(b) && !onBolt(b)) ??
       spots.find((b) => placer.fits(b)) ??
       // 路線卡片的主角一定要標：放不下也放在第一個位置
-      (id === lead && !editing ? spots[0] : undefined);
+      (id === lead ? spots[0] : undefined);
     if (!pill) return;
     placer.reserve(pill);
     const entry = plan.get(id);
@@ -175,11 +230,14 @@ export function renderLines(routes, opts) {
   const mains = priority.filter((id) => !solo || id === highlight);
   for (const id of mains) if (!short(id)) placePill(id, false);
   for (const id of mains) if (short(id)) placePill(id, false);
-  // 2. bolt、anchor 的牌子（位置固定）
-  for (const b of boltPills) {
-    const pill = placer.place([b.box], editing);
-    if (pill) plan.get(b.id).bolts.push({ pos: b.pos, at: b.at, anchor: b.anchor, label: b.label, pill, text: b.note });
-  }
+  // 2. bolt、anchor 的牌子（位置固定）；gradePill 時名稱比 bolt 優先，排完名稱才放
+  const placeBolts = () => {
+    for (const b of boltPills) {
+      const pill = placer.place([b.box], editing);
+      if (pill) plan.get(b.id).bolts.push({ pos: b.pos, at: b.at, anchor: b.anchor, label: b.label, pill, text: b.note });
+    }
+  };
+  if (!gradePill) placeBolts();
   // 3. 難度、名稱：緊貼在編號旁邊；編號旁邊夠寬才顯示，先試完整的，放不下才少一點
   for (const id of mains) {
     const entry = plan.get(id), pill = entry.pill;
@@ -196,11 +254,13 @@ export function renderLines(routes, opts) {
       }
     }
   }
-  // 4. bolt 旁邊的種類（材質）：這條路線有空間顯示難度名稱時才顯示，而且不壓到別條線
-  for (const id of editing ? [] : priority) {
+  if (gradePill) placeBolts();
+  // 4. bolt 旁邊的種類（材質）：這顆 bolt 旁邊、或這條路線沿線有地方夠寬（離別條線夠遠，放大到看得清楚）才顯示，而且不壓到別條線
+  const roomAlong = (id) => !!lineOf(id) && lineOf(id).length >= 2 && LABEL_SPOTS.some((s) => roomy(pointAlong(labelLine(id, lineOf(id)), s), id));
+  for (const id of priority) {
     const entry = plan.get(id);
     for (const b of entry.bolts) {
-      if (!b.text || (!solo && !entry.note)) continue;
+      if (!b.text || (!solo && !roomy(b.at, id) && !roomAlong(id))) continue;
       const g = 4 * k, w = textWidth(b.text, NOTE_FONT) * k, h = NOTE_LINE * k;
       const y = b.at[1] - h / 2, cx = b.at[0] - w / 2;
       const box = [
@@ -226,16 +286,31 @@ export function renderLines(routes, opts) {
   const styleOf = (id) => (byId.get(id).stroke ? ` style="--topo-line:${esc(byId.get(id).stroke)};--topo-pill:${esc(byId.get(id).stroke)}"` : '');
   // 先畫所有路線的線，再畫所有的牌子：編號、bolt 不會被別條路線的線蓋住
   let out = '';
+  // 線尾停在確保站的牌子前面：線的最後一點在牌子（外擴一點）裡面，就沿著最後一段往回縮到牌子外
+  const inBox = ([x, y], b, m) => x >= b.x - m && x <= b.x + b.w + m && y >= b.y - m && y <= b.y + b.h + m;
+  const stopBefore = (run, box) => {
+    const m = 2 * k, last = run[run.length - 1], prev = run[run.length - 2];
+    if (!prev || !inBox(last, box, m)) return run;
+    let t = 1;
+    for (let i = 1; i <= 24 && inBox([prev[0] + (last[0] - prev[0]) * t, prev[1] + (last[1] - prev[1]) * t], box, m); i++) t = 1 - i / 24;
+    return [...run.slice(0, -1), [prev[0] + (last[0] - prev[0]) * t, prev[1] + (last[1] - prev[1]) * t]];
+  };
   for (const id of ids) {
     const line = lineOf(id), start = line?.[0];
-    // 終點（看的時候）：和起點一樣的實心圓點；編輯時每個點都有把手，不另外畫
-    const end = !editing && line && line.length >= 2 ? line[line.length - 1] : undefined;
-    const on = id === lead, dotR = dotSize(id) * k;
+    // 終點（看的時候）：和起點一樣的實心圓點；編輯時每個點都有把手，不另外畫；
+    // 畫了這條路線的 bolt、確保站時不畫：線自然停在確保站（的牌子前面）
+    // （naturalEnds 才這樣：看路線的 TopoViewer 預設開；直接呼叫 renderLines 的排版照舊）
+    // 編輯中的那條頭尾照原樣：每個點都有把手
+    const on = id === lead, dotR = dotSize(id) * k, raw = editing && on;
+    const placed = opts.naturalEnds && !raw ? plan.get(id)?.bolts ?? [] : [], anchorBox = placed.filter((b) => b.anchor).map((b) => b.pill).find((b) => line && inBox(line[line.length - 1], b, b.h));
+    const end = !raw && !placed.length && line && line.length >= 2 ? line[line.length - 1] : undefined;
+    const lastPt = line?.[line.length - 1];
     const body =
       (runs.get(id) ?? [])
+        .map((run) => (anchorBox && run[run.length - 1] === lastPt ? stopBefore(run, anchorBox) : run))
         .map((run) => {
           const d = smoothPath(run);
-          return `<g><path class="topo-hit" d="${d}" stroke-width="${18 * k}"/><path class="topo-line" d="${d}" stroke-width="${(editing ? (on ? 2 : 1.6) : on ? 4 : 2.8) * k}"/></g>`;
+          return `<g><path class="topo-hit" d="${d}" stroke-width="${18 * k}"/><path class="topo-line" d="${d}" stroke-width="${(on ? 4 : 2.8) * k}"/></g>`;
         })
         .join('') +
       (start && !(editing && on) ? `<circle class="topo-dot" cx="${start[0]}" cy="${start[1]}" r="${dotR}"/>` : '') +
@@ -244,6 +319,15 @@ export function renderLines(routes, opts) {
     const link = interactive ? ` link" role="button" tabindex="0" aria-label="${esc(labels.get(id) ?? byId.get(id).name ?? id)}` : '';
     out += `<g class="${clsOf(id)}${link}" data-route="${esc(id)}"${styleOf(id)}>${body}</g>`;
   }
+  // 牌子裡的字：一般是置中的編號；gradePill 是左段編號、右段白色小膠囊裡的難度
+  const badgeText = (id, p) => {
+    const f = p.small ? SMALL_PILL : 1, size = PILL_FONT * f * k, b = p.pill;
+    if (!gradePart(id, f)) return `<text x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" font-size="${size}" dominant-baseline="central" text-anchor="middle">${esc(labels.get(id))}</text>`;
+    const nw = numW(id, f) * k, inset = 2.5 * f * k, g = { x: b.x + nw, y: b.y + inset, w: b.w - nw - inset, h: b.h - 2 * inset };
+    return (labels.get(id) ? `<text class="topo-num" x="${b.x + nw / 2 + 1 * k}" y="${midY(b, size)}" font-size="${size}" text-anchor="middle">${esc(labels.get(id))}</text>` : '') +
+      `<rect class="topo-grade-bg" x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="${g.h / 2}"/>` +
+      `<text class="topo-grade" x="${g.x + g.w / 2}" y="${midY(g, size)}" font-size="${size}" text-anchor="middle">${esc(byId.get(id).grade)}</text>`;
+  };
   for (const id of ids) {
     const p = plan.get(id);
     if (!p.pill && !p.note && p.bolts.length === 0) continue;
@@ -255,10 +339,10 @@ export function renderLines(routes, opts) {
         (b.note ? noteText(b.note, NOTE_FONT, k, NOTE_LINE) : '') +
         '</g>';
     }
-    if (p.pill && labels.get(id)) {
+    if (p.pill && pillText(id)) {
       out +=
         `<g class="topo-badge${p.small ? ' small' : ''}"><rect x="${p.pill.x}" y="${p.pill.y}" width="${p.pill.w}" height="${p.pill.h}" rx="${p.pill.h / 2}" stroke-width="${1.5 * k}"/>` +
-        `<text x="${p.pill.x + p.pill.w / 2}" y="${p.pill.y + p.pill.h / 2}" font-size="${PILL_FONT * (p.small ? SMALL_PILL : 1) * k}" dominant-baseline="central" text-anchor="middle">${esc(labels.get(id))}</text></g>`;
+        badgeText(id, p) + '</g>';
     }
     if (p.note) out += noteText(p.note, NOTE_FONT, k, NOTE_LINE);
     out += '</g>';

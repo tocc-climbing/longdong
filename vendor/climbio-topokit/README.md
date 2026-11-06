@@ -4,6 +4,7 @@
 
 - 原生 SVG、純 ES module，**不用建置**、不用框架、不用 npm 也能跑（`<script type="module">` 直接 import）
 - 資料是 [Climbio 公開格式 v2](../format/README.md)：**照片畫面（`kind: view`）加路線圖層（`kind: layer`）**，座標是照片像素；編輯的輸出也是圖層。不認萬分比或任何 App 的舊格式（轉換留在各 App）
+- **看圖和編輯只有一種樣子**：編輯時看到的就是最後的結果（編號帶難度、名稱、粗線、線頭線尾），只有正在編的那條頭尾照原樣、每個點有把手
 - **不做任何上傳、不連任何後端**：資料提交、歷史版本由使用的 App 負責
 - Apache-2.0（見 `LICENSE`、`NOTICE`；版面演算法移植自龍洞，MIT 聲明在 `NOTICE`）
 
@@ -69,11 +70,15 @@ editor.undo();
 | 選項 | 內容 |
 |---|---|
 | `highlight` | 亮色的路線 id |
-| `bolts` | `true` 畫全部路線的 bolt，或路線 id 陣列；預設只畫 `highlight` 的 |
+| `bolts` | `true` 畫全部路線的 bolt，或路線 id 陣列；`'zoom'` 放大 1.8 倍以上才畫全部；預設只畫 `highlight` 的 |
+| `boltCodes` | bolt 牌子帶位置（`× B01`，有在管理 bolt 編號的岩場用），其他只標 `×` |
+| `names` | `false`：不顯示路線名稱（預設顯示；元件屬性 `names="false"`） |
+| `naturalEnds` | 線頭線尾自然一點（預設開，`false` 關；編輯時正在編的那條照原樣，每個點都有把手）：頭尾不突然橫彎（最後一段轉超過 60 度又不到整條 15% 就不畫）、有確保站就結束在確保站、畫了 bolt 時線尾不畫圓點並停在確保站的牌子前 |
+| `gradePill` | 編號牌直接帶難度（預設開，`false` 關）：左段路線色底的編號、右段白色小膠囊裡的難度（沒有編號就只有難度），編號照一般路線書放在路線最下面（起點下方；分岔出去的路線標在自己岔出去的線上、靠近分岔點；起點相同但沒有共用線段的一個接一個往下排；放不下才沿線往上），旁邊的說明只剩名稱（優先放在牌子下面）；排版優先順序：編號難度＞名稱＞bolt（元件屬性 `grade-pill="false"` 關） |
 | `solo` | 路線卡片：`highlight` 標編號與說明，其他只標小的編號（配合 `crop` 與 `routeCrop()`） |
 | `reveal` | 照片灰階，`highlight` 路線周圍是原色 |
 | `zoom` | `false`：不能縮放、平移（路線卡片） |
-| `swipe` | 左右滑（照片沒有跟著橫移時）發 `swipe` 事件，`detail.step` 是 `1`（下一條）或 `-1`（上一條） |
+| `swipe` | 左右滑（照片沒有跟著橫移時）發 `swipe` 事件，`detail.step` 是 `1`（下一條）或 `-1`（上一條）；`'page'`（元件 `swipe="page"`）只有一條路線也發，給換前後一張照片用 |
 | `text` | 縮放按鈕的說明 `{ zoomIn, zoomOut, zoomFit }`（`aria-label`、`title`） |
 | `lang`、`gradeSystems` | 名稱用哪個語言、難度用哪些系統（`yds`、`french`…） |
 | `wheel` | `'ctrl'`（預設，Viewer：按著 Ctrl／⌘ 才縮放，頁面照常捲動）或 `'always'`（Editor 預設） |
@@ -82,7 +87,7 @@ editor.undo();
 
 ### 編輯
 
-- 畫線：點照片加點；點在線段中間就插進那一段，其他地方接在線尾。拖曳點移動（真的移動才記一次復原點）。`setLine(points)` 把整條換掉（例如從別處描來的線），一次復原。
+- 畫線：點照片加點；點在線段中間就插進那一段，其他地方接在線尾。拖曳點移動（真的移動才記一次復原點）。換線重畫前，忽略目前路線已不存在的舊把手。`setLine(points)` 把整條換掉（例如從別處描來的線），一次復原。
 - Bolt：`bolt` 工具點一下放下一個空的位置（`B01`、`B02`…，`setBoltPos('A01')` 放 anchor）。
 - 刪除：右鍵、`Delete` 鍵或 `deletePicked()`；手指點在點旁邊選取，再按刪除。
 - 分岔：新路線還沒畫線時 `fork()`，點別條路線的一個點，複製到那個點為止的前段。
@@ -100,6 +105,12 @@ editor.undo();
 | 內容 | 在哪裡 |
 |---|---|
 | 版面跟龍洞的 `TopoLines` 逐項一致、v2 資料進出（輸出通過 `validate`）、共用線段、縮放 | `test/unit.test.mjs`（`npm run test:quick` 跑） |
-| 外觀跟龍洞的截圖基準一致（`baseline/`）、demo 看圖與編輯、觸控、資源清理 | `tests/e2e/topokit.spec.mjs`、`topokit-demo.spec.mjs` |
+| 外觀跟龍洞的截圖基準一致（`baseline/`，兩邊用同一份 TopoKit）、demo 看圖與編輯、觸控、資源清理 | `tests/e2e/topokit.spec.mjs`、`topokit-demo.spec.mjs` |
 
-`baseline/` 的場景（`*.scene.json`）、龍洞排出來的標記（`*.lines.svg`）與截圖（`*.png`）由龍洞的 `npm run test:topo-shots -- --update` 產生，這裡照抄。
+`baseline/` 的場景（`*.scene.json`）與截圖（`*.png`）由龍洞的 `npm run test:topo-shots -- --update` 產生，這裡照抄。
+
+Web Component 可設 `controls="false"` 隱藏縮放工具，保留雙指與點兩下縮放；不設定時照常顯示。舞台尺寸取未變形的版面尺寸，祖先的換頁縮放動畫不會改變照片與路線圖層的比例。
+
+`fit="cover"` 等比鋪滿舞台，照片與路線圖層同步縮放；預設 `contain` 完整顯示。`swipe` 屬性會轉出 `swipe` 事件；多條路線在起始視角留給左右換線，放大後拖曳照片，編輯時不換線。
+
+`fit="width"` 以舞台寬度等比顯示照片並垂直置中，適合相簿式看圖；照片與路線圖層共用縮放，不因舞台高度裁掉照片左右。

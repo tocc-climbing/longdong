@@ -7,9 +7,9 @@ export const IDENTITY = { scale: 1, x: 0, y: 0 };
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-/** 照片（寬高比 aspect）在舞台裡縮到剛好放得下的大小 */
-export function fitSize(stage, aspect) {
-  const w = Math.min(stage.w, stage.h * aspect);
+/** 照片保持比例：contain 完整放入舞台，cover 鋪滿舞台，width 對齊舞台寬度。 */
+export function fitSize(stage, aspect, fit = 'contain') {
+  const w = fit === 'width' ? stage.w : fit === 'cover' ? Math.max(stage.w, stage.h * aspect) : Math.min(stage.w, stage.h * aspect);
   return { w, h: w / aspect };
 }
 

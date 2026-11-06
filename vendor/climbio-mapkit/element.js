@@ -1,7 +1,7 @@
 // <climbio-map>：Web Component，包住 MapViewer／MapEditor，React、Vue、純 HTML 都能直接放。載入這個檔就註冊。
 // 資料：屬性 view（地圖畫面的網址）、layers（圖層的網址，空白分隔），或設屬性（property）data＝{ view, layers, nodes }。
 // 網址只收 https 或同一個網站（相對路徑照頁面網址解析）；圖層的 on 要等於畫面的 id。
-// 其他屬性：mode="view|edit"、lang、dim（區域節點 id）、basemap（空白分隔：osm ortho contours）、no-walls、locate。
+// 其他屬性：mode="view|edit"、lang、dim（區域節點 id）、basemap（空白分隔：osm ortho contours）、no-walls、locate、dblclick="home"（點兩下回到一開始的畫面）、controls="false"（不放指北針、縮放鈕、比例尺）。
 // 事件（原樣轉出）：ready、view、tap、pick、areapress、locate、error；編輯時還有 change、history、select。
 // 要呼叫方法用 el.viewer（mode="edit" 時是 MapEditor）。從頁面拿掉元件時所有監聽與觀察器都解除，再放回來會重建。
 // 伺服器端（沒有 HTMLElement）載入時什麼都不做。
@@ -25,7 +25,7 @@ export const MapElement =
     : (() => {
         class MapElement extends HTMLElement {
           static get observedAttributes() {
-            return ['view', 'layers', 'mode', 'lang', 'dim', 'basemap', 'no-walls', 'locate'];
+            return ['view', 'layers', 'mode', 'lang', 'dim', 'basemap', 'no-walls', 'locate', 'dblclick', 'controls'];
           }
           constructor() {
             super();
@@ -50,6 +50,8 @@ export const MapElement =
               dim: this.getAttribute('dim') ?? undefined,
               walls: !this.hasAttribute('no-walls'),
               locate: this.hasAttribute('locate'),
+              ...(this.getAttribute('dblclick') === 'home' ? { dblclick: 'home' } : {}),
+              controls: this.getAttribute('controls') !== 'false',
               basemap: Object.fromEntries((this.getAttribute('basemap') ?? '').split(/\s+/).filter(Boolean).map((k) => [k, true])),
             };
           }
@@ -62,7 +64,7 @@ export const MapElement =
           }
           attributeChangedCallback(name, old, value) {
             if (old === value || !this.isConnected || !this.viewer) return;
-            if (name === 'mode' || name === 'locate') this.#build();
+            if (name === 'mode' || name === 'locate' || name === 'controls') this.#build();
             else if (name === 'view' || name === 'layers') this.#load();
             else this.viewer.set(this.options());
           }

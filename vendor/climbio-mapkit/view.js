@@ -134,6 +134,8 @@ export class MapViewer extends EventTarget {
     this.listen(this.box, 'wheel', (e) => this.#wheel(e), { passive: false });
     this.listen(this.box, 'dblclick', (e) => {
       if (this.#onControl(e)) return;
+      // dblclick: 'home'：點兩下回到一開始的畫面（看全景的地圖，例如全台灣）；預設是放大
+      if (this.options.dblclick === 'home') return this.home();
       const at = this.#local(e);
       this.#apply((v, f) => zoomAt(v, f, at, clampScale(v.s / STEP, this.model.bounds, f)));
     });
@@ -214,6 +216,12 @@ export class MapViewer extends EventTarget {
     this.frame = { w, h };
     if (this.model) this.view = this.view ? clampView(this.view, this.model.bounds, this.frame) : fitRectView(this.model.home, this.model.bounds, this.frame);
     this.render();
+  }
+
+  /** 回到一開始的畫面（畫面的 props.home） */
+  home() {
+    if (!this.model) return;
+    this.#apply((_, f) => fitRectView(this.model.home, this.model.bounds, f));
   }
 
   #apply(next) {
@@ -420,6 +428,13 @@ export class MapViewer extends EventTarget {
     this.dispatchEvent(new CustomEvent('tap', { detail: { at: this.toLngLat([p.x, p.y]), metersPerPixel: this.view.s } }));
     if (!this.options.walls) return;
     const hidden = new Set(this.options.hide ?? []);
+    // 點在石頭（石塊的多邊形）裡面就選到那顆
+    const inRing = (pt, ring) => ring.reduce((inside, a, i) => {
+      const b = ring[(i + 1) % ring.length];
+      return (a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < ((b[0] - a[0]) * (pt[1] - a[1])) / (b[1] - a[1]) + a[0] ? !inside : inside;
+    }, false);
+    const rock = (this.model.rocks ?? []).find((r) => !hidden.has(r.id) && r.rings.some((ring) => inRing([p.x, p.y], ring.map((q) => toScreen(this.view, this.frame, q)))));
+    if (rock) return this.dispatchEvent(new CustomEvent('pick', { detail: { node: rock.id } }));
     const hit = this.model.walls
       .filter((w) => !hidden.has(w.id))
       .flatMap((w) => w.lines.map((line, k) => {

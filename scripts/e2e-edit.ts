@@ -1115,7 +1115,7 @@ try {
     const img = f.querySelector<HTMLImageElement>('.topo-frame > img')!
     return {
       buttons: f.querySelectorAll('button').length,
-      badges: [...f.querySelectorAll('.topo-badge:not(.small) text')].map((t) => t.textContent),
+      badges: [...f.querySelectorAll('.topo-badge:not(.small) .topo-num')].map((t) => t.textContent),
       gray: getComputedStyle(img).filter.includes('grayscale'),
       tint: getComputedStyle(f.querySelector('.topo-frame')!, '::after').content,
       ratio: f.getBoundingClientRect().width / f.getBoundingClientRect().height,
@@ -1388,7 +1388,7 @@ try {
     const arrow = document.querySelector('figure.topo path.topo-dot')
     if (!arrow) return null
     const a = arrow.getBoundingClientRect()
-    const badge = [...document.querySelectorAll('figure.topo .topo-badge')].find((g) => g.textContent === ${JSON.stringify(topoRoutes[2].number)})
+    const badge = [...document.querySelectorAll('figure.topo .topo-badge')].find((g) => g.querySelector('.topo-num')?.textContent === ${JSON.stringify(topoRoutes[2].number)})
     const b = badge && badge.querySelector('rect').getBoundingClientRect()
     return { fill: getComputedStyle(arrow).fill, dx: b ? Math.abs(b.x + b.width / 2 - (a.x + a.width / 2)) : null, gap: b ? a.y - (b.y + b.height) : null }
   })()`)) as { fill: string; dx: number | null; gap: number | null } | null

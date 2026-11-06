@@ -15,6 +15,9 @@ export const SECTOR_LABEL_SCALE = 0.4;
 /** 岩壁面朝向的箭頭長度與離線條的距離（像素） */
 const FACE_ARROW_PX = 16;
 const FACE_GAP_PX = 3;
+/** 建議路線的箭頭：間隔與大小（像素） */
+const ARROW_GAP_PX = 60;
+const ARROW_PX = 5;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const f1 = (v) => v.toFixed(1);
@@ -90,6 +93,10 @@ export function renderMap(model, v, frame, o) {
     out.push('</g>');
     out.push(`<path class="mk-trail" d="${B.trail ?? ''}" stroke-width="${Math.max(2 * px, ROAD_WIDTH_M.trail)}" stroke-dasharray="${trailDash} ${trailDash}"></path>`);
   }
+  // 建議路線：疊在道路上的粗線（箭頭在螢幕座標畫）
+  if (model.routes?.length) out.push(`<path class="mk-route" d="${model.routes.map((l) => d(l)).join('')}" stroke-width="${Math.max(5 * px, ROAD_WIDTH_M.road)}"></path>`);
+  // 石頭：石塊的形狀（在步道上面畫，看得出一顆一顆）
+  for (const r of model.rocks ?? []) out.push(`<path class="mk-rock${o.selected?.node === r.id ? ' selected' : ''}" data-node="${esc(r.id)}" d="${r.path}" stroke-width="${1.5 * px}"${colorAttrs(r.style)}></path>`);
   const me = o.here && proj.project(o.here.at);
   if (me) out.push(`<circle class="mk-me-accuracy" cx="${me[0]}" cy="${me[1]}" r="${o.here.accuracy}"></circle>`);
   out.push('</g>');
@@ -163,6 +170,23 @@ export function renderMap(model, v, frame, o) {
     out.push('</g>');
   }
 
+  // 建議路線的箭頭：沿線每隔一段畫一個 ›，指向畫線的方向（位置釘在地圖上，縮放不會滑動）
+  for (const l of model.routes ?? []) out.push(...routeArrows(l, arrowGap(v.s)).map(([at, a, b]) => {
+    const [x, y] = screen(at), [ax, ay] = screen(a), [bx, by] = screen(b);
+    return [x, y, (Math.atan2(by - ay, bx - ax) * 180) / Math.PI];
+  }).map(([x, y, a]) => `<path class="mk-route-arrow" d="M-${ARROW_PX / 2} -${ARROW_PX}L${ARROW_PX / 2} 0L-${ARROW_PX / 2} ${ARROW_PX}" transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(a)})"></path>`));
+
+  // 石頭的名稱：寫在石塊下面（放大到看得到才寫，互相蓋到的跳過）
+  if (v.s < SECTOR_LABEL_SCALE * 2) {
+    const taken = [];
+    for (const r of model.rocks ?? []) {
+      const ys = r.rings[0].map((q) => q[1]), [cx] = r.label, [x, y] = screen([cx, Math.max(...ys)]), text = name(r.node), w = textWidth(text, 12) + 4;
+      const box = { x: x - w / 2, y: y + 2, w, h: 15 };
+      if (taken.some((b) => b.x < box.x + box.w && box.x < b.x + b.w && b.y < box.y + box.h && box.y < b.y + b.h)) continue;
+      taken.push(box);
+      out.push(`<text class="mk-rock-label" x="${x}" y="${y + 9}" font-size="12" text-anchor="middle" dominant-baseline="central">${esc(text)}</text>`);
+    }
+  }
   for (const r of rescue) {
     const [x, y] = screen(r.at);
     out.push(`<g class="mk-rescue"${grown(x, y)}><circle cx="${x}" cy="${y}" r="7"></circle><text x="${x}" y="${y}" font-size="9" text-anchor="middle" dominant-baseline="central">${esc(r.label ?? '')}</text></g>`);
@@ -230,6 +254,26 @@ export function renderMap(model, v, frame, o) {
     svg: out.join(''),
     labels: { areas: labels.map((l) => ({ id: l.id, at: l.at })), sectors: sectorLabels.map((l) => ({ id: l.id, at: l.at })), markers: [...shown].map((i) => ({ kind: markers[i].kind, at: nudged.get(i) ?? screen(markers[i].at) })), lineNames: names.map((n) => n.name.text) },
   };
+}
+
+/** 箭頭的間隔（公尺）：螢幕上約 ARROW_GAP_PX 像素，取 2 的次方，縮放時箭頭釘在地圖上不滑動（放大一倍才多出中間的一個） */
+export const arrowGap = (s) => 2 ** Math.ceil(Math.log2(ARROW_GAP_PX * s));
+
+/** 建議路線的箭頭：平面座標的線上每隔 gap 公尺一個（從線頭量起），回傳 [位置, 所在線段的起點, 終點]（平面座標） */
+export function routeArrows(pts, gap) {
+  const out = [];
+  let next = gap;
+  let walked = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], len = Math.hypot(x1 - x0, y1 - y0);
+    while (len > 0 && next <= walked + len) {
+      const t = (next - walked) / len;
+      out.push([[x0 + (x1 - x0) * t, y0 + (y1 - y0) * t], pts[i - 1], pts[i]]);
+      next += gap;
+    }
+    walked += len;
+  }
+  return out;
 }
 
 function tilesSvg(tiles) {

@@ -494,8 +494,11 @@ export class TopoEditor extends TopoViewer {
     e.stopPropagation();
     const [kind, key] = h.split(':');
     const r = this.routes.find((x) => x.id === this.selected);
+    const at = kind === 'line' ? r?.line?.[Number(key)] : r?.bolts?.[key]?.at;
+    // 換路線後的下一格才重畫把手，舊把手可能已不在目前路線上。
+    if (!at) { this.grabbed = true; this.pressAt = undefined; this.schedule(); return; }
     this.picked = kind === 'line' ? { kind, index: Number(key) } : { kind, pos: key };
-    this.dragging = { ...this.picked, at: kind === 'line' ? r.line[Number(key)] : r.bolts[key].at, moved: false };
+    this.dragging = { ...this.picked, at, moved: false };
     this.stage.setPointerCapture?.(e.pointerId);
     // 按下就重畫（選到的點變大）：放開時原來的元素已經換掉，點擊會落在別處，所以這一輪的點擊不當作加點
     this.grabbed = true;

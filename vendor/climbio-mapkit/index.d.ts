@@ -135,6 +135,8 @@ export interface MapModel {
   lines: Record<string, Vec[][]>;
   areas: { id: string; node: Node; path: string; rings: Vec[][]; label: Vec; size: number; style: { fill?: string; stroke?: string } }[];
   walls: { id: string; node: Node; lines: Vec[][]; lngLat: LngLat[][]; style: { stroke?: string } }[];
+  /** 建議的行進路線（平面座標，照行進方向） */
+  routes: Vec[][];
   pois: { id: string; node: Node; kind: string; at: Vec; label?: string; tone?: string; line?: string }[];
   nodes: Map<string, Node>;
   bounds: Rect;

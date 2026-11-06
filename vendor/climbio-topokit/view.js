@@ -3,7 +3,7 @@
 // 所有事件監聽都掛在同一個 AbortController 上，ResizeObserver、計時器也在 destroy() 一起收掉。
 // English: native SVG topo viewer. Zoom/pan/pick; no network; destroy() releases every listener and observer.
 import { readTopo, assertView } from './data.js';
-import { esc, renderLines, renderReveal } from './render.js';
+import { esc, naturalEnds, renderLines, renderReveal } from './render.js';
 import { clampView, doubleTapView, fitSize, focusView, IDENTITY, isDoubleTap, moveView, MAX_SCALE, swipeStep } from './viewport.js';
 import { injectStyle } from './style.js';
 
@@ -13,23 +13,32 @@ export const DRAG_PX = 5;
 const STEP = 1.5;
 /** 灰階遮罩的帶子寬度預設：顯示範圍寬度的這個比例 */
 const REVEAL_WIDTH = 0.14;
+/** bolts: 'zoom' 時放大幾倍以上才畫全部路線的 bolt */
+const BOLT_ZOOM = 1.8;
 /** 自動縮放（zoomToRect）的動畫時間（毫秒） */
 const GLIDE_MS = 350;
+/** 畫面停止移動多久（毫秒）後拿掉 GPU 層、照目前倍率重畫（要比 GLIDE_MS 長） */
+const MOVING_MS = GLIDE_MS + 100;
 let maskSeq = 0;
 
 export class TopoViewer extends EventTarget {
   /**
    * host：放 Topo 的元素（要有高度）。options：
    *  - highlight：亮色的路線 id；bolts：true（全部）或路線 id 陣列，預設只畫 highlight 的；solo：路線卡片
-   *  - editing：編輯時的排版（線細一點、不顯示難度名稱，牌子避開 highlight 路線的點）；TopoEditor 一律是這個排版
+   *  - editing：編輯中（樣子跟看的時候一樣，只有正在編的 highlight 頭尾照原樣、牌子避開它的點）；TopoEditor 一律開
    *  - lang、gradeSystems：名稱與難度顯示用哪個語言、哪些難度系統（見 readTopo）
    *  - ui：牌子與字的倍率，預設寬螢幕（≥900px）1.5、其他 1
+   *  - fit：'contain'（預設完整放入）、'cover'（等比鋪滿）或 'width'（對齊寬度）
    *  - crop：顯示的範圍（照片像素 { x, y, w, h }），預設用畫面的 props.crop，沒有就整張
    *  - interactive：路線可以點（預設 true）；wheel：'ctrl'（預設，按著 Ctrl／⌘ 才縮放，頁面照常捲動）或 'always'
    *  - controls：顯示縮放按鈕（預設 true）；zoom：可以縮放、平移（預設 true；false 時滾輪、雙指、點兩下、按鍵都不縮放）
    *  - reveal：照片灰階，highlight 路線周圍是原色（路線卡片）；revealWidth：原色帶子的寬度（顯示範圍寬度的比例，預設 0.14）
    *  - 舞台上下浮著按鈕時，host 的 CSS scroll-padding-top／bottom 設成按鈕佔的高度：照片的上下緣可以拖到按鈕外面（沒放大也可以）
-   *  - swipe：左右滑（照片沒有跟著橫移時）發 swipe 事件，detail.step 是 1（下一條）或 -1（上一條）
+   *  - swipe：左右滑（照片沒有跟著橫移時）發 swipe 事件，detail.step 是 1（下一條）或 -1（上一條）；'page' 時只有一條路線也發（換前後一張照片）
+   *  - bolts：true 是全部路線的 bolt；'zoom' 是放大到 BOLT_ZOOM 倍以上才畫全部（沒放大只畫 highlight 的）
+   *  - gradePill：編號牌直接帶難度（renderLines 的 gradePill；預設開，false 關）
+   *  - boltCodes：bolt 牌子帶位置（「× B01」，有在管理 bolt 編號的岩場用）；names：false 不顯示路線名稱（預設顯示）
+   *  - naturalEnds：線頭線尾自然一點（預設開，false 關）：頭尾不突然橫彎、有確保站就結束在確保站、畫了 bolt 時線尾不畫圓點並停在確保站的牌子前
    *  - text：縮放按鈕的說明 { zoomIn, zoomOut, zoomFit }（aria-label、title），預設是按鈕上的符號
    */
   constructor(host, options = {}) {
@@ -156,8 +165,8 @@ export class TopoViewer extends EventTarget {
   }
 
   #measure() {
-    const r = this.stage.getBoundingClientRect();
-    this.stageSize = { w: r.width, h: r.height };
+    // 換頁動畫會縮放祖先；版面尺寸不能跟著動畫縮小，否則照片會縮到左上角。
+    this.stageSize = { w: this.stage.clientWidth, h: this.stage.clientHeight };
     const css = this.host.ownerDocument.defaultView.getComputedStyle(this.host);
     this.inset = { top: parseFloat(css.scrollPaddingTop) || 0, bottom: parseFloat(css.scrollPaddingBottom) || 0 };
     this.schedule();
@@ -171,7 +180,7 @@ export class TopoViewer extends EventTarget {
 
   get content() {
     const c = this.crop;
-    return fitSize(this.stageSize, c.w / c.h);
+    return fitSize(this.stageSize, c.w / c.h, this.options.fit);
   }
 
   /** 一個螢幕像素等於幾個照片像素 */
@@ -200,8 +209,9 @@ export class TopoViewer extends EventTarget {
 
   /** 傳給 renderLines 的選項（編輯器覆蓋） */
   linesOptions() {
-    const { highlight, bolts, solo, editing } = this.options;
-    return { highlight, bolts, solo, editing, interactive: this.options.interactive };
+    const { highlight, solo, editing, gradePill, boltCodes, names } = this.options, naturalEndsOn = this.options.naturalEnds !== false;
+    const bolts = this.options.bolts === 'zoom' ? this.state.scale >= BOLT_ZOOM || undefined : this.options.bolts;
+    return { highlight, bolts, solo, editing, gradePill, boltCodes, names, naturalEnds: naturalEndsOn, interactive: this.options.interactive };
   }
 
   render() {
@@ -209,10 +219,12 @@ export class TopoViewer extends EventTarget {
     const { photo } = this.model, c = this.crop, size = this.content, s = this.state;
     const next = clampView(s, this.stageSize, size, this.inset);
     if (next.x !== s.x || next.y !== s.y || next.scale !== s.scale) this.state = next;
+    const transform = `translate(${this.state.x}px, ${this.state.y}px) scale(${this.state.scale})`;
+    if (this.inner.style.transform && transform !== this.inner.style.transform) this.#moving();
     Object.assign(this.inner.style, {
       width: `${size.w}px`, height: `${size.h}px`,
       left: `${(this.stageSize.w - size.w) / 2}px`, top: `${(this.stageSize.h - size.h) / 2}px`,
-      transform: `translate(${this.state.x}px, ${this.state.y}px) scale(${this.state.scale})`,
+      transform,
     });
     Object.assign(this.img.style, {
       width: `${(photo.w / c.w) * 100}%`, height: `${(photo.h / c.h) * 100}%`,
@@ -222,10 +234,22 @@ export class TopoViewer extends EventTarget {
     const k = this.k;
     this.host.classList.toggle('tk-gray', !!this.options.reveal);
     const reveal = this.options.reveal ? renderReveal(this.routes.find((r) => r.id === this.options.highlight)?.line, { photo, width: (this.options.revealWidth ?? REVEAL_WIDTH) * c.w, id: this.maskId }) : '';
-    this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, ui: this.ui, ...this.linesOptions() }) + this.extras(k);
+    const lo = this.linesOptions();
+    // 線頭線尾自然一點（naturalEnds；資料照原樣，只影響畫面）：編輯時除了正在編的那條（點都有把手）
+    const ends = lo.naturalEnds ? naturalEnds(this.routes, photo.h) : this.routes;
+    const routes = lo.editing ? ends.map((r, i) => (r.id === lo.highlight ? this.routes[i] : r)) : ends;
+    this.svg.innerHTML = reveal + renderLines(routes, { photo, crop: c, k, ui: this.ui, ...lo }) + this.extras(k);
     this.stage.classList.toggle('draggable', this.movable);
     this.host.dataset.scale = String(Math.round(this.state.scale * 100) / 100);
     if (this.fitButton) this.fitButton.textContent = `${Math.round(this.state.scale * 100)}%`;
+  }
+
+  /** 畫面在動：照片層交給 GPU，停下來 MOVING_MS 後拿掉（之後照目前倍率重畫，向量不糊） */
+  #moving() {
+    this.inner.classList.add('tk-moving');
+    const win = this.host.ownerDocument.defaultView;
+    win.clearTimeout(this.movingTimer);
+    this.movingTimer = win.setTimeout(() => this.inner.classList.remove('tk-moving'), MOVING_MS);
   }
 
   // ── 縮放與平移 ──
@@ -265,7 +289,7 @@ export class TopoViewer extends EventTarget {
 
   /** 可以平移：放大了，或照片的上下緣能拖到按鈕外面 */
   get movable() {
-    return this.state.scale > 1 || this.inset.top > 0 || this.inset.bottom > 0;
+    return this.state.scale > 1 || this.content.w > this.stageSize.w + 1 || this.content.h > this.stageSize.h + 1 || this.inset.top > 0 || this.inset.bottom > 0;
   }
 
   zoomBy(ratio, at = { x: 0, y: 0 }) {
@@ -340,6 +364,8 @@ export class TopoViewer extends EventTarget {
 
   /** 這次拖曳可以平移：放大了（或有上下留白）才能平移（編輯器再多加條件） */
   canPan() {
+    // 多條路線的起始視角留給左右換線；放大後再拖曳照片。
+    if (this.options.swipe && (this.routes.length > 1 || this.options.swipe === 'page') && this.state.scale <= 1) return false;
     return this.movable;
   }
 
@@ -418,6 +444,7 @@ export class TopoViewer extends EventTarget {
     this.ro.disconnect();
     if (this.raf) this.host.ownerDocument.defaultView.cancelAnimationFrame(this.raf);
     this.host.ownerDocument.defaultView.clearTimeout(this.glideTimer);
+    this.host.ownerDocument.defaultView.clearTimeout(this.movingTimer);
     delete this.host.dataset.scale;
     this.cleanup();
     this.host.classList.remove('tk');

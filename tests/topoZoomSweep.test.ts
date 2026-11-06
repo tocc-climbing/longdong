@@ -2,19 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { textWidth } from '../vendor/climbio-topokit/index.js'
 
 type Pt = [number, number]
-
-/** 點到折線的最短距離 */
-function distanceToLine(p: Pt, line: Pt[]): number {
-  let best = Infinity
-  for (let i = 1; i < line.length; i++) {
-    const [a, b] = [line[i - 1], line[i]]
-    const [dx, dy] = [b[0] - a[0], b[1] - a[1]]
-    const len2 = dx * dx + dy * dy
-    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2))
-    best = Math.min(best, Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy))
-  }
-  return best
-}
 import type { Marks } from '../src/core/topo/geometry'
 import type { TopoPhoto } from '../src/topo/model'
 import type { RouteInfo } from '../src/topo/routeInfo'
@@ -24,7 +11,7 @@ import schoolGate from './fixtures/topo-school-gate.json'
 
 /**
  * 實際的 Topo（校門口 · 騙人的牆，565–569）在各種螢幕寬度、縮放倍率、bolt 開關下排版，每一種都檢查同一組規則：
- * 每條路線都有編號、編號在自己的線上（示意線在箭頭正上方）、說明緊貼自己的編號、bolt 的種類緊貼自己的 bolt、彼此不重疊。
+ * 每條路線都有編號、編號標在自己的線上或起點正下方（示意線在箭頭正上方）、說明緊貼自己的編號、bolt 的種類緊貼自己的 bolt、彼此不重疊。
  */
 const real = schoolGate as unknown as { photo: TopoPhoto; crop: { x: number; y: number; w: number; h: number }; marks: Marks; routes: { id: string; number: string; grade: string; name: string; type: string }[] }
 const labels = new Map(real.routes.map((r) => [r.id, r.number]))
@@ -55,6 +42,12 @@ const noteOf = (s: string | undefined, k: number): Box | undefined => {
   const y = Math.min(...spans.map((t) => t.cy)) - (NOTE_LINE * k) / 2
   return { x, y, w: Math.max(...spans.map((t) => t.cx + t.w / 2)) - x, h: spans.length * NOTE_LINE * k }
 }
+/** 線經過框（外擴 m）：沿線每段取 20 個點 */
+const crosses = (line: Pt[], b: Box, m: number) =>
+  line.slice(1).some((q, i) => Array.from({ length: 21 }, (_, j) => j / 20).some((t) => {
+    const [x, y] = [line[i][0] + (q[0] - line[i][0]) * t, line[i][1] + (q[1] - line[i][1]) * t]
+    return x >= b.x - m && x <= b.x + b.w + m && y >= b.y - m && y <= b.y + b.h + m
+  }))
 const overlap = (a: Box, b: Box) => a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01
 /** 說明貼著牌子：正右、正左、正上、正下，距離不超過 gap */
 const adjacent = (pill: Box, note: Box, gap: number) => {
@@ -70,7 +63,8 @@ function layout(screen: number, zoom: number, bolts: boolean) {
   // 牌子那一層：每條路線一個 <g class="topo-route">，裡面依序是 bolt、編號、說明
   const groups = [...html.matchAll(/<g class="topo-route [^"]*">((?:(?!<g class="topo-route ).)*)/g)].map((m) => m[1]).filter((g) => g.includes('topo-badge'))
   const routes = groups.map((g) => {
-    const badge = g.match(/<g class="topo-badge">(<rect[^>]*><\/rect><text[^>]*>([^<]+)<\/text>)<\/g>(<text class="topo-note".*?<\/text>)?/)!
+    // 編號牌：牌子的框、左段的編號（右段是難度）
+    const badge = g.match(/<g class="topo-badge">(<rect[^>]*><\/rect>)<text[^>]*>([^<]+)<\/text>.*?<\/g>(<text class="topo-note".*?<\/text>)?/)!
     const id = real.routes.find((r) => r.number === badge[2])!.id
     const boltList = [...g.matchAll(/<g class="topo-bolt[^"]*">(<rect[^>]*><\/rect>)<text[^>]*>[^<]*<\/text>(<text class="topo-note".*?<\/text>)?<\/g>/g)].map((m) => ({ pill: rectOf(m[1]), note: noteOf(m[2], k) }))
     return { id, number: badge[2], pill: rectOf(badge[1]), note: noteOf(badge[3], k), bolts: boltList }
@@ -99,8 +93,10 @@ describe('實際 Topo 的排版：各種縮放都符合規則', () => {
         expect(tip - (r.pill.y + r.pill.h), `${where} #${r.number} 緊貼箭頭`).toBeGreaterThanOrEqual(0)
         expect(tip - (r.pill.y + r.pill.h), `${where} #${r.number} 緊貼箭頭`).toBeLessThanOrEqual(4 * k + 0.5)
       } else {
-        // 編號在自己的線上，而且離自己的線比離別條線近
-        expect(distanceToLine(c, lineOf(r.id)), `${where} #${r.number} 在線上`).toBeLessThan(2 * k)
+        // 編號照路線書的習慣在起點正下方（起點相同的一個接一個往下排），放不下才沿著自己的線往上：牌子碰到自己的線
+        const [sx, sy] = lineOf(r.id)[0]
+        const under = sx >= r.pill.x && sx <= r.pill.x + r.pill.w && r.pill.y >= sy && r.pill.y - sy <= 3 * (r.pill.h + 4 * k) + 8 * k
+        expect(under || crosses(lineOf(r.id), r.pill, 2 * k), `${where} #${r.number} 在起點下面或自己的線上`).toBe(true)
       }
       if (r.note) expect(adjacent(r.pill, r.note, 4 * k + 0.5), `${where} #${r.number} 說明貼著編號`).toBe(true)
       for (const b of r.bolts) if (b.note) expect(adjacent(b.pill, b.note, 4 * k + 0.5), `${where} #${r.number} bolt 種類貼著 bolt`).toBe(true)

@@ -4,7 +4,7 @@
  *   npm run test:topo-shots            比對，超出容許值就失敗（差異圖寫到 shots/topo-diff/）
  *   npm run test:topo-shots -- --update 重新產生基準（改了呈現、確認新圖正確才做）
  * 每個場景同時輸出 <名稱>.scene.json（照片尺寸、像素座標的路線、檢視參數），climbio 的 TopoKit 用同一份場景比對外觀與排版。
- * 基準圖與 <名稱>.lines.svg 原本是舊的 TopoLines 畫的（已刪除）；換成 TopoKit 時拿它們逐像素比對過，完全一樣。.lines.svg 是最後一版，不再更新。
+ * 基準圖由 TopoKit 畫（App 的樣式加上 TopoKit 的樣式，跟 App 一樣），龍洞的選項見 src/topo/look.ts。
  * 照片用程式產生的格線，不依賴任何圖檔；文字用系統字型，所以只在同一台機器上比對（不進 CI 的 npm test）。
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -13,6 +13,8 @@ import type { RouteInfo } from '../src/topo/routeInfo'
 import { topoData } from '../src/topo/topoData'
 import { routeCrop } from '../src/core/topo/viewport'
 import { readTopo, renderLines } from '../vendor/climbio-topokit/index.js'
+import { CSS as KIT_CSS } from '../vendor/climbio-topokit/index.js'
+import { TOPO_LOOK } from '../src/topo/look'
 import { diff, launch, TOLERANCE } from './lib/shotDiff'
 
 interface Photo {
@@ -102,7 +104,8 @@ function photoUri({ width, height }: Photo): string {
 }
 
 const SCALE = 10000
-const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+// 跟 App 一樣：App 的樣式加上 TopoKit 掛載時放進頁面的樣式（後放的優先）
+const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8') + KIT_CSS
 
 /** 同 TopoFrame 的 DOM：照片＋SVG，k 是一個螢幕像素等於幾個照片像素 */
 function sceneHtml(s: Scene): string {
@@ -114,7 +117,7 @@ function sceneHtml(s: Scene): string {
   const labels = new Map(s.routes.map((r) => [r.id, r.label]))
   const info = new Map<string, RouteInfo>(s.routes.map((r) => [r.id, { kind: r.kind, grade: r.grade, name: r.name, bolts: r.bolts ?? {} }]))
   const { routes } = readTopo(topoData({ image: 'x', width: pw, height: ph }, 'x', s.marks, undefined, labels, info), { lang: 'zh-Hant' })
-  const lines = renderLines(routes, { photo: { w: pw, h: ph }, crop: { x: cx, y: cy, w: cw, h: ch }, k, ui: s.desktop ? 1.5 : 1, highlight: s.highlight, editing: s.editing, solo: s.solo, bolts: s.bolts ? true : undefined, interactive: false })
+  const lines = renderLines(routes, { ...TOPO_LOOK, boltCodes: !!s.editing, photo: { w: pw, h: ph }, crop: { x: cx, y: cy, w: cw, h: ch }, k, ui: s.desktop ? 1.5 : 1, highlight: s.highlight, editing: s.editing, solo: s.solo, bolts: s.bolts ? true : undefined, interactive: false })
   const frameW = s.width * zoom
   const frameH = frameW * (ch / cw)
   // 放大時以 focus 路線的中心為舞台中心（不超出照片邊緣）
@@ -127,7 +130,7 @@ function sceneHtml(s: Scene): string {
     oy = Math.min(0, Math.max(stageH - frameH, stageH / 2 - my * frameH))
   }
   const stageH = s.width * (ch / cw)
-  return `<div id="scene" style="width:${s.width}px;height:${stageH}px;overflow:hidden;position:relative;background:#222">
+  return `<div id="scene" class="tk" style="width:${s.width}px;height:${stageH}px;overflow:hidden;position:relative;background:#222">
 <div class="topo-frame ready" style="position:absolute;left:${ox}px;top:${oy}px;width:${frameW}px;height:${frameH}px;border-radius:0">
 <img src="${photoUri(s.photo)}" alt="" style="width:${(SCALE / c.w) * 100}%;height:${(SCALE / c.h) * 100}%;left:${(-c.x / c.w) * 100}%;top:${(-c.y / c.h) * 100}%">
 <svg viewBox="${cx} ${cy} ${cw} ${ch}">${lines}</svg></div></div>`
@@ -152,7 +155,7 @@ function sceneJson(s: Scene) {
       ...(s.marks[r.id]?.line ? { line: s.marks[r.id].line!.map(px) } : {}),
       ...(s.marks[r.id]?.bolts ? { bolts: Object.fromEntries(Object.entries(s.marks[r.id].bolts!).map(([pos, p]) => [pos, { at: px(p), ...(r.bolts?.[pos] ? { note: r.bolts[pos] } : {}) }])) } : {}),
     })),
-    view: { width: s.width, zoom: s.zoom ?? 1, focus: s.focus, highlight: s.highlight, bolts: !!s.bolts, editing: !!s.editing, solo: !!s.solo, desktop: !!s.desktop },
+    view: { width: s.width, zoom: s.zoom ?? 1, focus: s.focus, highlight: s.highlight, bolts: !!s.bolts, editing: !!s.editing, solo: !!s.solo, desktop: !!s.desktop, boltCodes: !!s.editing, ...TOPO_LOOK },
   }
 }
 

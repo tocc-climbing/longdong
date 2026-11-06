@@ -11,6 +11,7 @@ import { DB_URL } from '../../src/social/model'
 import { readTopo, renderLines, smoothPath } from '../../vendor/climbio-topokit/index.js'
 import { fillShared } from '../../src/topo/shared'
 import { routeInfo } from '../../src/topo/routeInfo'
+import { TOPO_LOOK } from '../../src/topo/look'
 import { topoData } from '../../src/topo/topoData'
 import { decodeEdit, imageUrl, type StoredEdit, type TopoPhoto } from '../../src/topo/model'
 import { FULL_CROP, SCALE, type Crop, type Marks } from '../../src/core/topo/geometry'
@@ -299,7 +300,7 @@ async function drawTopo(ctx: SKRSContext2D, box: Box, topo: OgTopo, sector: Sect
   const halo = (svg: string) => svg.replace(/<text class="topo-note"[^>]*>[\s\S]*?<\/text>/g, (t) => t.replace('class="topo-note"', 'class="topo-note-halo"') + t)
   // 左下角的標誌那一塊不放編號（照片像素）
   const logo = { x: cx + (MARK.x - box.x - 10 - dx) / s, y: cy + (MARK.y - box.y - 10 - dy) / s, w: 330 / s, h: (MARK.h + 20) / s }
-  const markup = halo(fonted(renderLines(routes, { photo: { w: photo.width, h: photo.height }, crop: { x: cx, y: cy, w: cw, h: ch }, k: (highlight ? MARK_UI : MARK_UI * 0.88) / s, highlight, solo: !!highlight, bolts: [], interactive: false, reserved: [logo] })))
+  const markup = halo(fonted(renderLines(routes, { ...TOPO_LOOK, photo: { w: photo.width, h: photo.height }, crop: { x: cx, y: cy, w: cw, h: ch }, k: (highlight ? MARK_UI : MARK_UI * 0.88) / s, highlight, solo: !!highlight, bolts: [], interactive: false, reserved: [logo] })))
   const fonts = ogFonts()
   const marksSvg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="${cx - dx / s} ${cy - dy / s} ${box.w / s} ${box.h / s}" font-family="${fonts.latin}, ${fonts.cjk}">` +

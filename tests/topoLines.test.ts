@@ -22,15 +22,15 @@ const render = (k: number, extra: object = {}) => topoLines({ photo, marks, labe
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length
 
 describe('Topo 標記的自動排版（畫面上的大小）', () => {
-  it('看的時候起點、終點都是同樣大小的實心圓點；線沒有白邊；編輯時不畫終點', () => {
+  it('看的時候起點、終點都是同樣大小的實心圓點；線沒有白邊；編輯時正在編的那條不畫（點都有把手）', () => {
     expect(count(render(1), /class="topo-dot"/g)).toBe(4)
     expect(render(1)).toContain('class="topo-dot" cx="600" cy="100" r="3.2"')
     expect(render(1)).toContain('class="topo-dot" cx="600" cy="900" r="3.2"')
     expect(render(1)).not.toContain('topo-halo')
-    expect(count(render(1, { editing: true }), /class="topo-dot"/g)).toBe(2)
+    expect(count(render(1, { editing: true, highlight: 'a' }), /class="topo-dot"/g)).toBe(2)
   })
 
-  it('實際的 Topo（校門口 · 騙人的牆，565–569）：分區頁、全螢幕的大小只有編號；放大三倍每條都標完整的難度名稱，緊貼在自己的編號正旁邊', () => {
+  it('實際的 Topo（校門口 · 騙人的牆，565–569）：每條的編號牌都帶難度、不顯示名稱（龍洞一張 Topo 路線多）；示意線的編號在箭頭正上方', () => {
     const real = schoolGate as unknown as { photo: TopoPhoto; crop: { x: number; y: number; w: number; h: number }; marks: Marks; routes: { id: string; number: string; grade: string; name: string; type: string }[] }
     const realLabels = new Map(real.routes.map((r) => [r.id, r.number]))
     const realInfo = new Map<string, RouteInfo>(real.routes.map((r) => [r.id, { kind: r.type === 'sport' ? 'sport' : 'other', grade: r.grade, name: r.name, bolts: {} }]))
@@ -46,18 +46,9 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
       const html = topoLines({ photo: real.photo, marks: real.marks, labels: realLabels, k, info: realInfo, crop: real.crop })
       for (const r of real.routes) {
         const group = html.match(new RegExp(`<g class="topo-route [^"]*">(?:(?!<g class="topo-route).)*>${r.number}</text>(?:(?!<g class="topo-route).)*`))?.[0] ?? ''
-        expect(group, `${screen}px #${r.number}`).toContain(r.name)
-        expect(group, `${screen}px #${r.number}`).toContain(r.grade)
-        const [x, y, w, h] = group.match(/<g class="topo-badge"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)"/)!.slice(1).map(Number)
-        const spans = [...group.matchAll(/<tspan x="([\d.-]+)" y="([\d.-]+)"[^>]*>([^<]+)</g)].map((m) => ({ cx: Number(m[1]), cy: Number(m[2]), w: textWidth(m[3], 10) * k }))
-        const left = Math.min(...spans.map((t) => t.cx - t.w / 2))
-        const right = Math.max(...spans.map((t) => t.cx + t.w / 2))
-        const top = Math.min(...spans.map((t) => t.cy)) - 6.25 * k
-        const bottom = Math.max(...spans.map((t) => t.cy)) + 6.25 * k
-        // 正右、正左（高度重疊）或正下、正上（左右重疊），不是斜對角
-        const beside = (top < y + h && bottom > y) || (left < x + w && right > x)
-        const gap = Math.max(left - (x + w), x - right, top - (y + h), y - bottom)
-        expect(beside && gap <= 4 * k + 0.5, `${screen}px #${r.number}：說明離編號 ${gap.toFixed(1)}`).toBe(true)
+        expect(group, `${screen}px #${r.number}`).toContain('class="topo-grade"')
+        expect(group, `${screen}px #${r.number}`).toContain(`>${r.grade}<`)
+        expect(group, `${screen}px #${r.number}`).not.toContain(r.name)
       }
       // 565 只畫了從照片下緣出去的一小段（示意線）：終點是向上的箭頭，編號在終點正上方
       const sketch = real.routes.find((r) => r.number === '565')!
@@ -92,38 +83,16 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     expect(count(zoomed, />316-TW</g)).toBe(count(zoomed, /<g class="topo-bolt/g))
   })
 
-  it('說明優先放在編號正上方（自己的線上），一看就知道是哪一條', () => {
+  it('編號照路線書的習慣放在起點正下方，牌子右段是難度', () => {
     const html = render(1)
-    for (const id of ['a', 'b']) {
+    for (const id of ['a', 'b'] as const) {
       const group = html.match(new RegExp(`<g class="topo-route [^"]*">(?:(?!<g class="topo-route).)*>${labels.get(id)}</text>(?:(?!<g class="topo-route).)*`))![0]
       const [x, y, w] = group.match(/<g class="topo-badge"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)"/)!.slice(1).map(Number)
-      const spans = [...group.matchAll(/<tspan x="([\d.-]+)" y="([\d.-]+)"/g)].map((m) => [Number(m[1]), Number(m[2])])
-      expect(spans.length).toBeGreaterThan(0)
-      for (const [sx, sy] of spans) {
-        expect(Math.abs(sx - (x + w / 2))).toBeLessThan(1)
-        expect(sy).toBeLessThan(y)
-      }
+      const [sx, sy] = marks[id].line![0].map((v, i) => (v / 10000) * (i ? photo.height : photo.width))
+      expect(Math.abs(x + w / 2 - sx), id).toBeLessThan(1)
+      expect(y, id).toBeGreaterThan(sy)
+      expect(group, id).toContain(`>${info.get(id)!.grade}<`)
     }
-  })
-
-  it('solo：說明不避開其他路線的線，貼在編號旁邊', () => {
-    const near: Marks = {
-      a: { line: [[3000, 9000], [3000, 1000]] },
-      b: { line: [[3150, 9000], [3150, 1000]] },
-    }
-    const nums = (s: string) => s.match(/-?\d+(\.\d+)?/g)!.map(Number)
-    const side = (html: string) => {
-      const badge = html.match(/<g class="topo-badge"><rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/)!
-      const [x, y, w, h] = nums(badge.slice(1).join(' '))
-      const spans = [...html.matchAll(/<tspan x="([\d.]+)" y="([\d.]+)"/g)].map((m) => [Number(m[1]), Number(m[2])])
-      const midY = spans.reduce((s, [, sy]) => s + sy, 0) / spans.length
-      // 說明貼著編號：正上方、正下方（同一條線上），或右邊、左邊（同一高度）
-      const sameColumn = spans.every(([sx]) => Math.abs(sx - (x + w / 2)) < 1) && Math.abs(midY - (y + h / 2)) < 6 * 12.5
-      const sameRow = Math.abs(midY - (y + h / 2)) < 1 && spans.every(([sx]) => sx > x + w || sx < x)
-      return sameColumn || sameRow
-    }
-    const html = topoLines({ photo, marks: near, labels, k: 1, info, highlight: 'a', solo: true })
-    expect(side(html)).toBe(true)
   })
 
   it('solo（路線卡片）：選到的路線標編號與說明，其他路線只標小的編號、變淡', () => {
@@ -133,8 +102,8 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     // 其他路線的編號在線的下段（起點附近），畫面中間留給主角
     const small = html.match(/<g class="topo-badge small"><rect x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="([\d.]+)"/)!
     expect(Number(small[1]) + Number(small[2]) / 2).toBeGreaterThan(photo.height * 0.7)
-    expect(html).toContain('路線甲')
-    expect(html).not.toContain('路線乙')
+    expect(html).toContain('>5.10a<')
+    expect(html).not.toContain('路線甲')
     expect(count(html, /topo-route kind-other dim/g)).toBeGreaterThan(0)
   })
 
@@ -145,26 +114,18 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     expect(html).not.toContain('kind-trad')
   })
 
-  it('每條路線（不只選到的）放得下就標完整的難度與名稱，說明緊貼在自己的編號旁邊', () => {
+  it('每條路線（不只選到的）的編號牌都帶難度，名稱不顯示', () => {
     for (const k of [0.5, 1, 3]) {
       const html = render(k, { highlight: 'a' })
       for (const [id, name] of [['a', '路線甲'], ['b', '路線乙']] as const) {
         const group = html.match(new RegExp(`<g class="topo-route [^"]*">(?:(?!<g class="topo-route).)*>${labels.get(id)}</text>(?:(?!<g class="topo-route).)*`))![0]
-        expect(group, `k=${k} ${id}`).toContain(name)
-        const [x, y, w, h] = group.match(/<g class="topo-badge"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)"/)!.slice(1).map(Number)
-        const spans = [...group.matchAll(/<tspan x="([\d.-]+)" y="([\d.-]+)"[^>]*>([^<]+)</g)].map((m) => ({ cx: Number(m[1]), cy: Number(m[2]), w: textWidth(m[3], 10) * k }))
-        const left = Math.min(...spans.map((t) => t.cx - t.w / 2))
-        const right = Math.max(...spans.map((t) => t.cx + t.w / 2))
-        const top = Math.min(...spans.map((t) => t.cy)) - 6.25 * k
-        const bottom = Math.max(...spans.map((t) => t.cy)) + 6.25 * k
-        // 和編號的距離：右邊、左邊、下面或上面，間隔 4 個螢幕像素
-        const gap = Math.max(left - (x + w), x - right, top - (y + h), y - bottom)
-        expect(gap, `k=${k} ${id}`).toBeLessThanOrEqual(4 * k + 0.5)
+        expect(group, `k=${k} ${id}`).toContain(`>${info.get(id)!.grade}<`)
+        expect(group, `k=${k} ${id}`).not.toContain(name)
       }
     }
   })
 
-  it('bolt、anchor 只在 bolts 指定的路線顯示；看的時候是小牌子只有 ×，旁邊夠寬才標種類；編輯時標位置', () => {
+  it('bolt、anchor 只在 bolts 指定的路線顯示；小牌子只有 ×，旁邊夠寬才標種類；龍洞管理 bolt 編號，編輯時標位置', () => {
     expect(count(render(1), /class="topo-bolt/g)).toBe(0)
     const html = render(1, { bolts: ['a'] })
     expect(count(html, /class="topo-bolt/g)).toBe(2)
@@ -177,7 +138,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     const far = render(10, { bolts: ['a'] })
     expect(count(far, /class="topo-bolt/g)).toBe(2)
     expect(far).not.toContain('316-TW')
-    expect(render(1, { bolts: ['a'], editing: true })).toContain('>× B01<')
+    expect(render(1, { bolts: ['a'], editing: true, boltCodes: true })).toContain('>× B01<')
   })
 
   it('bolt 的說明只有種類（材質），沒有年份', () => {
@@ -185,14 +146,14 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     expect(routeInfo([route], () => '甲').get('r')!.bolts).toEqual({ B01: '316-TW', A01: 'Ti-U' })
   })
 
-  it('編輯時：線比較細、沒有難度名稱等說明，編號不蓋在選到的路線的點上，bolt 照樣顯示', () => {
+  it('編輯時就是最後的樣子（線的粗細、編號牌帶難度），編號不蓋在選到的路線的點上，bolt 照樣顯示', () => {
     const k = 2
     const html = render(k, { highlight: 'a', bolts: ['a'], editing: true })
-    expect(html).not.toContain('topo-note')
     expect(count(html, /class="topo-bolt/g)).toBe(2)
-    const widths = [...html.matchAll(/class="topo-line" d="[^"]*" stroke-width="([\d.]+)"/g)].map((m) => Number(m[1]) / k)
-    expect(widths.length).toBeGreaterThan(0)
-    expect(Math.max(...widths)).toBeLessThanOrEqual(2)
+    const widths = (h: string) => [...h.matchAll(/class="topo-line" d="[^"]*" stroke-width="([\d.]+)"/g)].map((m) => Number(m[1])).sort()
+    // 其他路線跟看的時候一樣粗；正在編的那條粗一點
+    expect(Math.min(...widths(html))).toBe(Math.min(...widths(render(k, { highlight: 'a', bolts: ['a'] }))))
+    expect(html).toContain('>5.10a<')
     const points = marks.a.line!.map(([x, y]) => [(x * photo.width) / 10000, (y * photo.height) / 10000])
     for (const m of html.matchAll(/class="topo-badge"><rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
       const [x, y, w, h] = m.slice(1).map(Number)
@@ -200,7 +161,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     }
   })
 
-  it('分岔的路線：編號各自標在自己的岔線上，不標在共用的前段', () => {
+  it('分岔的路線：主線的編號在起點下面，岔出去的標在自己的岔線上', () => {
     // 共用的前段比岔線長：整條線的正中間落在前段（x = 1000 像素）
     const fork: Marks = {
       a: { line: [[5000, 9500], [5000, 3000], [4000, 1000]] },
@@ -209,8 +170,8 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     const html = topoLines({ photo, marks: fork, labels, k: 1 })
     const centers = [...html.matchAll(/class="topo-badge"><rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)"/g)].map((m) => Number(m[1]) + Number(m[3]) / 2)
     expect(centers).toHaveLength(2)
-    expect(centers[0]).toBeLessThan(1000)
-    expect(centers[1]).toBeGreaterThan(1000)
+    expect(centers.filter((c) => Math.abs(c - 1000) < 1)).toHaveLength(1)
+    expect(centers.filter((c) => c > 1000 + 1)).toHaveLength(1)
   })
 
   it('編號、bolt 畫在所有路線的線上面，不會被別條線蓋住', () => {
@@ -243,7 +204,7 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
     expect(html).toContain('>11<')
   })
 
-  it('同一張 Topo 的編號、bolt、難度名稱、bolt 材質一起排：不論縮放，彼此都不重疊；名稱太長時換行', () => {
+  it('同一張 Topo 的編號、bolt、bolt 材質一起排：不論縮放，彼此都不重疊', () => {
     // 很擠的一面牆：六條路線靠在一起，名稱很長，每條都有 bolt
     const crowded: Marks = {}
     const crowdedInfo = new Map<string, RouteInfo>()
@@ -275,12 +236,10 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
           const hit = p.x < q.x + q.w - 0.01 && q.x < p.x + p.w - 0.01 && p.y < q.y + q.h - 0.01 && q.y < p.y + p.h - 0.01
           expect(hit, `k=${k}: ${p.what} 和 ${q.what} 重疊`).toBe(false)
         }
-      // 擠的時候換方向、換行，盡量都顯示：每條路線都有難度與名稱，bolt 的材質放不下一行時分兩行
-      const lines = [...html.matchAll(/<tspan[^>]*>([^<]+)</g)].map((m) => m[1])
+      // 每條路線的編號牌都帶難度，名稱不顯示
       if (k === 1.5) {
-        expect(lines.filter((t) => t === '5.11c')).toHaveLength(6)
-        // 編號沿著線移動找空位：每條都標得出完整的名稱（可以換行），不只留難度
-        for (let i = 0; i < 6; i++) expect(lines.join(''), `路線${i}`).toContain(`一條名字非常非常長的路線${i}`)
+        expect(count(html, />5\.11c</g)).toBe(6)
+        expect(html).not.toContain('一條名字非常非常長的路線')
       }
     }
   })

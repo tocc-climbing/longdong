@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { TopoViewer, type TopoData, type ViewerOptions } from '../../vendor/climbio-topokit/index.js'
+import { TOPO_LOOK } from './look'
 
 /** TopoKit 的看圖：host 的大小由外層決定（className、style）；選項改了只重畫，資料改了才 setData */
 export function KitTopo({
@@ -25,7 +26,7 @@ export function KitTopo({
   const handlers = useRef({ onPick, onSwipe })
   handlers.current = { onPick, onSwipe }
   useEffect(() => {
-    const v = new TopoViewer(host.current!, options)
+    const v = new TopoViewer(host.current!, { ...TOPO_LOOK, ...options })
     v.addEventListener('pick', (e) => handlers.current.onPick?.(e.detail.id))
     v.addEventListener('swipe', (e) => handlers.current.onSwipe?.(e.detail.step))
     viewer.current = v

@@ -26,6 +26,7 @@ import { KitTopo } from './KitTopo'
 import { topoData } from './topoData'
 import { cropFromKit, dropFilled, kitMarks, withMarks } from './kitEdit'
 import { routeInfo } from './routeInfo'
+import { TOPO_LOOK } from './look'
 import { UploadButton } from './TopoUpload'
 import '../edit/edit.css'
 
@@ -477,6 +478,8 @@ function Editor({
   const pendingZoom = useRef(false)
   useEffect(() => {
     const e = new KitEditor(host.current!, {
+      ...TOPO_LOOK,
+      boltCodes: true,   // 龍洞管理 bolt 編號：編輯時標出是哪一顆（× B01）
       tool: onClose ? 'select' : 'line',
       controls: !onClose,
       aim: !!onClose,

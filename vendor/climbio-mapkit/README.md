@@ -55,8 +55,10 @@ editor.undo();
 |---|---|
 | 沒有節點、`props.kind` 是 `land`、`building`、`parking` 的多邊形 | 陸地、建物、停車場（底下是海的顏色） |
 | 沒有節點、`props.kind` 是 `highway`、`tunnel`、`road`、`trail` 的線 | 道路（至少畫成實際寬度）、隧道（虛線）、步道（虛線） |
-| `type: area` 節點的多邊形，標註的 `props.style`（`fill`、`stroke`） | 區域與區域名稱（面積大的先排） |
-| `type: sector` 節點的線，標註的 `props.style.stroke` | 岩壁（沿著牆底），放大後標分區名稱；畫線方向決定岩壁面朝向（右手邊） |
+| 沒有節點、`props.kind` 是 `route` 的線 | 建議的行進路線（例如單向繞一圈的車道）：疊在道路上的粗線（顏色 `--mk-route`），沿線的箭頭指向畫線的方向 |
+| `type: area`、`crag` 節點的多邊形，標註的 `props.style`（`fill`、`stroke`）、`props.labelAt`（名稱的位置 `[經度, 緯度]`；沒指定時在重心，重心壓到石頭就在分區裡找離石塊和石頭名稱最遠的空地） | 區域與區域名稱（面積大的先排） |
+| `type: sector`、`wall` 節點的多邊形 | 石頭（抱石、矮牆）：一顆一顆的石塊，名稱寫在下面，點裡面發 `pick` |
+| `type: sector`、`wall` 節點的線，標註的 `props.style.stroke` | 岩壁（沿著牆底），放大後標分區名稱；畫線方向決定岩壁面朝向（右手邊） |
 | `type: poi` 節點的 `Point`，`props.kind`：`rescue`、`parking`、`first-aid`、`boat`、`helicopter`、`hazard`、`place`、`line-name` | 救援點（`props.label` 是編號）、停車場、急救器材、船艇接駁點、直升機吊掛點、危險地形、地名（`props.tone`）、沿線排的道路名稱（`props.line` 是哪一種線） |
 | 畫面的 `props.bounds`、`extent`、`home`（`[西, 南, 東, 北]`） | 移動範圍、底圖資料的範圍（畫面最寬到這裡）、一開始的畫面 |
 
@@ -74,9 +76,11 @@ editor.undo();
 | `basemap` | `{ osm, ortho, contours }`：OpenStreetMap、國土測繪中心的航照、1/5000 地形圖的等高線與海岸線 |
 | `marks`、`here`、`pin`、`draft` | 回報的位置（圓點、菱形、虛線）、目前位置與誤差圈、圖釘、正在畫的線 |
 | `attribution` | 右下角的版權標示（預設是畫面的 `attribution`） |
+| `controls` | `false`：不放指北針、縮放鈕、比例尺（元件屬性 `controls="false"`；看全景、不需要量距離的地圖） |
+| `dblclick` | `'home'`：點兩下回到一開始的畫面（`home()`），預設是放大（元件屬性 `dblclick="home"`） |
 | `locate` | 「回到我的位置」按鈕：按了發 `locate`，定位由 App 做、結果放 `here` |
 
-顏色用 CSS 變數：`--mk-brand`（正在畫、編輯中的線）、`--mk-sea`、`--mk-land`。
+顏色用 CSS 變數：`--mk-brand`（正在畫、編輯中的線）、`--mk-sea`、`--mk-land`、`--mk-route`（建議路線），設在 `<climbio-map>`（或 `.mk`）上；沒設的用預設值。岩場地圖這種沒有海的，`--mk-sea` 和 `--mk-land` 設一樣，就不會看到一塊方形的陸地。
 
 ### 編輯
 

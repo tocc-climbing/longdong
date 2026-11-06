@@ -102,16 +102,26 @@ export interface ReadOptions {
 export interface ViewerOptions extends ReadOptions {
   /** 亮色的路線 id */
   highlight?: string;
-  /** true＝全部路線的 bolt；路線 id 陣列；預設只畫 highlight 的 */
-  bolts?: boolean | string[];
+  /** true＝全部路線的 bolt；路線 id 陣列；'zoom'＝放大 1.8 倍以上才畫全部；預設只畫 highlight 的 */
+  bolts?: boolean | string[] | 'zoom';
+  /** 編號牌直接帶難度，說明只剩名稱；排版優先：編號難度＞名稱＞bolt（預設 true） */
+  gradePill?: boolean;
+  /** 線頭線尾自然一點（預設 true；編輯時正在編的那條照原樣）：頭尾不突然橫彎、有確保站就結束在確保站、畫了 bolt 時線尾不畫圓點 */
+  naturalEnds?: boolean;
+  /** bolt 牌子帶位置（「× B01」，有在管理 bolt 編號的岩場用） */
+  boltCodes?: boolean;
+  /** false：不顯示路線名稱（預設顯示） */
+  names?: boolean;
   /** 路線卡片：highlight 標編號與說明，其他只標小的編號 */
   solo?: boolean;
-  /** 編輯時的排版：線細一點、不顯示難度名稱，牌子避開 highlight 路線的點（TopoEditor 一律是這個排版） */
+  /** 編輯中：樣子跟看的時候一樣，只有正在編的 highlight 頭尾照原樣、牌子避開它的點（TopoEditor 一律開） */
   editing?: boolean;
   /** 牌子與字的倍率，預設寬螢幕（≥900px）1.5、其他 1 */
   ui?: number;
   /** 顯示的範圍（照片像素），預設用畫面的 props.crop，沒有就整張 */
   crop?: Rect;
+  /** 等比完整放入（預設）、鋪滿舞台或對齊舞台寬度 */
+  fit?: 'contain' | 'cover' | 'width';
   /** 路線可以點（預設 true） */
   interactive?: boolean;
   /** 'ctrl'（預設）：按著 Ctrl／⌘ 才用滾輪縮放；'always'：直接縮放 */
@@ -124,8 +134,8 @@ export interface ViewerOptions extends ReadOptions {
   reveal?: boolean;
   /** 原色帶子的寬度（顯示範圍寬度的比例，預設 0.14） */
   revealWidth?: number;
-  /** 左右滑（照片沒有跟著橫移時）發 swipe 事件 */
-  swipe?: boolean;
+  /** 左右滑（照片沒有跟著橫移時）發 swipe 事件；'page'＝只有一條路線也發（換前後一張照片） */
+  swipe?: boolean | 'page';
   /** 縮放按鈕的說明（aria-label、title），預設是按鈕上的符號 */
   text?: { zoomIn?: string; zoomOut?: string; zoomFit?: string; hand?: string };
 }
@@ -269,12 +279,18 @@ export interface RenderOptions {
   bolts?: boolean | string[];
   editing?: boolean;
   solo?: boolean;
+  gradePill?: boolean;
+  boltCodes?: boolean;
+  names?: boolean;
+  naturalEnds?: boolean;
   interactive?: boolean;
   ui?: number;
   /** 不放牌子與說明的範圍（照片像素），例如分享卡片左下角的標誌 */
   reserved?: Rect[];
 }
 /** 路線、編號、bolt 的 SVG 字串（沒有 DOM 也能跑） */
+/** 看路線時線頭線尾自然一點：頭尾不突然橫彎、有確保站就結束在確保站（photoH：照片高度，判斷離確保站多近）；回傳新的 routes */
+export function naturalEnds(routes: TopoRoute[], photoH: number): TopoRoute[];
 export function renderLines(routes: TopoRoute[], options: RenderOptions): string;
 /** 灰階遮罩：沿著線疊回原色照片的 SVG（線不到兩點時是空字串）；width 是帶子寬度（照片像素），id 是 mask 的 id */
 export function renderReveal(line: Point[] | undefined, options: { photo: { href: string; w: number; h: number }; width: number; id: string }): string;
@@ -310,7 +326,7 @@ export function swipeStep(from: { x: number; y: number }, to: { x: number; y: nu
 export const DRAG_PX: number;
 export function clampView(view: ViewState, stage: { w: number; h: number }, content: { w: number; h: number }): ViewState;
 export function moveView(view: ViewState, from: { x: number; y: number }, to: { x: number; y: number }, ratio: number, stage: { w: number; h: number }, content: { w: number; h: number }): ViewState;
-export function fitSize(stage: { w: number; h: number }, aspect: number): { w: number; h: number };
+export function fitSize(stage: { w: number; h: number }, aspect: number, fit?: 'contain' | 'cover' | 'width'): { w: number; h: number };
 export function routeCrop(base: Rect, route: TopoRoute | undefined): Rect;
 export function isSketch(base: Rect, route: TopoRoute | undefined): boolean;
 export function doubleTapView(view: ViewState, at: { x: number; y: number }, stage: { w: number; h: number }, content: { w: number; h: number }): ViewState;

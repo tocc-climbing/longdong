@@ -331,6 +331,8 @@
   "bolts": false,
   "editing": true,
   "solo": false,
-  "desktop": false
+  "desktop": false,
+  "boltCodes": true,
+  "names": false
  }
 }

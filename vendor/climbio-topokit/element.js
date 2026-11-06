@@ -1,15 +1,15 @@
 // <climbio-topo>：Web Component，包住 TopoViewer／TopoEditor，React、Vue、純 HTML 都能直接放。載入這個檔就註冊。
 // 資料：屬性 view（照片畫面的網址）、layers（圖層的網址，空白分隔），或設屬性（property）data＝{ view, layers, nodes }。
 // 網址只收 https 或同一個網站（相對路徑照頁面網址解析）；圖層的 on 要等於畫面的 id。
-// 其他屬性：mode="view|edit"、highlight（路線 id）、bolts（全部路線的 bolt）、solo、tool="line|bolt|select"、lang。
-// 事件（原樣轉出）：ready、pick、zoom、load；編輯時還有 change、history、select、selectpoint、tool。
+// 其他屬性：mode="view|edit"、highlight（路線 id）、bolts（全部路線的 bolt；bolts="zoom" 放大才畫）、grade-pill="false"（編號牌不帶難度）、names="false"（不顯示路線名稱）、solo、controls="false"（隱藏縮放工具）、fit="contain|cover|width"、swipe（swipe="page" 一條路線也發）、tool="line|bolt|select"、lang。
+// 事件（原樣轉出）：ready、pick、zoom、swipe、load；編輯時還有 change、history、select、selectpoint、tool。
 // 要呼叫編輯器的方法用 el.editor（mode="edit" 時是 TopoEditor）。從頁面拿掉元件時所有監聽與觀察器都解除，再放回來會重建。
 // 伺服器端（沒有 HTMLElement）載入時什麼都不做。
 // English: <climbio-topo> Web Component wrapping TopoViewer/TopoEditor. Loading this file registers it.
 import { TopoViewer } from './view.js';
 import { TopoEditor } from './editor.js';
 
-const EVENTS = ['ready', 'pick', 'zoom', 'change', 'history', 'select', 'selectpoint', 'tool'];
+const EVENTS = ['ready', 'pick', 'zoom', 'swipe', 'change', 'history', 'select', 'selectpoint', 'tool'];
 
 async function getJson(href) {
   const url = new URL(href, document.baseURI);
@@ -25,7 +25,7 @@ export const TopoElement =
     : (() => {
         class TopoElement extends HTMLElement {
           static get observedAttributes() {
-            return ['view', 'layers', 'mode', 'highlight', 'bolts', 'solo', 'tool', 'lang'];
+            return ['view', 'layers', 'mode', 'highlight', 'bolts', 'solo', 'tool', 'lang', 'controls', 'fit', 'swipe', 'grade-pill', 'names'];
           }
           constructor() {
             super();
@@ -60,15 +60,20 @@ export const TopoElement =
           attributeChangedCallback(name) {
             if (!this.isConnected) return;
             if (name === 'view' || name === 'layers') this.load();
-            else if (name === 'mode') this.build();
+            else if (name === 'mode' || name === 'controls') this.build();
             else if (name === 'tool') this.editor?.setTool(this.getAttribute('tool'));
             else this.instance?.setOptions(this.options());
           }
           options() {
             return {
               highlight: this.getAttribute('highlight') || undefined,
-              bolts: this.hasAttribute('bolts') ? true : undefined,
+              bolts: this.getAttribute('bolts') === 'zoom' ? 'zoom' : this.hasAttribute('bolts') ? true : undefined,
+              gradePill: this.getAttribute('grade-pill') !== 'false',
+              names: this.getAttribute('names') !== 'false',
               solo: this.hasAttribute('solo'),
+              controls: this.getAttribute('controls') !== 'false',
+              fit: ['cover', 'width'].includes(this.getAttribute('fit')) ? this.getAttribute('fit') : 'contain',
+              swipe: this.hasAttribute('swipe') && this.getAttribute('mode') !== 'edit' && (this.getAttribute('swipe') === 'page' ? 'page' : true),
               lang: this.getAttribute('lang') || undefined,
             };
           }

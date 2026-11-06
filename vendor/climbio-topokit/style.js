@@ -8,6 +8,10 @@ export const CSS = `
 .tk-stage.draggable { cursor: grab; }
 .tk-stage.panning { cursor: grabbing; }
 .tk-inner { position: absolute; transform-origin: 50% 50%; }
+/* 縮放、拖曳的當下交給 GPU（順）；停下來就拿掉，瀏覽器照目前的倍率重畫，線和牌子不會被拉糊 */
+.tk-inner.tk-moving { will-change: transform; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+/* 縮放、拖曳時照片外面不留殘影（Android Chrome 縮小後舊的圖塊沒清掉）：舞台自己一層、只在舞台裡重畫 */
+.tk-stage { contain: strict; isolation: isolate; }
 .tk-inner.tk-glide { transition: transform 0.35s ease; }
 @media (prefers-reduced-motion: reduce) { .tk-inner.tk-glide { transition: none; } }
 .topo-frame { position: absolute; inset: 0; overflow: hidden; }
@@ -30,6 +34,8 @@ g.topo-route.link { cursor: pointer; outline: none; }
 g.topo-route.link:is(:hover, :focus-visible) { opacity: 1; outline: none; }
 .topo-badge rect { fill: var(--topo-pill); stroke: none; }
 .topo-badge text { fill: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
+.topo-badge .topo-grade-bg { fill: #fff; stroke: none; }
+.topo-badge .topo-grade { fill: var(--topo-pill); font-style: italic; font-weight: 700; }
 .topo-bolt rect { fill: var(--tk-bolt); fill-opacity: 0.6; stroke: none; }
 .topo-bolt.anchor rect { fill: var(--topo-pill); }
 .topo-bolt text { fill: #fff; font-weight: 700; }
