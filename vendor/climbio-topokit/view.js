@@ -3,7 +3,7 @@
 // 所有事件監聽都掛在同一個 AbortController 上，ResizeObserver、計時器也在 destroy() 一起收掉。
 // English: native SVG topo viewer. Zoom/pan/pick; no network; destroy() releases every listener and observer.
 import { readTopo, assertView } from './data.js';
-import { esc, naturalEnds, renderLines, renderReveal } from './render.js';
+import { esc, renderLines, renderReveal } from './render.js';
 import { clampView, doubleTapView, fitSize, focusView, IDENTITY, isDoubleTap, moveView, MAX_SCALE, swipeStep } from './viewport.js';
 import { injectStyle } from './style.js';
 
@@ -38,7 +38,7 @@ export class TopoViewer extends EventTarget {
    *  - bolts：true 是全部路線的 bolt；'zoom' 是放大到 BOLT_ZOOM 倍以上才畫全部（沒放大只畫 highlight 的）
    *  - gradePill：編號牌直接帶難度（renderLines 的 gradePill；預設開，false 關）
    *  - boltCodes：bolt 牌子帶位置（「× B01」，有在管理 bolt 編號的岩場用）；names：false 不顯示路線名稱（預設顯示）
-   *  - naturalEnds：線頭線尾自然一點（預設開，false 關）：頭尾不突然橫彎、有確保站就結束在確保站、畫了 bolt 時線尾不畫圓點並停在確保站的牌子前
+   *  - naturalEnds：畫了 bolt 時線尾不畫圓點、停在確保站的牌子前（預設開，false 關）；線的頭尾照資料畫，不自動接到確保站
    *  - text：縮放按鈕的說明 { zoomIn, zoomOut, zoomFit }（aria-label、title），預設是按鈕上的符號
    */
   constructor(host, options = {}) {
@@ -235,10 +235,7 @@ export class TopoViewer extends EventTarget {
     this.host.classList.toggle('tk-gray', !!this.options.reveal);
     const reveal = this.options.reveal ? renderReveal(this.routes.find((r) => r.id === this.options.highlight)?.line, { photo, width: (this.options.revealWidth ?? REVEAL_WIDTH) * c.w, id: this.maskId }) : '';
     const lo = this.linesOptions();
-    // 線頭線尾自然一點（naturalEnds；資料照原樣，只影響畫面）：編輯時除了正在編的那條（點都有把手）
-    const ends = lo.naturalEnds ? naturalEnds(this.routes, photo.h) : this.routes;
-    const routes = lo.editing ? ends.map((r, i) => (r.id === lo.highlight ? this.routes[i] : r)) : ends;
-    this.svg.innerHTML = reveal + renderLines(routes, { photo, crop: c, k, ui: this.ui, ...lo }) + this.extras(k);
+    this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, ui: this.ui, ...lo }) + this.extras(k);
     this.stage.classList.toggle('draggable', this.movable);
     this.host.dataset.scale = String(Math.round(this.state.scale * 100) / 100);
     if (this.fitButton) this.fitButton.textContent = `${Math.round(this.state.scale * 100)}%`;

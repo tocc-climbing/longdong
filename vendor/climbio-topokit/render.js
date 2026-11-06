@@ -62,33 +62,6 @@ export function renderReveal(line, { photo, width, id }) {
   return `<g class="topo-reveal" aria-hidden="true"><mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${photo.w}" height="${photo.h}">${bands}</mask><image href="${esc(photo.href)}" x="0" y="0" width="${photo.w}" height="${photo.h}" preserveAspectRatio="none" mask="url(#${id})"></image></g>`;
 }
 
-/**
- * 看路線時線頭、線尾自然一點（TopoViewer 預設；編輯時不用，資料照原樣）：
- * - 頭尾不要突然橫著彎一下：最前（後）一段跟下一段的方向差超過 60 度、又不到整條長度的 15%，就不畫那一段
- *   （自動描的線常把兩顆確保站、編號牌接成一個勾）
- * - 有確保站：線結束在確保站（幾顆的中間）；本來就在附近（畫面高度 6% 內）就換成它，離得遠就接上去
- * 回傳新的 routes（不改傳進來的）
- */
-export function naturalEnds(routes, photoH) {
-  const turn = (a, b, c) => {
-    const u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]], nu = Math.hypot(...u), nv = Math.hypot(...v);
-    return !nu || !nv ? 0 : (Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / nu / nv))) * 180) / Math.PI;
-  };
-  const len = (q) => q.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - q[i][0], p[1] - q[i][1]), 0);
-  return routes.map((r) => {
-    if (!r.line || r.line.length < 2) return r;
-    let line = r.line.slice();
-    while (line.length >= 3 && turn(line.at(-3), line.at(-2), line.at(-1)) > 60 && len(line.slice(-2)) < 0.15 * len(line)) line.pop();
-    while (line.length >= 3 && turn(line[2], line[1], line[0]) > 60 && len(line.slice(0, 2)) < 0.15 * len(line)) line.shift();
-    const anchors = Object.values(r.bolts ?? {}).filter((b) => b.anchor).map((b) => b.at);
-    if (anchors.length) {
-      const mid = [anchors.reduce((s, p) => s + p[0], 0) / anchors.length, anchors.reduce((s, p) => s + p[1], 0) / anchors.length];
-      line = Math.hypot(line.at(-1)[0] - mid[0], line.at(-1)[1] - mid[1]) < 0.06 * photoH ? [...line.slice(0, -1), mid] : [...line, mid];
-    }
-    return { ...r, line };
-  });
-}
-
 export function renderLines(routes, opts) {
   const { photo, k, highlight, editing, solo, interactive, ui: u = 1 } = opts;
   const c = opts.crop ?? { x: 0, y: 0, w: photo.w, h: photo.h };
@@ -299,7 +272,7 @@ export function renderLines(routes, opts) {
     const line = lineOf(id), start = line?.[0];
     // 終點（看的時候）：和起點一樣的實心圓點；編輯時每個點都有把手，不另外畫；
     // 畫了這條路線的 bolt、確保站時不畫：線自然停在確保站（的牌子前面）
-    // （naturalEnds 才這樣：看路線的 TopoViewer 預設開；直接呼叫 renderLines 的排版照舊）
+    // （naturalEnds 才這樣：看路線的 TopoViewer 預設開；直接呼叫 renderLines 的排版照舊；線的頭尾不改，照資料畫）
     // 編輯中的那條頭尾照原樣：每個點都有把手
     const on = id === lead, dotR = dotSize(id) * k, raw = editing && on;
     const placed = opts.naturalEnds && !raw ? plan.get(id)?.bolts ?? [] : [], anchorBox = placed.filter((b) => b.anchor).map((b) => b.pill).find((b) => line && inBox(line[line.length - 1], b, b.h));

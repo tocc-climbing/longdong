@@ -106,7 +106,7 @@ export interface ViewerOptions extends ReadOptions {
   bolts?: boolean | string[] | 'zoom';
   /** 編號牌直接帶難度，說明只剩名稱；排版優先：編號難度＞名稱＞bolt（預設 true） */
   gradePill?: boolean;
-  /** 線頭線尾自然一點（預設 true；編輯時正在編的那條照原樣）：頭尾不突然橫彎、有確保站就結束在確保站、畫了 bolt 時線尾不畫圓點 */
+  /** 畫了 bolt 時線尾不畫圓點、停在確保站的牌子前（預設 true；編輯時正在編的那條照原樣）；線的頭尾照資料畫 */
   naturalEnds?: boolean;
   /** bolt 牌子帶位置（「× B01」，有在管理 bolt 編號的岩場用） */
   boltCodes?: boolean;
@@ -289,8 +289,6 @@ export interface RenderOptions {
   reserved?: Rect[];
 }
 /** 路線、編號、bolt 的 SVG 字串（沒有 DOM 也能跑） */
-/** 看路線時線頭線尾自然一點：頭尾不突然橫彎、有確保站就結束在確保站（photoH：照片高度，判斷離確保站多近）；回傳新的 routes */
-export function naturalEnds(routes: TopoRoute[], photoH: number): TopoRoute[];
 export function renderLines(routes: TopoRoute[], options: RenderOptions): string;
 /** 灰階遮罩：沿著線疊回原色照片的 SVG（線不到兩點時是空字串）；width 是帶子寬度（照片像素），id 是 mask 的 id */
 export function renderReveal(line: Point[] | undefined, options: { photo: { href: string; w: number; h: number }; width: number; id: string }): string;
