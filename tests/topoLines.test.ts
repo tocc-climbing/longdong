@@ -181,8 +181,15 @@ describe('Topo 標記的自動排版（畫面上的大小）', () => {
   })
 
   it('縮得很小，放不下的編號不標；路線卡片的主角仍然標', () => {
-    expect(count(render(60), /class="topo-badge"/g)).toBe(0)
-    expect(count(render(60, { highlight: 'a', solo: true }), /class="topo-badge"/g)).toBe(1)
+    expect(count(render(80), /class="topo-badge"/g)).toBe(0)
+    expect(count(render(80, { highlight: 'a', solo: true }), /class="topo-badge"/g)).toBe(1)
+  })
+
+  it('路線擠的時候編號牌自動精簡：先縮小，再擠只留編號、不帶難度；放大回來又帶難度', () => {
+    expect(render(1)).toContain('topo-grade-bg')
+    const crowded = render(60)
+    expect(count(crowded, /class="topo-badge"/g)).toBe(1)
+    expect(crowded).not.toContain('topo-grade-bg')
   })
 
   it('看整張照片：換選到的路線只換顏色，牌子的位置、線的粗細都不變', () => {

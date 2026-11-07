@@ -14,6 +14,8 @@ const PILL_H_BASE = 20, PILL_FONT_BASE = 11.5;
 const BOLT_VIEW_H_BASE = 12, BOLT_VIEW_FONT_BASE = 9, NOTE_FONT_BASE = 10, NOTE_LINE_BASE = 12.5;
 // solo 時其他路線的編號牌縮成這個比例，放在線的下段
 const SMALL_PILL = 0.8, SMALL_SPOTS = [0.14, 0.22, 0.08, 0.3];
+// 路線多時的排法：牌子倍率 f、帶不帶難度（先縮小，再拿掉難度）。cover：原尺寸的編號牌合計佔畫面面積的比例超過它才用這一級
+const DENSITY = [{ f: 1, grade: true, cover: 0 }, { f: 0.8, grade: true, cover: 0.1 }, { f: 0.8, grade: false, cover: 0.2 }];
 // 線在畫面上比這個短（螢幕像素）的路線，編號最後才放；選到的路線不受限
 const MIN_LABEL_LINE_PX = 40;
 // 編輯時線上的點（把手）佔的範圍（半徑，螢幕像素）：牌子不蓋在上面
@@ -48,6 +50,8 @@ const noteText = (note, fontPx, k, lineH) =>
  *  - interactive：路線的線可以點（role=button、可用 Enter）；ui：牌子與字的倍率（電腦版 1.5，預設 1）
  *  - gradePill：編號牌直接帶難度（「3 5.11a」），說明只剩名稱；說明排在 bolt 前面（看全景：編號難度＞名稱＞bolt）；預設開，false 關
  *  - boltCodes：bolt 牌子帶位置（「× B01」，有在管理 bolt 編號的岩場用）；names：false 不顯示路線名稱（預設顯示）
+ *  - densityK：判斷路線擠不擠（編號牌要不要縮小、帶不帶難度）用的 k：看圖時傳整張照片放進畫面時的 k，縮放時精簡的程度不變；預設用 k
+ *  - memo：Map，記每條路線的編號牌上次放在哪個候選位置；連續重畫（縮放）時傳同一個，位置還放得下就沿用，牌子不跑來跑去
  *  - reserved：不放牌子與說明的範圍（照片像素 { x, y, w, h }[]，例如分享卡片左下角的標誌）
  */
 /**
@@ -72,6 +76,8 @@ export function renderLines(routes, opts) {
   // gradePill 的牌子分兩段：左邊路線色底的編號，右邊白色小膠囊裡的難度（沒有編號就只有難度那段）；寬度以畫面像素算
   const numW = (id, f) => (labels.get(id) ? textWidth(labels.get(id), PILL_FONT * f) + 12 * f : 3 * f);
   const gradePart = (id, f) => (gradePill && byId.get(id).grade ? textWidth(byId.get(id).grade, PILL_FONT * f) + 14 * f : 0);
+  // 這塊牌子帶不帶難度：路線多到拿掉難度那一級只留編號（沒有編號的還是標難度；solo 的小牌子照舊）
+  const withGrade = (id, f, small) => !!gradePart(id, f) && (small || dense.grade || !labels.get(id));
   // 數字、英文用字母基線置中（dominant-baseline: central 在中文字型會偏上）：基線在中線往下 0.36 個字高
   const midY = (box, size) => box.y + box.h / 2 + size * 0.36;
   // gradePill：沒有編號的路線也用難度當牌子
@@ -102,6 +108,12 @@ export function renderLines(routes, opts) {
     for (const [x, y] of byId.get(highlight)?.line ?? []) placer.reserve({ x: x - r, y: y - r, w: 2 * r, h: 2 * r });
   }
   const plan = new Map(priority.map((id) => [id, { bolts: [] }]));
+  const mains = priority.filter((id) => !solo || id === highlight);
+  // 路線多時：編號牌（原尺寸）合計佔整張照片（densityK 的大小）的比例超過門檻，就先縮小牌子，再多就拿掉難度只留編號。
+  // 用整張照片的大小算、不看目前的縮放倍率：放大縮小時牌子的大小、帶不帶難度都不變，不會跑來跑去
+  const fitK = opts.densityK ?? k;
+  const cover = mains.filter((id) => pillText(id)).reduce((sum, id) => sum + (gradePart(id, 1) ? numW(id, 1) + gradePart(id, 1) : textWidth(pillText(id), PILL_FONT) + 14) * PILL_H, 0) / ((c.w / fitK) * (c.h / fitK));
+  const dense = solo ? DENSITY[0] : DENSITY.findLast((d) => cover >= d.cover);
   const length = new Map(priority.map((id) => [id, (lineOf(id) ? pathLength(lineOf(id)) : 0) / k]));
   // 編號是主要的資訊，先放；bolt 是輔助的。編號先避開 bolt 的位置，真的沒地方才蓋在 bolt 上。
   const boltPills = routes
@@ -144,12 +156,13 @@ export function renderLines(routes, opts) {
   const sketch = new Set(ids.filter((id) => (byId.get(id).line?.length ?? 0) >= 2 && isSketch(c, byId.get(id))));
   // 線在畫面上很短的路線：其他編號都放好之後才放，放得下才標
   const short = (id) => id !== lead && !sketch.has(id) && !!lineOf(id) && lineOf(id).length >= 2 && length.get(id) < MIN_LABEL_LINE_PX;
+  const memoKey = (id, small) => `${small ? 'small:' : ''}${id}`;
   // 1. 路線編號：沿著線找空位，優先不壓到別條線、不蓋住 bolt
   const placePill = (id, small) => {
     const text = pillText(id);
     if (!text) return;
-    const f = small ? SMALL_PILL : 1, line = lineOf(id);
-    const h = PILL_H * f * k, w = gradePart(id, f) ? (numW(id, f) + gradePart(id, f)) * k : (textWidth(text, PILL_FONT * f) + 14 * f) * k;
+    const f = small ? SMALL_PILL : dense.f, line = lineOf(id);
+    const h = PILL_H * f * k, w = withGrade(id, f, small) ? (numW(id, f) + gradePart(id, f)) * k : (textWidth(labels.get(id) ?? text, PILL_FONT * f) + 14 * f) * k;
     let spots, bottom = [];
     if (line && sketch.has(id)) {
       const [ex, ey] = line[line.length - 1];
@@ -185,7 +198,11 @@ export function renderLines(routes, opts) {
     // 完整的說明（難度＋名稱一行）也放得下的位置優先
     const full = small || sketch.has(id) ? undefined : noteVersions(id)[0];
     const clear = (b) => placer.fits(b) && !placer.onLine(b, mine) && !onBolt(b);
+    // 上一次畫的時候放在哪個位置（memo，縮放時連續重畫）：那個位置還放得下就沿用，牌子不會跑來跑去
+    const all = [...bottom, ...spots], keyOf = (b) => (bottom.includes(b) ? `b${bottom.indexOf(b)}` : `s${spots.indexOf(b)}`);
+    const last = opts.memo && all.find((b) => keyOf(b) === opts.memo.get(memoKey(id, small)));
     const pill =
+      (last && placer.fits(last) && !onBolt(last) ? last : undefined) ??
       // 最下面的位置：蓋到自己的線也可以（編號就是標在起點），只要不壓到別的牌子、bolt
       bottom.find((b) => placer.fits(b) && !onBolt(b)) ??
       (full && spots.find((b) => clear(b) && roomy(center(b), id) && besidePill(b, full).some(clear))) ??
@@ -195,12 +212,14 @@ export function renderLines(routes, opts) {
       // 路線卡片的主角一定要標：放不下也放在第一個位置
       (id === lead ? spots[0] : undefined);
     if (!pill) return;
+    opts.memo?.set(memoKey(id, small), keyOf(pill));
     placer.reserve(pill);
     const entry = plan.get(id);
     entry.pill = pill;
     entry.small = small;
+    entry.f = f;
+    entry.grade = withGrade(id, f, small);
   };
-  const mains = priority.filter((id) => !solo || id === highlight);
   for (const id of mains) if (!short(id)) placePill(id, false);
   for (const id of mains) if (short(id)) placePill(id, false);
   // 2. bolt、anchor 的牌子（位置固定）；gradePill 時名稱比 bolt 優先，排完名稱才放
@@ -294,8 +313,8 @@ export function renderLines(routes, opts) {
   }
   // 牌子裡的字：一般是置中的編號；gradePill 是左段編號、右段白色小膠囊裡的難度
   const badgeText = (id, p) => {
-    const f = p.small ? SMALL_PILL : 1, size = PILL_FONT * f * k, b = p.pill;
-    if (!gradePart(id, f)) return `<text x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" font-size="${size}" dominant-baseline="central" text-anchor="middle">${esc(labels.get(id))}</text>`;
+    const f = p.f, size = PILL_FONT * f * k, b = p.pill;
+    if (!p.grade) return `<text x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" font-size="${size}" dominant-baseline="central" text-anchor="middle">${esc(labels.get(id))}</text>`;
     const nw = numW(id, f) * k, inset = 2.5 * f * k, g = { x: b.x + nw, y: b.y + inset, w: b.w - nw - inset, h: b.h - 2 * inset };
     return (labels.get(id) ? `<text class="topo-num" x="${b.x + nw / 2 + 1 * k}" y="${midY(b, size)}" font-size="${size}" text-anchor="middle">${esc(labels.get(id))}</text>` : '') +
       `<rect class="topo-grade-bg" x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="${g.h / 2}"/>` +

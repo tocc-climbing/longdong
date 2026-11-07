@@ -123,6 +123,7 @@ export class TopoViewer extends EventTarget {
     assertView(data.view);
     this.data = data;
     this.model = this.read();
+    this.labelMemo = new Map();   // 編號牌上次放的位置：縮放時沿用（換資料才重來）
     this.ready = false;
     delete this.host.dataset.ready;
     if (this.img.getAttribute('src') !== this.model.photo.href) this.img.setAttribute('src', this.model.photo.href);
@@ -235,7 +236,7 @@ export class TopoViewer extends EventTarget {
     this.host.classList.toggle('tk-gray', !!this.options.reveal);
     const reveal = this.options.reveal ? renderReveal(this.routes.find((r) => r.id === this.options.highlight)?.line, { photo, width: (this.options.revealWidth ?? REVEAL_WIDTH) * c.w, id: this.maskId }) : '';
     const lo = this.linesOptions();
-    this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, ui: this.ui, ...lo }) + this.extras(k);
+    this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, densityK: c.w / size.w, memo: this.labelMemo, ui: this.ui, ...lo }) + this.extras(k);
     this.stage.classList.toggle('draggable', this.movable);
     this.host.dataset.scale = String(Math.round(this.state.scale * 100) / 100);
     if (this.fitButton) this.fitButton.textContent = `${Math.round(this.state.scale * 100)}%`;
