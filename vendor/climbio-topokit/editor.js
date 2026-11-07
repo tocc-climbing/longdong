@@ -30,7 +30,7 @@ const LOUPE_PX = 128;
 const LOUPE_ZOOM = 2.5;
 const LOUPE_GAP = 36;
 
-const TOOLS = ['select', 'line', 'bolt', 'crop'];
+const TOOLS = ['select', 'edit', 'line', 'bolt', 'crop'];
 const KEYS = { v: 'select', l: 'line', b: 'bolt', c: 'crop' };
 /** 裁切框的八個把手：四個角與四個邊（-1 左／上、0 不動、1 右／下） */
 const CROP_HANDLES = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
@@ -44,11 +44,14 @@ const sameRect = (a, b) => (!a && !b) || (!!a && !!b && a.x === b.x && a.y === b
 export class TopoEditor extends TopoViewer {
   /**
    * options 同 TopoViewer，另外：
-   *  - editLayer：編輯哪個圖層（預設 0）；tool：'select'、'line'、'bolt'、'crop'（裁切：顯示整張照片與裁切框，結果在 cropRect、crop 事件）
+   *  - editLayer：編輯哪個圖層（預設 0）；tool：'select'、'edit'、'line'、'bolt'、'crop'（裁切：顯示整張照片與裁切框，結果在 cropRect、crop 事件）。
+   *    edit（調整）：點別條線換成那條路線、點選取路線的線在那裡插一個點、拖點移動；選取的路線還沒有線，或按著 Shift 點空白處，才加新的點
    *  - keys：鍵盤快捷鍵，true（預設）、false，或 { window, modifiers, backspace }：
    *    window 整個視窗都收（預設只在游標停在照片上或焦點在照片裡）；modifiers：Ctrl／⌘＋Z、Y 復原重做（預設 true）；backspace：Backspace 也刪除（預設 true）
    *  - positions(routeId)：這條路線可以放的 bolt 位置（例如路線資料的 B01…、A01…）；有給時只放這些，放完自動換下一個空位，沒有空位就不放
-   *  - aim：手指按住不動一下出現放大鏡，滑動對準，放開才放點（點一下照樣直接放）；拖曳點時也顯示放大鏡（手機版）
+   *  - aim：手指按住不動一下出現放大鏡，滑動對準，放開才放點（點一下照樣直接放）；拖曳點時也顯示放大鏡（手機版）。
+   *    'always'：另外用滑鼠拖曳點時也顯示放大鏡（電腦和手機同一套）
+   *  - bolts（同 TopoViewer）也管把手：bolts 是陣列又不含選取的路線時，不畫它的 bolt 把手（只看線、只改線）
    *  - text.hand：「移動」按鈕的說明（縮放按鈕旁邊；開啟後左鍵拖曳就是平移）
    *  - transform(routes, before, id)：每次修改寫進圖層前改寫路線（例如共用的 bolt 讓另一條路線跟著動）；before 是修改前、id 是改的路線。拖曳的每一步都套用，仍然只記一個復原點
    */
@@ -155,7 +158,7 @@ export class TopoEditor extends TopoViewer {
   }
 
   linesOptions() {
-    return { ...super.linesOptions(), editing: true, solo: false, interactive: this.tool === 'select' && !this.forking };
+    return { ...super.linesOptions(), editing: true, solo: false, interactive: (this.tool === 'select' || this.tool === 'edit') && !this.forking };
   }
 
   // ── 編輯的核心：所有修改都走 commit，一次記一個復原點、發一個 change ──
@@ -236,6 +239,7 @@ export class TopoEditor extends TopoViewer {
   }
 
   setTool(tool) {
+    this.extending = false;
     if (!TOOLS.includes(tool)) throw new Error(`不認得的工具：${tool}`);
     if (tool === 'crop' && this.tool !== 'crop') this.toolBeforeCrop = this.tool;
     // 進出裁切換了顯示範圍（整張 ↔ 裁切後）：回到沒放大
@@ -250,6 +254,7 @@ export class TopoEditor extends TopoViewer {
 
   /** 選一條路線（換路線時取消分岔、選取的點、bolt 位置） */
   select(id) {
+    if (id !== this.selected) this.extending = false;
     this.options.highlight = id;
     this.boltPos = undefined;
     this.#setForking(false);
@@ -287,7 +292,7 @@ export class TopoEditor extends TopoViewer {
   /** 在照片上的這一點（照片像素）加線上的點，或放 bolt，看目前的工具 */
   placeAt(p) {
     if (!this.selected) throw new Error('先選一條路線');
-    if (this.tool === 'line') {
+    if (this.tool === 'line' || this.tool === 'edit') {
       this.#commit((routes) => addLinePoint(routes, this.selected, p, INSERT_NEAR * this.model.photo.h), 'line');
     } else if (this.tool === 'bolt') {
       const pos = this.nextBoltPos;
@@ -409,7 +414,8 @@ export class TopoEditor extends TopoViewer {
       const on = p?.kind === 'line' && p.index === i;
       out += `<circle class="${on ? 'picked' : ''}" data-handle="line:${i}" cx="${x}" cy="${y}" r="${(on ? 6 : 4) * k}" stroke-width="${2 * k}"${coarse ? ' pointer-events="none"' : ''}/>`;
     });
-    for (const [pos, b] of Object.entries(r.bolts ?? {})) {
+    const boltsShown = !Array.isArray(this.options.bolts) || this.options.bolts.includes(r.id);
+    for (const [pos, b] of boltsShown ? Object.entries(r.bolts ?? {}) : []) {
       const on = p?.kind === 'bolt' && p.pos === pos, h = (coarse ? 22 : 14) * k;
       out += `<rect class="bolt${on ? ' picked' : ''}" data-handle="bolt:${pos}" x="${b.at[0] - 32 * k}" y="${b.at[1] - h}" width="${64 * k}" height="${2 * h}" rx="${h}" stroke-width="${2 * k}"/>`;
     }
@@ -503,7 +509,7 @@ export class TopoEditor extends TopoViewer {
     // 按下就重畫（選到的點變大）：放開時原來的元素已經換掉，點擊會落在別處，所以這一輪的點擊不當作加點
     this.grabbed = true;
     this.pressAt = undefined;
-    if (this.options.aim && e.pointerType === 'touch') this.#showLoupe(e);
+    if (this.options.aim && (e.pointerType === 'touch' || this.options.aim === 'always')) this.#showLoupe(e);
     this.dispatchEvent(new CustomEvent('selectpoint', { detail: { picked: this.picked } }));
     this.schedule();
   }
@@ -576,7 +582,7 @@ export class TopoEditor extends TopoViewer {
     }
     if (t.closest?.('[data-handle]') || this.tool === 'crop') return;
     // 手指點在選取路線的點旁邊：選取那個點，不加新的點、不換路線
-    if (e.pointerType === 'touch' && (this.tool === 'line' || this.tool === 'select') && !this.forking && this.editable) {
+    if (e.pointerType === 'touch' && (this.tool === 'line' || this.tool === 'select' || this.tool === 'edit') && !this.forking && this.editable) {
       const near = this.#nearPoint(e);
       if (near >= 0) {
         this.picked = { kind: 'line', index: near };
@@ -596,6 +602,26 @@ export class TopoEditor extends TopoViewer {
       }
       return;
     }
+    if (this.tool === 'edit') {
+      const id = t.closest?.('[data-route]')?.dataset.route;
+      if (id && id !== this.selected && !this.forking) {
+        this.select(id);
+        this.pick(id);
+        return;
+      }
+      const r = this.routes.find((x) => x.id === this.selected);
+      // 點選取路線的線：插點；還沒有線（開始畫了就一直加，換路線、換工具、Esc 才停）、Shift：加點；點空白處：取消選取的點
+      if (!r?.line?.length) this.extending = true;
+      if (!this.forking && this.selected && this.editable && (id === this.selected || this.extending || e.shiftKey)) {
+        this.picked = undefined;
+        this.placeAt(this.pointAt(e));
+      } else if (this.picked) {
+        this.picked = undefined;
+        this.dispatchEvent(new CustomEvent('selectpoint', { detail: { picked: undefined } }));
+        this.schedule();
+      }
+      return;
+    }
     if (this.forking || !this.selected || !this.editable) return;
     this.picked = undefined;
     this.placeAt(this.pointAt(e));
@@ -603,7 +629,8 @@ export class TopoEditor extends TopoViewer {
 
   // ── 手機：按住瞄準、放大鏡 ──
   #aimable() {
-    return !!this.options.aim && !this.forking && this.editable && (this.tool === 'line' || (this.tool === 'bolt' && !!this.nextBoltPos));
+    const adding = this.tool === 'edit' && (this.extending || !this.routes.find((x) => x.id === this.selected)?.line?.length);
+    return !!this.options.aim && !this.forking && this.editable && (this.tool === 'line' || adding || (this.tool === 'bolt' && !!this.nextBoltPos));
   }
 
   #aimStart(e) {
@@ -710,6 +737,7 @@ export class TopoEditor extends TopoViewer {
     else if (key === 'delete' || (key === 'backspace' && k.backspace)) this.deletePicked();
     else if (key === 'escape') {
       this.#setForking(false);
+      this.extending = false;
       if (this.picked) {
         this.picked = undefined;
         this.dispatchEvent(new CustomEvent('selectpoint', { detail: { picked: undefined } }));

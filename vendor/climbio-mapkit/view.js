@@ -56,6 +56,7 @@ export class MapViewer extends EventTarget {
    *  - lang（'zh'、'en'、'ja'…，名稱用哪個語言）、text（覆蓋介面文字）、attribution（右下角的版權標示，字串或 [{ text, href }]；預設是畫面的 attribution）
    *  - dim（區域節點 id：其他區域變淡）、hideAreas、walls（畫岩壁，預設 true）、sectorLabels（放大後標分區名稱，預設 true）、selected（{ node, line }）
    *  - basemap：{ osm, ortho, contours }（圖磚，預設都關）
+   *  - tiles：{ 種類: { url, minZ, maxZ, have?: Set<'z/x/y'>, credit } } 換掉某種底圖的來源（例如資料裡附上的圖磚；have 有給就只畫有的那幾張）
    *  - marks（[{ at, picked?, label?, selected? }]）、here（{ at, accuracy }）、pin（經緯度：圖釘）、draft（{ points, closed }）
    *  - controls：羅盤、縮放按鈕、比例尺（預設 true）；locate：「回到我的位置」按鈕（按了發 locate，定位由 App 做、結果放 here）
    * 經緯度一律 [經度, 緯度]。
@@ -248,10 +249,12 @@ export class MapViewer extends EventTarget {
     const level = this.tileZ;
     const tiles = {};
     const p = this.model.proj, v = this.view, f = this.frame;
-    if (b.osm) tiles.osm = visibleTiles(p, v, f, SOURCES.osm, { dpr, level: Math.min(level, SOURCES.osm.maxZ) });
-    if (b.ortho) tiles.ortho = visibleTiles(p, v, f, SOURCES.ortho, { dpr, level });
+    const S = { ...SOURCES, ...(this.options.tiles ?? {}) };
+    const at = (k, opts) => visibleTiles(p, v, f, S[k], { dpr, ...opts, level: Math.max(S[k].minZ, Math.min(level, S[k].maxZ)) }).filter((t) => !S[k].have || S[k].have.has(t.key));
+    if (b.osm) tiles.osm = at('osm');
+    if (b.ortho) tiles.ortho = at('ortho');
     if (b.contours) {
-      tiles.contours = visibleTiles(p, v, f, SOURCES.contours, { dpr, level, transparent: true }).flatMap((t) => {
+      tiles.contours = at('contours', { transparent: true }).flatMap((t) => {
         if (this.contours[t.href]) return [{ ...t, href: this.contours[t.href] }];
         // 每張只等一次：處理好了才重畫一次
         if (this.pending.has(t.href)) return [];

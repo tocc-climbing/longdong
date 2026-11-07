@@ -179,7 +179,7 @@ export class TopoViewer extends EventTarget {
   addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): void;
 }
 
-export type Tool = 'select' | 'line' | 'bolt' | 'crop';
+export type Tool = 'select' | 'edit' | 'line' | 'bolt' | 'crop';
 export type PickedPoint = { kind: 'line'; index: number } | { kind: 'bolt'; pos: string };
 
 export interface EditorOptions extends ViewerOptions {
@@ -189,7 +189,7 @@ export interface EditorOptions extends ViewerOptions {
   /** 鍵盤快捷鍵（v 選取、l 畫線、b bolt、f 分岔、z／y 復原重做、Delete 刪除；預設 true）；window：整個視窗都收，modifiers：Ctrl／⌘＋Z、Y，backspace：Backspace 也刪除 */
   keys?: boolean | { window?: boolean; modifiers?: boolean; backspace?: boolean };
   /** 手指按住不動一下出現放大鏡瞄準，放開才放點；拖曳點時也顯示放大鏡 */
-  aim?: boolean;
+  aim?: boolean | 'always';
   /** 這條路線可以放的 bolt 位置；有給時只放這些，放完自動換下一個空位 */
   positions?: (routeId: string) => string[];
   /** 每次修改寫進圖層前改寫路線：before 是修改前、id 是改的路線（拖曳的每一步都套用，仍然只記一個復原點） */

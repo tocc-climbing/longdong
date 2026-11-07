@@ -14,6 +14,8 @@ const PILL_H_BASE = 20, PILL_FONT_BASE = 11.5;
 const BOLT_VIEW_H_BASE = 12, BOLT_VIEW_FONT_BASE = 9, NOTE_FONT_BASE = 10, NOTE_LINE_BASE = 12.5;
 // solo 時其他路線的編號牌縮成這個比例，放在線的下段
 const SMALL_PILL = 0.8, SMALL_SPOTS = [0.14, 0.22, 0.08, 0.3];
+// 路線多時的排法：牌子倍率 f、帶不帶難度（先縮小，再拿掉難度）。cover：原尺寸的編號牌合計佔畫面面積的比例超過它才用這一級
+const DENSITY = [{ f: 1, grade: true, cover: 0 }, { f: 0.8, grade: true, cover: 0.1 }, { f: 0.8, grade: false, cover: 0.2 }];
 // 線在畫面上比這個短（螢幕像素）的路線，編號最後才放；選到的路線不受限
 const MIN_LABEL_LINE_PX = 40;
 // 編輯時線上的點（把手）佔的範圍（半徑，螢幕像素）：牌子不蓋在上面
@@ -72,6 +74,8 @@ export function renderLines(routes, opts) {
   // gradePill 的牌子分兩段：左邊路線色底的編號，右邊白色小膠囊裡的難度（沒有編號就只有難度那段）；寬度以畫面像素算
   const numW = (id, f) => (labels.get(id) ? textWidth(labels.get(id), PILL_FONT * f) + 12 * f : 3 * f);
   const gradePart = (id, f) => (gradePill && byId.get(id).grade ? textWidth(byId.get(id).grade, PILL_FONT * f) + 14 * f : 0);
+  // 這塊牌子帶不帶難度：路線多到拿掉難度那一級只留編號（沒有編號的還是標難度；solo 的小牌子照舊）
+  const withGrade = (id, f, small) => !!gradePart(id, f) && (small || dense.grade || !labels.get(id));
   // 數字、英文用字母基線置中（dominant-baseline: central 在中文字型會偏上）：基線在中線往下 0.36 個字高
   const midY = (box, size) => box.y + box.h / 2 + size * 0.36;
   // gradePill：沒有編號的路線也用難度當牌子
@@ -102,6 +106,12 @@ export function renderLines(routes, opts) {
     for (const [x, y] of byId.get(highlight)?.line ?? []) placer.reserve({ x: x - r, y: y - r, w: 2 * r, h: 2 * r });
   }
   const plan = new Map(priority.map((id) => [id, { bolts: [] }]));
+  const mains = priority.filter((id) => !solo || id === highlight);
+  // 路線多時：畫面裡的編號牌（原尺寸）合計佔畫面的比例超過門檻，就先縮小牌子，再多就拿掉難度只留編號；放大到夠鬆就回到完整的牌子
+  const inView = ([x, y]) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h;
+  const visible = mains.filter((id) => pillText(id) && (lineOf(id) ?? Object.values(byId.get(id).bolts ?? {}).map((b) => b.at)).some(inView));
+  const cover = visible.reduce((sum, id) => sum + (gradePart(id, 1) ? numW(id, 1) + gradePart(id, 1) : textWidth(pillText(id), PILL_FONT) + 14) * PILL_H, 0) / ((c.w / k) * (c.h / k));
+  const dense = solo ? DENSITY[0] : DENSITY.findLast((d) => cover >= d.cover);
   const length = new Map(priority.map((id) => [id, (lineOf(id) ? pathLength(lineOf(id)) : 0) / k]));
   // 編號是主要的資訊，先放；bolt 是輔助的。編號先避開 bolt 的位置，真的沒地方才蓋在 bolt 上。
   const boltPills = routes
@@ -148,8 +158,8 @@ export function renderLines(routes, opts) {
   const placePill = (id, small) => {
     const text = pillText(id);
     if (!text) return;
-    const f = small ? SMALL_PILL : 1, line = lineOf(id);
-    const h = PILL_H * f * k, w = gradePart(id, f) ? (numW(id, f) + gradePart(id, f)) * k : (textWidth(text, PILL_FONT * f) + 14 * f) * k;
+    const f = small ? SMALL_PILL : dense.f, line = lineOf(id);
+    const h = PILL_H * f * k, w = withGrade(id, f, small) ? (numW(id, f) + gradePart(id, f)) * k : (textWidth(labels.get(id) ?? text, PILL_FONT * f) + 14 * f) * k;
     let spots, bottom = [];
     if (line && sketch.has(id)) {
       const [ex, ey] = line[line.length - 1];
@@ -199,8 +209,9 @@ export function renderLines(routes, opts) {
     const entry = plan.get(id);
     entry.pill = pill;
     entry.small = small;
+    entry.f = f;
+    entry.grade = withGrade(id, f, small);
   };
-  const mains = priority.filter((id) => !solo || id === highlight);
   for (const id of mains) if (!short(id)) placePill(id, false);
   for (const id of mains) if (short(id)) placePill(id, false);
   // 2. bolt、anchor 的牌子（位置固定）；gradePill 時名稱比 bolt 優先，排完名稱才放
@@ -294,8 +305,8 @@ export function renderLines(routes, opts) {
   }
   // 牌子裡的字：一般是置中的編號；gradePill 是左段編號、右段白色小膠囊裡的難度
   const badgeText = (id, p) => {
-    const f = p.small ? SMALL_PILL : 1, size = PILL_FONT * f * k, b = p.pill;
-    if (!gradePart(id, f)) return `<text x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" font-size="${size}" dominant-baseline="central" text-anchor="middle">${esc(labels.get(id))}</text>`;
+    const f = p.f, size = PILL_FONT * f * k, b = p.pill;
+    if (!p.grade) return `<text x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" font-size="${size}" dominant-baseline="central" text-anchor="middle">${esc(labels.get(id))}</text>`;
     const nw = numW(id, f) * k, inset = 2.5 * f * k, g = { x: b.x + nw, y: b.y + inset, w: b.w - nw - inset, h: b.h - 2 * inset };
     return (labels.get(id) ? `<text class="topo-num" x="${b.x + nw / 2 + 1 * k}" y="${midY(b, size)}" font-size="${size}" text-anchor="middle">${esc(labels.get(id))}</text>` : '') +
       `<rect class="topo-grade-bg" x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="${g.h / 2}"/>` +
