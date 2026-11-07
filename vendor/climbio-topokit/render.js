@@ -50,6 +50,8 @@ const noteText = (note, fontPx, k, lineH) =>
  *  - interactive：路線的線可以點（role=button、可用 Enter）；ui：牌子與字的倍率（電腦版 1.5，預設 1）
  *  - gradePill：編號牌直接帶難度（「3 5.11a」），說明只剩名稱；說明排在 bolt 前面（看全景：編號難度＞名稱＞bolt）；預設開，false 關
  *  - boltCodes：bolt 牌子帶位置（「× B01」，有在管理 bolt 編號的岩場用）；names：false 不顯示路線名稱（預設顯示）
+ *  - densityK：判斷路線擠不擠（編號牌要不要縮小、帶不帶難度）用的 k：看圖時傳整張照片放進畫面時的 k，縮放時精簡的程度不變；預設用 k
+ *  - memo：Map，記每條路線的編號牌上次放在哪個候選位置；連續重畫（縮放）時傳同一個，位置還放得下就沿用，牌子不跑來跑去
  *  - reserved：不放牌子與說明的範圍（照片像素 { x, y, w, h }[]，例如分享卡片左下角的標誌）
  */
 /**
@@ -107,10 +109,10 @@ export function renderLines(routes, opts) {
   }
   const plan = new Map(priority.map((id) => [id, { bolts: [] }]));
   const mains = priority.filter((id) => !solo || id === highlight);
-  // 路線多時：畫面裡的編號牌（原尺寸）合計佔畫面的比例超過門檻，就先縮小牌子，再多就拿掉難度只留編號；放大到夠鬆就回到完整的牌子
-  const inView = ([x, y]) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h;
-  const visible = mains.filter((id) => pillText(id) && (lineOf(id) ?? Object.values(byId.get(id).bolts ?? {}).map((b) => b.at)).some(inView));
-  const cover = visible.reduce((sum, id) => sum + (gradePart(id, 1) ? numW(id, 1) + gradePart(id, 1) : textWidth(pillText(id), PILL_FONT) + 14) * PILL_H, 0) / ((c.w / k) * (c.h / k));
+  // 路線多時：編號牌（原尺寸）合計佔整張照片（densityK 的大小）的比例超過門檻，就先縮小牌子，再多就拿掉難度只留編號。
+  // 用整張照片的大小算、不看目前的縮放倍率：放大縮小時牌子的大小、帶不帶難度都不變，不會跑來跑去
+  const fitK = opts.densityK ?? k;
+  const cover = mains.filter((id) => pillText(id)).reduce((sum, id) => sum + (gradePart(id, 1) ? numW(id, 1) + gradePart(id, 1) : textWidth(pillText(id), PILL_FONT) + 14) * PILL_H, 0) / ((c.w / fitK) * (c.h / fitK));
   const dense = solo ? DENSITY[0] : DENSITY.findLast((d) => cover >= d.cover);
   const length = new Map(priority.map((id) => [id, (lineOf(id) ? pathLength(lineOf(id)) : 0) / k]));
   // 編號是主要的資訊，先放；bolt 是輔助的。編號先避開 bolt 的位置，真的沒地方才蓋在 bolt 上。
@@ -154,6 +156,7 @@ export function renderLines(routes, opts) {
   const sketch = new Set(ids.filter((id) => (byId.get(id).line?.length ?? 0) >= 2 && isSketch(c, byId.get(id))));
   // 線在畫面上很短的路線：其他編號都放好之後才放，放得下才標
   const short = (id) => id !== lead && !sketch.has(id) && !!lineOf(id) && lineOf(id).length >= 2 && length.get(id) < MIN_LABEL_LINE_PX;
+  const memoKey = (id, small) => `${small ? 'small:' : ''}${id}`;
   // 1. 路線編號：沿著線找空位，優先不壓到別條線、不蓋住 bolt
   const placePill = (id, small) => {
     const text = pillText(id);
@@ -195,7 +198,11 @@ export function renderLines(routes, opts) {
     // 完整的說明（難度＋名稱一行）也放得下的位置優先
     const full = small || sketch.has(id) ? undefined : noteVersions(id)[0];
     const clear = (b) => placer.fits(b) && !placer.onLine(b, mine) && !onBolt(b);
+    // 上一次畫的時候放在哪個位置（memo，縮放時連續重畫）：那個位置還放得下就沿用，牌子不會跑來跑去
+    const all = [...bottom, ...spots], keyOf = (b) => (bottom.includes(b) ? `b${bottom.indexOf(b)}` : `s${spots.indexOf(b)}`);
+    const last = opts.memo && all.find((b) => keyOf(b) === opts.memo.get(memoKey(id, small)));
     const pill =
+      (last && placer.fits(last) && !onBolt(last) ? last : undefined) ??
       // 最下面的位置：蓋到自己的線也可以（編號就是標在起點），只要不壓到別的牌子、bolt
       bottom.find((b) => placer.fits(b) && !onBolt(b)) ??
       (full && spots.find((b) => clear(b) && roomy(center(b), id) && besidePill(b, full).some(clear))) ??
@@ -205,6 +212,7 @@ export function renderLines(routes, opts) {
       // 路線卡片的主角一定要標：放不下也放在第一個位置
       (id === lead ? spots[0] : undefined);
     if (!pill) return;
+    opts.memo?.set(memoKey(id, small), keyOf(pill));
     placer.reserve(pill);
     const entry = plan.get(id);
     entry.pill = pill;

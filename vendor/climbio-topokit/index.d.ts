@@ -275,6 +275,10 @@ export interface RenderOptions {
   crop?: Rect;
   /** 一個螢幕像素等於幾個照片像素 */
   k: number;
+  /** 判斷路線擠不擠（編號牌縮小、不帶難度）用的 k：看圖時是整張照片放進畫面的 k，縮放時不變；預設用 k */
+  densityK?: number;
+  /** 記每條路線的編號牌上次放在哪個候選位置；連續重畫（縮放）時傳同一個，位置還放得下就沿用 */
+  memo?: Map<string, string>;
   highlight?: string;
   bolts?: boolean | string[];
   editing?: boolean;
