@@ -107,11 +107,10 @@ function SendTag({ style }: { style: SendStyle }) {
   )
 }
 
-/** 需要注意的路線：黃燈「小心」、紅燈「危險」（待移除、封閉也是危險）；其他不顯示。alert：路線頁（危險時讀出來） */
+/** 需要注意的路線：黃燈「小心」、紅燈「危險」，只看安全評級（路線狀態是 rebolt 團隊內部溝通用的，不影響燈號）；其他不顯示。alert：路線頁（危險時讀出來） */
 export function RouteFlag({ route, alert }: { route: Route; alert?: boolean }) {
   const { t } = useLang()
-  const closed = route.status === 'closed' || route.status === 'to-remove'
-  const level = closed || route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : undefined
+  const level = route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : undefined
   if (!level) return null
   return (
     <span className={`route-status ${level}`} role={alert && level === 'danger' ? 'alert' : undefined}>

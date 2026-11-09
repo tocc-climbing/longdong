@@ -143,10 +143,9 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
 
 type Level = 'ok' | 'warn' | 'danger' | 'unknown'
 
-/** 安全等級：待移除、封閉一律為危險 */
+/** 安全等級：只看安全評級（路線狀態是 rebolt 團隊內部溝通用的） */
 function safetyLevel(route: Route): Level {
-  const closed = route.status === 'closed' || route.status === 'to-remove'
-  return closed || route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : route.safety === 'green' ? 'ok' : 'unknown'
+  return route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : route.safety === 'green' ? 'ok' : 'unknown'
 }
 
 type Rows = [string, ReactNode][]
