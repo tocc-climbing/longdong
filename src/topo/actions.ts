@@ -5,8 +5,8 @@ import { FULL_CROP, isFullCrop, SCALE, type Crop, type Marks } from '../core/top
 import type { Shot } from '../core/topo/shot'
 import { loadEdits, loadPhotos } from './store'
 
-/** 裁切（crop：萬分比，沒給是整張）、縮到長邊不超過 MAX_EDGE，輸出 WebP（瀏覽器不支援時為 JPEG）；照片的方向依 EXIF 轉正 */
-async function shrink(file: File, crop: Crop = FULL_CROP): Promise<{ blob: Blob; width: number; height: number }> {
+/** 裁切（crop：萬分比，沒給是整張）、縮到長邊不超過 maxEdge，輸出 WebP（瀏覽器不支援時為 JPEG）；照片的方向依 EXIF 轉正 */
+export async function shrink(file: File, crop: Crop = FULL_CROP, maxEdge = MAX_EDGE): Promise<{ blob: Blob; width: number; height: number }> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => {
     throw new Error(t('topo.notImage'))
   })
@@ -14,7 +14,7 @@ async function shrink(file: File, crop: Crop = FULL_CROP): Promise<{ blob: Blob;
   const sy = (crop.y / SCALE) * bitmap.height
   const sw = (crop.w / SCALE) * bitmap.width
   const sh = (crop.h / SCALE) * bitmap.height
-  const scale = Math.min(1, MAX_EDGE / Math.max(sw, sh))
+  const scale = Math.min(1, maxEdge / Math.max(sw, sh))
   const width = Math.round(sw * scale)
   const height = Math.round(sh * scale)
   const canvas = document.createElement('canvas')
