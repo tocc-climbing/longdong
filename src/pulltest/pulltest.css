@@ -96,6 +96,15 @@
   padding: 8px 12px;
 }
 
+.pulltest-exempt {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+p.pulltest-results {
+  margin: 6px 0 0;
+}
+
 .pulltest-results .result-pass[aria-pressed='true'] {
   background: var(--ok);
   color: #fff;

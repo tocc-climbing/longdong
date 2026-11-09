@@ -719,7 +719,7 @@ export const zh = {
   'pulltest.restPass': '其餘全部合格',
   'pulltest.note': '備註',
   'pulltest.anchorHardware': '更換的確保站配件',
-  'pulltest.photo': '拍照',
+  'pulltest.photo': '照片',
   'pulltest.counts': '實測 {tested}・合格 {pass}・不合格 {fail}・未測 {untested}・取消 {cancelled}',
   'pulltest.lastTested': '上次 {date}',
   'pulltest.routes': '{n} 條路線',

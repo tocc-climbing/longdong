@@ -51,9 +51,15 @@ export function testable(route: Route): Bolt[] {
   return [...route.bolts, ...route.anchors].filter((b) => !NOT_TESTABLE.has(b.material))
 }
 
-/** 鈦材質（Ti-…）不拉測，預設免測；其他預設空白 */
+/** 鈦材質（Ti-…）不拉測：固定免測，不能改 */
+export const isExempt = (bolt: Bolt): boolean => bolt.material.startsWith('Ti-')
+
+/** 不是鈦的 bolt 可以選的結果（免測只給鈦） */
+export const CHOICES = ['pass', 'fail', 'untested', 'cancelled'] as const satisfies readonly PullResult[]
+
+/** 鈦材質固定免測；其他預設空白 */
 export function defaultResult(bolt: Bolt): PullResult | undefined {
-  return bolt.material.startsWith('Ti-') ? 'exempt' : undefined
+  return isExempt(bolt) ? 'exempt' : undefined
 }
 
 export function newRouteEntry(route: Route): RouteEntry {

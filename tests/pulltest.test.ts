@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import type { Bolt, Dataset, Route } from '../src/data/schema'
-import { approvedSummary, counts, missingResults, newRouteEntry, photosToUpload, restPass, testable, toRecord, type Outing, type StoredPullTest } from '../src/pulltest/model'
+import { approvedSummary, CHOICES, counts, isExempt, missingResults, newRouteEntry, photosToUpload, restPass, testable, toRecord, type Outing, type StoredPullTest } from '../src/pulltest/model'
 import { indexDataset } from '../src/data/dataset'
 import { addPhoto, createOuting, currentState, deleteOuting, photosOf, recordRoute, refresh, saveOuting } from '../src/pulltest/store'
 import { today } from '../src/personal/model'
@@ -20,6 +20,12 @@ describe('拉測表單的路線', () => {
 
   it('鈦材質預設免測，其他空白', () => {
     expect(newRouteEntry(r).bolts).toEqual({ B01: {}, B02: { result: 'exempt' }, A01: {} })
+  })
+
+  it('鈦材質固定免測；其他 bolt 能選的結果沒有免測', () => {
+    expect(isExempt(bolt('B02', 'Ti-U'))).toBe(true)
+    expect(isExempt(bolt('B01', '316-TW'))).toBe(false)
+    expect(CHOICES).toEqual(['pass', 'fail', 'untested', 'cancelled'])
   })
 
   it('其餘全部合格：只填空白的，已填的不變', () => {

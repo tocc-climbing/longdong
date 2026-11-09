@@ -725,7 +725,7 @@ export const ja: Messages = {
   'pulltest.restPass': '残りをすべて合格',
   'pulltest.note': 'メモ',
   'pulltest.anchorHardware': '交換した支点の部品',
-  'pulltest.photo': '撮影',
+  'pulltest.photo': '写真',
   'pulltest.counts': '試験 {tested}・合格 {pass}・不合格 {fail}・未試験 {untested}・中止 {cancelled}',
   'pulltest.lastTested': '前回 {date}',
   'pulltest.routes': '{n} ルート',

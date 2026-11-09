@@ -51,6 +51,10 @@ const baseWallLines = [...baseWalls.values()].reduce((a, b) => a + b, 0)
 const pullRoute = data.areas
   .flatMap((a) => a.sectors.flatMap((s) => s.routes))
   .find((r) => r.number && [...((r.bolts ?? []) as { material: string }[]), ...((r.anchors ?? []) as { material: string }[])].filter((b) => /^3\d\d-/.test(b.material)).length >= 2)!
+/** 有鈦 bolt 的路線（鈦固定免測，不能選） */
+const tiRoute = data.areas
+  .flatMap((a) => a.sectors.flatMap((s) => s.routes))
+  .find((r) => r.number && r.id !== pullRoute.id && [...((r.bolts ?? []) as { material: string }[]), ...((r.anchors ?? []) as { material: string }[])].some((b) => b.material.startsWith('Ti-')))!
 /** 校門口範圍裡的一個位置（areas.geojson 的一塊的中間） */
 const AT = { lat: 25.11272, lng: 121.92216 }
 
@@ -2052,6 +2056,16 @@ try {
   await ptPage.locator('.pulltest-bolts input[type=file]').first().setInputFiles({ name: 'bolt.jpg', mimeType: 'image/jpeg', buffer: ptJpeg })
   await ptPage.waitForSelector('.pulltest-thumb img')
   await ptPage.locator('.pulltest-field textarea').first().fill('7.5kN 壓降')
+  const ptInput = ptPage.locator('.pulltest-bolts input[type=file]').first()
+  check('拉測：照片可以現場拍或從相簿挑（不強制相機、可多選）', (await ptInput.getAttribute('capture')) === null && (await ptInput.getAttribute('multiple')) !== null)
+  await ptPage.getByPlaceholder('路線編號或名稱').fill(tiRoute.number!)
+  await ptPage.locator('.pulltest-picker li button', { hasText: `#${tiRoute.number} ` }).first().click()
+  const tiCard = ptPage.locator('.pulltest-route', { hasText: tiRoute.name.zh }).last()
+  await tiCard.waitFor()
+  check(
+    '拉測：鈦 bolt 固定免測、沒有選項；其他 bolt 沒有「免測」可選',
+    (await tiCard.locator('.pulltest-exempt').count()) >= 1 && (await ptPage.locator('.pulltest-results button', { hasText: '免測' }).count()) === 0,
+  )
   await ptVol.ctx.setOffline(false)
   await ptPage.reload()
   await ptPage.waitForSelector('.pulltest-thumb img')

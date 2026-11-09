@@ -5,7 +5,7 @@ import { localName, useLang } from '../i18n'
 import { href, navigate } from '../router'
 import { shrink } from '../topo/actions'
 import { useCloud } from '../personal/sync'
-import { counts, missingResults, newRouteEntry, RESULTS, restPass, blanks, testable, type Outing, type PullResult, type RouteEntry, type StoredPullTest } from './model'
+import { CHOICES, counts, isExempt, missingResults, newRouteEntry, restPass, blanks, testable, type Outing, type PullResult, type RouteEntry, type StoredPullTest } from './model'
 import { outingStatus, uploadOuting } from './upload'
 import {
   addPhoto,
@@ -293,19 +293,25 @@ function RouteCard({
               </span>
               <PhotoButton outingId={outingId} routeId={entry.routeId} position={b.position} />
             </div>
-            <div className="pulltest-results" role="group" aria-label={b.position}>
-              {RESULTS.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className={`chip result-${r}`}
-                  aria-pressed={entry.bolts[b.position]?.result === r}
-                  onClick={() => setResult(b.position, r)}
-                >
-                  {t(`pulltest.result.${r}`)}
-                </button>
-              ))}
-            </div>
+            {isExempt(b) ? (
+              <p className="pulltest-results">
+                <span className="pulltest-exempt">{t('pulltest.result.exempt')}</span>
+              </p>
+            ) : (
+              <div className="pulltest-results" role="group" aria-label={b.position}>
+                {CHOICES.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={`chip result-${r}`}
+                    aria-pressed={entry.bolts[b.position]?.result === r}
+                    onClick={() => setResult(b.position, r)}
+                  >
+                    {t(`pulltest.result.${r}`)}
+                  </button>
+                ))}
+              </div>
+            )}
             <Photos ids={photosOf(s, outingId, entry.routeId, b.position)} />
           </li>
         ))}
@@ -344,17 +350,20 @@ function PhotoButton({ outingId, routeId, position }: { outingId: string; routeI
         ref={input}
         type="file"
         accept="image/*"
-        capture="environment"
+        multiple
         hidden
         onChange={async (e) => {
-          const file = e.target.files?.[0]
+          // 不指定 capture：手機會讓人選現場拍照或從相簿挑（可以一次挑好幾張）
+          const files = [...(e.target.files ?? [])]
           e.target.value = ''
-          if (!file) return
+          if (files.length === 0) return
           setBusy(true)
           setError(undefined)
           try {
-            const { blob } = await shrink(file, undefined, PHOTO_EDGE)
-            await addPhoto(outingId, routeId, position, blob)
+            for (const file of files) {
+              const { blob } = await shrink(file, undefined, PHOTO_EDGE)
+              await addPhoto(outingId, routeId, position, blob)
+            }
           } catch (err) {
             setError((err as Error).message)
           } finally {
