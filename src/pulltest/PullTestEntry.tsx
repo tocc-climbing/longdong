@@ -1,13 +1,14 @@
+import { HANGER, HangerIcon } from '../components/HangerIcon'
 import { useLang } from '../i18n'
 import { href } from '../router'
 import { usePullTests, useVolunteer } from './store'
 
-/** 拉測回報的圖示：寫字板上打勾 */
-function Icon({ size }: { size: number }) {
+/** 頂欄的圖示：和救援按鈕同一種樣式（實心圓角方塊＋白色圖形），圖形是掛片 */
+function BoxIcon() {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 4h6v3H9zM9 5H6v16h12V5h-3" />
-      <path d="M9 14l2 2 4-4" />
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>
+      <rect width="24" height="24" rx="6" fill="currentColor" />
+      <path className="pulltest-glyph" d={HANGER} fillRule="evenodd" transform="translate(3.64 2.24) scale(0.08)" />
     </svg>
   )
 }
@@ -24,7 +25,7 @@ export function PullTestButton({ active }: { active: boolean }) {
   if (!useVolunteer()) return null
   return (
     <a className="pulltest-button" href={href.pulltest()} aria-current={active ? 'page' : undefined} aria-label={t('pulltest.title')} title={t('pulltest.title')}>
-      <Icon size={24} />
+      <BoxIcon />
       <DraftCount />
     </a>
   )
@@ -36,7 +37,7 @@ export function PullTestNav({ active }: { active: boolean }) {
   if (!useVolunteer()) return null
   return (
     <a href={href.pulltest()} className={active ? 'active' : undefined} aria-current={active ? 'page' : undefined}>
-      <Icon size={20} />
+      <HangerIcon />
       {t('pulltest.title')}
       <DraftCount />
     </a>

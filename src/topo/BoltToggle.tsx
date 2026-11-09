@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { HangerIcon } from '../components/HangerIcon'
 import { useLang } from '../i18n'
 
 /**
@@ -38,17 +39,14 @@ export function useShowBolts(): [boolean, () => void] {
   ]
 }
 
-/** 照片右上角的按鈕（在全螢幕按鈕左邊）：顯示／隱藏 bolt */
+/** 照片右上角的按鈕（在全螢幕按鈕左邊）：顯示／隱藏 bolt；圖示是掛片 */
 export function BoltToggle({ className = 'topo-bolt-toggle' }: { className?: string }) {
   const { t } = useLang()
   const [shown, toggle] = useShowBolts()
   const label = t(shown ? 'topo.boltsHide' : 'topo.boltsShow')
   return (
     <button type="button" className={className} aria-pressed={shown} aria-label={label} title={label} onClick={toggle}>
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="5" />
-        <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
-      </svg>
+      <HangerIcon />
     </button>
   )
 }

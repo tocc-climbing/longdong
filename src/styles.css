@@ -2619,7 +2619,12 @@ a.action {
   margin-left: auto;
   width: 40px;
   height: 40px;
-  color: var(--text);
+  /* 和救援按鈕一樣：固定的顏色加白色圖形，淺色、深色都一樣 */
+  color: #0e8ea3;
+}
+
+.pulltest-button .pulltest-glyph {
+  fill: #fff;
 }
 
 .pulltest-button + .rescue-button {
@@ -2641,8 +2646,10 @@ a.action {
 
 .pulltest-button .pulltest-count {
   position: absolute;
-  top: 2px;
-  right: 0;
+  top: 0;
+  right: -2px;
+  background: var(--text);
+  color: var(--bg);
 }
 
 .side-nav .pulltest-count {
