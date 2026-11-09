@@ -10,7 +10,6 @@ import { useRouteLink } from '../router'
 import { localName, useLang } from '../i18n'
 import { FavMark } from './FavMark'
 import { StarsBadge } from './Stars'
-import { StatusBadge } from './StatusBadge'
 
 /**
  * 路線清單的一列：編號（下面是自己的完攀方式 OS／RP／TR）、名稱與種類、難度（沒有底色）與評分；
@@ -59,7 +58,6 @@ export function RouteRow({ item, showPlace = false, table = false }: { item: Rou
               {place}
             </span>
             <span className="rt-type-inline">{typeText(route, t)}</span>
-            {route.status && <StatusBadge status={route.status} compact />}
           </span>
           {/* 每一格都包一層，沒有內容時欄位也對齊 */}
           <span>{grade}</span>

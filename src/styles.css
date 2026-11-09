@@ -702,39 +702,6 @@ a.action {
 
 /* ---------- 狀態、安全燈號、評分小標 ---------- */
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.badge .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.badge.compact {
-  font-size: 0.72rem;
-  font-weight: 500;
-}
-
-.tone-ok {
-  color: var(--ok);
-}
-.tone-warn {
-  color: var(--warn);
-}
-.tone-danger {
-  color: var(--danger);
-}
-.tone-muted {
-  color: var(--muted);
-}
-
 .safety {
   display: inline-flex;
   align-items: center;
@@ -2343,10 +2310,6 @@ a.action {
   min-width: 0;
 }
 
-.rt-name .badge {
-  justify-self: start;
-}
-
 .rt-type-inline {
   display: none;
   font-size: 0.75rem;
@@ -3685,6 +3648,10 @@ main.map > div {
 
 .route-bolts[open] summary::after {
   transform: translateY(2px) rotate(-135deg);
+}
+
+.route-bolts > p {
+  margin: 10px 0 0;
 }
 
 .route-bolts > section {
