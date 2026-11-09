@@ -3623,18 +3623,21 @@ main.map > div {
   font-size: 0.85rem;
 }
 
-/* Bolt 的摘要：點了在下面展開明細、滿寬（右邊的箭頭） */
-.route-bolts summary {
+/* Bolt、路線狀態的摘要：點了在下面展開明細、滿寬（右邊的箭頭） */
+.route-bolts summary,
+.route-state summary {
   grid-template-columns: 5.5rem minmax(0, 1fr) auto;
   cursor: pointer;
   list-style: none;
 }
 
-.route-bolts summary::-webkit-details-marker {
+.route-bolts summary::-webkit-details-marker,
+.route-state summary::-webkit-details-marker {
   display: none;
 }
 
-.route-bolts summary::after {
+.route-bolts summary::after,
+.route-state summary::after {
   content: '';
   flex: none;
   width: 7px;
@@ -3646,11 +3649,12 @@ main.map > div {
   transition: transform 0.15s;
 }
 
-.route-bolts[open] summary::after {
+.route-bolts[open] summary::after,
+.route-state[open] summary::after {
   transform: translateY(2px) rotate(-135deg);
 }
 
-.route-bolts > p {
+.route-state > p {
   margin: 10px 0 0;
 }
 

@@ -212,7 +212,7 @@ function RouteData({ data, route }: { data: LoadedData; route: Route }) {
     <div className="route-data">
       <DataRows rows={rows} />
       {status && (
-        <details className="route-bolts">
+        <details className="route-state">
           <summary className="route-data-row">
             <span className="route-data-label">{t('route.status')}</span>
             <span />
