@@ -9,6 +9,7 @@ export const STATUS_TONE: Record<RouteStatus, 'ok' | 'warn' | 'danger' | 'muted'
   'needs-rebolt': 'warn',
   closed: 'danger',
   'to-remove': 'danger',
+  removed: 'warn',
   unknown: 'muted',
 }
 

@@ -86,6 +86,7 @@ export const en: Messages = {
   'status.needs-rebolt': 'Needs rebolt',
   'status.closed': 'Closed',
   'status.to-remove': 'To be removed',
+  'status.removed': 'Removed',
   'status.unknown': 'Unverified',
 
   'safety.green': 'OK',

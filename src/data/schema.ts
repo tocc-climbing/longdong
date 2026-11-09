@@ -24,6 +24,7 @@ export const RouteStatus = z.enum([
   'needs-rebolt', // 待更新
   'closed', // 路線封閉
   'to-remove', // 待移除
+  'removed', // 已移除（天然固定點已移除，路線仍可攀爬）
   'unknown', // 待查、待確認
 ])
 
