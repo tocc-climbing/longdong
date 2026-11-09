@@ -14,7 +14,7 @@ import { CommunityText } from '../edit/CommunityText'
 import type { ToolScope } from '../edit/PageTools'
 import { textTarget } from '../edit/textEdits'
 import { formatDate, quickdraws, typeLabel } from '../format'
-import { localName, useLang, type Lang, type Translate } from '../i18n'
+import { localName, useLang, type Translate } from '../i18n'
 import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from 'react'
 import { useWide } from '../layout'
 import { useViewTimer } from '../personal/history'
@@ -143,25 +143,23 @@ export function RoutePage({ data, id, topoInList }: { data: LoadedData; id: stri
 
 type Level = 'ok' | 'warn' | 'danger' | 'unknown'
 
-/** 安全等級：待移除、封閉一律為危險 */
+/** 安全等級：只看安全評級（路線狀態是 rebolt 團隊內部溝通用的） */
 function safetyLevel(route: Route): Level {
-  const closed = route.status === 'closed' || route.status === 'to-remove'
-  return closed || route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : route.safety === 'green' ? 'ok' : 'unknown'
+  return route.safety === 'red' ? 'danger' : route.safety === 'yellow' ? 'warn' : route.safety === 'green' ? 'ok' : 'unknown'
 }
 
 type Rows = [string, ReactNode][]
 
 /** 安全與拉測、首攀 */
-function infoRows(route: Route, lang: Lang, t: Translate): Rows {
+function infoRows(route: Route, t: Translate): Rows {
   const level = safetyLevel(route)
   const safety = t(level === 'danger' ? 'safety.red' : route.safety ? `safety.${route.safety}` : 'safety.unrated')
-  const status = route.status && (lang === 'zh' ? route.statusLabel : t(`status.${route.status}`))
   const rows: Rows = []
   if (!route.isFixture)
     rows.push([
       t('route.safetyTests'),
       <>
-        {[safety, status, route.statusDate && formatDate(route.statusDate)].filter(Boolean).join(' · ')}
+        {safety}
         <span className="muted">
           {' '}
           · {t('route.lastTested')} {route.lastTested ? formatDate(route.lastTested) : t('route.noRecord')}
@@ -207,11 +205,21 @@ function RouteData({ data, route }: { data: LoadedData; route: Route }) {
   const years = fixings.map((b) => b.installed?.slice(0, 4)).filter(Boolean).sort() as string[]
   const installed = years.length ? (years[0] === years.at(-1) ? years[0] : `${years[0]}–${years.at(-1)}`) : undefined
   const counts = [route.bolts.length > 0 && t('route.bolts', { n: route.bolts.length }), route.anchors.length > 0 && t('route.anchors', { n: route.anchors.length })]
-  const rows = infoRows(route, lang, t)
+  const rows = infoRows(route, t)
+  const status = !route.isFixture && route.status && (lang === 'zh' ? route.statusLabel : t(`status.${route.status}`))
   if (route.notes) rows.push([t('route.notes'), <span className="pre">{route.notes}</span>])
   return (
     <div className="route-data">
       <DataRows rows={rows} />
+      {status && (
+        <details className="route-state">
+          <summary className="route-data-row">
+            <span className="route-data-label">{t('route.status')}</span>
+            <span />
+          </summary>
+          <p>{[status, route.statusDate && formatDate(route.statusDate)].filter(Boolean).join(' · ')}</p>
+        </details>
+      )}
       {fixings.length > 0 && (
         <details className="route-bolts">
           <summary className="route-data-row">

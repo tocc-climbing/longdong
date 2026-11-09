@@ -90,6 +90,7 @@ export const ja: Messages = {
   'status.needs-rebolt': 'リボルト待ち',
   'status.closed': '閉鎖',
   'status.to-remove': '撤去予定',
+  'status.removed': '撤去済み',
   'status.unknown': '未確認',
 
   'safety.green': '良好',

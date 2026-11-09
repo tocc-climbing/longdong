@@ -84,6 +84,7 @@ export const zh = {
   'status.needs-rebolt': '待更新',
   'status.closed': '路線封閉',
   'status.to-remove': '待移除',
+  'status.removed': '已移除',
   'status.unknown': '待查',
 
   'safety.green': '正常',

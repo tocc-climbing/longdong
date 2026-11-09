@@ -121,6 +121,7 @@ const STATUS_MAP: Record<string, RouteStatus> = {
   待更新: 'needs-rebolt',
   路線封閉: 'closed',
   待移除: 'to-remove',
+  已移除: 'removed',
   待查: 'unknown',
   待確認: 'unknown',
 }

@@ -161,8 +161,8 @@ function SectorCard({ sector, color, favorite }: { sector: Sector; color?: strin
 /** 需要注意的路線數：小心（黃燈）、危險（紅燈，含待移除、封閉）；都沒有時不顯示 */
 function Alerts({ routes }: { routes: Route[] }) {
   const { t } = useLang()
-  const danger = routes.filter((r) => r.safety === 'red' || r.status === 'closed' || r.status === 'to-remove').length
-  const warn = routes.filter((r) => r.safety === 'yellow' && r.status !== 'closed' && r.status !== 'to-remove').length
+  const danger = routes.filter((r) => r.safety === 'red').length
+  const warn = routes.filter((r) => r.safety === 'yellow').length
   if (!danger && !warn) return null
   return (
     <span className="area-alerts">

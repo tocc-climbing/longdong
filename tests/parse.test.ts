@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import Papa from 'papaparse'
-import { gradeValue, parseDate, splitName, cleanText } from '../scripts/lib/normalize'
+import { gradeValue, parseStatus, parseDate, splitName, cleanText } from '../scripts/lib/normalize'
 import { attachLegacySectorIds, parseAreaSheet, parseHardwareSheet, sectorId } from '../scripts/lib/parse'
 import type { Area } from '../src/data/schema'
 
@@ -23,6 +23,10 @@ function sheet(rows: string[][]): string {
 }
 
 describe('normalize', () => {
+  it('「已移除」（天然固定點已移除，路線仍可攀爬）認得為 removed，不在對照表的才回傳 undefined', () => {
+    expect(parseStatus('已移除')).toBe('removed')
+    expect(parseStatus('不存在的狀態')).toBeUndefined()
+  })
   it('把康熙部首字元轉成一般漢字', () => {
     expect(cleanText('⽯克偉')).toBe('石克偉')
   })

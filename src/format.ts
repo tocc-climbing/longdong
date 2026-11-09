@@ -1,16 +1,5 @@
 import type { Translate } from './i18n'
-import type { Route, RouteStatus, RouteType } from './data/schema'
-
-/** 狀態的顏色語意；文字見 i18n 的 status.* */
-export const STATUS_TONE: Record<RouteStatus, 'ok' | 'warn' | 'danger' | 'muted'> = {
-  tested: 'ok',
-  rebolted: 'ok',
-  'needs-test': 'warn',
-  'needs-rebolt': 'warn',
-  closed: 'danger',
-  'to-remove': 'danger',
-  unknown: 'muted',
-}
+import type { Route, RouteType } from './data/schema'
 
 export function typeLabel(type: RouteType, t: Translate): string {
   return t(`type.${type}`)
