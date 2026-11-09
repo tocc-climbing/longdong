@@ -5,13 +5,15 @@ import { HistoryView, useDismiss, useEditOptions, useHistory, type ToolScope } f
 import { useLang } from '../i18n'
 import { useWide } from '../layout'
 import { setFavorite, usePersonal } from '../personal/store'
+import { recordRoute, useVolunteer } from '../pulltest/store'
+import { href, navigate } from '../router'
 import { PlaceReport } from './PlaceReport'
 import { ShareItems } from './ShareItems'
 import { Sheet } from './Sheet'
 
 /**
  * 區域、分區、路線頁標題卡右上的工具：最愛、回報位置（都是圖示），「更多」選單：分享、編輯、
- * 修改記錄（電腦版、有修改記錄才顯示）、路線資料（只有路線）。最愛要登入。分享與路線資料從下方滑出，不在選單裡展開。
+ * 修改記錄（電腦版、有修改記錄才顯示）、路線資料與記錄拉測（只有路線；記錄拉測只有拉測志工）。最愛要登入。分享與路線資料從下方滑出，不在選單裡展開。
  * favoriteId：最愛的對象（路線、區域或分區的 ID；固定點不能加入時 undefined）；report：回報位置的對象；
  * info：路線資料的內容；inlineEdit：在這一頁就地編輯的項目（手機路線頁的說明、Topo），選了不換頁。
  */
@@ -40,6 +42,7 @@ export function TitleTools({
   const mine = signedIn && !!favoriteId && !personal.error
   const favorite = !!favoriteId && personal.favorites.has(favoriteId)
   const edits = useEditOptions(scope)
+  const volunteer = useVolunteer()
   const history = useHistory(scope)
   const [menu, setMenu] = useState(false)
   const [sheet, setSheet] = useState<'share' | 'info'>()
@@ -121,6 +124,11 @@ export function TitleTools({
             {info && (
               <button type="button" role="menuitem" onClick={() => (close(), setSheet('info'))}>
                 {t('route.info')}
+              </button>
+            )}
+            {volunteer && report.route && (
+              <button type="button" role="menuitem" onClick={() => (close(), void recordRoute(report.route!).then((id) => navigate(href.pulltest(id))))}>
+                {t('pulltest.record')}
               </button>
             )}
           </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { useLang, type MessageKey } from '../i18n'
 import { MapReports } from '../pages/MapReports'
+import { PullTestReview } from '../pulltest/PullTestReview'
 import { Filters, ItemDetail, PendingDetail, TypeBadge, UserDetail } from './parts'
 import { SECTIONS, type AdminModel } from './useAdminModel'
 
@@ -31,6 +32,15 @@ export function MobileView({ m, data }: { m: AdminModel; data: LoadedData }) {
       <>
         {tabs}
         <MapReports data={data} profiles={m.profiles} />
+      </>
+    )
+  }
+
+  if (m.section === 'pulltests') {
+    return (
+      <>
+        {tabs}
+        <PullTestReview data={data} userName={m.userName} />
       </>
     )
   }

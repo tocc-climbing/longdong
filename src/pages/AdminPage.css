@@ -264,6 +264,11 @@
   overflow: visible;
 }
 
+/* 拉測回報：分類與一欄出勤卡片（src/pulltest/PullTestReview.tsx） */
+.admin-desk.pulltests {
+  grid-template-columns: 188px minmax(0, 1fr);
+}
+
 .admin-rail {
   display: flex;
   flex-direction: column;

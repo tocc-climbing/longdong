@@ -6,6 +6,7 @@ import { Pager, neighborLabel, neighborStyle } from './components/Pager'
 import { DetailPane, desktopView, useDesktopKeys } from './desktop'
 import { BottomNav } from './components/BottomNav'
 import { RescueButton } from './components/RescueButton'
+import { PullTestButton } from './pulltest/PullTestEntry'
 import { Sidebar } from './components/Sidebar'
 import { useData, type LoadedData } from './data/dataset'
 import { whenActive } from './freshness'
@@ -33,6 +34,8 @@ const BoltsPage = lazy(() => import('./pages/BoltsPage').then((m) => ({ default:
 const ChecklistPage = lazy(() => import('./pages/ChecklistPage').then((m) => ({ default: m.ChecklistPage })))
 /** 管理員的回報紀錄，只有少數人用 */
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+/** 拉測回報：只有拉測志工用 */
+const PullTestPage = lazy(() => import('./pulltest/PullTestPage').then((m) => ({ default: m.PullTestPage })))
 /** Topo 編輯（電腦版） */
 const EditPage = lazy(() => import('./edit/EditPage').then((m) => ({ default: m.EditPage })))
 
@@ -145,6 +148,7 @@ export function App() {
           <HoldMark />
           <DevBadge />
         </a>
+        <PullTestButton active={page.name === 'pulltest'} />
         <RescueButton active={page.name === 'rescue'} />
       </header>
       {banner}
@@ -201,6 +205,12 @@ function PageView({ page, data, offline }: { page: Page; data: LoadedData; offli
       return (
         <Suspense>
           <ChecklistPage data={data} />
+        </Suspense>
+      )
+    case 'pulltest':
+      return (
+        <Suspense>
+          <PullTestPage data={data} id={page.id} />
         </Suspense>
       )
     case 'admin':

@@ -2610,6 +2610,45 @@ a.action {
   color: #b0033a;
 }
 
+/* 拉測回報（拉測志工才有）：在救援按鈕左邊，右上角是草稿數 */
+.pulltest-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  color: var(--text);
+}
+
+.pulltest-button + .rescue-button {
+  margin-left: 0;
+}
+
+.pulltest-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.pulltest-button .pulltest-count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+}
+
+.side-nav .pulltest-count {
+  margin-left: auto;
+}
+
 /* 救援頁：最上面是撥 119，其他電話較小；下面是定位的結果 */
 .rescue h1 {
   margin: 4px 0 12px;

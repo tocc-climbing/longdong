@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Cloud Storage 規則。只開放 Topo 照片（src/topo），其他路徑一律拒絕
+// Cloud Storage 規則。只開放 Topo 照片（src/topo）與拉測回報的照片（src/pulltest），其他路徑一律拒絕
 // （舊站 2016 年的照片以下載網址的 token 讀取，不受規則影響）。
 service firebase.storage {
   match /b/{bucket}/o {
@@ -17,6 +17,18 @@ service firebase.storage {
       allow create: if request.auth != null && request.auth.uid == uid && resource == null
         && ((file.matches('[A-Za-z0-9_-]{1,40}[.]webp') && request.resource.contentType == 'image/webp')
           || (file.matches('[A-Za-z0-9_-]{1,40}[.]jpg') && request.resource.contentType == 'image/jpeg'))
+        && request.resource.size <= 3 * 1024 * 1024;
+      allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
+    }
+
+    // pulltests/<uid>/<出勤 id>/<照片 id>.webp（或 .jpg）：拉測回報的照片，只有上傳者本人與管理員看得到；
+    // 登入者只能上傳到自己的資料夾，不能覆蓋；本人與管理員可以刪除
+    match /pulltests/{uid}/{outing}/{file} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == uid && resource == null
+        && outing.matches('[0-9a-f-]{36}')
+        && ((file.matches('[0-9a-f-]{36}[.]webp') && request.resource.contentType == 'image/webp')
+          || (file.matches('[0-9a-f-]{36}[.]jpg') && request.resource.contentType == 'image/jpeg'))
         && request.resource.size <= 3 * 1024 * 1024;
       allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
     }

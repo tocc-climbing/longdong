@@ -770,3 +770,80 @@ describe('說明修改（v2/textEdits，版本同 Topo）', () => {
     await assertSucceeds(remove(alice, `v2/textEdits/route:${ROUTE}/t1`))
   })
 })
+
+describe('拉測回報（v2/pullTests、v2/pullTestsApproved）', () => {
+  const ID = '11111111-1111-4111-8111-111111111111'
+  const PHOTO = '22222222-2222-4222-8222-222222222222'
+  /** 與 src/personal/firebase.ts 的 submitPullTest 送出的形狀相同 */
+  const outing = (uid: string, over: Record<string, unknown> = {}) => ({
+    uid,
+    date: '2026-11-09',
+    crew: ['甲 / A'],
+    routes: { [ROUTE]: { bolts: { B01: { result: 'pass', photos: { [PHOTO]: 'webp' } }, A01: { result: 'exempt' } }, note: '7.5kN' } },
+    createdAt: serverTimestamp(),
+    status: 'pending',
+    ...over,
+  })
+  const summary = { date: '2026-11-09', routes: { [ROUTE]: { area: '鐘塔', name: '叢林熱', bolts: { B01: { result: 'pass', material: '316-TW' } } } }, approvedAt: serverTimestamp() }
+
+  it('登入者可以上傳自己的出勤（待審核）；訪客、冒用別人的 uid、直接設成通過都不行', async () => {
+    await assertFails(set(guest, `v2/pullTests/${ID}`, outing('alice')))
+    await assertFails(set(alice, `v2/pullTests/${ID}`, outing('mallory')))
+    await assertFails(set(alice, `v2/pullTests/${ID}`, outing('alice', { status: 'approved' })))
+    await assertFails(set(alice, `v2/pullTests/${ID}`, outing('alice', { review: { uid: 'alice', at: serverTimestamp() } })))
+    await assertSucceeds(set(alice, `v2/pullTests/${ID}`, outing('alice')))
+  })
+
+  it('格式不對的拒絕：結果、位置、路線、日期、照片、多餘欄位', async () => {
+    const bad = [
+      { routes: { [ROUTE]: { bolts: { B01: { result: 'ok' } } } } },
+      { routes: { [ROUTE]: { bolts: { C01: { result: 'pass' } } } } },
+      { routes: { 'longdong:523': { bolts: { B01: { result: 'pass' } } } } },
+      { routes: { [ROUTE]: { bolts: { B01: { result: 'pass', photos: { [PHOTO]: 'png' } } } } } },
+      { routes: { [ROUTE]: { bolts: { B01: { result: 'pass', kn: 7 } } } } },
+      { date: '2026/11/09' },
+      { extra: 1 },
+    ]
+    for (const over of bad) await assertFails(set(alice, `v2/pullTests/${ID}`, outing('alice', over)))
+    await assertFails(set(alice, 'v2/pullTests/not-an-id', outing('alice')))
+  })
+
+  it('待審核的不能再改；只有本人與管理員讀得到', async () => {
+    await assertSucceeds(set(alice, `v2/pullTests/${ID}`, outing('alice')))
+    await assertFails(set(alice, `v2/pullTests/${ID}`, outing('alice', { date: '2026-11-10' })))
+    await assertSucceeds(get(alice, `v2/pullTests/${ID}`))
+    await assertFails(get(mallory, `v2/pullTests/${ID}`))
+    await assertFails(get(guest, `v2/pullTests/${ID}`))
+    await assertFails(get(alice, 'v2/pullTests'))
+    await assertSucceeds(get(admin, 'v2/pullTests'))
+    await assertSucceeds(get(emailAdmin, `v2/pullTests/${ID}`))
+  })
+
+  it('只有管理員能通過或退回；通過時寫的摘要公開可讀', async () => {
+    await assertSucceeds(set(alice, `v2/pullTests/${ID}`, outing('alice')))
+    const approve = {
+      [`v2/pullTests/${ID}/status`]: 'approved',
+      [`v2/pullTests/${ID}/review`]: { uid: 'admin', at: serverTimestamp() },
+      [`v2/pullTestsApproved/${ID}`]: summary,
+    }
+    await assertFails(update(alice, { ...approve, [`v2/pullTests/${ID}/review`]: { uid: 'alice', at: serverTimestamp() } }))
+    await assertFails(set(alice, `v2/pullTestsApproved/${ID}`, summary))
+    await assertSucceeds(update(admin, approve))
+    await assertSucceeds(get(guest, `v2/pullTestsApproved/${ID}`))
+    // 通過的不能再由本人改
+    await assertFails(set(alice, `v2/pullTests/${ID}`, outing('alice')))
+  })
+
+  it('被退回的本人可以修改後重新上傳（回到待審核，不帶審核紀錄）', async () => {
+    await assertSucceeds(set(alice, `v2/pullTests/${ID}`, outing('alice')))
+    await assertSucceeds(update(admin, { [`v2/pullTests/${ID}/status`]: 'rejected', [`v2/pullTests/${ID}/review`]: { uid: 'admin', at: serverTimestamp(), note: 'B03 照片看不清楚' } }))
+    await assertFails(set(mallory, `v2/pullTests/${ID}`, outing('mallory')))
+    await assertFails(set(alice, `v2/pullTests/${ID}`, outing('alice', { status: 'rejected', date: '2026-11-10' })))
+    await assertSucceeds(set(alice, `v2/pullTests/${ID}`, outing('alice', { date: '2026-11-10' })))
+  })
+
+  it('管理員不能改上傳者', async () => {
+    await assertSucceeds(set(alice, `v2/pullTests/${ID}`, outing('alice')))
+    await assertFails(update(admin, { [`v2/pullTests/${ID}/uid`]: 'mallory' }))
+  })
+})

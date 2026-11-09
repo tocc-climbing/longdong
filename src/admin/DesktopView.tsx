@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { LoadedData } from '../data/dataset'
 import { useLang, type MessageKey } from '../i18n'
 import { MapReports } from '../pages/MapReports'
+import { PullTestReview } from '../pulltest/PullTestReview'
 import { Filters, ItemDetail, PendingDetail, TypeBadge, UserDetail } from './parts'
 import { SECTIONS, type AdminModel, type AdminSection } from './useAdminModel'
 
@@ -17,7 +18,7 @@ export function DesktopView({ m, data }: { m: AdminModel; data: LoadedData }) {
   useEffect(() => setShown(PAGE), [m.section, m.types, m.uid, m.query, m.range])
 
   const count = (s: AdminSection): number | undefined =>
-    s === 'all' ? m.feed.length : s === 'pending' ? m.pending.length : s === 'users' ? m.users.length : s === 'map' ? undefined : m.feed.filter((i) => (s === 'content' ? i.type === 'comment' || i.type === 'rating' : i.type !== 'comment' && i.type !== 'rating')).length
+    s === 'all' ? m.feed.length : s === 'pending' ? m.pending.length : s === 'users' ? m.users.length : s === 'map' || s === 'pulltests' ? undefined : m.feed.filter((i) => (s === 'content' ? i.type === 'comment' || i.type === 'rating' : i.type !== 'comment' && i.type !== 'rating')).length
 
   const nav = (
     <div className="admin-rail" role="tablist" aria-orientation="vertical" aria-label={t('admin.title')}>
@@ -36,6 +37,17 @@ export function DesktopView({ m, data }: { m: AdminModel; data: LoadedData }) {
         {nav}
         <div className="admin-desk-main">
           <MapReports data={data} profiles={m.profiles} />
+        </div>
+      </div>
+    )
+  }
+
+  if (m.section === 'pulltests') {
+    return (
+      <div className="admin-desk pulltests">
+        {nav}
+        <div className="admin-desk-main">
+          <PullTestReview data={data} userName={m.userName} />
         </div>
       </div>
     )

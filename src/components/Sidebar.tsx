@@ -7,6 +7,7 @@ import { localName, useLang } from '../i18n'
 import { href, navigate, type Page } from '../router'
 import type { Level } from '../keyboard'
 import { TABS, activeTab } from './BottomNav'
+import { PullTestNav } from '../pulltest/PullTestEntry'
 
 /**
  * 電腦版的左側欄：品牌、搜尋框、主選單，以及龍洞的區域／分區（目前所在的區域展開分區；區域清單可以收合，記在這台裝置）。
@@ -136,6 +137,7 @@ export function Sidebar({ page, data, kbdLevel }: { page: Page; data?: LoadedDat
           </svg>
           {t('edit.title')}
         </a>
+        <PullTestNav active={page.name === 'pulltest'} />
       </nav>
 
       {/* 側邊欄底部的次要連結；Bolt 統計只在電腦版有入口（手機版只能從連結進入） */}

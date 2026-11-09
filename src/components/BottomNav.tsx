@@ -13,9 +13,9 @@ export const TABS = [
   { key: 'me', href: href.me(), icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z' },
 ] as const
 
-/** 目前頁面屬於哪個分頁；救援頁不屬於任何分頁（從頂欄進入） */
+/** 目前頁面屬於哪個分頁；救援頁、拉測回報不屬於任何分頁（從頂欄進入） */
 export function activeTab(page: Page): (typeof TABS)[number]['key'] | undefined {
-  if (page.name === 'rescue') return undefined
+  if (page.name === 'rescue' || page.name === 'pulltest') return undefined
   if (page.name === 'map') return 'map'
   if (page.name === 'search') return 'search'
   if (page.name === 'me' || page.name === 'about' || page.name === 'reports' || page.name === 'admin' || page.name === 'checklist') return 'me'

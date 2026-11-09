@@ -29,6 +29,7 @@ import { NAME_MAX, nameKey, normalizeName, routeKey, type Feel } from '../social
 import { STORAGE_BUCKET, type StoredRoutes, type TopoPhoto } from '../topo/model'
 import type { Crop } from '../core/topo/geometry'
 import type { Shot } from '../core/topo/shot'
+import type { ApprovedPullTest, PullTestRecord, StoredPullTest } from '../pulltest/model'
 
 const app = initializeApp({
   // 前端用的公開設定（不是密鑰）；存取權限由 Realtime Database 規則控管
@@ -336,6 +337,53 @@ export async function deleteTopoFiles(paths: string[]): Promise<void> {
   if (paths.length === 0) return
   const { s, instance } = await storage()
   await Promise.all(paths.map((p) => s.deleteObject(s.ref(instance, p))))
+}
+
+/* ---------- 拉測回報（src/pulltest） ---------- */
+
+/** 上傳一張拉測照片；同一個路徑已經有了就略過（重按上傳不會多一份，Storage 規則也不准覆蓋） */
+export async function uploadPullTestPhoto(path: string, blob: Blob): Promise<void> {
+  const { s, instance } = await storage()
+  const file = s.ref(instance, path)
+  const exists = await s.getMetadata(file).then(
+    () => true,
+    (err: { code?: string }) => {
+      if (err.code === 'storage/object-not-found') return false
+      throw err
+    },
+  )
+  if (!exists) await s.uploadBytes(file, blob, { contentType: blob.type })
+}
+
+/** 送出一次出勤（照片都傳完之後）；被退回的出勤用同一個 id 重新送出 */
+export function submitPullTest(id: string, record: PullTestRecord): Promise<void> {
+  return set(ref(db, `v2/pullTests/${id}`), { ...record, createdAt: serverTimestamp(), status: 'pending' })
+}
+
+/** 一次出勤的審核狀態（上傳者本人、管理員讀得到）；不存在時 undefined */
+export async function loadPullTest(id: string): Promise<StoredPullTest | undefined> {
+  return ((await get(ref(db, `v2/pullTests/${id}`))).val() as StoredPullTest | null) ?? undefined
+}
+
+/** 管理員：所有出勤 */
+export async function loadPullTests(): Promise<Record<string, StoredPullTest>> {
+  return ((await get(ref(db, 'v2/pullTests'))).val() as Record<string, StoredPullTest> | null) ?? {}
+}
+
+/** 管理員看照片用的網址 */
+export async function pullTestPhotoUrl(path: string): Promise<string> {
+  const { s, instance } = await storage()
+  return s.getDownloadURL(s.ref(instance, path))
+}
+
+/** 管理員審核：通過時同時寫一份不含照片的摘要給 Sheet 的 Apps Script 讀；退回時附原因 */
+export function reviewPullTest(uid: string, id: string, decision: { approved: ApprovedPullTest } | { rejected: string }): Promise<void> {
+  const review = { uid, at: serverTimestamp(), ...('rejected' in decision && decision.rejected ? { note: decision.rejected } : {}) }
+  return update(ref(db), {
+    [`v2/pullTests/${id}/status`]: 'approved' in decision ? 'approved' : 'rejected',
+    [`v2/pullTests/${id}/review`]: review,
+    ...('approved' in decision ? { [`v2/pullTestsApproved/${id}`]: { ...decision.approved, approvedAt: serverTimestamp() } } : {}),
+  })
 }
 
 /**

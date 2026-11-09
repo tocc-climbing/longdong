@@ -8,9 +8,9 @@ import { displayName } from '../social/store'
 import { removeTopo } from '../topo/actions'
 import { buildFeed, buildPending, countByType, effectiveTypes, filterFeed, summarizeUsers, type AdminRaw, type FeedContext, type FeedGroup, type FeedItem, type FeedType } from './feed'
 
-/** 管理頁的區塊：全部、待處理（檢舉）、內容（留言與評分）、修改（Topo、地圖、說明、岩壁）、使用者、地圖回報 */
-export type AdminSection = 'all' | 'pending' | 'content' | 'changes' | 'users' | 'map'
-export const SECTIONS: AdminSection[] = ['all', 'pending', 'content', 'changes', 'users', 'map']
+/** 管理頁的區塊：全部、待處理（檢舉）、內容（留言與評分）、修改（Topo、地圖、說明、岩壁）、使用者、地圖回報、拉測回報 */
+export type AdminSection = 'all' | 'pending' | 'content' | 'changes' | 'users' | 'map' | 'pulltests'
+export const SECTIONS: AdminSection[] = ['all', 'pending', 'content', 'changes', 'users', 'map', 'pulltests']
 
 const DAY = 86_400_000
 /** 時間範圍：往前幾天（0 = 不限） */

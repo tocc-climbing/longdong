@@ -16,6 +16,7 @@ import { deleteTick, setFavorite, usePersonal } from '../personal/store'
 import { signOut, useCloud } from '../personal/sync'
 import { deleteMyAccount, rename } from '../social/actions'
 import { setThemeSetting, useThemeSetting, type ThemeSetting } from '../theme'
+import { setVolunteer, useVolunteer } from '../pulltest/store'
 import { NAME_MAX } from '../social/model'
 import { displayName, useSocial } from '../social/store'
 import { useIsAdmin } from '../admin'
@@ -324,6 +325,7 @@ function Settings({ data, offline, uid, email }: { data: LoadedData; offline: bo
       <p className="muted small">{t('me.emailPrivate', { email })}</p>
       <LanguagePicker />
       <ThemePicker />
+      <VolunteerToggle />
       <InstallButton />
       <div className="settings-links">
         <a href={href.about()}>{t('footer.about')}</a>
@@ -380,6 +382,18 @@ function ThemePicker() {
         <option value="light">{t('theme.light')}</option>
         <option value="dark">{t('theme.dark')}</option>
       </select>
+    </label>
+  )
+}
+
+/** 拉測志工：打開後才有拉測回報的入口（手機版頂欄、電腦版側欄、路線頁選單）；選擇存在這台裝置上 */
+function VolunteerToggle() {
+  const { t } = useLang()
+  const on = useVolunteer()
+  return (
+    <label className="lang-picker">
+      <span>{t('me.volunteer')}</span>
+      <input type="checkbox" checked={on} onChange={(e) => setVolunteer(e.target.checked)} />
     </label>
   )
 }

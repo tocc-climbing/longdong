@@ -81,3 +81,30 @@ describe('Topo 照片（topos/<uid>/<照片>）', () => {
     await assertFails(guest.ref('topo').getMetadata())
   })
 })
+
+describe('拉測回報的照片（pulltests/<uid>/<出勤>/<照片>）', () => {
+  const OUTING = '11111111-1111-4111-8111-111111111111'
+  const PHOTO = '22222222-2222-4222-8222-222222222222'
+  const path = (uid: string, file = `${PHOTO}.webp`) => `pulltests/${uid}/${OUTING}/${file}`
+
+  it('登入者只能上傳到自己的資料夾；不能覆蓋；只接受 WebP、JPEG', async () => {
+    await assertFails(upload(guest, path('alice')))
+    await assertFails(upload(mallory, path('alice')))
+    await assertFails(upload(alice, path('alice', `${PHOTO}.png`), 'image/png'))
+    await assertFails(upload(alice, path('alice', 'p1.webp')))
+    await assertSucceeds(upload(alice, path('alice')))
+    await assertSucceeds(upload(alice, path('alice', `${PHOTO}.jpg`), 'image/jpeg'))
+    await assertFails(upload(alice, path('alice')))
+  })
+
+  it('只有本人與管理員看得到', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.storage().ref(path('alice')).put(webp, { contentType: 'image/webp' })
+    })
+    await assertSucceeds(alice.ref(path('alice')).getMetadata())
+    await assertSucceeds(emailAdmin.ref(path('alice')).getMetadata())
+    await assertFails(mallory.ref(path('alice')).getMetadata())
+    await assertFails(guest.ref(path('alice')).getMetadata())
+    await assertFails(unverified.ref(path('alice')).getMetadata())
+  })
+})

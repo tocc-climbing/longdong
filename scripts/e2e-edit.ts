@@ -1,6 +1,6 @@
 /**
  * 端對端測試（編輯模式）：登入 → 回報 → 去識別副本 → 編輯區域範圍時看到該區的回報 → 地圖編輯（大區域範圍、分區岩壁、刪除版本）→
- * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁的所有輸入、搜尋、處理檢舉（電腦版、手機版）。
+ * Topo 標記（復原、重做、提交）→ 看 Topo 的 bolt 切換 → 管理頁的所有輸入、搜尋、處理檢舉（電腦版、手機版）→ 拉測回報（上傳、審核）。
  * 用 Firebase 模擬器（firebase.e2e.json），不碰正式資料；模擬器載入真正的資料庫規則，一併驗證規則允許這些寫入。
  * 每一項檢查的是「資料庫裡真的有什麼」與「畫面上真的出現什麼」，不是程式內部狀態。
  *
@@ -47,6 +47,10 @@ const baseWalls = new Map(
   ]),
 )
 const baseWallLines = [...baseWalls.values()].reduce((a, b) => a + b, 0)
+/** 拉測回報用的路線：至少兩顆不鏽鋼 bolt（要拉測、預設不是免測） */
+const pullRoute = data.areas
+  .flatMap((a) => a.sectors.flatMap((s) => s.routes))
+  .find((r) => r.number && [...((r.bolts ?? []) as { material: string }[]), ...((r.anchors ?? []) as { material: string }[])].filter((b) => /^3\d\d-/.test(b.material)).length >= 2)!
 /** 校門口範圍裡的一個位置（areas.geojson 的一塊的中間） */
 const AT = { lat: 25.11272, lng: 121.92216 }
 
@@ -1547,7 +1551,7 @@ try {
   const ap = admin.page
   await ap.goto(base + 'admin')
   await ap.waitForSelector('.admin-row', { timeout: 20000 })
-  check('管理頁電腦版：左邊六個分類', (await ap.locator('.admin-rail [role=tab]').count()) === 6)
+  check('管理頁電腦版：左邊七個分類', (await ap.locator('.admin-rail [role=tab]').count()) === 7)
   check('待處理標出 1 筆檢舉', /1/.test((await ap.getByRole('tab', { name: '待處理' }).textContent()) ?? ''))
   await ap.fill('.admin-search', '領優惠')
   const found = await until(async () => ((await ap.locator('.admin-row').count()) === 1 ? true : undefined))
@@ -1587,7 +1591,7 @@ try {
   await ap.setViewportSize({ width: 390, height: 844 })
   await ap.fill('.admin-search', '')
   await ap.waitForSelector('.admin-mtabs', { timeout: 10000 })
-  check('管理頁手機版：上方六個分頁、沒有三欄', (await ap.locator('.admin-mtabs [role=tab]').count()) === 6 && (await ap.locator('.admin-desk').count()) === 0)
+  check('管理頁手機版：上方七個分頁、沒有三欄', (await ap.locator('.admin-mtabs [role=tab]').count()) === 7 && (await ap.locator('.admin-desk').count()) === 0)
   await ap.locator('.admin-card-head').first().click()
   check('點卡片：在原地展開（詳細內容、操作）', (await ap.locator('.admin-card.open .admin-card-body').count()) === 1)
   // ── 9. 路線頁：按鈕兩層、評價與留言（社群 App 的版面） ──
@@ -2027,6 +2031,69 @@ try {
   await rp.waitForSelector('.home-m', { state: 'detached' })
   check('電腦版首頁維持原樣：沒有天氣、交通卡片', (await rp.locator('.home-m').count()) === 0 && (await rp.locator('.area-hero.strip').count()) === 1)
   await rp.unroute('https://api.open-meteo.com/**')
+
+  // ── 拉測回報：志工（手機版）打開設定 → 頂欄出現入口 → 路線頁「記錄拉測」→ 離線填結果、拍照 → 上傳 → 管理員通過 ──
+  const ptVol = await newContext(undefined, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  const ptPage = ptVol.page
+  await signIn(ptPage, 'puller@example.com')
+  check('拉測：沒打開「拉測志工」時頂欄沒有入口', (await ptPage.locator('.pulltest-button').count()) === 0)
+  await ptPage.getByRole('button', { name: '帳號設定' }).click()
+  await ptPage.getByLabel('拉測志工').check()
+  check('拉測：打開「拉測志工」後頂欄出現入口', (await until(async () => ((await ptPage.locator('.pulltest-button').count()) === 1 ? true : undefined))) === true)
+  await ptPage.goto(base + 'route/' + pullRoute.id)
+  await ptPage.getByRole('button', { name: '更多' }).first().click()
+  await ptPage.getByRole('menuitem', { name: '記錄拉測' }).click()
+  await ptPage.waitForURL(/\/pulltest\/[0-9a-f-]{36}$/)
+  const ptOuting = ptPage.url().split('/').pop()!
+  // 填寫不需要網路
+  await ptVol.ctx.setOffline(true)
+  await ptPage.getByRole('button', { name: '其餘全部合格' }).click()
+  const ptJpeg = await ptPage.screenshot({ type: 'jpeg', clip: { x: 0, y: 0, width: 60, height: 60 } })
+  await ptPage.locator('.pulltest-bolts input[type=file]').first().setInputFiles({ name: 'bolt.jpg', mimeType: 'image/jpeg', buffer: ptJpeg })
+  await ptPage.waitForSelector('.pulltest-thumb img')
+  await ptPage.locator('.pulltest-field textarea').first().fill('7.5kN 壓降')
+  await ptVol.ctx.setOffline(false)
+  await ptPage.reload()
+  await ptPage.waitForSelector('.pulltest-thumb img')
+  check(
+    '拉測：離線填的結果、照片、備註，重新整理後還在；頂欄顯示 1 筆未上傳',
+    (await ptPage.locator('.pulltest-results [aria-pressed=true]').count()) >= 2 && (await ptPage.locator('.pulltest-field textarea').first().inputValue()) === '7.5kN 壓降' && (await ptPage.locator('.pulltest-count').textContent()) === '1',
+  )
+  await ptPage.getByRole('button', { name: '上傳', exact: true }).click()
+  await ptPage.waitForSelector('.pulltest-status.pending', { timeout: 20000 })
+  type PtStored = { uid: string; status: string; date: string; routes: Record<string, { bolts: Record<string, { result: string; photos?: Record<string, string> }>; note?: string }> }
+  const ptStored = await until(() => read<PtStored>(`v2/pullTests/${ptOuting}`))
+  const rkPull = pullRoute.id.replace('/', ':')
+  const ptRoute = ptStored?.routes[rkPull]
+  const photoKeys = Object.values(ptRoute?.bolts ?? {}).flatMap((b) => Object.keys(b.photos ?? {}))
+  check(
+    '拉測：資料庫收到待審核的出勤，結果、備註、照片都在',
+    ptStored?.status === 'pending' && !!ptRoute && Object.values(ptRoute.bolts).every((b) => b.result === 'pass' || b.result === 'exempt') && ptRoute.note === '7.5kN 壓降' && photoKeys.length === 1,
+    JSON.stringify(ptStored),
+  )
+  const ptListed = (await (await fetch(`http://127.0.0.1:9199/v0/b/project-2803619783974357321.appspot.com/o?prefix=${encodeURIComponent(`pulltests/${ptStored?.uid}/${ptOuting}/`)}`, asOwner)).json()) as { items?: { name: string }[] }
+  check('拉測：照片在上傳者自己的資料夾', ptListed.items?.length === 1 && ptListed.items[0].name.endsWith(`${photoKeys[0]}.webp`), JSON.stringify(ptListed))
+  check('拉測：上傳後不能再修改，頂欄不再算未上傳', (await ptPage.locator('fieldset.pulltest-form[disabled]').count()) === 1 && (await ptPage.locator('.pulltest-count').count()) === 0)
+
+  await ap.setViewportSize({ width: 1366, height: 900 })
+  await ap.goto(base + 'admin')
+  await ap.getByRole('tab', { name: '拉測回報' }).click()
+  await ap.waitForSelector('.pulltest-review .card')
+  check('拉測：管理員看得到照片', (await until(async () => ((await ap.locator('.pulltest-review .pulltest-thumb img').count()) === 1 ? true : undefined))) === true)
+  await ap.getByRole('button', { name: '通過' }).click()
+  const ptApproved = await until(async () => {
+    const a = await read<{ routes: Record<string, { area: string; name: string; bolts: Record<string, { result: string; material: string; photos?: unknown }> }> }>(`v2/pullTestsApproved/${ptOuting}`)
+    return a && (await read<string>(`v2/pullTests/${ptOuting}/status`)) === 'approved' ? a : undefined
+  })
+  const ptSum = ptApproved?.routes[rkPull]
+  check(
+    '拉測：通過後狀態改成已通過，公開的摘要帶區域、名稱、材質，不含照片',
+    !!ptSum && ptSum.name === pullRoute.name.zh && !!ptSum.area && Object.values(ptSum.bolts).every((b) => b.material && !('photos' in b)),
+    JSON.stringify(ptApproved),
+  )
+  await ptPage.reload()
+  check('拉測：志工看到已通過', (await until(async () => ((await ptPage.locator('.pulltest-status.approved').count()) === 1 ? true : undefined))) === true)
+  await ptVol.ctx.close()
 
   // 外觀：預設依系統（這裡是深色）；在「我的」選淺色，畫面與 Android 系統列換成淺色，重新整理（畫面出現前）也還是淺色
   const look = await newContext(undefined, { colorScheme: 'dark' })

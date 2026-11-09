@@ -383,6 +383,92 @@
           }
         }
       },
+      "pullTests": {
+        ".read": "auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))",
+        "$outing": {
+          ".read": "auth != null && (data.child('uid').val() === auth.uid || (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))))",
+          ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'pending' && !newData.hasChild('review')) || (data.child('uid').val() === auth.uid && data.child('status').val() === 'rejected' && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'pending' && !newData.hasChild('review')) || (data.exists() && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com'))) && newData.child('uid').val() === data.child('uid').val()))",
+          ".validate": "$outing.matches(/^[0-9a-f-]{36}$/) && newData.hasChildren(['uid', 'createdAt', 'status', 'date', 'routes'])",
+          "uid": {
+            ".validate": "newData.isString()"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "status": {
+            ".validate": "newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'rejected'"
+          },
+          "date": {
+            ".validate": "newData.isString() && newData.val().matches(/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/)"
+          },
+          "crew": {
+            "$i": {
+              ".validate": "$i.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length >= 1 && newData.val().length <= 60"
+            }
+          },
+          "routes": {
+            "$route": {
+              ".validate": "$route.matches(/^longdong:[2-9a-hjkmnp-z]{6}$/) && newData.hasChildren(['bolts'])",
+              "bolts": {
+                "$pos": {
+                  ".validate": "$pos.matches(/^[AB][0-9]{2}$/) && newData.hasChildren(['result'])",
+                  "result": {
+                    ".validate": "newData.val() === 'pass' || newData.val() === 'fail' || newData.val() === 'untested' || newData.val() === 'cancelled' || newData.val() === 'exempt'"
+                  },
+                  "photos": {
+                    "$photo": {
+                      ".validate": "$photo.matches(/^[0-9a-f-]{36}$/) && (newData.val() === 'webp' || newData.val() === 'jpg')"
+                    }
+                  },
+                  "$other": {
+                    ".validate": false
+                  }
+                }
+              },
+              "note": {
+                ".validate": "newData.isString() && newData.val().length <= 2000"
+              },
+              "anchorHardware": {
+                ".validate": "newData.isString() && newData.val().length <= 200"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "review": {
+            ".validate": "newData.hasChildren(['uid', 'at'])",
+            "uid": {
+              ".validate": "newData.val() === auth.uid"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "note": {
+              ".validate": "newData.isString() && newData.val().length <= 500"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "pullTestsApproved": {
+        ".read": true,
+        "$outing": {
+          ".write": "auth != null && (root.child('role').child(auth.uid).exists() || (auth.token.email_verified === true && (auth.token.email === 'jinlung.you@gmail.com' || auth.token.email === 'maurice.chen67@gmail.com' || auth.token.email === 'kant.kang@gmail.com')))",
+          ".validate": "$outing.matches(/^[0-9a-f-]{36}$/) && (!newData.exists() || newData.hasChildren(['date', 'routes', 'approvedAt']))",
+          "date": {
+            ".validate": "newData.isString() && newData.val().matches(/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/)"
+          },
+          "approvedAt": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      },
       "personal": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",

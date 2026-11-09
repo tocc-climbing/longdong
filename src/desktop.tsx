@@ -42,7 +42,7 @@ export function desktopView(page: Page, data: LoadedData): DesktopView {
     const listSector = page.name === 'sector' ? page.id : area?.sectors.length === 1 ? area.sectors[0].id : undefined
     return { split: true, list: page, detail: page.detail, closeHref, listSector, roomy: false }
   }
-  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'admin' || page.name === 'bolts' || page.name === 'checklist' || page.name === 'topo')
+  return plain(page.name === 'home' || page.name === 'area' || page.name === 'me' || page.name === 'rescue' || page.name === 'reports' || page.name === 'admin' || page.name === 'bolts' || page.name === 'checklist' || page.name === 'pulltest' || page.name === 'topo')
 }
 
 export function DetailPane({ data, id, listSector }: { data: LoadedData; id?: string; listSector?: string }) {
