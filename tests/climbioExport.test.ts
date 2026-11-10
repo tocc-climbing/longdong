@@ -145,7 +145,9 @@ describe('龍洞地圖（地圖截圖基準的 v2 地圖畫面）', () => {
     expect([types('area'), types('sector') > 0, map.nodes!.filter((n) => n.props?.kind === 'rescue').length]).toEqual([9, true, 14])
   })
 
-  it('基準裡的 longdong-map.json 是目前的轉換結果', () => {
-    expect(read('tests/fixtures/map-shots/longdong-map.json')).toEqual(JSON.parse(JSON.stringify(longdongMap(dataset))))
+  it('基準裡的 longdong-map.json 是目前的轉換結果（不比 t：它跟資料版本同步，每次資料同步都會變）', () => {
+    const { t: _fixtureTime, ...fixture } = read<{ t: number }>('tests/fixtures/map-shots/longdong-map.json')
+    const { t: _dataTime, ...current } = JSON.parse(JSON.stringify(longdongMap(dataset)))
+    expect(fixture).toEqual(current)
   })
 })
