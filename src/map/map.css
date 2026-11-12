@@ -290,3 +290,32 @@
   position: absolute;
   inset: 0;
 }
+
+.terrain-map {
+  background: var(--bg);
+}
+
+.terrain-map-view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.terrain-map-view:active { cursor: grabbing; }
+.terrain-map-view:focus:not(:focus-visible),
+.terrain-map-label:focus:not(:focus-visible) { outline: none; }
+.terrain-map-label { cursor: pointer; }
+.terrain-map-label .terrain-map-name {
+  fill: var(--text);
+  stroke: var(--bg);
+  paint-order: stroke fill;
+  font-weight: 650;
+  stroke-linejoin: round;
+}
+.terrain-map-credit { position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: var(--muted); pointer-events: none; }
+.terrain-map-credit a { color: inherit; pointer-events: auto; }
+.terrain-map-scale { position: absolute; left: 12px; bottom: 7px; font-size: 11px; color: var(--text); text-shadow: 0 1px 2px var(--bg); pointer-events: none; }
+.terrain-map-scale span { display: inline-block; height: 6px; border: 1px solid currentColor; border-top: 0; margin-right: 6px; }

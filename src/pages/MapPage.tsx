@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { MapViewInfo } from '../../vendor/climbio-mapkit/index.js'
 import { useWide } from '../layout'
 import { inMapBounds } from '../map/bounds'
 import { KitMap } from '../map/KitMap'
+import { TerrainMap } from '../map/TerrainMap'
 import { useGeolocation } from '../components/MyLocation'
 import { LocationHelp } from '../components/LocationHelp'
 import { Sheet } from '../components/Sheet'
@@ -63,6 +65,8 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const [picking, setPicking] = useState(false)
   const [toast, setToast] = useState<string>()
   const [ortho, setOrtho] = useState(() => readFlag(ORTHO_KEY))
+  const [threeD, setThreeD] = useState(() => new URLSearchParams(location.search).get('view') === '3d')
+  const savedView = useRef<MapViewInfo>(undefined)
   /** 離線航照：整個範圍存齊了沒、下載進度；undefined 表示還沒查（或這個瀏覽器不能離線快取） */
   const [offline, setOffline] = useState<{ done: number; total: number; downloading: boolean }>()
   /** 打開航照時提示下載離線航照，按「不用」後這次不再提示 */
@@ -111,7 +115,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   }, [toast])
 
   // 離線下載的圖磚（最清楚的層級只下載 9 個區域附近，要等地圖資料）
-  const tiles = useMemo(() => (map.status === 'ok' ? orthoDownloadUrls(map.data.areas) : undefined), [map])
+  const tiles = useMemo(() => (ortho && !threeD && map.status === 'ok' ? orthoDownloadUrls(map.data.areas) : undefined), [map, ortho, threeD])
 
   // 開著航照時查離線快取存齊了沒
   useEffect(() => {
@@ -139,12 +143,14 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   }
 
   const toggleOrtho = () => {
-    writeFlag(ORTHO_KEY, !ortho)
-    setOrtho(!ortho)
+    const next = !ortho
+    writeFlag(ORTHO_KEY, next)
+    setOrtho(next)
   }
 
   /** 按「回報」：在龍洞且定位到了就是現場回報；否則手動回報，先在地圖上點位置 */
   const startReport = () => {
+    setThreeD(false)
     if (fix && outside === undefined) return setReporting(true)
     setManualAt(undefined)
     setManualPicking(true)
@@ -185,17 +191,19 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
       : undefined
   /** 點的位置所在的大區域（手動回報預設選這個區域） */
   const areaAt = (at: LatLng) => (map.status === 'ok' ? innermost(project(at), map.data.areas, (a) => a.rings)?.id : undefined)
+  const MapView = threeD && !pick ? TerrainMap : KitMap
 
   return (
     <div className="map-page">
       {map.status === 'ok' ? (
-        <KitMap
+        <MapView
           map={map.data}
           data={data}
           here={fix}
           marks={[...records.marks, ...simulatedMarks].map((m) => ({ at: m.coords, picked: 'manual' in m ? undefined : m.picked }))}
           pick={pick}
           ortho={ortho}
+          savedView={savedView}
           selected={wall && { sector: wall.sector, line: Number(wall.key.split('#')[1]) }}
           onWallTap={(sector, line) => setSelectedWall(`${sector}#${line}`)}
           sectorLabels
@@ -210,6 +218,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
           }}
           topLeft={
             <>
+              <button type="button" className="sm-control sm-tool" aria-pressed={threeD && !pick} disabled={!!pick} onClick={() => setThreeD(!threeD)} aria-label={t('map.threeD')} title={t('map.threeD')}>3D</button>
               {/* 只用圖示：回報（有還沒上傳的記錄時加一個點）、航照、修改（電腦版、登入） */}
               <button type="button" className="sm-control sm-tool report" onClick={startReport} aria-label={t('map.report')} title={t('map.report')}>
                 <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
@@ -299,7 +308,7 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
             {toast}
           </p>
         )}
-        {ortho && offline && offline.done < offline.total && !offlineOfferClosed && (
+        {ortho && !threeD && offline && offline.done < offline.total && !offlineOfferClosed && (
           <p className="map-toast offer" role="status">
             {offline.downloading ? t('map.orthoDownloading', { done: offline.done, total: offline.total }) : t('map.orthoOffer')}
             {!offline.downloading && (

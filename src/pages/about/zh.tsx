@@ -27,6 +27,10 @@ export default function AboutText({ projectUrl, attribution, sheetUrl }: AboutTe
         </a>
         ，本站每天檢查更新，確認後上線。發現資料有誤，請聯絡協會更正。
       </p>
+      <p>
+        立體地形：<a href="https://data.gov.tw/dataset/176927" target="_blank" rel="noreferrer">© 內政部地政司 · Taiwan DTM 20m（2025）</a>
+        ，依<a href="https://data.gov.tw/license" target="_blank" rel="noreferrer">政府資料開放授權條款第 1 版</a>利用
+      </p>
     </>
   )
 }

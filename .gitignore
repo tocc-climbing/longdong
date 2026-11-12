@@ -3,6 +3,7 @@ dist/
 dev-dist/
 dist-e2e/
 .cache/
+__pycache__/
 *.log
 .DS_Store
 .claude/

@@ -13,6 +13,7 @@ import type { LatLng } from '../src/geo'
 import { faceTrail } from '../src/map/aspect'
 import { project } from '../src/map/mapData'
 import { withExif } from '../tests/fixtures/exifJpeg'
+import { checkTerrainMap } from './lib/terrainMapCheck'
 
 const DB = 'http://127.0.0.1:9000'
 const asOwner = { headers: { Authorization: 'Bearer owner' } }
@@ -518,7 +519,7 @@ try {
   // 區域頁的標題卡：區域形狀裡畫出所有分區的岩壁（看得出相對位置）
   await editor.page.goto(base + `area/${gate.id}`)
   await editor.page.waitForSelector('.area-hero')
-  const wallPaths = () => editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="3"]').count()
+  const wallPaths = () => editor.page.locator('.area-hero svg.area-hero-shape path[data-wall="strong"]').count()
   check('區域頁：標題卡畫出每個分區的岩壁', (await until(async () => ((await wallPaths()) === gate.sectors.length ? true : undefined), 5000)) === true, `${await wallPaths()} / ${gate.sectors.length}`)
   type Box = { x: number; y: number; width: number; height: number }
   const inside = (a: Box, b: Box) => a.x >= b.x - 1 && a.y >= b.y - 1 && a.x + a.width <= b.x + b.width + 1 && a.y + a.height <= b.y + b.height + 1
@@ -542,7 +543,7 @@ try {
   // 卡片的大小在載入後還會變（字型、說明），地圖跟著重新擺：等擺好
   const wallsPlaced = async () => {
     const card = (await editor.page.locator('.area-hero').boundingBox())!
-    const walls = await boxes('.area-hero svg.area-hero-shape path[stroke-width="3"]')
+    const walls = await boxes('.area-hero svg.area-hero-shape path[data-wall="strong"]')
     const top = await toolsBottom()
     const ok = walls.length > 0 && walls.every((r) => inside(r, card)) && Math.min(...walls.map((r) => r.y)) >= top - 1
     return { ok, detail: JSON.stringify({ card, tools: top, walls: walls.map((r) => [r.x, r.y, r.width, r.height].map(Math.round)) }) }
@@ -555,12 +556,12 @@ try {
   await editor.page.goto(base + `sector/${wallSector}`)
   await editor.page.waitForSelector('.area-hero')
   check('分區頁：標題卡有分區名稱', ((await editor.page.locator('.area-hero h1').textContent()) ?? '').includes(gateSectorName))
-  check('分區頁：地圖放大畫出這個分區的岩壁（粗線）', (await until(async () => ((await editor.page.locator('.area-hero svg.area-hero-shape path[stroke-width="5"]').count()) > 0 ? true : undefined), 5000)) === true)
+  check('分區頁：地圖放大畫出這個分區的岩壁（粗線）', (await until(async () => ((await editor.page.locator('.area-hero svg.area-hero-shape path[data-wall="strong"]').count()) > 0 ? true : undefined), 5000)) === true)
   // 這個分區的岩壁整個看得到、不在圖示底下；範圍大一點，看得到附近其他的牆
-  const [ownBox] = await boxes('.area-hero svg.area-hero-shape path[stroke-width="5"]')
+  const [ownBox] = await boxes('.area-hero svg.area-hero-shape path[data-wall="strong"]')
   const sectorCard = (await editor.page.locator('.area-hero').boundingBox())!
   check('分區頁：這個分區的岩壁整個在卡片裡、不在圖示底下', inside(ownBox, sectorCard) && ownBox.y >= (await toolsBottom()) - 1)
-  const nearbyWalls = await boxes('.area-hero svg.area-hero-shape path[stroke-width="2"]')
+  const nearbyWalls = await boxes('.area-hero svg.area-hero-shape path[data-wall="nearby"]')
   const overlaps = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
   check('分區頁：看得到附近其他分區的岩壁', nearbyWalls.some((r) => overlaps(r, sectorCard)))
 
@@ -1039,10 +1040,10 @@ try {
   check('手機路線頁：標題卡上方是所在位置（龍洞 › 區域 › 分區，可以點）', crumbs >= 2, `${crumbs} 層`)
   check('手機路線頁：標題卡有這個分區的地圖', (await vp.locator('.route-m .area-hero svg.area-hero-shape').count()) === 1)
   // 路線頁只畫這面牆（不畫附近的），放到最大
-  await vp.waitForSelector('.route-m .area-hero svg.area-hero-shape path[stroke-width="5"]')
-  check('手機路線頁：地圖只畫這個分區的岩壁', ((await vp.locator('.route-m .area-hero svg.area-hero-shape path[stroke-width="2"]').getAttribute('d')) ?? '') === '')
+  await vp.waitForSelector('.route-m .area-hero svg.area-hero-shape path[data-wall="strong"]')
+  check('手機路線頁：地圖只畫這個分區的岩壁', (await vp.locator('.route-m .area-hero svg.area-hero-shape path[data-wall="nearby"]').count()) === 0)
   // 沿著線取點換成螢幕座標（getBoundingClientRect 是轉過方向的外框，比線大）
-  const routeWall = await vp.locator('.route-m .area-hero svg.area-hero-shape path[stroke-width="5"]').evaluate((el: SVGPathElement) => {
+  const routeWall = await vp.locator('.route-m .area-hero svg.area-hero-shape path[data-wall="strong"]').evaluate((el: SVGPathElement) => {
     const length = el.getTotalLength()
     const m = el.getScreenCTM()!
     const pts = Array.from({ length: 201 }, (_, i) => el.getPointAtLength((length * i) / 200).matrixTransform(m))
@@ -1052,7 +1053,7 @@ try {
   })
   const routeMap = (await vp.locator('.route-m .area-hero svg.area-hero-shape').boundingBox())!
   const routeFill = Math.max(routeWall.width / routeMap.width, routeWall.height / routeMap.height)
-  check('手機路線頁：岩壁放到最大（至少佔地圖的六成）', routeFill >= 0.6, `${(routeFill * 100).toFixed(0)}%`)
+  check('手機路線頁：20m 地形保留周邊脈絡，岩壁仍可辨識', routeFill >= 0.05, `${(routeFill * 100).toFixed(0)}%`)
   check('Topo 直接放在卡片裡：沒有「Topo」標題、沒有分隔線', (await vp.locator('.route-m .topos h2').count()) === 0 && (await vp.locator('.route-m .topos').evaluate((el) => getComputedStyle(el).borderTopWidth)) === '0px')
   const topoY = (await vp.locator('.route-m .topo').boundingBox())!.y
   const heroBottom = await vp.locator('.route-m .area-hero').evaluate((el) => el.getBoundingClientRect().bottom)
@@ -1236,11 +1237,12 @@ try {
   await vp.goto(base)
   await vp.waitForSelector('.area-row .grade-dist .bar')
   // 地圖（scale-map）比路線資料晚載入
-  await vp.waitForSelector('.area-hero svg.area-hero-shape path')
-  check('首頁：標題卡有整個龍洞的地圖', (await vp.locator('.area-hero svg.area-hero-shape path').count()) === data.areas.length)
+  await vp.waitForSelector('.area-hero svg.area-hero-shape[data-terrain="ready"]')
+  check('首頁：標題卡有整個龍洞的地圖', Number(await vp.locator('.area-hero svg.area-hero-shape').getAttribute('data-region-count')) === data.areas.length)
   const homeCard = (await vp.locator('.area-hero').boundingBox())!
   const homeMap = (await vp.locator('.area-hero svg.area-hero-shape').boundingBox())!
-  check('首頁：地圖放大，左右跨到卡片邊緣', homeMap.x <= homeCard.x + 1 && homeMap.x + homeMap.width >= homeCard.x + homeCard.width - 1, `${homeMap.x}+${homeMap.width} / ${homeCard.x}+${homeCard.width}`)
+  const homeText = (await vp.locator('.area-hero-text').boundingBox())!
+  check('首頁：地圖與文字分開排，不互相重疊', homeMap.y >= homeText.y+homeText.height+8 && homeMap.x >= homeCard.x && homeMap.x+homeMap.width <= homeCard.x+homeCard.width+1)
   const homeColor = await vp.locator('.area-hero').evaluate((el) => getComputedStyle(el).getPropertyValue('--area-color').trim().toLowerCase())
   const areaColors = (JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as { areas: { color?: string }[] }).areas.map((a) => a.color?.toLowerCase())
   // 看起來要不同（不只是色碼不同）：RGB 距離至少 80
@@ -1252,6 +1254,8 @@ try {
   check('首頁：長條圖用區域的顏色（和色點相同）', barAndDot[0] === barAndDot[1], barAndDot.join(' / '))
   const nameSize = (selector: string) => vp.locator(selector).first().evaluate((el) => getComputedStyle(el).fontSize)
   const homeName = await nameSize('.area-row .area-name')
+  await checkTerrainMap(vp, base)
+  check('地圖：3D 切換、縮放、拖曳、岩壁點選與區域導覽', true)
   await vp.goto(base + `area/${data.areas.find((a) => a.sectors.some((x) => x.id === topoSector.id))!.id}`)
   await vp.waitForSelector('.area-row .sector-name')
   const sectorName = await nameSize('.area-row .sector-name')

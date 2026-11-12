@@ -2830,10 +2830,11 @@ a.action {
   min-height: 206px;
 }
 
-/* 首頁：名稱在左上，地圖是整張卡片的背景 */
+/* 首頁：手機文字在上、地圖在下，兩者各自佔一列 */
 .area-hero.strip {
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
+  gap: 12px;
 }
 
 /* 清單名稱旁的收藏愛心 */
@@ -4301,6 +4302,10 @@ main.map > div {
   height: 140px;
 }
 
+.terrain-hero {
+  pointer-events: none;
+}
+
 /* 路線清單：清單左右滑換區域，換的時候從旁邊滑進來 */
 .checklist-sectors {
   touch-action: pan-y;
@@ -4612,6 +4617,9 @@ body:has(.sim-banner) main.map:not(.shell main.map) {
 /* 首頁的標題卡：留足高度讓整個龍洞的地圖清楚呈現 */
 [data-layout='wide'] .area-hero.strip {
   min-height: 14rem;
+  grid-template-columns: minmax(10rem, 1fr) minmax(0, 2.4fr);
+  align-content: center;
+  gap: 24px;
 }
 
 [data-layout='wide'] .area-hero h1 {
@@ -5595,21 +5603,31 @@ button.key-row:disabled {
   width: 14rem;
 }
 
-/* 首頁：地圖是整張卡片的背景，可以和文字重疊；左邊（文字那邊）淡出，文字看得清楚 */
+/* 首頁地形圖參與排版，保留文字空間，不再疊成整張卡片的背景 */
 [data-layout] .area-hero.strip > .area-hero-shape.hero-map {
-  position: absolute;
-  inset: 0;
+  position: static;
+  inset: auto;
   width: 100%;
-  height: 100%;
+  height: clamp(120px, 22vw, 180px);
+  min-width: 0;
   margin: 0;
-  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 55%, #000 88%, transparent);
-  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 55%, #000 88%, transparent);
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
-/* 電腦版卡片很寬：地圖放在右邊三分之二（左邊是名稱） */
+/* 電腦版文字與地形圖分欄；文字使用主文字色，降低區域色混色造成的對比損失 */
 [data-layout='wide'] .area-hero.strip > .area-hero-shape.hero-map {
-  left: 33%;
-  width: 67%;
+  height: clamp(150px, 16vw, 208px);
+}
+
+[data-layout] .area-hero.strip h1 {
+  color: var(--text);
+}
+
+[data-layout] .area-hero.strip .area-hero-crag,
+[data-layout] .area-hero.strip .page-sub {
+  color: color-mix(in srgb, var(--text) 85%, var(--surface));
+  margin-bottom: 0;
 }
 
 /* 根元素也是深色：Android 的系統列（上方狀態列、下方手勢列）跟著深色；淺色見最後一節 */
@@ -5658,7 +5676,7 @@ html {
 }
 
 /* 標題卡的地圖下緣也淡出，接到卡片下半段不會有一條邊 */
-[data-layout] .route-m .area-hero > .area-hero-shape.hero-map {
+[data-layout] .route-m .area-hero:not(.strip) > .area-hero-shape.hero-map {
   -webkit-mask-image: linear-gradient(to right, transparent, #000 22%), linear-gradient(to bottom, #000 55%, transparent);
   -webkit-mask-composite: source-in;
   mask-image: linear-gradient(to right, transparent, #000 22%), linear-gradient(to bottom, #000 55%, transparent);

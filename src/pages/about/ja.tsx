@@ -35,6 +35,10 @@ export default function AboutText({ projectUrl, sheetUrl }: AboutTextProps) {
         で管理しており、本サイトは毎日更新を確認し、確認後に公開しています。誤りを見つけた場合は TOCC
         までご連絡ください。ルートの説明と備考は中国語のみです。
       </p>
+      <p>
+        地形：<a href="https://data.gov.tw/dataset/176927" target="_blank" rel="noreferrer">© 内政部地政司 · Taiwan DTM 20m（2025）</a>
+        {' · '}<a href="https://data.gov.tw/license" target="_blank" rel="noreferrer">政府オープンデータライセンス第 1 版</a>
+      </p>
     </>
   )
 }

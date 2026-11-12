@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { MapView } from '../../vendor/climbio-format/format'
-import { MapEditor, MapViewer, type EditorOptions } from '../../vendor/climbio-mapkit/index.js'
+import { MapEditor, MapViewer, type EditorOptions, type MapViewInfo } from '../../vendor/climbio-mapkit/index.js'
 import type { LoadedData } from '../data/dataset'
 import { useLang, type Lang } from '../i18n'
 import { inMapBounds } from './bounds'
@@ -17,7 +17,7 @@ import type { ScaleMapData } from './mapData'
 
 /** 建置時產生的底圖（scripts/gen-kit-base.ts）：只下載一次，各頁的地圖共用 */
 let basePromise: Promise<MapView> | undefined
-function loadKitBase(): Promise<MapView> {
+export function loadKitBase(): Promise<MapView> {
   basePromise ??= fetch(`${import.meta.env.BASE_URL}rescue/kitbase.json`)
     .then((res) => {
       if (!res.ok) throw new Error(`kitbase.json：${res.status}`)
@@ -101,6 +101,7 @@ export function KitMap({
   editable,
   topLeft,
   className,
+  savedView,
 }: {
   map: ScaleMapData
   data: LoadedData
@@ -137,6 +138,7 @@ export function KitMap({
   className?: string
   /** 只標這些分區的名稱（ID） */
   sectorLabels?: boolean | string[]
+  savedView?: RefObject<MapViewInfo | undefined>
 }) {
   const { lang, t } = useLang()
   const base = useKitBase()
@@ -178,7 +180,7 @@ export function KitMap({
 
   // 移到目前位置：第一次定位到（在龍洞範圍內）時自動移過去；按了「回到我的位置」但還沒定位時，定位到再移過去。
   // 之後換了聚焦就以聚焦為準（centerPending）
-  const centerRequest = useRef<CenterRequest | undefined>(focus ? undefined : { focus: undefined })
+  const centerRequest = useRef<CenterRequest | undefined>(focus || savedView?.current ? undefined : { focus: undefined })
   const goToMe = (at: LatLng) => {
     const v = viewer.current
     const now = v?.getView()
@@ -211,7 +213,7 @@ export function KitMap({
       } else centerRequest.current = { focus: focusKey.current }
       latest.current.onLocate?.()
     })
-    return () => v.destroy()
+    return () => { if (savedView) savedView.current = v.getView(); v.destroy() }
   }, [])
   const focusKey = useRef(focus?.key)
   focusKey.current = focus?.key
@@ -220,7 +222,14 @@ export function KitMap({
     if (view && me && centerPending(centerRequest.current, focus?.key) && inMapBounds(me)) goToMe(me)
   }, [here?.coords[0], here?.coords[1], view])
   useEffect(() => {
-    if (view) viewer.current?.setData({ view })
+    if (view) {
+      const initial = !viewer.current?.getView()
+      viewer.current?.setData({ view })
+      if (initial && savedView?.current) {
+        centerRequest.current = undefined
+        viewer.current?.setView(savedView.current)
+      }
+    }
   }, [view])
   const key = JSON.stringify(options)
   useEffect(() => viewer.current?.set(options), [key])

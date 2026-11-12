@@ -14,6 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { chromium, type Browser, type Page } from 'playwright-core'
 import { preview } from 'vite'
+import { offlinePreview } from './lib/offlinePreview'
 import { LANGS, type Lang } from '../src/i18n'
 
 const VIEWPORTS = [
@@ -31,20 +32,21 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
         await page.waitForSelector('.weather-now')
         return
       }
-      // 紅案：還原 SVG 的 width: auto，或移除側欄救援入口。
-      await page.waitForSelector('.area-hero.strip .hero-map path')
+      // 紅案：地圖還原成疊在文字後的背景，或移除側欄救援入口。
+      await page.waitForSelector('.area-hero.strip .hero-map[data-terrain="ready"]')
       const size = await page.locator('.area-hero.strip').evaluate((hero) => {
         const map = hero.querySelector('.hero-map')!.getBoundingClientRect()
-        return { mapWidth: map.width, heroWidth: hero.getBoundingClientRect().width, mapHeight: map.height }
+        const text = hero.querySelector('.area-hero-text')!.getBoundingClientRect()
+        return { mapWidth: map.width, heroWidth: hero.getBoundingClientRect().width, mapHeight: map.height, gap: map.left-text.right }
       })
-      if (size.mapWidth < size.heroWidth * 0.6 || size.mapHeight < 200) {
-        throw new Error('桌面首頁龍洞地圖未填滿右側空間，或高度不足')
+      if (size.mapWidth < size.heroWidth * 0.5 || size.mapHeight < 150 || size.gap < 8) {
+        throw new Error('桌面首頁地圖與文字重疊，或地圖空間不足')
       }
       await page.locator('.sidebar a[href="/rescue"]').click()
       await page.waitForSelector('.rescue .sos-call[href="tel:119"]')
       await page.waitForSelector('.sidebar a[href="/rescue"][aria-current="page"]')
       await page.goto(new URL('/', page.url()).href)
-      await page.waitForSelector('.area-hero.strip .hero-map path')
+      await page.waitForSelector('.area-hero.strip .hero-map[data-terrain="ready"]')
     },
   },
   { name: '區域', path: '/area/longdong/golden-valley' },
@@ -170,8 +172,9 @@ const FIND_PROBLEMS = readFileSync(new URL('./lib/find-overflow.browser.js', imp
 /** 首頁天氣的回應（tests/fixtures 的實際資料） */
 const WEATHER_SAMPLE = readFileSync(new URL('../tests/fixtures/open-meteo.json', import.meta.url), 'utf8')
 
-const server = await preview({ preview: { port: 4179, strictPort: true }, logLevel: 'silent' })
-const base = server.resolvedUrls!.local[0]
+const hermetic = process.argv.includes('--offline-preview')
+const server = hermetic ? undefined : await preview({ preview: { port: 4179, strictPort: true }, logLevel: 'silent' })
+const base = hermetic ? 'https://climbio.test/' : server!.resolvedUrls!.local[0]
 const browser = await launch()
 const found: string[] = []
 
@@ -182,6 +185,7 @@ try {
       const context = await browser.newContext({
         viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true, serviceWorkers: 'block',
       })
+      if (hermetic) await offlinePreview(context)
       try {
         await context.addInitScript(`
           localStorage.setItem('longdong.lang', ${JSON.stringify(lang)})
@@ -322,6 +326,7 @@ try {
         geolocation: { latitude: 25.1069, longitude: 121.9227, accuracy: 15 },
         permissions: ['geolocation'],
       })
+      if (hermetic) await offlinePreview(context)
       await context.addInitScript((l) => localStorage.setItem('longdong.lang', l), lang)
       // 首頁的天氣用固定的回應：不靠外部服務，天氣的文字一定會被檢查到
       await context.route('https://api.open-meteo.com/**', (r) => r.fulfill({ contentType: 'application/json', body: WEATHER_SAMPLE }))
@@ -354,7 +359,7 @@ try {
   }
 } finally {
   await browser.close()
-  await new Promise<void>((resolve) => server.httpServer.close(() => resolve()))
+  if (server) await new Promise<void>((resolve) => server.httpServer.close(() => resolve()))
 }
 
 const unique = [...new Set(found)]

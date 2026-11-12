@@ -140,6 +140,7 @@ export const zh = {
   'map.parking': '停車場',
   'map.hazard': '危險地形',
   'map.ortho': '航照',
+  'map.threeD': '3D 地圖',
   'map.topo': '地形圖',
   'map.orthoNoThanks': '不用',
   'map.orthoOffer': '沒有網路時也要看航照？',

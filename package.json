@@ -23,6 +23,12 @@
     "test:rules": "npx -y firebase-tools@15.34.1 emulators:exec --only database,storage --project demo-longdong \"vitest run --config vitest.rules.config.ts\"",
     "test:topo-shots": "tsx scripts/topo-shots.ts",
     "test:map-shots": "tsx scripts/map-shots.ts",
+    "terrain:crop": "python scripts/terrain/crop-dtm.py",
+    "terrain:coast": "node scripts/terrain/coast-b5000.mjs",
+    "terrain:map": "tsx scripts/terrain/map-coast.ts && python scripts/terrain/crop-dtm.py --map",
+    "test:terrain-data": "python -m unittest discover -s scripts/terrain -p test_*.py",
+    "test:terrain": "tsx scripts/terrain-check.ts && tsx scripts/terrain-performance.ts",
+    "test:terrain-map": "tsx scripts/terrain-map-check.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

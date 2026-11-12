@@ -35,6 +35,10 @@ export default function AboutText({ projectUrl, sheetUrl }: AboutTextProps) {
         , checked for updates daily and published after review. Please report errors to TOCC. Route descriptions and notes are in Chinese
         only.
       </p>
+      <p>
+        Terrain: <a href="https://data.gov.tw/dataset/176927" target="_blank" rel="noreferrer">© Ministry of the Interior · Taiwan DTM 20m (2025)</a>
+        {' · '}<a href="https://data.gov.tw/license" target="_blank" rel="noreferrer">Open Government Data License, version 1.0</a>
+      </p>
     </>
   )
 }
