@@ -25,11 +25,12 @@ export function TerrainHero({ regions, walls, fit, overview, includeIslands, sin
   useEffect(() => {
     let alive = true
     loadTerrain().then((t) => { if (alive) setTerrain(t) }, () => { if (alive) setError(true) })
+    const element = ref.current!
     const observer = new ResizeObserver(() => {
-      const r = ref.current!.getBoundingClientRect()
+      const r = element.getBoundingClientRect()
       setSize((old) => old?.w === r.width && old.h === r.height ? old : { w: r.width, h: r.height })
     })
-    observer.observe(ref.current!)
+    observer.observe(element)
     return () => { alive = false; observer.disconnect() }
   }, [])
   const scene = useMemo(() => {

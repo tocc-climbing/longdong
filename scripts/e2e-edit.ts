@@ -108,7 +108,7 @@ async function newContext(location?: { lat: number; lng: number }, device: Brows
   `)
   const page = await ctx.newPage()
   page.on('console', (m) => m.type() === 'error' && logs.push(m.text()))
-  page.on('pageerror', (e) => logs.push(String(e)))
+  page.on('pageerror', (e) => logs.push(e.stack ?? String(e)))
   page.on('dialog', (d) => void d.accept())
   return { ctx, page }
 }
@@ -1692,9 +1692,13 @@ try {
   check('最愛的區域在首頁排最前面、有愛心', ((await firstRow.locator('.area-name').textContent()) ?? '').includes(favArea.name.zh) && (await firstRow.locator('.fav-mark').count()) === 1)
   const heroH = async () => (await rp.locator('.area-hero').boundingBox())!.height
   const homeHero = await heroH()
+  const homeParts = await rp.locator('.area-hero').evaluate((el) => {
+    const card = el.getBoundingClientRect(), text = el.querySelector('.area-hero-text')!.getBoundingClientRect(), map = el.querySelector('.hero-map')!.getBoundingClientRect()
+    return { gap: map.top-text.bottom, fits: map.bottom <= card.bottom+1 && text.top >= card.top && map.left >= card.left && map.right <= card.right+1 }
+  })
   await rp.goto(base + `area/${favArea.id}`)
   await rp.waitForSelector('.page-tools .tool-button.fav')
-  check('首頁與區域頁的標題卡一樣高', Math.abs(homeHero - (await heroH())) < 1, `${homeHero} / ${await heroH()}`)
+  check('首頁容納文字與地圖兩列，區域標題卡維持完整高度', homeHero >= (await heroH()) && homeParts.gap >= 8 && homeParts.fits, `${homeHero} / ${await heroH()}，${JSON.stringify(homeParts)}`)
   await rp.goto(base + 'me')
   await rp.waitForSelector('.me-m .profile-head')
   const meBoxes = await rp.locator('.me-m :is(.card, .stat-row > div, .checklist-entry, .list-card)').evaluateAll((els) => els.filter((el) => getComputedStyle(el).borderTopWidth !== '0px' || getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)').length)

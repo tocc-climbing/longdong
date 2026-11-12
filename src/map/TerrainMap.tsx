@@ -64,12 +64,13 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
   useEffect(() => {
     let alive = true
     Promise.all([loadTerrain('map'), loadKitBase()]).then(([v, b]) => { if (alive) { initialView.current = savedView?.current; setTerrain(v); setBase(b) } }, (e: Error) => { if (alive) setError(e.message) })
+    const element = svg.current!
     const observer = new ResizeObserver(() => {
-      const rect = svg.current!.getBoundingClientRect()
+      const rect = element.getBoundingClientRect()
       setSize({ w: rect.width, h: rect.height })
       setView(undefined)
     })
-    observer.observe(svg.current!)
+    observer.observe(element)
     return () => { alive = false; observer.disconnect(); clearTimeout(timer.current) }
   }, [])
   const geometry = useMemo(() => {
