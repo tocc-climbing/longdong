@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import type { LocalizedName } from '../data/schema'
 import type { zh } from './zh'
 
@@ -119,10 +119,11 @@ function subscribe(l: () => void) {
 export function useLang(): { lang: Lang; setting: LangSetting; t: Translate } {
   const current = useSyncExternalStore(subscribe, () => state)
   const messages = current.messages
+  const translateCurrent = useCallback<Translate>((key, vars) => (messages ? translate(messages, key, vars) : key), [messages])
   return {
     lang: current.lang,
     setting: current.setting,
-    t: (key, vars) => (messages ? translate(messages, key, vars) : key),
+    t: translateCurrent,
   }
 }
 
