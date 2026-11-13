@@ -55,9 +55,9 @@ function monotone(a: number, b: number, c: number, d: number, t: number): number
 }
 
 /** 正投影，朝向沿用各標題圖的取景方向；高程使用真實公尺，沒有垂直誇張。 */
-export function terrainView(p: Pt, z: number, angle: number): Pt {
+export function terrainView(p: Pt, z: number, angle: number, pitch = 60): Pt {
   const [x, y] = rotate(p, angle)
-  const tilt = Math.PI / 3
+  const tilt = pitch*Math.PI/180
   return [x, y*Math.cos(tilt)-z*Math.sin(tilt)]
 }
 
@@ -112,7 +112,7 @@ export function terrainMesh(t: Terrain, angle: number, box: [number, number, num
 }
 
 /** 反投影視窗及全圖高程上下界，保守界定可能出現在畫面裡的原生網格。 */
-export function terrainGridBounds(t: Terrain, angle: number, box: [number, number, number, number], stride: 1 | 2) {
+export function terrainGridBounds(t: Terrain, angle: number, box: [number, number, number, number], stride: 1 | 2, pitch = 60) {
   const [left, top, width, height] = box
   // 小分區只需處理附近幾十到幾百格，避免每次掃過整個龍洞。
   let low = Infinity, high = -Infinity
@@ -121,8 +121,9 @@ export function terrainGridBounds(t: Terrain, angle: number, box: [number, numbe
   }
   const det = t.u[0]*t.v[1]-t.u[1]*t.v[0]
   const cells: Pt[] = []
+  const tilt = pitch*Math.PI/180
   for (const x of [left, left+width]) for (const y of [top, top+height]) for (const z of [low, high]) {
-    const ground = rotate([x, (y+z*Math.sin(Math.PI/3))/Math.cos(Math.PI/3)], -angle)
+    const ground = rotate([x, (y+z*Math.sin(tilt))/Math.cos(tilt)], -angle)
     const dx = ground[0]-t.origin[0], dy = ground[1]-t.origin[1]
     cells.push([(dx*t.v[1]-dy*t.v[0])/det, (dy*t.u[0]-dx*t.u[1])/det])
   }
@@ -134,21 +135,40 @@ export function terrainGridBounds(t: Terrain, angle: number, box: [number, numbe
 }
 
 /** 保留所有原節點，再依間距補取樣貼合曲面；岩壁預設 1m，缺值處斷線。 */
-export function drape(t: Terrain, lines: Pt[][], angle: number, offset: number, spacing = 1): string {
-  const pieces: string[] = []
+export type TerrainSamples = ({ at: Pt; z: number } | null)[]
+
+/** 高程只在資料改變時取樣，調整傾角時只重做投影。 */
+export function sampleTerrainLines(t: Terrain, lines: Pt[][], offset: number, spacing = 1): TerrainSamples {
+  const points: TerrainSamples = []
   for (const line of lines) {
-    let pen = false
+    points.push(null)
     for (let i = 0; i < line.length; i++) {
       const a = line[i], b = line[i+1] ?? a
       const steps = Math.max(1, Math.ceil(Math.hypot(b[0]-a[0], b[1]-a[1])/spacing))
       for (let j = 0; j < steps; j++) {
         const p: Pt = [a[0]+(b[0]-a[0])*j/steps, a[1]+(b[1]-a[1])*j/steps]
         const z = elevation(t, p)
-        if (z === undefined) { pen = false; continue }
-        pieces.push(`${pen ? 'L' : 'M'}${pair(terrainView(p, z+offset, angle))}`)
-        pen = true
+        points.push(z === undefined ? null : { at: p, z: z+offset })
       }
     }
   }
+  return points
+}
+
+export function projectTerrainPath(points: TerrainSamples, angle: number, pitch = 60): string {
+  const pieces: string[] = []
+  const bearing = angle*Math.PI/180, tilt = pitch*Math.PI/180
+  const c = Math.cos(bearing), s = Math.sin(bearing), ct = Math.cos(tilt), st = Math.sin(tilt)
+  let pen = false
+  for (const point of points) {
+    if (!point) { pen = false; continue }
+    const x = point.at[0]*c-point.at[1]*s, y = (point.at[0]*s+point.at[1]*c)*ct-point.z*st
+    pieces.push(`${pen ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`)
+    pen = true
+  }
   return pieces.join('')
+}
+
+export function drape(t: Terrain, lines: Pt[][], angle: number, offset: number, spacing = 1, pitch = 60): string {
+  return projectTerrainPath(sampleTerrainLines(t, lines, offset, spacing), angle, pitch)
 }

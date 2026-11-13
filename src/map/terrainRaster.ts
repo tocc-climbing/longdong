@@ -12,6 +12,7 @@ uniform vec2 basisU;
 uniform vec2 basisV;
 uniform vec4 box;
 uniform vec2 turn;
+uniform vec2 tilt;
 in vec2 grid;
 in vec2 photoUV;
 out vec2 photoAt;
@@ -47,8 +48,8 @@ void main() {
   normal=normalize(vec3(-slope,1.0));
   vec2 p=origin+grid.x*basisU+grid.y*basisV;
   vec2 ground=vec2(p.x*turn.x-p.y*turn.y,p.x*turn.y+p.y*turn.x);
-  vec2 screen=vec2(ground.x,ground.y*0.5-h.x*0.866025403784);
-  float depth=ground.y*0.866025403784+h.x*0.5;
+  vec2 screen=vec2(ground.x,ground.y*tilt.x-h.x*tilt.y);
+  float depth=ground.y*tilt.y+h.x*tilt.x;
   gl_Position=vec4((screen.x-box.x)/box.z*2.0-1.0,1.0-(screen.y-box.y)/box.w*2.0,-depth/10000.0,1.0);
   valid=h.y; atGrid=grid; photoAt=photoUV;
 }`
@@ -103,6 +104,7 @@ class Rasterizer {
   readonly coast: WebGLTexture
   readonly photo: WebGLTexture
   currentPhoto?: TerrainOrtho
+  meshKey?: string
   current?: Terrain
   fieldKey?: string
   wallCoverage = 0
@@ -128,9 +130,10 @@ class Rasterizer {
     this.vertices = gl.createBuffer()!; this.indices = gl.createBuffer()!; this.texture = gl.createTexture()!; this.colors = gl.createTexture()!; this.coast = gl.createTexture()!; this.photo = gl.createTexture()!
   }
 
-  draw(t: Terrain, regions: TerrainRegion[], fieldKey: string, angle: number, box: [number, number, number, number], width: number, height: number, ratio: number, fieldScale: 2 | 3, maxVertices: number, context: boolean, photo?: TerrainOrtho) {
+  draw(t: Terrain, regions: TerrainRegion[], fieldKey: string, angle: number, box: [number, number, number, number], width: number, height: number, ratio: number, fieldScale: 2 | 3, maxVertices: number, context: boolean, photo?: TerrainOrtho, pitch = 60, target?: HTMLCanvasElement) {
     const gl = this.gl
-    this.canvas.width = Math.ceil(width*ratio); this.canvas.height = Math.ceil(height*ratio)
+    if (this.canvas.width !== Math.ceil(width*ratio)) this.canvas.width = Math.ceil(width*ratio)
+    if (this.canvas.height !== Math.ceil(height*ratio)) this.canvas.height = Math.ceil(height*ratio)
     gl.viewport(0, 0, this.canvas.width, this.canvas.height)
     gl.useProgram(this.program)
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.photo)
@@ -169,30 +172,40 @@ class Rasterizer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
       this.fieldKey = fieldKey; this.wallCoverage = field.wallCoverage; this.continuousCoverage = field.continuousCoverage
     }
-    const bounds = terrainGridBounds(t, angle, box, 1)
+    // 調角時固定南北網格，只保留可見的東西向帶；網格不隨角度重建，放大後仍有足夠細分。
+    const ys = target ? [terrainPoint(t, 0, 0)[1], terrainPoint(t, t.columns-1, 0)[1], terrainPoint(t, 0, t.rows-1)[1], terrainPoint(t, t.columns-1, t.rows-1)[1]] : []
+    const bounds = target
+      ? { ...terrainGridBounds(t, 0, [box[0], Math.min(...ys), box[2], Math.max(...ys)-Math.min(...ys)], 1, 0), firstRow: 0, lastRow: t.rows-2 }
+      : terrainGridBounds(t, angle, box, 1, pitch)
     const spanC = bounds.lastCol+1-bounds.firstCol, spanR = bounds.lastRow+1-bounds.firstRow
     // 以實際螢幕像素決定取樣密度；曲面約每 2 個實體像素一個頂點，光照逐像素內插。
     const nativeMeters = Math.hypot(...t.u)
     let divisions = Math.min(64, Math.max(1, Math.ceil(nativeMeters/(box[2]/this.canvas.width*2))))
     while ((spanC*divisions+1)*(spanR*divisions+1) > maxVertices && divisions > 1) divisions--
     const cols = Math.ceil(spanC*divisions), rows = Math.ceil(spanR*divisions)
-    const positions = new Float32Array((cols+1)*(rows+1)*4)
-    for (let r = 0; r <= rows; r++) for (let c = 0; c <= cols; c++) {
-      const i = (r*(cols+1)+c)*4
-      positions[i] = bounds.firstCol+c/divisions; positions[i+1] = bounds.firstRow+r/divisions
-      if (photo) positions.set(terrainOrthoUV(terrainPoint(t, positions[i], positions[i+1]), photo), i+2)
+    const meshKey = JSON.stringify([bounds, divisions, photo && [photo.z, photo.x, photo.y, photo.columns, photo.rows]])
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indices)
+    if (changed || this.meshKey !== meshKey) {
+      const positions = new Float32Array((cols+1)*(rows+1)*4)
+      for (let r = 0; r <= rows; r++) for (let c = 0; c <= cols; c++) {
+        const i = (r*(cols+1)+c)*4
+        positions[i] = bounds.firstCol+c/divisions; positions[i+1] = bounds.firstRow+r/divisions
+        if (photo) positions.set(terrainOrthoUV(terrainPoint(t, positions[i], positions[i+1]), photo), i+2)
+      }
+      const indices = new Uint32Array(cols*rows*6)
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const i = r*(cols+1)+c
+        indices.set([i, i+1, i+cols+1, i+1, i+cols+2, i+cols+1], (r*cols+c)*6)
+      }
+      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW)
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW)
+      this.meshKey = meshKey
     }
-    const indices = new Uint32Array(cols*rows*6)
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const i = r*(cols+1)+c
-      indices.set([i, i+1, i+cols+1, i+1, i+cols+2, i+cols+1], (r*cols+c)*6)
-    }
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices); gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW)
     const attribute = gl.getAttribLocation(this.program, 'grid')
     gl.enableVertexAttribArray(attribute); gl.vertexAttribPointer(attribute, 2, gl.FLOAT, false, 16, 0)
     const photoAttribute = gl.getAttribLocation(this.program, 'photoUV')
     gl.enableVertexAttribArray(photoAttribute); gl.vertexAttribPointer(photoAttribute, 2, gl.FLOAT, false, 16, 8)
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indices); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW)
     const uniform = (name: string) => gl.getUniformLocation(this.program, name)
     gl.uniform1i(uniform('heights'), 0)
     gl.uniform1i(uniform('regionColors'), 1)
@@ -203,10 +216,17 @@ class Rasterizer {
     gl.uniform2f(uniform('basisU'), ...t.u); gl.uniform2f(uniform('basisV'), ...t.v)
     gl.uniform4f(uniform('box'), ...box)
     gl.uniform2f(uniform('turn'), Math.cos(angle*Math.PI/180), Math.sin(angle*Math.PI/180))
+    gl.uniform2f(uniform('tilt'), Math.cos(pitch*Math.PI/180), Math.sin(pitch*Math.PI/180))
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL)
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0)
-    return { all: this.canvas.toDataURL('image/png'), triangles: cols*rows*2, sampleMeters: nativeMeters/divisions, wallCoverage: this.wallCoverage, continuousCoverage: this.continuousCoverage, coastMeters: this.coastMeters, pixelWidth: this.canvas.width, pixelHeight: this.canvas.height, renderer: 'webgl' as const }
+    gl.drawElements(gl.TRIANGLES, cols*rows*6, gl.UNSIGNED_INT, 0)
+    if (target) {
+      if (target.width !== this.canvas.width) target.width = this.canvas.width
+      if (target.height !== this.canvas.height) target.height = this.canvas.height
+      const ctx = target.getContext('2d')!
+      ctx.clearRect(0, 0, target.width, target.height); ctx.drawImage(this.canvas, 0, 0)
+    }
+    return { all: target ? '' : this.canvas.toDataURL('image/png'), triangles: cols*rows*2, sampleMeters: nativeMeters/divisions, wallCoverage: this.wallCoverage, continuousCoverage: this.continuousCoverage, coastMeters: this.coastMeters, pixelWidth: this.canvas.width, pixelHeight: this.canvas.height, renderer: 'webgl' as const }
   }
 }
 
@@ -214,15 +234,23 @@ let rasterizer: Rasterizer | undefined
 let unavailable = false
 let previous: { terrain: Terrain; key: string; image: ReturnType<Rasterizer['draw']> } | undefined
 
-export function rasterTerrain(t: Terrain, regions: TerrainRegion[], angle: number, box: [number, number, number, number], width: number, height: number, { maxVertices = 180000, context = false, photo }: { maxVertices?: number; context?: boolean; photo?: TerrainOrtho } = {}) {
+const fieldKeyFor = (regions: TerrainRegion[], scale: 2 | 3, context: boolean) => JSON.stringify([scale, context, regions.map((r) => [r.id, r.color, r.walls, r.rings])])
+
+export function paintTerrainFrame(target: HTMLCanvasElement, t: Terrain, regions: TerrainRegion[], pitch: number, box: [number, number, number, number], width: number, height: number, photo?: TerrainOrtho) {
+  rasterizer ??= new Rasterizer()
+  const scale = width >= 600 ? 3 : 2
+  rasterizer.draw(t, regions, fieldKeyFor(regions, scale, true), 0, box, width, height, 1, scale, 45000, true, photo, pitch, target)
+}
+
+export function rasterTerrain(t: Terrain, regions: TerrainRegion[], angle: number, box: [number, number, number, number], width: number, height: number, { maxVertices = 180000, context = false, photo, pitch = 60 }: { maxVertices?: number; context?: boolean; photo?: TerrainOrtho; pitch?: number } = {}) {
   if (unavailable) return undefined
   try {
     const { ratio, fieldScale } = terrainDisplayResolution(width, height, window.devicePixelRatio || 1)
-    const fieldKey = JSON.stringify([fieldScale, context, regions.map((r) => [r.id, r.color, r.walls, r.rings])])
-    const key = JSON.stringify([fieldKey, angle, ...box, width, height, ratio, maxVertices])
+    const fieldKey = fieldKeyFor(regions, fieldScale, context)
+    const key = JSON.stringify([fieldKey, angle, pitch, ...box, width, height, ratio, maxVertices])
     if (previous?.terrain === t && previous.key === key && rasterizer?.currentPhoto === photo) return previous.image
     rasterizer ??= new Rasterizer()
-    const image = rasterizer.draw(t, regions, fieldKey, angle, box, width, height, ratio, fieldScale, maxVertices, context, photo)
+    const image = rasterizer.draw(t, regions, fieldKey, angle, box, width, height, ratio, fieldScale, maxVertices, context, photo, pitch)
     previous = { terrain: t, key, image }
     return image
   } catch (error) {

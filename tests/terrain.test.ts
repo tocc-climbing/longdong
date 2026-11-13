@@ -8,6 +8,12 @@ import { terrainDisplayResolution } from '../src/map/terrainRaster'
 // 突變：高程少乘 scale、雙線性內插改成單點取樣、把缺值改成 0、忽略 z 投影。
 const grid: Terrain = { origin: [0, 0], u: [20, 0], v: [0, 20], columns: 2, rows: 2, scale: 0.1, heights: [0, 100, 200, 300] }
 describe('20m DTM 地形', () => {
+  it('可調整傾角：30 度保留約 87% 南北長度，俯視不壓縮平面', () => {
+    // 突變：忽略 pitch，繼續固定使用 60 度。
+    expect(terrainView([10, 100], 100, 0, 30)[0]).toBe(10)
+    expect(terrainView([10, 100], 100, 0, 30)[1]).toBeCloseTo(36.6025403784)
+    expect(terrainView([10, 100], 100, 0, 0)).toEqual([10, 100])
+  })
   it('陸側分區邊界漸變接回山坡，岩壁仍保持完整顯色', () => {
     // 突變：移除顯色外框的平滑過渡，會恢復校門口左上方的硬切色塊。
     vi.stubGlobal('document', { createElement: () => createCanvas(1, 1) })

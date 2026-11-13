@@ -3,6 +3,7 @@ import type { Page } from 'playwright-core'
 import { readFileSync } from 'node:fs'
 import { createCanvas } from '@napi-rs/canvas'
 import { elevation, type Terrain } from '../../src/map/terrain'
+import { checkTerrainTilt } from './terrainTiltCheck'
 
 /** 突變：只更新 viewBox，讓圖示沿用停止縮放前的比例，等重繪才恢復大小。 */
 export async function checkTerrainZoomStability(page: Page) {
@@ -65,6 +66,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   await page.getByRole('button', { name: '3D 地圖', exact: true }).click()
   const svg = page.locator('.terrain-map-view')
   await page.waitForSelector('.terrain-map-view[data-terrain="ready"]')
+  assert.equal(await page.locator('.terrain-map').getAttribute('data-pitch'), '30', '3D 地圖預設傾角不是 30 度')
   await checkTerrainPresentation(page)
   assert.deepEqual(await controlLayout(), controls2D, '3D 控制項未對齊 2D 右下配置')
   assert.equal(await page.locator('.terrain-map-controls, .terrain-map .mk-compass').count(), 0, '3D 仍有額外右上按鈕')
@@ -88,7 +90,8 @@ export async function checkTerrainMap(page: Page, base: string) {
   const centerY = (25.107-lat)*m
   const full = JSON.parse(readFileSync('public/rescue/terrain-map-20m.json', 'utf8')) as Terrain
   assert(Math.abs(initial[0]+initial[2]/2-centerX) < 0.1, '切換 3D 未保留平面地圖中心')
-  assert(Math.abs(initial[1]+initial[3]/2-(centerY*0.5-elevation(full, [centerX, centerY])!*Math.sqrt(3)/2)) < 0.1, '切換 3D 未保留平面地圖緯度')
+  assert(Math.abs(initial[1]+initial[3]/2-(centerY*Math.sqrt(3)/2-elevation(full, [centerX, centerY])!*0.5)) < 0.1, '切換 3D 未保留平面地圖緯度')
+  await checkTerrainTilt(page)
   if (initial[2]/viewport.width > 2.4) {
     assert.equal(await page.locator('[data-label-kind="boat"], [data-label-kind="helicopter"]').count(), 0, '全圖仍擠滿細節標示')
   }
@@ -107,7 +110,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   const checkGroundStart = async (selector: string, source: [number, number], name: string) => {
     const m = 6371000*Math.PI/180, p: [number, number] = [(source[0]-121.92)*m*Math.cos(25.107*Math.PI/180), (25.107-source[1])*m]
     const actual = (await page.locator(selector).first().getAttribute('d'))!.match(/^M([-\d.]+),([-\d.]+)/)!
-    assert(Math.abs(Number(actual[1])-p[0]) <= 0.051 && Math.abs(Number(actual[2])-(p[1]*0.5-elevation(full, p)!*Math.sqrt(3)/2)) <= 0.051, `${name}沒有貼合實際高程`)
+    assert(Math.abs(Number(actual[1])-p[0]) <= 0.051 && Math.abs(Number(actual[2])-(p[1]*Math.sqrt(3)/2-elevation(full, p)!*0.5)) <= 0.051, `${name}沒有貼合實際高程`)
   }
   const wallId = (await page.locator('[data-terrain-wall]').first().getAttribute('data-terrain-wall'))!.split('#')
   const wallSource = JSON.parse(readFileSync('public/rescue/walls.geojson', 'utf8')).features.find((f: { properties: { sector: string } }) => f.properties.sector === wallId[0]).geometry.coordinates[Number(wallId[1])][0]
@@ -123,7 +126,7 @@ export async function checkTerrainMap(page: Page, base: string) {
     const node = el as SVGImageElement, img = new Image(); img.src = node.href.baseVal; await img.decode()
     const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
     const ctx = canvas.getContext('2d')!; ctx.drawImage(img, 0, 0)
-    return [...ctx.getImageData(Math.round((140-node.x.baseVal.value)/node.width.baseVal.value*img.width), Math.round((-175-z*Math.sqrt(3)/2-node.y.baseVal.value)/node.height.baseVal.value*img.height), 1, 1).data]
+    return [...ctx.getImageData(Math.round((140-node.x.baseVal.value)/node.width.baseVal.value*img.width), Math.round((-350*Math.sqrt(3)/2-z*0.5-node.y.baseVal.value)/node.height.baseVal.value*img.height), 1, 1).data]
   }, elevation(full, [140, -350])!)
   assert(west[3] > 220 && west[1] > west[0] && west[1] > west[2], '原圖西側山坡仍是空白或被攀岩區顏色覆蓋')
   const zoomButton = page.getByRole('button', { name: '放大', exact: true })
@@ -227,7 +230,7 @@ export async function checkTerrainMap(page: Page, base: string) {
     const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height
     const ctx = canvas.getContext('2d')!; ctx.drawImage(image, 0, 0)
     return points.map(({ x, y, z }) => {
-      const px = (x-node.x.baseVal.value)/node.width.baseVal.value*image.width, py = (y*0.5-z*Math.sqrt(3)/2-node.y.baseVal.value)/node.height.baseVal.value*image.height
+      const px = (x-node.x.baseVal.value)/node.width.baseVal.value*image.width, py = (y*Math.sqrt(3)/2-z*0.5-node.y.baseVal.value)/node.height.baseVal.value*image.height
       return px >= 0 && py >= 0 && px < image.width && py < image.height ? [...ctx.getImageData(Math.floor(px), Math.floor(py), 1, 1).data] : undefined
     })
   }, samples)
@@ -251,6 +254,7 @@ export async function checkTerrainMap(page: Page, base: string) {
     checked++
   })
   assert(checked >= 2, '航照對位檢查缺少可見地點')
+  await checkTerrainTilt(page)
   await checkTerrainPhotoContinuity(page)
   await page.getByRole('button', { name: '航照', exact: true }).click()
   assert.equal(await page.locator('[data-surface="ortho"]').count(), 0, '關閉航照仍留下貼圖')
