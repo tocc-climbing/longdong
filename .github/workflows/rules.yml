@@ -8,12 +8,6 @@ name: Database rules
 # - 手動執行：部署 release 的規則（例如補部署）
 # 直接用 REST API 指定 longdong 這個資料庫，不經 firebase deploy（firebase.json 沒指定 instance 時會部署到專案的預設資料庫）
 on:
-  pull_request:
-    # 改到這個 workflow 本身時也檢查一次（確認服務帳號的權限）
-    paths: [firebase/database.rules.json, .github/workflows/rules.yml]
-  push:
-    branches: [release]
-    paths: [firebase/database.rules.json]
   workflow_dispatch:
 
 permissions:
@@ -33,7 +27,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           # 手動執行時部署正式版（release）的規則
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'release' || '' }}
+          ref: release
 
       # 服務帳號需要 Firebase Realtime Database Admin 角色。
       # 以服務帳號金鑰簽 JWT 向 Google 換存取權杖（OAuth 2.0 JWT bearer）；
@@ -85,7 +79,6 @@ jobs:
           curl -sS --fail-with-body -X PUT -H "Authorization: Bearer $TOKEN" --data-binary @firebase/database.rules.json "$RULES_URL?dryRun=true"
 
       - name: 部署規則
-        if: github.event_name != 'pull_request'
         env:
           TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |

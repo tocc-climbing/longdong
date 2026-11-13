@@ -8,19 +8,42 @@ name: Deploy
 # - 潮汐（中央氣象署，未來一個月）在建置時抓，不放進 repo；每週一重新部署兩個網站，潮汐跟著更新。
 #   授權碼在 CWA_API_KEY 這個 Environment。
 on:
-  push:
-    branches: [main, release]
-  schedule:
-    # 每週一台灣時間 04:00（預設分支 main）
-    - cron: '0 20 * * 0'
   workflow_dispatch:
+  push:
+    branches: [chatgpt-deploy]
+    paths: [deploy-requests/dev.json]
 
 permissions:
   contents: read
 
 jobs:
+  validate-chatgpt-request:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.validate.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - name: 驗證開發站部署指令
+        id: validate
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+          [ "$changed" = "deploy-requests/dev.json" ] || { echo "只允許變更開發站部署指令" >&2; exit 1; }
+          node -e '
+            const fs = require("node:fs");
+            const r = JSON.parse(fs.readFileSync("deploy-requests/dev.json", "utf8"));
+            if (r.environment !== "dev" || !["check", "deploy"].includes(r.action)) throw new Error("部署指令不合法");
+            if (typeof r.requestedAt !== "string" || !r.requestedAt.length) throw new Error("缺少指令識別時間");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy=${r.action === "deploy"}\n`);
+          '
   dev:
-    if: github.ref_name == 'main'
+    needs: validate-chatgpt-request
+    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') || (github.event_name == 'push' && github.ref_name == 'chatgpt-deploy' && needs.validate-chatgpt-request.outputs.deploy == 'true')
     runs-on: ubuntu-latest
     environment: CWA_API_KEY
     concurrency:
@@ -29,6 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: main
           # 版號的最後一碼是提交數，需要完整的 git 歷史
           fetch-depth: 0
 
@@ -70,6 +94,7 @@ jobs:
           firebaseToolsVersion: 15.34.0
 
   live:
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'release'
     runs-on: ubuntu-latest
     environment: CWA_API_KEY
     permissions:
@@ -83,20 +108,9 @@ jobs:
           ref: release
           fetch-depth: 0
 
-      # main 的推送：只有路線資料和正式版不同時才更新正式站；每週排程與手動執行一律更新（潮汐）
-      - name: 加入 main 的最新路線資料
+      - name: 確認手動發布
         id: data
-        run: |
-          if [ "$GITHUB_REF_NAME" = main ]; then
-            git checkout "$GITHUB_SHA" -- public/data
-            if [ "$GITHUB_EVENT_NAME" = push ] && git diff --cached --quiet -- public/data; then
-              echo "路線資料與正式版相同，正式站不用更新"
-              echo "deploy=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            echo "路線資料有更新，用正式版的程式加上新資料部署正式站"
-          fi
-          echo "deploy=true" >> "$GITHUB_OUTPUT"
+        run: echo "deploy=true" >> "$GITHUB_OUTPUT"
 
       - if: steps.data.outputs.deploy == 'true'
         uses: actions/setup-node@v7
@@ -106,15 +120,6 @@ jobs:
 
       - if: steps.data.outputs.deploy == 'true'
         run: npm ci
-
-      # 新資料要符合正式版程式的資料格式（main 改了格式時，資料要等發布才能上正式站）
-      - name: 驗證路線資料
-        if: steps.data.outputs.deploy == 'true' && github.ref_name == 'main'
-        run: |
-          if ! npx tsx scripts/validate-data.ts; then
-            echo "::warning::main 的路線資料不符合正式版程式的資料格式，正式站這次不更新；發布後就會一起上線"
-            exit 1
-          fi
 
       - if: steps.data.outputs.deploy == 'true'
         run: npm test
@@ -146,7 +151,7 @@ jobs:
           # 15.34.1 起部署前會查 Service Usage API，專案沒開這個 API 就 403；先固定在可用的版本
           firebaseToolsVersion: 15.34.0
 
-      # 發布時打上版號標籤（例如 v1.0.98），GitHub 上看得到每次發布的是哪個 commit
+      # 手動發布正式版時打版號標籤
       - name: 版號標籤
         if: steps.data.outputs.deploy == 'true' && github.ref_name == 'release'
         run: |

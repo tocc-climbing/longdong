@@ -5,9 +5,6 @@ name: CI
 # workflow_dispatch：每日資料同步以 GITHUB_TOKEN 開的 PR 不會觸發 pull_request 事件，
 # 由同步流程在開完 PR 後以 workflow_dispatch 觸發，結果同樣掛在 PR 的 commit 上。
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:
