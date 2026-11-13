@@ -126,7 +126,7 @@ npm run preview      # 預覽 build 結果，可測試離線
 
 分享路線的網址就是路線頁（`/route/<路線ID>`）：`npm run build` 最後替每條路線產生 `dist/route/<路線ID>.html`（`scripts/gen-share-pages.ts`），內容是 `index.html` 換上這條路線的預覽資訊，Facebook、LINE 的預覽卡片才看得到路線；`firebase.json` 的 `cleanUrls` 讓網址不帶 `.html`。頁面裡的完整網址來自 `scripts/sheet.config.ts` 的 `SITE_URL`，換網域時要一併修改。
 
-岩場站出口：`npm run build` 最後把路線資料、Topo（照片＋線段）與岩場地圖（底圖、區域、岩壁、地點）輸出成 [Climbio 公開格式 v2](vendor/climbio-format/README.md)，放在 `dist/climbio/`（`scripts/gen-climbio.ts`）。入口是 `/climbio/longdong.json`，不用登入、回 `Access-Control-Allow-Origin: *`；Topo 與地圖是部署當時資料庫的最新版本。地圖只有龍洞自己產生的，不含 OpenStreetMap 的部分，要不要疊由用的人決定。
+岩場站出口：`npm run build` 最後把路線資料、Topo（照片＋線段）與岩場地圖（底圖、區域、岩壁、地點）輸出成 [Climbio 公開格式 v2](vendor/climbio-format/README.md)，放在 `dist/climbio/`（`scripts/gen-climbio.ts`）。入口是 `/climbio/longdong.json`，不用登入、回 `Access-Control-Allow-Origin: *`；Topo 與地圖是部署當時資料庫的最新版本。為了讓紅點貓用網址一次匯入：Topo 照片長邊縮到 1600（`vendor/climbio-sourcekit`，網站上存的原圖不動）；入口的 `props.preview` 指到 `preview.jpg`（合成預覽圖：入口照片加每張照片的小圖，匯入前先看、下載時小圖一格格亮起），`props.pack` 指到 `pack.json`（入口以外的所有文件合成一個檔，一個請求讀完）。地圖只有龍洞自己產生的，不含 OpenStreetMap 的部分，要不要疊由用的人決定。
 
 ## 介面語言
 

@@ -1,8 +1,8 @@
 /**
- * TopoKit、mapkit 的固定版本副本：從本機 climbio-internal 的指定提交複製到 vendor/，記下來源與檔案雜湊。
+ * TopoKit、mapkit、sourcekit 的固定版本副本：從本機 climbio-internal 的指定提交複製到 vendor/，記下來源與檔案雜湊。
  * climbio-internal 是私人 repo，GitHub Actions 抓不到，所以副本放進龍洞；副本不在這裡改，要改回 climbio-internal 改再重新複製。
  *
- *   npx tsx scripts/vendor-climbio.ts <climbio-internal 路徑> <提交>   複製兩個套件、寫 SOURCE.md
+ *   npx tsx scripts/vendor-climbio.ts <climbio-internal 路徑> <提交> [套件…]   複製套件（不給就全部）、寫 SOURCE.md
  *   npx tsx scripts/vendor-climbio.ts --check                          核對副本與 SOURCE.md 的雜湊（tests/vendorClimbio.test.ts 也會跑）
  */
 import { execFileSync } from 'node:child_process'
@@ -13,6 +13,7 @@ import { join } from 'node:path'
 export const PACKAGES = [
   { dir: 'topokit', vendor: 'vendor/climbio-topokit' },
   { dir: 'mapkit', vendor: 'vendor/climbio-mapkit' },
+  { dir: 'sourcekit', vendor: 'vendor/climbio-sourcekit' },
 ] as const
 
 /** 套件 package.json 的 files 裡要的：程式、型別、授權與說明；demo.html 讀 climbio 的其他資料夾，不複製 */
@@ -38,10 +39,10 @@ export function vendorMismatches(root: string): string[] {
   return bad
 }
 
-function copy(repo: string, commit: string) {
+function copy(repo: string, commit: string, only: string[] = []) {
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { maxBuffer: 64 << 20 })
   const full = git('rev-parse', '--verify', `${commit}^{commit}`).toString().trim()
-  for (const p of PACKAGES) {
+  for (const p of PACKAGES.filter((q) => !only.length || only.includes(q.dir))) {
     const names = git('ls-tree', '--name-only', full, `${p.dir}/`)
       .toString()
       .split('\n')
@@ -76,11 +77,11 @@ ${rows.join('\n')}
 }
 
 if (process.argv[1]?.replace(/\\/g, '/').endsWith('scripts/vendor-climbio.ts')) {
-  const [a, b] = process.argv.slice(2)
+  const [a, b, ...only] = process.argv.slice(2)
   if (a === '--check') {
     const bad = vendorMismatches('.')
     if (bad.length) throw new Error(`副本和 SOURCE.md 對不上：\n${bad.join('\n')}`)
     console.log('副本與 SOURCE.md 一致')
-  } else if (a && b) copy(a, b)
-  else throw new Error('用法：vendor-climbio.ts <climbio-internal 路徑> <提交>，或 --check')
+  } else if (a && b) copy(a, b, only)
+  else throw new Error('用法：vendor-climbio.ts <climbio-internal 路徑> <提交>，或加套件名只更新那幾個，或 --check')
 }

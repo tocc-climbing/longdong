@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { previewProps } from '../../vendor/climbio-sourcekit/preview-layout.js'
 import type { Layer, MapView, Node, PhotoView, Set, Text } from '../../vendor/climbio-format/format'
 import { toCamera } from '../../src/core/format/camera'
 import { toTopoLayer, toTopoView } from '../../src/core/format/topo'
@@ -14,6 +15,7 @@ import type { Area, Dataset, LocalizedName, Route, RouteStatus } from '../../src
  *   <id>.json            其他檔案以檔案 id 為檔名：岩場地圖（地圖畫面，scripts/lib/climbioMap.ts：底圖、區域、岩壁、地點）、
  *                        區域的組合（type area：區域、分區、路線節點，items 是 Topo）、Topo 的照片畫面、疊在照片上的路線線段與 bolt（圖層）
  *   <畫面 id>.webp／.jpg  Topo 的照片
+ *   preview.jpg          合成預覽圖（props.preview）；pack.json 入口以外所有文件的合併檔（props.pack），紅點貓匯入用
  *
  * 全域 id 由好讀代號算出（globalId）：同一個代號每次輸出都一樣。之後 Sheet 加上全域 id 欄時填入同一組值，id 不變。
  */
@@ -78,7 +80,11 @@ const datasetT = (d: Dataset) => Date.parse(d.updatedAt)
 const datasetSource = (d: Dataset, c: Common) => ({ url: c.dataUrl, version: d.version })
 
 /** 岩場的組合：岩場節點（五金代號表放在 props），items 是岩場地圖與各區域的組合 */
-export function cragSet(d: Dataset, map: MapView, c: Common): Set {
+/** 出口檔案：合併檔（紅點貓一個請求讀完整個出口）、合成預覽圖 */
+export const PACK_FILE = 'pack.json'
+
+/** photos：出口裡有幾張 Topo 照片（預覽圖的格子數）；有的話組合帶 props.preview（紅點貓下載前先看），並一律帶 props.pack */
+export function cragSet(d: Dataset, map: MapView, c: Common, photos = 0): Set {
   return {
     climbio: 2,
     kind: 'set',
@@ -91,6 +97,7 @@ export function cragSet(d: Dataset, map: MapView, c: Common): Set {
     source: datasetSource(d, c),
     items: [{ href: `${map.id}.json`, id: map.id, t: map.t }, ...d.areas.map((a) => ({ href: `${fileId(a.id, 'set')}.json`, id: fileId(a.id, 'set'), name: text(a.name) }))],
     nodes: [{ id: globalId(d.crag.id), type: 'crag', name: text(d.crag.name), props: { code: d.crag.id, 'longdong:hardware': d.hardware } }],
+    props: { pack: { href: PACK_FILE }, ...(photos ? { preview: previewProps(photos) } : {}) },
   }
 }
 

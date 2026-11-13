@@ -1,0 +1,16 @@
+{
+  "name": "@climbio/sourcekit",
+  "version": "0.1.0",
+  "description": "Helpers for sites and importers that publish Climbio v2 data: topo photo size policy (long edge 1600) and the composite preview-sheet layout.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./*.js": "./*.js"
+  },
+  "license": "Apache-2.0",
+  "types": "index.d.ts"
+}
