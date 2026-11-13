@@ -94,18 +94,17 @@ const PAGES: { name: string; path: string; prepare?: (page: Page, mobile: boolea
     },
   },
   {
-    name: '地圖（第一次使用的說明）',
+    name: '地圖（首次直接顯示地圖）',
     path: '/map',
     prepare: async (page) => {
-      await page.waitForSelector('.sheet[open] .action.primary')
+      await page.waitForSelector('.kit-map-host svg')
+      if (await page.locator('.sheet[open]').count()) throw new Error('首次開啟地圖不應顯示說明彈窗')
     },
   },
   {
     name: '地圖（定位後的回報彈窗）',
     path: '/map',
     prepare: async (page, mobile) => {
-      await page.evaluate(() => localStorage.setItem('longdong.map.intro', '1'))
-      await page.reload()
       // 電腦版不定位：沒有目前位置，也就沒有定位後的回報彈窗（只檢查地圖本身）
       if (!mobile) return
       await page.waitForSelector('.mk-me')

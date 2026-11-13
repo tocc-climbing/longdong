@@ -106,18 +106,6 @@
 }
 
 /* 彈窗：手機從下方滑出、電腦置中 */
-.map-warn {
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: rgba(168, 106, 0, 0.12);
-  color: var(--text);
-}
-
-.map-how {
-  padding-left: 1.2em;
-  color: var(--muted);
-}
-
 .map-question {
   margin: 12px 0 4px;
   font-weight: 600;

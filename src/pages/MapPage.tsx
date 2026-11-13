@@ -27,7 +27,6 @@ import { ManualReportForm, WallDetails } from './MapTools'
 const GOOD_ACCURACY_M = 10
 /** 附近沒有明確地點時，也可以選的一般描述 */
 const GENERIC: MessageKey[] = ['map.quick.trail', 'map.quick.wallBase', 'map.quick.boundary']
-const INTRO_KEY = 'longdong.map.intro'
 /** 航照底圖開著（這台裝置記住） */
 const ORTHO_KEY = 'longdong.map.ortho'
 /** 回報後的提示顯示多久（毫秒） */
@@ -35,7 +34,7 @@ const TOAST_MS = 4000
 
 /**
  * 地圖（/map）：照比例尺的龍洞地圖，打開就開始定位。
- * 地圖還在校正：第一次使用先說明可能有誤差；左上「回報」依目前位置列出附近的地點，選一下就記錄下來。
+ * 左上「回報」依目前位置列出附近的地點，選一下就記錄下來。
  * 回報時也可以在地圖上點出自己認為所在的位置（選填）：和 GPS 的差距可以看出地圖或 GPS 偏了多少。
  * 記錄先存在手機上，登入且連上網路時在背景自動上傳（src/map/calibration.ts，不必停在這一頁），用來校正地圖。
  * 不在現場（沒有定位、或不在龍洞）時「回報」改成手動回報：對照航照在地圖上點位置，選分區或路線。
@@ -57,7 +56,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
   const cloud = useCloud()
   const records = useCalibration()
   const simulatedMarks = useSimulatedMarks()
-  const [intro, setIntro] = useState(() => !seenIntro())
   const [reporting, setReporting] = useState(false)
   /** 回報表單的內容：在地圖上點位置時表單會關起來，內容留在這裡 */
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
@@ -171,15 +169,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
     setReporting(false)
     // 上傳成功會另外提示；沒網路時先存在手機上（不登入也能上傳）
     if (!simulated && (!navigator.onLine || (cloud.status === 'signed-in' && !cloud.connected))) setToast(t('map.queued'))
-  }
-
-  const closeIntro = () => {
-    try {
-      localStorage.setItem(INTRO_KEY, '1')
-    } catch {
-      /* 存不了就下次再顯示一次 */
-    }
-    setIntro(false)
   }
 
   const pending = hasUnuploaded(records)
@@ -325,18 +314,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
         )}
       </div>
 
-      <Sheet open={intro} onClose={closeIntro} title={t('map.introTitle')}>
-        <p className="map-warn">{t('map.introWarn')}</p>
-        <ul className="map-how">
-          <li>{t('map.introReport')}</li>
-        </ul>
-        <div className="actions">
-          <button type="button" className="action primary" onClick={closeIntro}>
-            {t('map.introOk')}
-          </button>
-        </div>
-      </Sheet>
-
       <Sheet open={manualOpen && !!manualAt} onClose={() => setManualOpen(false)} title={t('map.manualTitle')}>
         {manualAt && (
           <ManualReportForm
@@ -378,10 +355,6 @@ export function MapPage({ data, simulate }: { data: LoadedData; simulate?: LatLn
       </Sheet>
     </div>
   )
-}
-
-function seenIntro(): boolean {
-  return readFlag(INTRO_KEY)
 }
 
 function readFlag(key: string): boolean {
