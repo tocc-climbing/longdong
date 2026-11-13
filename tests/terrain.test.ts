@@ -89,6 +89,11 @@ describe('20m DTM 地形', () => {
       const coast = terrainCoastMask(t, true)
       expect(sample(coast.pixels, coast.width, 10, -700, -600, 1)).toEqual([255])
       expect(sample(coast.pixels, coast.width, 10, 1000, -600, 1)).toEqual([0])
+      // 突變：以救援示意圖拼接的 kitbase 當全圖海岸，北側台二線旁的山坡會被挖空。
+      for (const [x, y] of [[-700, -1000], [-700, -850], [-600, -1000]]) {
+        expect(elevation(t, [x, y])).toBeGreaterThan(0)
+        expect(sample(coast.pixels, coast.width, 10, x, y, 1)).toEqual([255])
+      }
     } finally { vi.unstubAllGlobals() }
   })
   it('南北延伸到自然端部、西側保持原位，圈選海角依鐘塔與長巷配色', () => {
