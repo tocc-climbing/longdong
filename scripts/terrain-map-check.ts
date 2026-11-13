@@ -65,10 +65,10 @@ try {
     gaps.sort((a, b) => a-b)
     return { medianMs: gaps[45], p95Ms: gaps[85], maxMs: gaps[89] }
   })
-  const imageBeforeDrag = await page.locator('.terrain-map image[data-surface]').getAttribute('href')
+  const imageBeforeDrag = await page.locator('.terrain-map image[data-surface="all"]').getAttribute('href')
   await page.mouse.move(280, 600); await page.mouse.down()
   for (let i = 0; i < 40; i++) await page.mouse.move(280-i, 600-i/2)
-  assert.equal(await page.locator('.terrain-map image[data-surface]').getAttribute('href'), imageBeforeDrag, '拖曳中重複重算地形影像')
+  assert.equal(await page.locator('.terrain-map image[data-surface="all"]').getAttribute('href'), imageBeforeDrag, '拖曳中重複重算地形影像')
   await page.mouse.up()
   const frameStats = await frames
   assert(frameStats.p95Ms < 50, `4 倍 CPU 節流拖曳 p95 ${frameStats.p95Ms}ms 超過 50ms`)

@@ -44,6 +44,8 @@ export async function checkTerrainTilt(page: Page) {
     const expected = at[1]*Math.cos(52*Math.PI/180)-elevation(terrain, at)!*Math.sin(52*Math.PI/180)
     const actual = (await page.locator('[data-terrain-wall]').first().getAttribute('d'))!.match(/^M[-\d.]+,([-\d.]+)/)!
     assert(Math.abs(Number(actual[1])-expected) < 0.1, '岩壁未隨傾角投影')
+    const trail = await page.locator('[data-terrain-line="trail"] [data-terrain-trail]').first().evaluate(el => ({ d: el.getAttribute('d')!, dash: el.getAttribute('stroke-dasharray') }))
+    assert(!trail.dash && (trail.d.match(/M/g)?.length ?? 0) > 2, '步道虛線仍由投影後的長度切分，調角時會沿路滑動')
     if (ortho) {
       const urls = await page.evaluate(() => performance.getEntriesByType('resource').map(r => r.name).filter(u => u.includes('/PHOTO2/')))
       const level = Math.min(...urls.map(u => Number(u.match(/Compatible\/(\d+)\//)![1])))

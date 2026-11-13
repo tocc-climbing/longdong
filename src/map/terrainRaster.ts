@@ -58,6 +58,9 @@ const FRAGMENT = `#version 300 es
 precision highp float;
 uniform vec2 dimensions;
 uniform sampler2D regionColors;
+uniform highp sampler2D heights;
+uniform vec2 basisU;
+uniform vec2 basisV;
 uniform sampler2D coastMask;
 uniform sampler2D photo;
 uniform bool hasPhoto;
@@ -66,12 +69,36 @@ in vec3 normal;
 in vec2 atGrid;
 in float valid;
 out vec4 color;
+vec2 curveSlope(vec4 h,float t) {
+  float x=h.y-h.x,y=h.z-h.y,z=h.w-h.z;
+  float a=x*y<=0.0?0.0:2.0*x*y/(x+y),b=y*z<=0.0?0.0:2.0*y*z/(y+z);
+  float value=(2.0*t*t*t-3.0*t*t+1.0)*h.y+(t*t*t-2.0*t*t+t)*a+(-2.0*t*t*t+3.0*t*t)*h.z+(t*t*t-t*t)*b;
+  float slope=(6.0*t*t-6.0*t)*h.y+(3.0*t*t-4.0*t+1.0)*a+(-6.0*t*t+6.0*t)*h.z+(3.0*t*t-2.0*t)*b;
+  return vec2(value,slope);
+}
+vec4 heightPixel(ivec2 p) { return texelFetch(heights,clamp(p,ivec2(0),ivec2(dimensions)-1),0); }
+vec3 smoothNormal() {
+  ivec2 p=ivec2(floor(atGrid));vec2 f=fract(atGrid);
+  vec4 rows,derivatives;float complete=1.0;
+  for(int r=0;r<4;r++) {
+    vec4 a=heightPixel(p+ivec2(-1,r-1)),b=heightPixel(p+ivec2(0,r-1)),c=heightPixel(p+ivec2(1,r-1)),d=heightPixel(p+ivec2(2,r-1));
+    complete*=a.g*b.g*c.g*d.g;
+    vec2 rowSample=curveSlope(vec4(a.r,b.r,c.r,d.r),f.x);rows[r]=rowSample.x;derivatives[r]=rowSample.y;
+  }
+  float du=curveSlope(derivatives,f.y).x,dv=curveSlope(rows,f.y).y;
+  if(complete<0.99) {
+    float a=heightPixel(p).r,b=heightPixel(p+ivec2(1,0)).r,c=heightPixel(p+ivec2(0,1)).r,d=heightPixel(p+ivec2(1,1)).r;
+    du=mix(b-a,d-c,f.y);dv=mix(c-a,d-b,f.x);
+  }
+  float det=basisU.x*basisV.y-basisU.y*basisV.x;
+  return normalize(vec3(-(du*basisV.y-dv*basisU.y)/det,-(dv*basisU.x-du*basisV.x)/det,1.0));
+}
 void main() {
   if(valid<0.999) discard;
   vec2 uv=(atGrid+vec2(0.5))/dimensions;
   if(hasPhoto) {
     vec3 image=texture(photo,photoAt).rgb;
-    float light=0.85+0.15*max(0.0,dot(normalize(normal),normalize(vec3(-0.45,-0.55,0.7))));
+    float light=0.85+0.15*max(0.0,dot(smoothNormal(),normalize(vec3(-0.45,-0.55,0.7))));
     color=vec4(image*light,1.0);
     return;
   }
@@ -79,7 +106,7 @@ void main() {
   float coastEdge=max(fwidth(land),0.0001);
   float alpha=smoothstep(0.5-coastEdge,0.5+coastEdge,land);
   if(alpha<0.001) discard;
-  float light=0.62+0.38*max(0.0,dot(normalize(normal),normalize(vec3(-0.45,-0.55,0.7))));
+  float light=0.62+0.38*max(0.0,dot(smoothNormal(),normalize(vec3(-0.45,-0.55,0.7))));
   vec4 region=texture(regionColors,uv);
   float edge=max(fwidth(region.a),0.0001);
   float coverage=smoothstep(0.5-edge,0.5+edge,region.a);

@@ -1,18 +1,47 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createCanvas } from '@napi-rs/canvas'
 import { readFileSync } from 'node:fs'
-import { drape, elevation, terrainMesh, terrainPoint, terrainView, type Terrain, type TerrainRegion } from '../src/map/terrain'
+import { connectTerrainLines, drape, elevation, terrainDashLines, terrainMesh, terrainPoint, terrainView, type Terrain, type TerrainRegion } from '../src/map/terrain'
 import { coastalIslands, continuousTerrainOutline, terrainCoastMask, terrainDomains, terrainExtensions, terrainIslandParts, terrainRegionField } from '../src/map/terrainRegions'
 import { terrainDisplayResolution } from '../src/map/terrainRaster'
 
 // 突變：高程少乘 scale、雙線性內插改成單點取樣、把缺值改成 0、忽略 z 投影。
 const grid: Terrain = { origin: [0, 0], u: [20, 0], v: [0, 20], columns: 2, rows: 2, scale: 0.1, heights: [0, 100, 200, 300] }
 describe('20m DTM 地形', () => {
+  it('地面虛線跨節點保持 8m 分段，隧道只接合 15m 內道路', () => {
+    // 突變：每個原始節點重設分段、略過入口接合、把遠處入口也拉過去。
+    const dashed = terrainDashLines([[[0, 0], [5, 0], [25, 0]]], 8, 8)
+    expect(dashed).toHaveLength(2)
+    expect(dashed[0][0][0]).toBe(0); expect(dashed[0].at(-1)![0]).toBeCloseTo(8)
+    expect(dashed[1][0][0]).toBeCloseTo(16); expect(dashed[1].at(-1)![0]).toBeCloseTo(24)
+    expect(connectTerrainLines([[[0, 9], [100, 9]]], [[[0, 0], [100, 0]]])).toEqual([[[0, 0], [100, 0]]])
+    expect(connectTerrainLines([[[0, 20], [100, 20]]], [[[0, 0], [100, 0]]])).toEqual([[[0, 20], [100, 20]]])
+  })
   it('可調整傾角：30 度保留約 87% 南北長度，俯視不壓縮平面', () => {
     // 突變：忽略 pitch，繼續固定使用 60 度。
     expect(terrainView([10, 100], 100, 0, 30)[0]).toBe(10)
     expect(terrainView([10, 100], 100, 0, 30)[1]).toBeCloseTo(36.6025403784)
     expect(terrainView([10, 100], 100, 0, 0)).toEqual([10, 100])
+  })
+  it('遠離岩壁的兩區交界仍連續混色，不以最近區域硬切', () => {
+    // 突變：沒有岩壁遮罩權重時改回最近種子顏色。
+    vi.stubGlobal('document', { createElement: () => createCanvas(1, 1) })
+    try {
+      const t = { ...grid, columns: 30, rows: 30, heights: Array(900).fill(100) }
+      const regions: TerrainRegion[] = [
+        { id: 'red', color: '#ff0000', rings: [[[0, 0], [300, 0], [300, 500], [0, 500]]], walls: [[[100, 100], [100, 120]]] },
+        { id: 'blue', color: '#0000ff', rings: [[[300, 0], [580, 0], [580, 500], [300, 500]]], walls: [[[500, 100], [500, 120]]] },
+      ]
+      const f = terrainRegionField(t, regions, 3, true)
+      const sample = (x: number) => {
+        const i = (Math.round((300/20+0.5)*3-0.5)*f.width+Math.round((x/20+0.5)*3-0.5))*4
+        return [...f.pixels.slice(i, i+3)]
+      }
+      const a = sample(290), b = sample(310)
+      expect(a[0]).toBeGreaterThan(70); expect(a[2]).toBeGreaterThan(70)
+      expect(b[0]).toBeGreaterThan(70); expect(b[2]).toBeGreaterThan(70)
+      expect(Math.max(...a.map((v, i) => Math.abs(v-b[i])))).toBeLessThan(40)
+    } finally { vi.unstubAllGlobals() }
   })
   it('陸側分區邊界漸變接回山坡，岩壁仍保持完整顯色', () => {
     // 突變：移除顯色外框的平滑過渡，會恢復校門口左上方的硬切色塊。

@@ -200,16 +200,22 @@ export function terrainRegionField(t: Terrain, regions: TerrainRegion[], scale: 
     const alpha = Math.max(domain[i*4+3]/255, core[i*4+3]/255)
     if (!alpha && !context) continue
     if (!alpha) { pixels.set([117, 151, 123, 255], i*4); continue }
-    if (total) {
+    if (total >= 0.04) {
       pixels[i*4] = Math.round(red[i]/total); pixels[i*4+1] = Math.round(green[i]/total); pixels[i*4+2] = Math.round(blue[i]/total)
     } else {
-      // 遠離岩壁的連接坡面仍屬於整張地圖，以最近岩壁區域延續顏色，不留下透明斷段。
-      let distance = Infinity, color = seeds[0].color
+      // 遮罩尾端不以「最近區」硬切；以連續距離權重混色，再柔和接回岩壁實色。
+      let weight = 0
+      const color = [0, 0, 0]
       for (const seed of seeds) {
         const d = (gx-seed.c)**2+(gy-seed.r)**2
-        if (d < distance) { distance = d; color = seed.color }
+        const w = 1/(d+0.25)**2
+        weight += w; seed.color.forEach((value, channel) => { color[channel] += value*w })
       }
-      pixels.set(color, i*4)
+      const u = total/0.04, blend = u*u*(3-2*u)
+      for (let channel = 0; channel < 3; channel++) {
+        const local = total ? [red, green, blue][channel][i]/total : 0
+        pixels[i*4+channel] = Math.round(color[channel]/weight*(1-blend)+local*blend)
+      }
     }
     if (context) {
       for (let c = 0; c < 3; c++) pixels[i*4+c] = Math.round(pixels[i*4+c]*alpha+[117, 151, 123][c]*(1-alpha))
@@ -217,6 +223,14 @@ export function terrainRegionField(t: Terrain, regions: TerrainRegion[], scale: 
     pixels[i*4+3] = context ? 255 : Math.round(255*alpha)
     if (interior && pixels[i*4+3] >= 245) coveredLand++
   }
+  // 在上傳 GPU 前平滑約 6m 的色階，消除粗網格與 8-bit 遮罩造成的小方塊；海岸與透明度保持原值。
+  const soft = document.createElement('canvas'); soft.width = width; soft.height = height
+  const softContext = soft.getContext('2d', { willReadFrequently: true })!
+  const original = ctx.createImageData(width, height); original.data.set(pixels)
+  ctx.putImageData(original, 0, 0)
+  softContext.filter = `blur(${6*factor}px)`; softContext.drawImage(canvas, 0, 0)
+  const smooth = softContext.getImageData(0, 0, width, height).data
+  for (let i = 0; i < pixels.length; i += 4) { pixels[i] = smooth[i]; pixels[i+1] = smooth[i+1]; pixels[i+2] = smooth[i+2] }
   // 量測海岸內的岩壁是否被範圍漏裁。海岸與牆線來自不同圖層，
   // 近海的少數牆線位於岸外，仍由上層獨立描繪，不為了補色改動海岸。
   let wallCoverage = 1

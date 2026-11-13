@@ -89,13 +89,27 @@ export async function checkTerrainMap(page: Page, base: string) {
   const centerX = (lng-121.92)*m*Math.cos(25.107*Math.PI/180)
   const centerY = (25.107-lat)*m
   const full = JSON.parse(readFileSync('public/rescue/terrain-map-20m.json', 'utf8')) as Terrain
+  const portalGaps = await svg.evaluate((el) => {
+    const roads = [...el.querySelectorAll<SVGPathElement>('[data-terrain-line="highway"] > path:first-child')]
+    return [...el.querySelectorAll<SVGPathElement>('[data-terrain-line="tunnel"] > path:first-child')].flatMap(path => [0, path.getTotalLength()].map(length => {
+      const portal = path.getPointAtLength(length)
+      let nearest = Infinity
+      for (const road of roads) for (let at = 0; at <= road.getTotalLength()+0.5; at += 0.5) {
+        const p = road.getPointAtLength(Math.min(at, road.getTotalLength()))
+        nearest = Math.min(nearest, Math.hypot(portal.x-p.x, portal.y-p.y))
+      }
+      return nearest
+    }))
+  })
+  assert(portalGaps.length >= 2 && portalGaps.every(gap => gap < 0.7), `隧道入口未銜接道路 ${JSON.stringify(portalGaps)}`)
   assert(Math.abs(initial[0]+initial[2]/2-centerX) < 0.1, '切換 3D 未保留平面地圖中心')
   assert(Math.abs(initial[1]+initial[3]/2-(centerY*Math.sqrt(3)/2-elevation(full, [centerX, centerY])!*0.5)) < 0.1, '切換 3D 未保留平面地圖緯度')
   await checkTerrainTilt(page)
+  await checkTerrainColorContinuity(page)
   if (initial[2]/viewport.width > 2.4) {
     assert.equal(await page.locator('[data-label-kind="boat"], [data-label-kind="helicopter"]').count(), 0, '全圖仍擠滿細節標示')
   }
-  const image = await page.locator('.terrain-map image[data-surface]').getAttribute('href')
+  const image = await page.locator('.terrain-map image[data-surface="all"]').getAttribute('href')
   const painted = await page.evaluate(async (src) => {
     const image = new Image(); image.src = src!; await image.decode()
     const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height
@@ -122,7 +136,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   assert.equal(dashState.effect, 'none', '虛線仍依螢幕分段，縮放會滑動')
   await page.mouse.click(viewport.x+2, viewport.y+viewport.height/2)
   assert.equal(await svg.evaluate((el) => getComputedStyle(el).outlineStyle), 'none', '滑鼠點選地圖仍出現焦點外框')
-  const west = await page.locator('.terrain-map image[data-surface]').evaluate(async (el, z) => {
+  const west = await page.locator('.terrain-map image[data-surface="all"]').evaluate(async (el, z) => {
     const node = el as SVGImageElement, img = new Image(); img.src = node.href.baseVal; await img.decode()
     const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
     const ctx = canvas.getContext('2d')!; ctx.drawImage(img, 0, 0)
@@ -135,7 +149,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   await page.waitForTimeout(250)
   assert((await readBox())[2] < initial[2]*0.8, '3D 放大按鈕無效')
   assert.deepEqual(await dash.evaluate((el) => ({ d: el.getAttribute('d'), pattern: el.getAttribute('stroke-dasharray'), effect: getComputedStyle(el).vectorEffect })), dashState, '縮放後虛線的地圖座標或分段改變')
-  assert.notEqual(await page.locator('.terrain-map image[data-surface]').getAttribute('href'), image, '放大後沒有重新繪製高解析度地形')
+  assert.notEqual(await page.locator('.terrain-map image[data-surface="all"]').getAttribute('href'), image, '放大後沒有重新繪製高解析度地形')
   const bounds = (await svg.boundingBox())!
   const before = await readBox()
   await page.mouse.move(bounds.x+bounds.width*0.3, bounds.y+bounds.height*0.75)
@@ -272,6 +286,42 @@ export async function checkTerrainMap(page: Page, base: string) {
 }
 
 /** 突變：移除全圖航照、重現分區底色，或在新影像 load 前移除舊影像。 */
+/** 突變：移除全圖地形底層、隨平移重畫底層、新圖 load 前卸載舊圖。 */
+export async function checkTerrainColorContinuity(page: Page) {
+  const svg = page.locator('.terrain-map-view'), surface = page.locator('[data-surface="all"]')
+  const base = page.locator('[data-surface="color-base"]')
+  assert.equal(await base.count(), 1, '平移缺少持續覆蓋完整範圍的地形底圖')
+  const baseSource = await base.getAttribute('href')
+  const covered = await base.evaluate(async (el) => {
+    const image = el as SVGImageElement, bitmap = new Image(); bitmap.src = image.href.baseVal; await bitmap.decode()
+    const canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height
+    const ctx = canvas.getContext('2d')!; ctx.drawImage(bitmap, 0, 0)
+    const x = (-300-image.x.baseVal.value)/image.width.baseVal.value*canvas.width
+    const y = (-image.y.baseVal.value)/image.height.baseVal.value*canvas.height
+    return x >= 0 && y >= 0 && x < canvas.width && y < canvas.height && ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data[3] > 245
+  })
+  assert(covered, '全圖底圖缺少西側山坡像素')
+  await page.waitForSelector('[data-surface="all"][data-image-ready="true"]')
+  const source = await surface.getAttribute('href')
+  await page.evaluate(() => {
+    document.addEventListener('load', (event) => {
+      if ((event.target as Element)?.getAttribute?.('data-surface') === 'all') event.stopImmediatePropagation()
+    }, { capture: true, signal: ((window as unknown as { colorLoadHold: AbortController }).colorLoadHold = new AbortController()).signal })
+  })
+  try {
+    await svg.dispatchEvent('keydown', { key: 'ArrowRight' })
+    await page.waitForFunction((previous) => document.querySelector('[data-surface="all"]')?.getAttribute('href') !== previous, source)
+    assert.equal(await base.getAttribute('href'), baseSource, '平移時重建完整底圖')
+    assert.equal(await page.locator('[data-surface="all-previous"]').getAttribute('href'), source, '新地形載入前移除舊影像')
+    await page.evaluate(() => (window as unknown as { colorLoadHold: AbortController }).colorLoadHold.abort())
+    await surface.dispatchEvent('load')
+    await page.waitForFunction(() => !document.querySelector('[data-surface="all-previous"]'))
+  } finally {
+    await page.evaluate(() => (window as unknown as { colorLoadHold: AbortController }).colorLoadHold.abort())
+    await svg.dispatchEvent('keydown', { key: 'Home' }); await page.waitForTimeout(250)
+  }
+}
+
 export async function checkTerrainPhotoContinuity(page: Page) {
   const svg = page.locator('.terrain-map-view')
   const baseImage = await page.locator('[data-surface="ortho-base"]').getAttribute('href')

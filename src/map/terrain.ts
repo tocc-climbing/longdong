@@ -137,6 +137,43 @@ export function terrainGridBounds(t: Terrain, angle: number, box: [number, numbe
 /** 保留所有原節點，再依間距補取樣貼合曲面；岩壁預設 1m，缺值處斷線。 */
 export type TerrainSamples = ({ at: Pt; z: number } | null)[]
 
+/** 先在地面公尺座標切分虛線，傾斜投影不再改變各段所屬的地點。 */
+export function terrainDashLines(lines: Pt[][], on: number, off: number): Pt[][] {
+  const result: Pt[][] = [], period = on+off
+  for (const line of lines) {
+    let travelled = 0, dash: Pt[] = []
+    for (let i = 1; i < line.length; i++) {
+      const a = line[i-1], b = line[i], length = Math.hypot(b[0]-a[0], b[1]-a[1])
+      let done = 0
+      const at = (d: number): Pt => [a[0]+(b[0]-a[0])*d/length, a[1]+(b[1]-a[1])*d/length]
+      while (done < length-1e-8) {
+        const phase = (travelled+1e-8)%period, visible = phase < on
+        const step = Math.min(length-done, (visible ? on : period)-phase)
+        if (visible) { if (!dash.length) dash.push(at(done)); dash.push(at(done+step)) }
+        else if (dash.length) { result.push(dash); dash = [] }
+        done += step; travelled += step
+      }
+    }
+    if (dash.length) result.push(dash)
+  }
+  return result
+}
+
+/** 只接合入口附近的製圖間隙，不移動遠處道路或修改共用 2D 資料。 */
+export function connectTerrainLines(lines: Pt[][], roads: Pt[][], maxGap = 15): Pt[][] {
+  const snap = (p: Pt) => {
+    let distance = maxGap, nearest = p
+    for (const road of roads) for (let i = 1; i < road.length; i++) {
+      const a = road[i-1], b = road[i], dx = b[0]-a[0], dy = b[1]-a[1], length = dx*dx+dy*dy
+      const u = length ? Math.max(0, Math.min(1, ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/length)) : 0
+      const point: Pt = [a[0]+u*dx, a[1]+u*dy], d = Math.hypot(point[0]-p[0], point[1]-p[1])
+      if (d < distance) { nearest = point; distance = d }
+    }
+    return nearest
+  }
+  return lines.map(line => line.map((p, i) => i === 0 || i === line.length-1 ? snap(p) : p))
+}
+
 /** 高程只在資料改變時取樣，調整傾角時只重做投影。 */
 export function sampleTerrainLines(t: Terrain, lines: Pt[][], offset: number, spacing = 1): TerrainSamples {
   const points: TerrainSamples = []

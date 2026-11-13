@@ -7,7 +7,7 @@ import { localName, useLang } from '../i18n'
 import { loadTerrain } from '../components/TerrainHero'
 import type { Pt } from './heroFit'
 import { project, unproject, type ScaleMapData } from './mapData'
-import { elevation, projectTerrainPath, sampleTerrainLines, terrainView, type Terrain } from './terrain'
+import { connectTerrainLines, elevation, projectTerrainPath, sampleTerrainLines, terrainDashLines, terrainView, type Terrain } from './terrain'
 import { paintTerrainFrame, rasterTerrain } from './terrainRaster'
 import { coastalIslands, terrainColor } from './terrainRegions'
 import { loadKitBase, type KitMapMark } from './KitMap'
@@ -27,6 +27,13 @@ function TerrainPhoto({ image }: { image?: PhotoImage }) {
   const [ready, setReady] = useState<PhotoImage>()
   const layers = ready?.all === image?.all ? [image] : [ready, image]
   return <>{layers.map((layer) => layer && <image key={layer.all} data-surface={layer === image ? 'ortho' : 'ortho-previous'} data-image-ready={ready?.all === layer.all || undefined} data-ortho-tiles={layer.tiles} data-ortho-pixels={layer.pixels} href={layer.all} x={layer.box[0]} y={layer.box[1]} width={layer.box[2]} height={layer.box[3]} onLoad={() => { if (layer === image) setReady(layer) }} />)}</>
+}
+
+/** 保留已解碼的局部地形，直到替代影像完成載入。 */
+function TerrainColor({ image, onReady }: { image?: SurfaceImage; onReady: (image: SurfaceImage) => void }) {
+  const [ready, setReady] = useState<SurfaceImage>()
+  const layers = ready?.all === image?.all ? [image] : [ready, image]
+  return <>{layers.map((layer) => layer && <image key={layer.all} data-surface={layer === image ? 'all' : 'all-previous'} data-image-ready={ready?.all === layer.all || undefined} href={layer.all} x={layer.box[0]} y={layer.box[1]} width={layer.box[2]} height={layer.box[3]} onLoad={() => { if (layer === image) { setReady(layer); onReady(layer) } }} />)}</>
 }
 
 /** 平移縮放只更新視窗；調角即時重畫地形，手勢結束後才輸出高解析 PNG。 */
@@ -49,6 +56,7 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
   const [showLive, setShowLive] = useState(false)
   const loadedSurface = useRef<string>(undefined)
   const colorCache = useRef<SurfaceImage>(undefined)
+  const fullColorCache = useRef<SurfaceImage>(undefined)
   const overviewCache = useRef<SurfaceImage>(undefined)
   const [terrain, setTerrain] = useState<Terrain>()
   const [base, setBase] = useState<MapView>()
@@ -144,7 +152,11 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
       islands: islands.map((i) => ({ ...i, path: sampleTerrainLines(terrain, [[...i.ring, i.ring[0]]], 0, 4) })),
       // SVG 疊層沒有地形深度衝突，應直接貼地，不為了避開 z-fighting 抬高線條。
       walls: Object.entries(map.walls).flatMap(([sector, lines]) => lines.map((line, index) => ({ sector, index, path: sampleTerrainLines(terrain, [line.map(project)], 0, 2) }))),
-      trails: [...Object.entries(map.lineLayers).map(([id, lines]) => ({ id, lines })), ...outerLines].map(({ id, lines }, i) => ({ id: `${id}-${i}`, kind: id, path: sampleTerrainLines(terrain, lines, 0, 5) })),
+      trails: [...Object.entries(map.lineLayers).map(([id, lines]) => ({ id, lines })), ...outerLines].map(({ id, lines }, i) => {
+        const joined = id === 'tunnel' ? connectTerrainLines(lines, map.lineLayers.highway) : lines
+        const dashed = id === 'trail' || id === 'tunnel' ? terrainDashLines(joined, 8, id === 'trail' ? 8 : 20) : joined
+        return { id: `${id}-${i}`, kind: id, path: sampleTerrainLines(terrain, joined, 0, 5), dashes: dashed === joined ? undefined : sampleTerrainLines(terrain, dashed, 0, 5) }
+      }),
       poiCount: poiLabels.length,
       labels: [...poiLabels, ...sectors, ...regions.flatMap((r): TerrainLabel[] => {
         const area = data.dataset.areas.find((a) => a.id.split('/').at(-1) === r.id)!
@@ -167,7 +179,7 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
       polygons: world.polygons.map((p) => ({ ...p, d: p.paths.map((path) => projectTerrainPath(path, 0, pitch)+'Z').join('') })),
       islands: world.islands.map((i) => ({ ...i, d: projectTerrainPath(i.path, 0, pitch)+'Z' })),
       walls: world.walls.map((w) => ({ ...w, d: projectTerrainPath(w.path, 0, pitch) })),
-      trails: world.trails.map((l) => ({ ...l, d: projectTerrainPath(l.path, 0, pitch) })),
+      trails: world.trails.map((l) => ({ ...l, d: projectTerrainPath(l.path, 0, pitch), dashed: l.dashes && projectTerrainPath(l.dashes, 0, pitch) })),
       labels: world.labels.map((l) => { const p = world.anchors.get(l.at)!; return { ...l, at: terrainView(p.at, p.z, 0, pitch) } }),
     }
   }, [world, terrain, pitch])
@@ -206,6 +218,14 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
     const [lat, lng] = unproject([geometry.anchor[0]+b[0]+b[2]/2-first[0]-first[2]/2, geometry.anchor[1]+(b[1]+b[3]/2-first[1]-first[3]/2)/Math.cos(pitch*Math.PI/180)])
     savedView.current = { center: [lng, lat], metersPerPixel: b[2]/size.w, rotation: 0 }
   }
+  const colorBase = useMemo(() => {
+    if (ortho || !terrain) return undefined
+    if (tilting) return fullColorCache.current
+    const fullBox = terrainOrthoOverview(terrain, pitch)
+    const image = rasterTerrain(terrain, regions, 0, fullBox, 768, 768*fullBox[3]/fullBox[2], { maxVertices: 90000, context: true, pitch })
+    fullColorCache.current = image && { ...image, box: fullBox, pitch }
+    return fullColorCache.current
+  }, [ortho, terrain, regions, pitch, tilting])
   const raster = useMemo(() => {
     if (ortho || !terrain || !geometry || !box || !size.w) return undefined
     if (tilting) return colorCache.current
@@ -401,7 +421,8 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
       }}>
       {geometry && box && <>
         <g visibility={showLive ? 'hidden' : undefined}>
-          {raster && <image key={raster.all} data-surface="all" href={raster.all} x={raster.box[0]} y={raster.box[1]} width={raster.box[2]} height={raster.box[3]} onLoad={() => { loadedSurface.current = raster.all; if (!tilting && raster.pitch === pitch) setShowLive(false) }} />}
+          {colorBase && <image data-surface="color-base" href={colorBase.all} x={colorBase.box[0]} y={colorBase.box[1]} width={colorBase.box[2]} height={colorBase.box[3]} />}
+          {!ortho && <TerrainColor key={pitch} image={raster} onReady={(image) => { loadedSurface.current = image.all; if (!tilting && image.pitch === pitch) setShowLive(false) }} />}
           {overviewRaster && <image key={overviewRaster.all} data-surface="ortho-base" data-ortho-tiles={overview!.atlas.columns*overview!.atlas.rows} href={overviewRaster.all} x={overviewRaster.box[0]} y={overviewRaster.box[1]} width={overviewRaster.box[2]} height={overviewRaster.box[3]} onLoad={() => { loadedSurface.current = overviewRaster.all; if (!tilting && overviewRaster.pitch === pitch) setShowLive(false) }} />}
           {ortho && <TerrainPhoto key={pitch} image={photoRaster} />}
         </g>
@@ -409,7 +430,7 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
         {geometry.polygons.map((p) => <path key={p.id} data-terrain-polygon={p.kind} d={p.d} fill={p.kind === 'parking' ? '#adb9ab' : '#c7b9a6'} fillOpacity={ortho ? 0 : 1} fillRule="evenodd" stroke="#506058" strokeOpacity={ortho ? 0.3 : 1} strokeWidth={0.7} vectorEffect="non-scaling-stroke" />)}
         {geometry.trails.map((line) => <g key={line.id} data-terrain-line={line.kind}>
           {line.kind !== 'trail' && <path d={line.d} fill="none" stroke="#506058" strokeWidth={line.kind === 'highway' ? 7 : 5} vectorEffect="non-scaling-stroke" pointerEvents="none" />}
-          <path data-terrain-trail={line.id} data-terrain-screen-stroke={line.kind === 'trail' ? 1.8 : line.kind === 'tunnel' ? 3 : undefined} d={line.d} fill="none" stroke={line.kind === 'trail' ? '#e7d1a0' : line.kind === 'highway' ? '#f7d77a' : '#eee4ce'} strokeWidth={line.kind === 'trail' ? 1.8*unit : line.kind === 'tunnel' ? 3*unit : line.kind === 'highway' ? 4.5 : 3} strokeDasharray={line.kind === 'trail' ? '8 8' : line.kind === 'tunnel' ? '8 20' : undefined} vectorEffect={line.kind === 'trail' || line.kind === 'tunnel' ? undefined : 'non-scaling-stroke'} pointerEvents="none" />
+          <path data-terrain-trail={line.id} data-terrain-screen-stroke={line.kind === 'trail' ? 1.8 : line.kind === 'tunnel' ? 3 : undefined} d={line.dashed ?? line.d} fill="none" stroke={line.kind === 'trail' ? '#e7d1a0' : line.kind === 'highway' ? '#f7d77a' : '#eee4ce'} strokeWidth={line.kind === 'trail' ? 1.8*unit : line.kind === 'tunnel' ? 3*unit : line.kind === 'highway' ? 4.5 : 3} vectorEffect={line.kind === 'trail' || line.kind === 'tunnel' ? undefined : 'non-scaling-stroke'} pointerEvents="none" />
         </g>)}
         {geometry.walls.map((w) => <g key={`${w.sector}#${w.index}`}>
           {/* 原始 2D 線只用作點選範圍，不把示意線當成 DTM 上的真實崖形。 */}
