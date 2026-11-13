@@ -4,6 +4,7 @@ import { SafetyLight } from '../components/SafetyLight'
 import type { Safety } from '../data/schema'
 import { formatDate } from '../format'
 import { useLang, type Lang } from '../i18n'
+import { siteUrl } from '../share'
 import { APP_VERSION, formatVersion } from '../version'
 
 /** 關於頁的長篇說明每種語言一個檔案，用到時才載入；資料表、圖例共用 */
@@ -39,6 +40,12 @@ export function AboutPage({ data }: { data: LoadedData }) {
         </dd>
         <dt>{t('about.codeLicense')}</dt>
         <dd>MIT</dd>
+        <dt>{t('about.redpoint')}</dt>
+        <dd>
+          <a href={`https://climbio.app/?topo=${encodeURIComponent(siteUrl('/climbio/longdong.json'))}`} target="_blank" rel="noreferrer">
+            {t('about.redpointCollect')}
+          </a>
+        </dd>
       </dl>
 
       <h2>{t('about.safety')}</h2>

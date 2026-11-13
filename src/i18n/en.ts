@@ -628,6 +628,8 @@ export const en: Messages = {
   'about.dataLicense': 'Data license',
   'about.appVersion': 'App version',
   'about.codeLicense': 'Code license',
+  'about.redpoint': 'Redpoint Cat',
+  'about.redpointCollect': 'Save all of Long Dong',
   'about.safety': 'Safety rating',
   'about.materials': 'Bolt material codes',
 

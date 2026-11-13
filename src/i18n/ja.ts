@@ -631,6 +631,8 @@ export const ja: Messages = {
   'about.dataLicense': 'データのライセンス',
   'about.appVersion': 'アプリのバージョン',
   'about.codeLicense': 'コードのライセンス',
+  'about.redpoint': '紅点猫',
+  'about.redpointCollect': '龍洞をまるごと保存',
   'about.safety': '安全評価',
   'about.materials': 'ボルト材質の記号',
 

@@ -625,6 +625,8 @@ export const zh = {
   'about.dataLicense': '資料授權',
   'about.appVersion': 'App 版本',
   'about.codeLicense': '程式授權',
+  'about.redpoint': '紅點貓',
+  'about.redpointCollect': '收藏整個龍洞',
   'about.safety': '安全評級',
   'about.materials': '材質代號',
 
