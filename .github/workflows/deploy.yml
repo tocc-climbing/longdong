@@ -7,11 +7,15 @@ name: Deploy
 #   用 release 的程式加上 main 的最新資料建置，先用 release 程式的資料格式驗證，對不上就不更新並顯示警告。
 # - 潮汐（中央氣象署，未來一個月）在建置時抓，不放進 repo；每週一重新部署兩個網站，潮汐跟著更新。
 #   授權碼在 CWA_API_KEY 這個 Environment。
+# 快速迭代期：一般程式碼 push 不部署；保留唯一例外：資料同步 PR 合併後，main 的資料更新自動部署。
+# GitHub Actions 的一般部署與 release 發布仍由手動 workflow_dispatch 觸發。
 on:
   workflow_dispatch:
   push:
-    branches: [chatgpt-deploy]
-    paths: [deploy-requests/dev.json]
+    branches: [chatgpt-deploy, main]
+    paths:
+      - deploy-requests/dev.json
+      - public/data/**
 
 permissions:
   contents: read
@@ -21,15 +25,27 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       deploy: ${{ steps.validate.outputs.deploy }}
+      data_deploy: ${{ steps.validate.outputs.data_deploy }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2
-      - name: 驗證開發站部署指令
+      - name: 驗證開發站部署指令或資料同步提交
         id: validate
         run: |
+          echo "deploy=false" >> "$GITHUB_OUTPUT"
+          echo "data_deploy=false" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_EVENT_NAME" != "push" ]; then
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            # 僅當這次 main 提交真的只更動路線資料時才自動部署，其他 commit 一律不部署
+            changed="$(git diff --name-only HEAD^1 HEAD)"
+            [ -n "$changed" ] || exit 0
+            while IFS= read -r file; do
+              case "$file" in public/data/*) ;; *) echo "包含非路線資料變更，跳過自動部署"; exit 0 ;; esac
+            done <<< "$changed"
+            echo "data_deploy=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           changed="$(git diff-tree --no-commit-id --name-only -r HEAD)"
@@ -43,7 +59,7 @@ jobs:
           '
   dev:
     needs: validate-chatgpt-request
-    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') || (github.event_name == 'push' && github.ref_name == 'chatgpt-deploy' && needs.validate-chatgpt-request.outputs.deploy == 'true')
+    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') || (github.event_name == 'push' && github.ref_name == 'chatgpt-deploy' && needs.validate-chatgpt-request.outputs.deploy == 'true') || (github.event_name == 'push' && github.ref_name == 'main' && needs.validate-chatgpt-request.outputs.data_deploy == 'true')
     runs-on: ubuntu-latest
     environment: CWA_API_KEY
     concurrency:
@@ -94,7 +110,8 @@ jobs:
           firebaseToolsVersion: 15.34.0
 
   live:
-    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'release'
+    needs: validate-chatgpt-request
+    if: (github.event_name == 'workflow_dispatch' && github.ref_name == 'release') || (github.event_name == 'push' && github.ref_name == 'main' && needs.validate-chatgpt-request.outputs.data_deploy == 'true')
     runs-on: ubuntu-latest
     environment: CWA_API_KEY
     permissions:
@@ -108,9 +125,20 @@ jobs:
           ref: release
           fetch-depth: 0
 
-      - name: 確認手動發布
+      # main 的推送：只有路線資料和正式版不同時才更新正式站；每週排程與手動執行一律更新（潮汐）
+      - name: 加入 main 的最新路線資料
         id: data
-        run: echo "deploy=true" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "$GITHUB_REF_NAME" = main ]; then
+            git checkout "$GITHUB_SHA" -- public/data
+            if [ "$GITHUB_EVENT_NAME" = push ] && git diff --cached --quiet -- public/data; then
+              echo "路線資料與正式版相同，正式站不用更新"
+              echo "deploy=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "路線資料有更新，用正式版的程式加上新資料部署正式站"
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
 
       - if: steps.data.outputs.deploy == 'true'
         uses: actions/setup-node@v7
@@ -120,6 +148,15 @@ jobs:
 
       - if: steps.data.outputs.deploy == 'true'
         run: npm ci
+
+      # 新資料要符合正式版程式的資料格式（main 改了格式時，資料要等發布才能上正式站）
+      - name: 驗證路線資料
+        if: steps.data.outputs.deploy == 'true' && github.ref_name == 'main'
+        run: |
+          if ! npx tsx scripts/validate-data.ts; then
+            echo "::warning::main 的路線資料不符合正式版程式的資料格式，正式站這次不更新；發布後就會一起上線"
+            exit 1
+          fi
 
       - if: steps.data.outputs.deploy == 'true'
         run: npm test
