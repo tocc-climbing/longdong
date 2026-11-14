@@ -7,6 +7,7 @@ import { preview } from 'vite'
 import { launch } from './lib/shotDiff'
 import type { Dataset } from '../src/data/schema'
 import { elevation, type Terrain } from '../src/map/terrain'
+import { checkHeroFrame, checkHeroWalls } from './lib/heroFrameCheck'
 
 const dataset = JSON.parse(readFileSync('public/data/longdong.json', 'utf8')) as Dataset
 const bytes = readFileSync('public/rescue/terrain-20m.json')
@@ -52,6 +53,8 @@ try {
     assert.equal(await page.locator('[data-climbing-context]').count(), 0, `${path}: 灰色背景仍可能露出岸內`)
     assert.equal(await page.locator('.terrain-surface').getAttribute('clip-path'), null, `${path}: WebGL 仍使用投影後的平面海岸遮罩`)
     assert(Number(await page.locator('.terrain-hero').getAttribute('data-coast-resolution')) <= 2.1, `${path}: 海岸遮罩未與 20m 高度網格分開`)
+    if (path === '/' || path.startsWith('/area/')) await checkHeroFrame(page, path)
+    await checkHeroWalls(page, path)
     if (path === '/area/longdong/long-lane') {
       // 突變：長巷改回原深藍；必須驗證主岸 PNG，不只檢查離岸小礁。
       const href = (await page.locator('image[data-surface="all"]').getAttribute('href'))!
@@ -77,6 +80,17 @@ try {
     assert(!ink, `${path}: 岩壁仍有深色粗描邊`)
     results.push({ path, ...shape })
   }
+  // 長巷在平板寬度曾被截斷：所有區域都驗證平板與桌面，不能只拿第一洞代表。
+  for (const width of [768, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const area of dataset.areas) {
+      const path = `/area/${area.id}`
+      await page.goto(new URL(path, base).href, { waitUntil: 'domcontentloaded' })
+      await page.waitForSelector('[data-terrain="ready"]')
+      await checkHeroFrame(page, `${path}/${width}`)
+      await checkHeroWalls(page, `${path}/${width}`)
+    }
+  }
   const sizes = [[360, 740], [390, 844], [768, 1024], [1023, 720], [1024, 600], [1280, 720], [1440, 900], [1920, 1080]]
   // 黃金谷海岸使用補零海面網格，取代上一版的示意底色。
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -88,8 +102,9 @@ try {
   for (const i of [0, 2, 11, 13, 14, 16]) assert.equal(await page.locator(`[data-terrain-island="coast-island-${i}"]`).getAttribute('fill'), dataset.areas.find((a) => a.id.endsWith('/clocktower'))!.color, '圈選的鐘塔海角未沿用鐘塔顏色')
   assert.equal(await page.locator('[data-terrain-island="coast-island-12"]').getAttribute('fill'), '#287fc0', '長巷海角仍使用陰影下過暗的深藍')
   // 實際畫面檢核：新端部要顯示，海灣仍透明。海陸在曲面上依精細遮罩收邊。
+  const bearing = Number(await page.locator('.terrain-hero').getAttribute('data-bearing'))
   const probes = [{ name: '校門北端', p: [175, -780], land: true }, { name: '後門小半島', p: [365, 380], land: true }, { name: '後門左上多餘邊角', p: [220, 355], land: false }, { name: '外海', p: [409.8, -131.8], land: false }].map(({ name, p, land }) => {
-    const angle = 80*Math.PI/180, z = land ? elevation(terrain, [p[0], p[1]])! : 0
+    const angle = bearing*Math.PI/180, z = land ? elevation(terrain, [p[0], p[1]])! : 0
     return { name, land, x: p[0]*Math.cos(angle)-p[1]*Math.sin(angle), y: (p[0]*Math.sin(angle)+p[1]*Math.cos(angle))*0.5-z*Math.sqrt(3)/2 }
   })
   const painted = await page.evaluate(`(async () => {
@@ -128,6 +143,8 @@ try {
             return { w: r.width, h: r.height, right: r.right, bottom: r.bottom, parentBottom: parent.bottom, overflow: document.documentElement.scrollWidth > innerWidth }
           })
           assert(rect.w > 80 && rect.h > 50 && !rect.overflow && rect.right <= width+1 && rect.bottom <= rect.parentBottom+1, JSON.stringify({ path, width, height, rect }))
+          if (path === '/' || path.startsWith('/area/')) await checkHeroFrame(page, `${path}/${lang}/${theme}/${width}×${height}`)
+          await checkHeroWalls(page, `${path}/${lang}/${theme}/${width}×${height}`)
           if (path === '/') {
             const source = (await page.locator('image[data-surface="all"]').getAttribute('href'))!
             const raster = await loadImage(Buffer.from(source.split(',')[1], 'base64'))
@@ -179,7 +196,7 @@ try {
   assert(highImage.width >= highDensity!.width*2.99, '3 倍像素手機沒有使用對應輸出解析度')
   await retina.close()
   assert.deepEqual(errors, [])
-  writeFileSync('shots/terrain/results.json', JSON.stringify({ dtmBytes: bytes.length, dtmGzipBytes: gzipSync(bytes).length, scenes: results, responsiveChecks: 144, interpolatedLandPoints: 5, seaLevelPoints: 1223, coastalIslands: 20, coastSource: 'B5000' }, null, 2))
+  writeFileSync('shots/terrain/results.json', JSON.stringify({ dtmBytes: bytes.length, dtmGzipBytes: gzipSync(bytes).length, scenes: results, responsiveChecks: 144, areaFramingChecks: dataset.areas.length*2, interpolatedLandPoints: 5, seaLevelPoints: 1223, coastalIslands: 20, coastSource: 'B5000' }, null, 2))
   console.log(`DTM ${bytes.length} bytes / gzip ${gzipSync(bytes).length} bytes；${paths.length} 個場景、144 個版面檢查通過`)
 } finally {
   await browser.close()

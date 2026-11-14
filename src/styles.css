@@ -2827,7 +2827,7 @@ a.action {
 
 /* 每一層的標題卡一樣高（有沒有工具列、地圖橫的或直的） */
 [data-layout='mobile'] .area-hero {
-  min-height: 206px;
+  min-height: 226px;
 }
 
 /* 首頁：手機文字在上、地圖在下，兩者各自佔一列 */
@@ -5580,13 +5580,13 @@ button.key-row:disabled {
   display: contents;
 }
 
-/* 區域、分區、路線頁標題卡的地圖：佔滿卡片右邊的高度，區域的形狀可以跨到卡片的上下緣；左邊淡出，和名稱自然接在一起 */
+/* 區域、分區、路線頁標題卡的地圖：右側保留完整取景，左邊淡出接到名稱。 */
 [data-layout] .area-hero > .area-hero-shape.hero-map {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 48%;
+  width: 58%;
   height: 100%;
   margin: 0;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 22%);
@@ -5600,7 +5600,7 @@ button.key-row:disabled {
 
 /* 電腦版區域頁：地圖在難度分佈右邊那一欄 */
 [data-layout='wide'] .area-hero:not(.compact) > .area-hero-shape.hero-map {
-  width: 14rem;
+  width: 17rem;
 }
 
 /* 首頁地形圖參與排版，保留文字空間，不再疊成整張卡片的背景 */
@@ -5608,7 +5608,7 @@ button.key-row:disabled {
   position: static;
   inset: auto;
   width: 100%;
-  height: clamp(120px, 22vw, 180px);
+  height: clamp(180px, 30vw, 240px);
   min-width: 0;
   margin: 0;
   -webkit-mask-image: none;
@@ -5617,7 +5617,7 @@ button.key-row:disabled {
 
 /* 電腦版文字與地形圖分欄；文字使用主文字色，降低區域色混色造成的對比損失 */
 [data-layout='wide'] .area-hero.strip > .area-hero-shape.hero-map {
-  height: clamp(150px, 16vw, 208px);
+  height: clamp(200px, 20vw, 280px);
 }
 
 [data-layout] .area-hero.strip h1 {

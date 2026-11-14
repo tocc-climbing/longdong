@@ -1,4 +1,4 @@
-import { rotate, type Pt } from './heroFit'
+import { heroFit, HERO_ANGLES, rotate, type FitBox, type Pt } from './heroFit'
 
 export interface Terrain {
   origin: Pt
@@ -59,6 +59,29 @@ export function terrainView(p: Pt, z: number, angle: number, pitch = 60): Pt {
   const [x, y] = rotate(p, angle)
   const tilt = pitch*Math.PI/180
   return [x, y*Math.cos(tilt)-z*Math.sin(tilt)]
+}
+
+/** 在投影後選取景方向，讓完整地形盡量大；不能先依平面岩壁選方向再壓縮高度。 */
+export function terrainHeroFit(t: Terrain, points: Pt[], box: FitBox, options: { angle?: number; spread: number; minSpan: number }) {
+  const samples = points.flatMap((p) => {
+    const z = elevation(t, p)
+    return z === undefined ? [] : [{ x: p[0], y: p[1], rise: z*Math.sin(Math.PI/3) }]
+  })
+  if (!samples.length) return undefined
+  let best: ReturnType<typeof heroFit>
+  for (const angle of options.angle === undefined ? HERO_ANGLES : [options.angle]) {
+    const radians = angle*Math.PI/180, c = Math.cos(radians), s = Math.sin(radians)
+    let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
+    // 60 度投影與 terrainView 一致；每個方向只累計邊界，不配置整批投影點陣列。
+    for (const p of samples) {
+      const x = p.x*c-p.y*s, y = (p.x*s+p.y*c)*Math.cos(Math.PI/3)-p.rise
+      left = Math.min(left, x); right = Math.max(right, x)
+      top = Math.min(top, y); bottom = Math.max(bottom, y)
+    }
+    const fit = heroFit([[left, top], [right, bottom]], box, { ...options, angle: 0 })
+    if (fit && (!best || fit.viewBox[2]*1.03 < best.viewBox[2])) best = { ...fit, angle }
+  }
+  return best
 }
 
 export interface TerrainRegion { id: string; rings: Pt[][]; color: string; walls: Pt[][] }

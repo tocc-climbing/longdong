@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { heroFit, type Pt } from '../map/heroFit'
-import { drape, elevation, terrainMesh, terrainView, type Terrain, type TerrainRegion, type TerrainWall } from '../map/terrain'
+import type { Pt } from '../map/heroFit'
+import { drape, sampleTerrainLines, terrainHeroFit, terrainMesh, type Terrain, type TerrainRegion, type TerrainWall } from '../map/terrain'
 import { rasterTerrain } from '../map/terrainRaster'
-import { coastalIslands, terrainExtensions } from '../map/terrainRegions'
+import { coastalIslands, terrainFramingPoints } from '../map/terrainRegions'
 
 const cached = new Map<string, Promise<Terrain>>()
 export function loadTerrain(scope: 'hero' | 'map' = 'hero') {
@@ -35,25 +35,20 @@ export function TerrainHero({ regions, walls, fit, overview, includeIslands, sin
   }, [])
   const scene = useMemo(() => {
     if (!terrain || !size || !fit.length) return undefined
-    const inset = overview ? { top: 16, bottom: 14, left: 18, right: 18 } : { top: 34, bottom: 14, left: 12, right: 12 }
+    const inset = overview ? { top: 8, bottom: 8, left: 8, right: 8 } : { top: 54, bottom: 10, left: 12, right: 10 }
     const box = { ...size, ...inset }
-    const extensions = terrainExtensions(terrain, regions)
     const islands = coastalIslands(terrain, regions)
-    const fitting = overview || includeIslands ? [...fit, ...extensions.flatMap((e) => e.ring), ...islands.flatMap((i) => i.ring)] : fit
-    const direction = heroFit(fit, box, { angle: overview ? 80 : undefined })
-    if (!direction) return undefined
-    const angle = direction.angle
-    const points = fitting.flatMap((p) => {
-      const z = elevation(terrain, p)
-      return z === undefined ? [] : [terrainView(p, z, angle)]
-    })
-    const placed = heroFit(points, box, { angle: 0, spread: overview ? 1.12 : 1.5, minSpan: overview ? 0 : single ? 65 : 100 })
+    const fitting = overview || includeIslands
+      ? [...fit, ...terrainFramingPoints(terrain, regions, size.w >= 600 ? 3 : 2), ...islands.flatMap((i) => i.ring)]
+      : [...fit, ...sampleTerrainLines(terrain, walls.filter((w) => w.strong).flatMap((w) => w.lines), 0, 4).flatMap((p) => p ? [p.at] : [])]
+    const placed = terrainHeroFit(terrain, fitting, box, { spread: overview || includeIslands ? 1.05 : 1.2, minSpan: overview || includeIslands ? 0 : single ? 65 : 100 })
     if (!placed) return undefined
+    const angle = placed.angle
     const raster = rasterTerrain(terrain, regions, angle, placed.viewBox, size.w, size.h)
     const vector = raster ? undefined : terrainMesh(terrain, angle, placed.viewBox, 1)
     return {
       raster, paths: vector?.paths ?? [], triangles: raster?.triangles ?? vector!.triangles,
-      viewBox: placed.viewBox,
+      viewBox: placed.viewBox, angle,
       // GPU 依地面座標裁海岸；只有無 WebGL2 的向量版使用投影輪廓。
       coastClip: raster ? undefined : terrain.coast?.flatMap((poly) => poly.map((ring) => drape(terrain, [[...ring, ring[0]]], angle, 0, 4)+'Z')).join(''),
       islands: islands.map((island) => ({ ...island, d: drape(terrain, [[...island.ring, island.ring[0]]], angle, 0, 4)+'Z' })),
@@ -61,7 +56,7 @@ export function TerrainHero({ regions, walls, fit, overview, includeIslands, sin
       walls: walls.map((w) => ({ ...w, d: drape(terrain, w.lines, angle, 1.2) })),
     }
   }, [terrain, size, regions, walls, fit, overview, includeIslands, single])
-  return <svg ref={ref} className={`${className ?? ''} hero-map terrain-hero`} viewBox={scene?.viewBox.join(' ')} aria-hidden data-terrain={error ? 'error' : scene ? 'ready' : 'loading'} data-triangles={scene?.triangles} data-estimated-points={terrain?.interpolated?.length} data-renderer={scene?.raster ? 'webgl' : 'svg'} data-detail-meters={scene?.raster?.sampleMeters} data-coast-resolution={scene?.raster?.coastMeters} data-region-count={regions.length} data-wall-coverage={scene?.raster?.wallCoverage} data-continuous-coverage={scene?.raster?.continuousCoverage}>
+  return <svg ref={ref} className={`${className ?? ''} hero-map terrain-hero`} viewBox={scene?.viewBox.join(' ')} aria-hidden data-terrain={error ? 'error' : scene ? 'ready' : 'loading'} data-bearing={scene?.angle} data-triangles={scene?.triangles} data-estimated-points={terrain?.interpolated?.length} data-renderer={scene?.raster ? 'webgl' : 'svg'} data-detail-meters={scene?.raster?.sampleMeters} data-coast-resolution={scene?.raster?.coastMeters} data-region-count={regions.length} data-wall-coverage={scene?.raster?.wallCoverage} data-continuous-coverage={scene?.raster?.continuousCoverage}>
     <title>{error ? 'DTM unavailable' : '© 內政部地政司 · Taiwan DTM 20m · 2025 · TWVD2001'}</title>
     {scene && <>
       <defs>

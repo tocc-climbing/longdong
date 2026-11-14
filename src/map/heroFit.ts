@@ -1,6 +1,6 @@
 /**
- * 標題卡的地圖要怎麼擺：岩壁是主角，要整個看得到、越大越好；方向不固定北邊朝上，
- * 轉到岩壁在框裡放得最大的角度。地圖本身可以超出框（區域的形狀被框切掉，跨到卡片的上下緣）。
+ * 標題卡的平面取景：內容完整放進可用範圍、越大越好；方向不固定北邊朝上。
+ * 3D 地形先做高程投影，再套用這裡的平面取景（terrainHeroFit）。
  */
 
 export type Pt = [number, number]
@@ -24,7 +24,7 @@ export function rotate([x, y]: Pt, deg: number): Pt {
 }
 
 /** 試的角度：從 0 開始左右交替（0、2、-2、4、-4…到 ±90），差不多大時用比較接近北邊朝上的 */
-const ANGLES = [0, ...Array.from({ length: 45 }, (_, i) => [(i + 1) * 2, -(i + 1) * 2]).flat()]
+export const HERO_ANGLES = [0, ...Array.from({ length: 45 }, (_, i) => [(i + 1) * 2, -(i + 1) * 2]).flat()]
 /** 至少大這麼多才轉 */
 const BETTER = 1.03
 
@@ -42,7 +42,7 @@ export function heroFit(
   const innerH = box.h - box.top - box.bottom
   if (points.length === 0 || innerW <= 0 || innerH <= 0) return undefined
   let best: { angle: number; k: number; cx: number; cy: number } | undefined
-  for (const angle of fixed === undefined ? ANGLES : [fixed]) {
+  for (const angle of fixed === undefined ? HERO_ANGLES : [fixed]) {
     const turned = points.map((p) => rotate(p, angle))
     const xs = turned.map((p) => p[0])
     const ys = turned.map((p) => p[1])

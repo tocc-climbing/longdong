@@ -1,13 +1,31 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createCanvas } from '@napi-rs/canvas'
 import { readFileSync } from 'node:fs'
-import { connectTerrainLines, drape, elevation, terrainDashLines, terrainMesh, terrainPoint, terrainView, type Terrain, type TerrainRegion } from '../src/map/terrain'
+import { connectTerrainLines, drape, elevation, terrainDashLines, terrainHeroFit, terrainMesh, terrainPoint, terrainView, type Terrain, type TerrainRegion } from '../src/map/terrain'
 import { coastalIslands, continuousTerrainOutline, terrainCoastMask, terrainDomains, terrainExtensions, terrainIslandParts, terrainRegionField } from '../src/map/terrainRegions'
 import { terrainDisplayResolution } from '../src/map/terrainRaster'
 
 // 突變：高程少乘 scale、雙線性內插改成單點取樣、把缺值改成 0、忽略 z 投影。
 const grid: Terrain = { origin: [0, 0], u: [20, 0], v: [0, 20], columns: 2, rows: 2, scale: 0.1, heights: [0, 100, 200, 300] }
 describe('20m DTM 地形', () => {
+  it('依投影後的完整地形放大取景，所有點保留在卡片內', () => {
+    // 突變：固定北向或在高程投影前選方向，細長地形會縮成一小條。
+    const t = { ...grid, columns: 10, rows: 10, heights: Array(100).fill(0) }
+    const points: [number, number][] = [[10, 10], [170, 10], [170, 30], [10, 30]]
+    const box = { w: 160, h: 200, top: 34, right: 10, bottom: 10, left: 12 }
+    const options = { spread: 1.05, minSpan: 0 }
+    const fit = terrainHeroFit(t, points, box, options)!
+    const north = terrainHeroFit(t, points, box, { ...options, angle: 0 })!
+    expect(fit.viewBox[2]).toBeLessThan(north.viewBox[2]/1.5)
+    for (const p of points) {
+      const [x, y] = terrainView(p, elevation(t, p)!, fit.angle)
+      const scale = box.w/fit.viewBox[2]
+      expect((x-fit.viewBox[0])*scale).toBeGreaterThanOrEqual(box.left)
+      expect((x-fit.viewBox[0])*scale).toBeLessThanOrEqual(box.w-box.right)
+      expect((y-fit.viewBox[1])*scale).toBeGreaterThanOrEqual(box.top)
+      expect((y-fit.viewBox[1])*scale).toBeLessThanOrEqual(box.h-box.bottom)
+    }
+  })
   it('地面虛線跨節點保持 8m 分段，隧道只接合 15m 內道路', () => {
     // 突變：每個原始節點重設分段、略過入口接合、把遠處入口也拉過去。
     const dashed = terrainDashLines([[[0, 0], [5, 0], [25, 0]]], 8, 8)

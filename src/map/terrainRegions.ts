@@ -1,5 +1,10 @@
 import type { Pt } from './heroFit'
-import type { Terrain, TerrainRegion } from './terrain'
+import { terrainPoint, type Terrain, type TerrainRegion } from './terrain'
+
+type CoastMask = { pixels: Uint8Array; width: number; height: number; meters: number }
+type RegionField = { pixels: Uint8Array; width: number; height: number; wallCoverage: number; continuousCoverage: number }
+let previousCoast: { terrain: Terrain; context: boolean; mask: CoastMask } | undefined
+let previousField: { terrain: Terrain; key: string; field: RegionField } | undefined
 
 /** 長巷原深藍在陰影中接近海面底色，3D 圖統一使用較明亮的同色系。 */
 export function terrainColor(id: string, color: string) {
@@ -15,12 +20,15 @@ function gridMapper(t: Terrain) {
 }
 
 /** 約 2m 的主岸遮罩，只建立一次；島礁另以精細 SVG 輪廓與所屬區色描繪。 */
-export function terrainCoastMask(t: Terrain, context = false) {
+export function terrainCoastMask(t: Terrain, context = false): CoastMask {
+  if (previousCoast?.terrain === t && previousCoast.context === context) return previousCoast.mask
   const scale = t.coast ? 10 : 1, width = t.columns*scale, height = t.rows*scale
   if (!t.coast) {
     const pixels = new Uint8Array(width*height).fill(255)
     for (const [start, length] of t.waterRuns ?? []) pixels.fill(0, start, start+length)
-    return { pixels, width, height, meters: Math.hypot(...t.u) }
+    const mask = { pixels, width, height, meters: Math.hypot(...t.u) }
+    previousCoast = { terrain: t, context, mask }
+    return mask
   }
   const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!, grid = gridMapper(t)
@@ -32,7 +40,9 @@ export function terrainCoastMask(t: Terrain, context = false) {
   ctx.fill('evenodd')
   const rgba = ctx.getImageData(0, 0, width, height).data, pixels = new Uint8Array(width*height)
   for (let i = 0; i < pixels.length; i++) pixels[i] = rgba[i*4+3]
-  return { pixels, width, height, meters: Math.hypot(...t.u)/scale }
+  const mask = { pixels, width, height, meters: Math.hypot(...t.u)/scale }
+  previousCoast = { terrain: t, context, mask }
+  return mask
 }
 
 /** 海岸圖內獨立的實際島礁；只取攀岩區附近，顏色沿用最近區域。 */
@@ -92,6 +102,21 @@ export function terrainDomains(t: Terrain, regions: TerrainRegion[]): Pt[][] {
   return [base, ...terrainExtensions(t, regions).map((e) => e.ring), apron]
 }
 
+/** 標題卡以實際顯色的陸地取景，包含坡頂與延伸到海岸的地形，不能只框住岩壁。 */
+export function terrainFramingPoints(t: Terrain, regions: TerrainRegion[], scale: 2 | 3): Pt[] {
+  const field = terrainRegionField(t, regions, scale), coast = terrainCoastMask(t)
+  const points: Pt[] = []
+  for (let r = 0; r < field.height; r++) for (let c = 0; c < field.width; c++) {
+    // 柔邊也納入取景，涵蓋紋理內插與坡面投影後的輪廓。
+    if (field.pixels[(r*field.width+c)*4+3] < 2) continue
+    const x = Math.round((c+0.5)*coast.width/field.width-0.5)
+    const y = Math.round((r+0.5)*coast.height/field.height-0.5)
+    if (coast.pixels[y*coast.width+x] < 128) continue
+    points.push(terrainPoint(t, (c+0.5)/scale-0.5, (r+0.5)/scale-0.5))
+  }
+  return points
+}
+
 /** 面積最大者作主岸參考，同緯度位於主岸東側的分離輪廓保留為島礁。 */
 export function terrainIslandParts(regions: TerrainRegion[]) {
   const area = (ring: Pt[]) => Math.abs(ring.reduce((sum, a, i) => {
@@ -134,7 +159,10 @@ export function continuousTerrainOutline(points: Pt[]): Pt[] {
   return [...half(sorted), ...half([...sorted].reverse())]
 }
 
-export function terrainRegionField(t: Terrain, regions: TerrainRegion[], scale: 2 | 3, context = false) {
+export function terrainRegionField(t: Terrain, regions: TerrainRegion[], scale: 2 | 3, context = false): RegionField {
+  // 同次取景與 GPU 上傳共用遮罩；編輯內容改變時 key 也會改變。
+  const key = JSON.stringify([regions, scale, context])
+  if (previousField?.terrain === t && previousField.key === key) return previousField.field
   const width = t.columns*scale, height = t.rows*scale
   const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!
@@ -248,5 +276,7 @@ export function terrainRegionField(t: Terrain, regions: TerrainRegion[], scale: 
       else wallCoverage = 0
     }
   })
-  return { pixels, width, height, wallCoverage, continuousCoverage: continuousLand ? coveredLand/continuousLand : 0 }
+  const field = { pixels, width, height, wallCoverage, continuousCoverage: continuousLand ? coveredLand/continuousLand : 0 }
+  previousField = { terrain: t, key, field }
+  return field
 }
