@@ -110,6 +110,8 @@ export const en: Messages = {
   'myloc.accuracy': 'Accuracy ±{m} m · updated {time}',
   'myloc.poor': 'Low accuracy — it updates once you’re in the open',
   'map.north': 'Face north',
+  'map.rotateLeft': 'Rotate left',
+  'map.rotateRight': 'Rotate right',
   'map.locate': 'My location',
   'map.report': 'Report',
   'map.outside': 'Outside the Long Dong map (nearest rescue point: {dist})',

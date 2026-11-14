@@ -294,6 +294,8 @@
 }
 
 .terrain-map-view:active { cursor: grabbing; }
+.terrain-map-rotation { display: flex; gap: 6px; }
+.terrain-map-rotation .mk-control { width: 44px; padding: 0; font-size: 1.4rem; }
 .terrain-map-view:focus:not(:focus-visible),
 .terrain-map-label:focus:not(:focus-visible) { outline: none; }
 .terrain-map-label { cursor: pointer; }

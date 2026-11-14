@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createCanvas } from '@napi-rs/canvas'
 import { elevation, type Terrain } from '../../src/map/terrain'
 import { checkTerrainTilt } from './terrainTiltCheck'
+import { checkTerrainRotation } from './terrainRotationCheck'
 
 /** 突變：只更新 viewBox，讓圖示沿用停止縮放前的比例，等重繪才恢復大小。 */
 export async function checkTerrainZoomStability(page: Page) {
@@ -51,7 +52,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   await page.waitForSelector('.kit-map-host .mk-bottom-right')
   const controlLayout = () => page.locator('.kit-map').evaluate((el) => {
     const r = el.getBoundingClientRect()
-    return [...el.querySelectorAll('.mk-bottom-right button')].flatMap((b) => {
+    return [...el.querySelectorAll('.mk-bottom-right .mk-zoom button, .mk-bottom-right > button')].flatMap((b) => {
       const p = b.getBoundingClientRect()
       return p.width && p.height ? [{ label: b.getAttribute('aria-label'), right: r.right-p.right, bottom: r.bottom-p.bottom, w: p.width, h: p.height }] : []
     })
@@ -69,7 +70,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   assert.equal(await page.locator('.terrain-map').getAttribute('data-pitch'), '30', '3D 地圖預設傾角不是 30 度')
   await checkTerrainPresentation(page)
   assert.deepEqual(await controlLayout(), controls2D, '3D 控制項未對齊 2D 右下配置')
-  assert.equal(await page.locator('.terrain-map-controls, .terrain-map .mk-compass').count(), 0, '3D 仍有額外右上按鈕')
+  assert.equal(await page.locator('.terrain-map .mk-compass').count(), 1, '3D 缺少回到北向的指北按鈕')
   assert.equal(await page.locator('.terrain-map').getAttribute('data-area-count'), '9', '3D 地圖缺少區域入口')
   assert.equal(await page.locator('.terrain-map').getAttribute('data-poi-count'), '60', '原向量圖的地點與線名未完整載入')
   assert.equal(await page.locator('.terrain-map').getAttribute('data-label-candidates'), '126', '缺少原圖地點、分區或區域標示')
@@ -105,6 +106,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   assert(Math.abs(initial[0]+initial[2]/2-centerX) < 0.1, '切換 3D 未保留平面地圖中心')
   assert(Math.abs(initial[1]+initial[3]/2-(centerY*Math.sqrt(3)/2-elevation(full, [centerX, centerY])!*0.5)) < 0.1, '切換 3D 未保留平面地圖緯度')
   await checkTerrainTilt(page)
+  await checkTerrainRotation(page)
   await checkTerrainColorContinuity(page)
   if (initial[2]/viewport.width > 2.4) {
     assert.equal(await page.locator('[data-label-kind="boat"], [data-label-kind="helicopter"]').count(), 0, '全圖仍擠滿細節標示')
@@ -269,6 +271,7 @@ export async function checkTerrainMap(page: Page, base: string) {
   })
   assert(checked >= 2, '航照對位檢查缺少可見地點')
   await checkTerrainTilt(page)
+  await checkTerrainRotation(page)
   await checkTerrainPhotoContinuity(page)
   await page.getByRole('button', { name: '航照', exact: true }).click()
   assert.equal(await page.locator('[data-surface="ortho"]').count(), 0, '關閉航照仍留下貼圖')

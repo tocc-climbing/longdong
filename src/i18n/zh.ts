@@ -108,6 +108,8 @@ export const zh = {
   'myloc.accuracy': '誤差約 ±{m} 公尺 · {time} 更新',
   'myloc.poor': '誤差較大，到開闊處會自動更新',
   'map.north': '北方朝上',
+  'map.rotateLeft': '向左旋轉',
+  'map.rotateRight': '向右旋轉',
   'map.locate': '回到我的位置',
   'map.report': '回報',
   'map.outside': '不在龍洞地圖範圍內（離最近的救援點 {dist}）',

@@ -199,9 +199,9 @@ class Rasterizer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
       this.fieldKey = fieldKey; this.wallCoverage = field.wallCoverage; this.continuousCoverage = field.continuousCoverage
     }
-    // 調角時固定南北網格，只保留可見的東西向帶；網格不隨角度重建，放大後仍有足夠細分。
+    // 北向上調角時固定南北網格；旋轉後以反投影取得可見格網。
     const ys = target ? [terrainPoint(t, 0, 0)[1], terrainPoint(t, t.columns-1, 0)[1], terrainPoint(t, 0, t.rows-1)[1], terrainPoint(t, t.columns-1, t.rows-1)[1]] : []
-    const bounds = target
+    const bounds = target && angle === 0
       ? { ...terrainGridBounds(t, 0, [box[0], Math.min(...ys), box[2], Math.max(...ys)-Math.min(...ys)], 1, 0), firstRow: 0, lastRow: t.rows-2 }
       : terrainGridBounds(t, angle, box, 1, pitch)
     const spanC = bounds.lastCol+1-bounds.firstCol, spanR = bounds.lastRow+1-bounds.firstRow
@@ -263,10 +263,10 @@ let previous: { terrain: Terrain; key: string; image: ReturnType<Rasterizer['dra
 
 const fieldKeyFor = (regions: TerrainRegion[], scale: 2 | 3, context: boolean) => JSON.stringify([scale, context, regions.map((r) => [r.id, r.color, r.walls, r.rings])])
 
-export function paintTerrainFrame(target: HTMLCanvasElement, t: Terrain, regions: TerrainRegion[], pitch: number, box: [number, number, number, number], width: number, height: number, photo?: TerrainOrtho) {
+export function paintTerrainFrame(target: HTMLCanvasElement, t: Terrain, regions: TerrainRegion[], pitch: number, box: [number, number, number, number], width: number, height: number, photo?: TerrainOrtho, bearing = 0) {
   rasterizer ??= new Rasterizer()
   const scale = width >= 600 ? 3 : 2
-  rasterizer.draw(t, regions, fieldKeyFor(regions, scale, true), 0, box, width, height, 1, scale, 45000, true, photo, pitch, target)
+  rasterizer.draw(t, regions, fieldKeyFor(regions, scale, true), bearing, box, width, height, 1, scale, 45000, true, photo, pitch, target)
 }
 
 export function rasterTerrain(t: Terrain, regions: TerrainRegion[], angle: number, box: [number, number, number, number], width: number, height: number, { maxVertices = 180000, context = false, photo, pitch = 60 }: { maxVertices?: number; context?: boolean; photo?: TerrainOrtho; pitch?: number } = {}) {

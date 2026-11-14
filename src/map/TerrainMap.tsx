@@ -15,12 +15,13 @@ import { BOUNDS, EXTENT, inMapBounds } from './bounds'
 import { layoutTerrainLabels, type TerrainLabel, type LabelRect } from './terrainMapLabels'
 import { TerrainMapMarker } from './TerrainMapMarker'
 import { loadTerrainOrtho, terrainOrthoOverview, terrainOrthoPlan, type TerrainOrtho } from './terrainOrtho'
+import { normalizeBearing, reorientTerrainBox, terrainGround, touchRotation } from './terrainCamera'
 
 type Box = [number, number, number, number]
-type PhotoFrame = { atlas: TerrainOrtho; box: Box; size: { w: number; h: number }; pitch: number }
+type PhotoFrame = { atlas: TerrainOrtho; box: Box; size: { w: number; h: number }; pitch: number; bearing: number }
 type PhotoImage = { all: string; box: Box; tiles: number; pixels: string }
-type SurfaceImage = NonNullable<ReturnType<typeof rasterTerrain>> & { box: Box; pitch: number }
-type TouchGesture = { start: Pt[]; last: Pt[]; pitch: number; box: Box; height: number; frame: DOMRect; waitingSince?: number; mode?: 'tilt' | 'zoom' }
+type SurfaceImage = NonNullable<ReturnType<typeof rasterTerrain>> & { box: Box; pitch: number; bearing: number }
+type TouchGesture = { start: Pt[]; last: Pt[]; pitch: number; bearing: number; box: Box; height: number; frame: DOMRect; waitingSince?: number; rotating?: boolean; mode?: 'tilt' | 'transform' }
 
 /** 新 SVG 影像觸發 load 前保留舊影像，避免解碼或合成時露底。 */
 function TerrainPhoto({ image }: { image?: PhotoImage }) {
@@ -36,7 +37,7 @@ function TerrainColor({ image, onReady }: { image?: SurfaceImage; onReady: (imag
   return <>{layers.map((layer) => layer && <image key={layer.all} data-surface={layer === image ? 'all' : 'all-previous'} data-image-ready={ready?.all === layer.all || undefined} href={layer.all} x={layer.box[0]} y={layer.box[1]} width={layer.box[2]} height={layer.box[3]} onLoad={() => { if (layer === image) { setReady(layer); onReady(layer) } }} />)}</>
 }
 
-/** 平移縮放只更新視窗；調角即時重畫地形，手勢結束後才輸出高解析 PNG。 */
+/** 平移縮放只更新視窗；旋轉與調角即時重畫地形，手勢結束後才輸出高解析 PNG。 */
 export function TerrainMap({ map, data, here, marks, selected, onWallTap, onAreaPress, onLocate, topLeft, ortho, savedView }: {
   map: ScaleMapData; data: LoadedData; here?: { coords: LatLng; accuracy?: number }; marks: KitMapMark[]
   selected?: { sector: string; line: number }
@@ -52,7 +53,10 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
   const liveCanvas = useRef<HTMLCanvasElement>(null)
   const [pitch, setPitch] = useState(30)
   const pitchNow = useRef(30)
-  const [tilting, setTilting] = useState(false)
+  const [bearing, setBearing] = useState(normalizeBearing(savedView?.current?.rotation ?? 0))
+  const bearingNow = useRef(bearing)
+  const mouseRotation = useRef<number>(undefined)
+  const [orienting, setOrienting] = useState(false)
   const [showLive, setShowLive] = useState(false)
   const loadedSurface = useRef<string>(undefined)
   const colorCache = useRef<SurfaceImage>(undefined)
@@ -108,10 +112,8 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
     const flat = readMap(base), fitted = fitRectView(flat.home, flat.bounds, size)
     const [lng, lat] = initialView.current?.center ?? flat.proj.unproject([fitted.cx, fitted.cy])
     const anchor = project([lat, lng]), center = at(anchor)!
-    const scale = initialView.current?.metersPerPixel ?? fitted.s
-    const boundsCenter = at([BOUNDS.x+BOUNDS.w/2, BOUNDS.y+BOUNDS.h/2])!
     // 傾斜只改變投影，不重新放大填滿畫面；每像素公尺數沿用平面地圖。
-    const bounds = { ...BOUNDS, y: boundsCenter[1]-BOUNDS.h/2, maxW: EXTENT.w }
+    const scale = initialView.current?.metersPerPixel ?? fitted.s
     const ground = ([lng, lat]: Position) => project([lat, lng])
     const nameOf = (name?: Text) => typeof name === 'string' ? name : name?.[lang === 'zh' ? 'zh-Hant' : lang] ?? name?.['zh-Hant'] ?? name?.en ?? ''
     const nodes = new Map((base.nodes ?? []).map((n) => [n.id, n]))
@@ -145,7 +147,6 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
       anchor,
       anchorHeight: elevation(terrain, anchor)!,
       anchors,
-      bounds,
       range: [EXTENT.x, EXTENT.x+EXTENT.w],
       at,
       polygons,
@@ -170,93 +171,95 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
   }, [terrain, base, regions, map, data, lang, size, t])
   const geometry = useMemo(() => {
     if (!world || !terrain) return undefined
-    const at = (p: Pt) => { const z = elevation(terrain, p); return z === undefined ? undefined : terrainView(p, z, 0, pitch) }
+    const at = (p: Pt) => { const z = elevation(terrain, p); return z === undefined ? undefined : terrainView(p, z, bearing, pitch) }
     const center = at(world.anchor)!, boundsCenter = at([BOUNDS.x+BOUNDS.w/2, BOUNDS.y+BOUNDS.h/2])!
+    const angle = bearing*Math.PI/180
+    const width = Math.abs(BOUNDS.w*Math.cos(angle))+Math.abs(BOUNDS.h*Math.sin(angle))
+    const height = Math.abs(BOUNDS.w*Math.sin(angle))+Math.abs(BOUNDS.h*Math.cos(angle))
     return {
       ...world, at,
-      initial: [world.initial[0], center[1]-world.initial[3]/2, world.initial[2], world.initial[3]] as Box,
-      bounds: { ...world.bounds, y: boundsCenter[1]-BOUNDS.h/2 },
-      polygons: world.polygons.map((p) => ({ ...p, d: p.paths.map((path) => projectTerrainPath(path, 0, pitch)+'Z').join('') })),
-      islands: world.islands.map((i) => ({ ...i, d: projectTerrainPath(i.path, 0, pitch)+'Z' })),
-      walls: world.walls.map((w) => ({ ...w, d: projectTerrainPath(w.path, 0, pitch) })),
-      trails: world.trails.map((l) => ({ ...l, d: projectTerrainPath(l.path, 0, pitch), dashed: l.dashes && projectTerrainPath(l.dashes, 0, pitch) })),
-      labels: world.labels.map((l) => { const p = world.anchors.get(l.at)!; return { ...l, at: terrainView(p.at, p.z, 0, pitch) } }),
+      initial: [center[0]-world.initial[2]/2, center[1]-world.initial[3]/2, world.initial[2], world.initial[3]] as Box,
+      bounds: { x: boundsCenter[0]-width/2, y: boundsCenter[1]-height/2, w: width, h: height, maxW: Math.abs(EXTENT.w*Math.cos(angle))+Math.abs(EXTENT.h*Math.sin(angle)) },
+      polygons: world.polygons.map((p) => ({ ...p, d: p.paths.map((path) => projectTerrainPath(path, bearing, pitch)+'Z').join('') })),
+      islands: world.islands.map((i) => ({ ...i, d: projectTerrainPath(i.path, bearing, pitch)+'Z' })),
+      walls: world.walls.map((w) => ({ ...w, d: projectTerrainPath(w.path, bearing, pitch) })),
+      trails: world.trails.map((l) => ({ ...l, d: projectTerrainPath(l.path, bearing, pitch), dashed: l.dashes && projectTerrainPath(l.dashes, bearing, pitch) })),
+      labels: world.labels.map((l) => { const p = world.anchors.get(l.at)!; return { ...l, at: terrainView(p.at, p.z, bearing, pitch) } }),
     }
-  }, [world, terrain, pitch])
+  }, [world, terrain, pitch, bearing])
   const box = view ?? geometry?.initial
   useEffect(() => {
     if (!ortho || !terrain) { setOverview(undefined); return }
     const controller = new AbortController(), box = terrainOrthoOverview(terrain, 30)
     const size = { w: 768, h: 768*box[3]/box[2] }
     loadTerrainOrtho(terrainOrthoPlan(terrain, box, size.w, 1, 4, 30), controller.signal).then((atlas) => {
-      if (!controller.signal.aborted) setOverview({ atlas, box, size, pitch: 30 })
+      if (!controller.signal.aborted) setOverview({ atlas, box, size, pitch: 30, bearing: 0 })
     }, (error: Error) => {
       if (!controller.signal.aborted) { controller.abort(); setPhotoError(error.message) }
     })
     return () => controller.abort()
   }, [ortho, terrain])
   useEffect(() => {
-    if (tilting) return
+    if (orienting) return
     setPhotoError(undefined)
     if (!ortho || !terrain || !box || !size.w || !overview) { setPhoto(undefined); return }
     const controller = new AbortController()
-    const plan = terrainOrthoPlan(terrain, box, size.w, window.devicePixelRatio || 1, 8, pitch)
+    const plan = terrainOrthoPlan(terrain, box, size.w, window.devicePixelRatio || 1, 8, pitch, bearing)
     loadTerrainOrtho(plan, controller.signal).then((atlas) => {
-      if (!controller.signal.aborted) setPhoto({ atlas, box, size, pitch })
+      if (!controller.signal.aborted) setPhoto({ atlas, box, size, pitch, bearing })
     }, (error: Error) => {
       if (!controller.signal.aborted) { controller.abort(); setPhotoError(error.message) }
     })
     return () => controller.abort()
-  }, [ortho, terrain, box, size, overview, pitch, tilting])
+  }, [ortho, terrain, box, size, overview, pitch, bearing, orienting])
   camera.current = geometry ? { bounds: geometry.bounds, ...size } : undefined
   // 航照非同步載入不能把手勢中的鏡頭退回上次停止的位置。
   if (committed.current !== box) { current.current = box; committed.current = box }
   saveView.current = () => {
     const b = current.current
     if (!savedView || !geometry || !b) return
-    const first = geometry.initial
-    const [lat, lng] = unproject([geometry.anchor[0]+b[0]+b[2]/2-first[0]-first[2]/2, geometry.anchor[1]+(b[1]+b[3]/2-first[1]-first[3]/2)/Math.cos(pitch*Math.PI/180)])
-    savedView.current = { center: [lng, lat], metersPerPixel: b[2]/size.w, rotation: 0 }
+    const [lat, lng] = unproject(terrainGround([b[0]+b[2]/2, b[1]+b[3]/2], geometry.anchorHeight, bearingNow.current, pitchNow.current))
+    savedView.current = { center: [lng, lat], metersPerPixel: b[2]/size.w, rotation: bearingNow.current }
   }
   const colorBase = useMemo(() => {
     if (ortho || !terrain) return undefined
-    if (tilting) return fullColorCache.current
-    const fullBox = terrainOrthoOverview(terrain, pitch)
-    const image = rasterTerrain(terrain, regions, 0, fullBox, 768, 768*fullBox[3]/fullBox[2], { maxVertices: 90000, context: true, pitch })
-    fullColorCache.current = image && { ...image, box: fullBox, pitch }
+    if (orienting) return fullColorCache.current
+    const fullBox = terrainOrthoOverview(terrain, pitch, bearing)
+    const image = rasterTerrain(terrain, regions, bearing, fullBox, 768, 768*fullBox[3]/fullBox[2], { maxVertices: 90000, context: true, pitch })
+    fullColorCache.current = image && { ...image, box: fullBox, pitch, bearing }
     return fullColorCache.current
-  }, [ortho, terrain, regions, pitch, tilting])
+  }, [ortho, terrain, regions, pitch, bearing, orienting])
   const raster = useMemo(() => {
     if (ortho || !terrain || !geometry || !box || !size.w) return undefined
-    if (tilting) return colorCache.current
+    if (orienting) return colorCache.current
     // 北向上的投影不改變 x；只輸出實際顯色帶，省去兩側大面積透明像素的編碼。
     const left = Math.max(box[0], geometry.range[0]), right = Math.min(box[0]+box[2], geometry.range[1])
-    const imageBox: Box = right > left ? [left, box[1], right-left, box[3]] : box
-    const image = rasterTerrain(terrain, regions, 0, imageBox, size.w*imageBox[2]/box[2], size.h, { maxVertices: 90000, context: true, pitch })
-    colorCache.current = image && { ...image, box: imageBox, pitch }
+    const imageBox: Box = bearing === 0 && right > left ? [left, box[1], right-left, box[3]] : box
+    const image = rasterTerrain(terrain, regions, bearing, imageBox, size.w*imageBox[2]/box[2], size.h, { maxVertices: 90000, context: true, pitch })
+    colorCache.current = image && { ...image, box: imageBox, pitch, bearing }
     return colorCache.current
-  }, [ortho, terrain, geometry, regions, box, size, pitch, tilting])
+  }, [ortho, terrain, geometry, regions, box, size, pitch, bearing, orienting])
   const overviewRaster = useMemo(() => {
     if (!ortho || !terrain || !overview) return undefined
-    if (tilting) return overviewCache.current
-    const fullBox = terrainOrthoOverview(terrain, pitch)
-    const image = rasterTerrain(terrain, regions, 0, fullBox, 768, 768*fullBox[3]/fullBox[2], { maxVertices: 90000, context: true, photo: overview.atlas, pitch })
-    overviewCache.current = image && { ...image, box: fullBox, pitch }
+    if (orienting) return overviewCache.current
+    const fullBox = terrainOrthoOverview(terrain, pitch, bearing)
+    const image = rasterTerrain(terrain, regions, bearing, fullBox, 768, 768*fullBox[3]/fullBox[2], { maxVertices: 90000, context: true, photo: overview.atlas, pitch })
+    overviewCache.current = image && { ...image, box: fullBox, pitch, bearing }
     return overviewCache.current
-  }, [ortho, terrain, regions, overview, pitch, tilting])
+  }, [ortho, terrain, regions, overview, pitch, bearing, orienting])
   const photoRaster = useMemo(() => {
-    if (!ortho || !terrain || !photo || tilting || photo.pitch !== pitch) return undefined
-    const image = rasterTerrain(terrain, regions, 0, photo.box, photo.size.w, photo.size.h, { maxVertices: 90000, context: true, photo: photo.atlas, pitch })
+    if (!ortho || !terrain || !photo || orienting || photo.pitch !== pitch || photo.bearing !== bearing) return undefined
+    const image = rasterTerrain(terrain, regions, bearing, photo.box, photo.size.w, photo.size.h, { maxVertices: 90000, context: true, photo: photo.atlas, pitch })
     return image && { ...image, box: photo.box, tiles: photo.atlas.columns*photo.atlas.rows, pixels: `${photo.atlas.canvas.width}x${photo.atlas.canvas.height}` }
-  }, [ortho, terrain, regions, photo, pitch, tilting])
+  }, [ortho, terrain, regions, photo, pitch, bearing, orienting])
   const primarySurface = ortho ? overviewRaster : raster
   useLayoutEffect(() => {
     if (!showLive || !terrain || !box || !liveCanvas.current || !size.w || (ortho && !overview)) return
-    paintTerrainFrame(liveCanvas.current, terrain, regions, pitch, box, size.w, size.h, ortho ? overview!.atlas : undefined)
-  }, [showLive, terrain, regions, pitch, box, size, ortho, overview])
+    paintTerrainFrame(liveCanvas.current, terrain, regions, pitch, box, size.w, size.h, ortho ? overview!.atlas : undefined, bearing)
+  }, [showLive, terrain, regions, pitch, bearing, box, size, ortho, overview])
   useEffect(() => {
-    if (!tilting && showLive && primarySurface?.all === loadedSurface.current) setShowLive(false)
-  }, [tilting, showLive, primarySurface])
+    if (!orienting && showLive && primarySurface?.all === loadedSurface.current) setShowLive(false)
+  }, [orienting, showLive, primarySurface])
   const displayView = (next: Box) => {
     const el = svg.current
     if (!el) return
@@ -285,12 +288,20 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
     const height = b[3]/factor
     update([b[0]+(b[2]-width)*anchor[0], b[1]+(b[3]-height)*anchor[1], width, height])
   }
+  const reorient = (angle: number, nextPitch: number, anchor: Pt = [0.5, 0.5], moving = false, start?: Pick<TouchGesture, 'box' | 'height' | 'pitch' | 'bearing'>) => {
+    const b = start?.box ?? current.current
+    const nextBearing = normalizeBearing(angle)
+    if (!b || !geometry || !primarySurface || nextBearing === bearingNow.current && nextPitch === pitchNow.current) return
+    const next = reorientTerrainBox(b, start?.height ?? geometry.anchorHeight, { bearing: start?.bearing ?? bearingNow.current, pitch: start?.pitch ?? pitchNow.current }, { bearing: nextBearing, pitch: nextPitch }, anchor)
+    bearingNow.current = nextBearing; pitchNow.current = nextPitch; current.current = next
+    displayView(next); setView(next); setBearing(nextBearing); setPitch(nextPitch); setOrienting(moving); setShowLive(true)
+  }
   const reset = () => {
     clearTimeout(timer.current)
     if (touchFrame.current !== undefined) cancelAnimationFrame(touchFrame.current)
     touchFrame.current = undefined; gesture.current = undefined
-    if (pitchNow.current !== 30) setShowLive(true)
-    pitchNow.current = 30; setPitch(30); setTilting(false)
+    if (primarySurface && (pitchNow.current !== 30 || bearingNow.current !== 0)) setShowLive(true)
+    pitchNow.current = 30; bearingNow.current = 0; setBearing(0); setPitch(30); setOrienting(false)
     setView(undefined)
     if (world) {
       const center = terrainView(world.anchor, world.anchorHeight, 0, 30)
@@ -317,29 +328,30 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
     const distance = (ps: Pt[]) => Math.hypot(ps[1][0]-ps[0][0], ps[1][1]-ps[0][1])
     const origin = mid(g.start), now = mid(after), dy = now[1]-origin[1]
     const delta = after.map((p, i): Pt => [p[0]-g.start[i][0], p[1]-g.start[i][1]])
+    const twist = Math.abs(touchRotation(g.start, after))
     if (!g.mode) {
       const parallel = delta.every((d) => Math.abs(d[1]) >= 4 && Math.abs(d[1]) > Math.abs(d[0])*1.3) && delta[0][1]*delta[1][1] > 0
-      if (parallel && Math.abs(dy) >= 6 && Math.abs(distance(after)-distance(g.start)) < Math.abs(dy)*0.65) g.mode = 'tilt'
-      else if (Math.abs(distance(after)-distance(g.start)) >= 8 || Math.hypot(now[0]-origin[0], dy) >= 8) {
+      if (parallel && twist < 6 && Math.abs(dy) >= 6 && Math.abs(distance(after)-distance(g.start)) < Math.abs(dy)*0.65) g.mode = 'tilt'
+      else if (twist >= 5 || Math.abs(distance(after)-distance(g.start)) >= 8 || Math.hypot(now[0]-origin[0], dy) >= 8) {
         // 等同一幀的兩指事件到齊，避免把先送達的單指位移誤判成縮放。
         g.waitingSince ??= performance.now()
-        if (Math.abs(dy) > Math.abs(now[0]-origin[0]) && performance.now()-g.waitingSince < 40) { touchFrame.current = requestAnimationFrame(processTouch); return }
-        g.mode = 'zoom'
+        if ((Math.abs(dy) > Math.abs(now[0]-origin[0]) || !delta.every((d) => Math.hypot(...d) >= 4)) && performance.now()-g.waitingSince < 40) { touchFrame.current = requestAnimationFrame(processTouch); return }
+        g.mode = 'transform'
       } else return
     }
     dragged.current = true
     if (g.mode === 'tilt') {
       const next = Math.max(0, Math.min(60, g.pitch-dy*0.2))
       if (next === pitchNow.current) return
-      const old = g.pitch*Math.PI/180, tilt = next*Math.PI/180
-      const targetY = (g.box[1]+g.box[3]/2+g.height*Math.sin(old))/Math.cos(old)
-      const nextBox: Box = [g.box[0], targetY*Math.cos(tilt)-g.height*Math.sin(tilt)-g.box[3]/2, g.box[2], g.box[3]]
-      current.current = nextBox; pitchNow.current = next
-      displayView(nextBox); setView(nextBox); setPitch(next); setTilting(true); setShowLive(true)
+      reorient(g.bearing, next, [0.5, 0.5], true, g)
     } else {
       const before = mid(g.last)
       update([b[0]-(now[0]-before[0])*b[2]/g.frame.width, b[1]-(now[1]-before[1])*b[3]/g.frame.height, b[2], b[3]])
-      if (distance(g.last) > 0) zoom(distance(after)/distance(g.last), [(now[0]-g.frame.x)/g.frame.width, (now[1]-g.frame.y)/g.frame.height])
+      const anchor: Pt = [(now[0]-g.frame.x)/g.frame.width, (now[1]-g.frame.y)/g.frame.height]
+      if (twist >= 5) g.rotating = true
+      if (g.rotating) reorient(g.bearing+touchRotation(g.start, after), pitchNow.current, anchor, true)
+      if (distance(g.last) > 0) zoom(distance(after)/distance(g.last), anchor)
+      if (g.rotating) setView(current.current)
     }
     g.last = after
   }
@@ -352,18 +364,19 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
       return
     }
     if (Math.hypot(point[0]-old[0], point[1]-old[1]) > 1) dragged.current = true
+    if (mouseRotation.current === id) { reorient(bearingNow.current+(point[0]-old[0])*0.35, pitchNow.current, [0.5, 0.5], true); return }
     const rect = svg.current!.getBoundingClientRect()
     update([b[0]-(point[0]-old[0])*b[2]/rect.width, b[1]-(point[1]-old[1])*b[3]/rect.height, b[2], b[3]])
   }
   const releasePointer = (id: number) => {
     if (touchFrame.current !== undefined) { cancelAnimationFrame(touchFrame.current); touchFrame.current = undefined; processTouch() }
-    pointers.current.delete(id); gesture.current = undefined; setTilting(false)
+    pointers.current.delete(id); gesture.current = undefined; mouseRotation.current = undefined; setOrienting(false)
     if (current.current) update(current.current)
   }
   const unit = box ? box[2]/size.w : 1
   const point = (at: LatLng) => geometry!.at(project(at))
   const hereAt = geometry && here ? point(here.coords) : undefined
-  const reserved: LabelRect[] = [[0, 0, 224, 64]]
+  const reserved: LabelRect[] = [[0, 0, 224, 64], [size.w-64, 0, size.w, 68]]
   if (geometry && box) {
     for (const p of [hereAt, ...marks.flatMap((m) => [point(m.at), ...(m.picked ? [point(m.picked)] : [])])]) if (p) {
       const x = (p[0]-box[0])/unit, y = (p[1]-box[1])/unit
@@ -379,7 +392,7 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
   const labels = box && geometry ? layoutTerrainLabels(geometry.labels.map((l) => ({ ...l, detail: l.sector && selected?.sector === l.sector ? Infinity : l.detail, at: [(l.at[0]-box[0])/unit, (l.at[1]-box[1])/unit] })), size.w, size.h, unit, reserved) : []
   const scalePower = 10**Math.floor(Math.log10(90*unit)), scaleRatio = 90*unit/scalePower
   const scaleMeters = (scaleRatio >= 5 ? 5 : scaleRatio >= 2 ? 2 : 1)*scalePower
-  return <div className="kit-map terrain-map" data-map-mode="3d" data-pitch={pitch} data-tilting={tilting} data-meters-per-pixel={unit} data-poi-count={geometry?.poiCount} data-area-count={regions.length} data-label-candidates={geometry?.labels.length}>
+  return <div className="kit-map terrain-map" data-map-mode="3d" data-pitch={pitch} data-bearing={bearing} data-orienting={orienting} data-tilting={orienting && gesture.current?.mode === 'tilt'} data-meters-per-pixel={unit} data-poi-count={geometry?.poiCount} data-area-count={regions.length} data-label-candidates={geometry?.labels.length}>
     <style>{mapkitCSS}</style>
     <canvas ref={liveCanvas} data-terrain-live aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', display: showLive ? 'block' : 'none' }} />
     <svg ref={svg} className="terrain-map-view" role="group" aria-label={t('map.threeD')} tabIndex={0} viewBox={box?.join(' ')} data-terrain={error ? 'error' : raster || overviewRaster ? 'ready' : 'loading'} data-triangles={raster?.triangles ?? overviewRaster?.triangles}
@@ -387,11 +400,12 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
         if (e.button !== 0) return
         clearTimeout(timer.current)
         if (!pointers.current.size) dragged.current = false
+        if (e.pointerType === 'mouse' && e.shiftKey) mouseRotation.current = e.pointerId
         pointers.current.set(e.pointerId, [e.clientX, e.clientY]); e.currentTarget.setPointerCapture(e.pointerId)
         if (pointers.current.size === 2) dragged.current = true
         if (pointers.current.size === 2 && current.current && geometry && primarySurface) {
           const points = [...pointers.current.values()]
-          gesture.current = { start: points, last: points, pitch: pitchNow.current, box: current.current, height: geometry.anchorHeight, frame: e.currentTarget.getBoundingClientRect() }
+          gesture.current = { start: points, last: points, pitch: pitchNow.current, bearing: bearingNow.current, box: current.current, height: geometry.anchorHeight, frame: e.currentTarget.getBoundingClientRect() }
         }
       }}
       onPointerMove={(e) => move(e.pointerId, [e.clientX, e.clientY])}
@@ -415,6 +429,8 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
         if (e.key === '+' || e.key === '=') zoom(1.4)
         else if (e.key === '-') zoom(1/1.4)
         else if (e.key === 'Home') reset()
+        else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'q') reorient(bearingNow.current-15, pitchNow.current)
+        else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'e') reorient(bearingNow.current+15, pitchNow.current)
         else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) update([b[0]+(e.key === 'ArrowRight' ? 0.2 : e.key === 'ArrowLeft' ? -0.2 : 0)*b[2], b[1]+(e.key === 'ArrowDown' ? 0.2 : e.key === 'ArrowUp' ? -0.2 : 0)*b[3], b[2], b[3]])
         else return
         e.preventDefault()
@@ -422,9 +438,9 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
       {geometry && box && <>
         <g visibility={showLive ? 'hidden' : undefined}>
           {colorBase && <image data-surface="color-base" href={colorBase.all} x={colorBase.box[0]} y={colorBase.box[1]} width={colorBase.box[2]} height={colorBase.box[3]} />}
-          {!ortho && <TerrainColor key={pitch} image={raster} onReady={(image) => { loadedSurface.current = image.all; if (!tilting && image.pitch === pitch) setShowLive(false) }} />}
-          {overviewRaster && <image key={overviewRaster.all} data-surface="ortho-base" data-ortho-tiles={overview!.atlas.columns*overview!.atlas.rows} href={overviewRaster.all} x={overviewRaster.box[0]} y={overviewRaster.box[1]} width={overviewRaster.box[2]} height={overviewRaster.box[3]} onLoad={() => { loadedSurface.current = overviewRaster.all; if (!tilting && overviewRaster.pitch === pitch) setShowLive(false) }} />}
-          {ortho && <TerrainPhoto key={pitch} image={photoRaster} />}
+          {!ortho && <TerrainColor key={`${pitch}/${bearing}`} image={raster} onReady={(image) => { loadedSurface.current = image.all; if (!orienting && image.pitch === pitch && image.bearing === bearing) setShowLive(false) }} />}
+          {overviewRaster && <image key={overviewRaster.all} data-surface="ortho-base" data-ortho-tiles={overview!.atlas.columns*overview!.atlas.rows} href={overviewRaster.all} x={overviewRaster.box[0]} y={overviewRaster.box[1]} width={overviewRaster.box[2]} height={overviewRaster.box[3]} onLoad={() => { loadedSurface.current = overviewRaster.all; if (!orienting && overviewRaster.pitch === pitch && overviewRaster.bearing === bearing) setShowLive(false) }} />}
+          {ortho && <TerrainPhoto key={`${pitch}/${bearing}`} image={photoRaster} />}
         </g>
         {!ortho && geometry.islands.map((i) => <path key={i.id} d={i.d} fill={i.color} />)}
         {geometry.polygons.map((p) => <path key={p.id} data-terrain-polygon={p.kind} d={p.d} fill={p.kind === 'parking' ? '#adb9ab' : '#c7b9a6'} fillOpacity={ortho ? 0 : 1} fillRule="evenodd" stroke="#506058" strokeOpacity={ortho ? 0.3 : 1} strokeWidth={0.7} vectorEffect="non-scaling-stroke" />)}
@@ -459,7 +475,12 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
     {ortho && geometry && !photo && !photoError && <p role="status" className="map-status muted">{t('app.loading')}</p>}
     {!geometry && !error && <p role="status" className="map-status muted">{t('app.loading')}</p>}
     <div className="sm-top-left">{topLeft}</div>
+    <button className="mk-control mk-compass" disabled={!primarySurface} aria-label={t('map.north')} title={t('map.north')} onClick={() => reorient(0, pitchNow.current)}><svg viewBox="-12 -12 24 24" width="24" height="24" aria-hidden style={{ transform: `rotate(${bearing}deg)` }}><path d="M0 -10l4 10h-8z" fill="#d93025" /><path d="M0 10l4 -10h-8z" fill="currentColor" opacity="0.45" /></svg></button>
     <div className="mk-bottom-right">
+      <div className="terrain-map-rotation">
+        <button className="mk-control" disabled={!primarySurface} aria-label={t('map.rotateLeft')} title={`${t('map.rotateLeft')} (Q)`} onClick={() => reorient(bearingNow.current-15, pitchNow.current)}>↶</button>
+        <button className="mk-control" disabled={!primarySurface} aria-label={t('map.rotateRight')} title={`${t('map.rotateRight')} (E)`} onClick={() => reorient(bearingNow.current+15, pitchNow.current)}>↷</button>
+      </div>
       <div className="mk-zoom">
         <button className="mk-control" aria-label={t('rescue.zoomIn')} onClick={() => zoom(1.5)}>＋</button>
         <button className="mk-control" aria-label={t('rescue.zoomOut')} onClick={() => zoom(1/1.5)}>－</button>

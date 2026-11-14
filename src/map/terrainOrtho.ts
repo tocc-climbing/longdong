@@ -13,8 +13,8 @@ export interface TerrainOrtho {
 }
 
 /** 以同一份 DTM 的可見網格決定航照範圍，每次最多 8×8 張、2048×2048 像素。 */
-export function terrainOrthoPlan(t: Terrain, box: [number, number, number, number], width: number, dpr: number, maxSpan = 8, pitch = 60) {
-  const b = terrainGridBounds(t, 0, box, 1, pitch)
+export function terrainOrthoPlan(t: Terrain, box: [number, number, number, number], width: number, dpr: number, maxSpan = 8, pitch = 60, bearing = 0) {
+  const b = terrainGridBounds(t, bearing, box, 1, pitch)
   const ps = [terrainPoint(t, b.firstCol, b.firstRow), terrainPoint(t, b.lastCol+1, b.firstRow), terrainPoint(t, b.firstCol, b.lastRow+1), terrainPoint(t, b.lastCol+1, b.lastRow+1)]
   const xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1])
   const left = Math.min(...xs), top = Math.min(...ys), w = Math.max(...xs)-left, h = Math.max(...ys)-top
@@ -32,11 +32,11 @@ export function terrainOrthoPlan(t: Terrain, box: [number, number, number, numbe
 }
 
 /** 全域低解析航照固定鋪底，縮小或移出細圖範圍時仍有完整影像。 */
-export function terrainOrthoOverview(t: Terrain, pitch = 60): [number, number, number, number] {
+export function terrainOrthoOverview(t: Terrain, pitch = 60, bearing = 0): [number, number, number, number] {
   const heights = t.heights.filter((h): h is number => h !== null)
   const low = Math.min(...heights)*t.scale, high = Math.max(...heights)*t.scale
   const points: Pt[] = []
-  for (const c of [0, t.columns-1]) for (const r of [0, t.rows-1]) for (const z of [low, high]) points.push(terrainView(terrainPoint(t, c, r), z, 0, pitch))
+  for (const c of [0, t.columns-1]) for (const r of [0, t.rows-1]) for (const z of [low, high]) points.push(terrainView(terrainPoint(t, c, r), z, bearing, pitch))
   const left = Math.min(...points.map((p) => p[0])), top = Math.min(...points.map((p) => p[1]))
   return [left, top, Math.max(...points.map((p) => p[0]))-left, Math.max(...points.map((p) => p[1]))-top]
 }

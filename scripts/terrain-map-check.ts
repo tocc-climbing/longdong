@@ -4,6 +4,7 @@ import { preview } from 'vite'
 import { launch } from './lib/shotDiff'
 import { checkTerrainMap, checkTerrainPresentation, checkTerrainZoomStability } from './lib/terrainMapCheck'
 import { offlinePreview } from './lib/offlinePreview'
+import { checkRotationPersistence, checkRotationUnavailable } from './lib/terrainRotationCheck'
 
 const hermetic = process.argv.includes('--offline-preview')
 const server = hermetic ? undefined : await preview({ preview: { port: 0 }, logLevel: 'error' })
@@ -18,6 +19,10 @@ try {
   page.on('pageerror', (e) => errors.push(e.message))
   const base = hermetic ? await offlinePreview(context) : server!.resolvedUrls!.local[0]
   await checkTerrainMap(page, base)
+  const persistence = await context.newPage()
+  try { await checkRotationPersistence(persistence, base) } finally { await persistence.close() }
+  const unavailable = await context.newPage()
+  try { await checkRotationUnavailable(unavailable, base) } finally { await unavailable.close() }
   console.log('3D 切換、放大、拖曳、滾輪、重設、岩壁點選、區域導覽通過')
   const results: unknown[] = []
   for (const lang of ['zh', 'en', 'ja']) for (const theme of ['light', 'dark'] as const) {
@@ -27,6 +32,7 @@ try {
       await page.setViewportSize({ width, height })
       await page.goto(new URL('/map?view=3d', base).href, { waitUntil: 'domcontentloaded' })
       await page.waitForSelector('.terrain-map-view[data-terrain="ready"]')
+      for (let i = 0; i < 2; i++) await page.locator('.terrain-map-view').dispatchEvent('keydown', { key: width >= 1024 ? 'e' : 'q' })
       const state = await page.locator('.terrain-map').evaluate((el) => {
         const rect = el.getBoundingClientRect()
         const texts = [...el.querySelectorAll('[data-label-box]')].map((e) => e.getBoundingClientRect())
@@ -36,9 +42,10 @@ try {
           const [x, y] = e.getAttribute('data-label-anchor')!.split(',').map(Number), r = e.querySelector('[data-label-box]')!.getBoundingClientRect()
           return Math.abs(r.x+r.width/2-rect.x-x) > 0.1 || Math.abs(r.y+r.height/2-rect.y-y) > 0.1
         }).length
-        return { fits: texts.every((r) => r.x >= rect.x && r.right <= rect.right && r.y >= rect.y && r.bottom < rect.bottom-18), collisions, leaders, movedIcons, shown: texts.length, rescue: el.querySelectorAll('[data-label-kind="rescue"]').length, areas: el.querySelectorAll('[data-label-kind="area"]').length, overflow: document.documentElement.scrollWidth > innerWidth, height: rect.height, triangles: Number(el.querySelector('svg')?.getAttribute('data-triangles')) }
+        return { bearing: Number(el.getAttribute('data-bearing')), fits: texts.every((r) => r.x >= rect.x && r.right <= rect.right && r.y >= rect.y && r.bottom < rect.bottom-18), collisions, leaders, movedIcons, shown: texts.length, rescue: el.querySelectorAll('[data-label-kind="rescue"]').length, areas: el.querySelectorAll('[data-label-kind="area"]').length, overflow: document.documentElement.scrollWidth > innerWidth, height: rect.height, triangles: Number(el.querySelector('svg')?.getAttribute('data-triangles')) }
       })
       assert(state.fits && !state.overflow && state.height > 200, `${lang}/${theme}/${width}×${height}: 地圖或名稱超出容器 ${JSON.stringify(state)}`)
+      assert.equal(state.bearing, width >= 1024 ? 30 : -30, '響應式地圖沒有保持旋轉角度')
       assert.equal(state.collisions, 0, `${lang}/${theme}/${width}×${height}: 圖示與文字相互重疊`)
       assert.equal(state.leaders, 0, '名稱仍使用連接線')
       assert.equal(state.movedIcons, 0, '圖示偏離實際位置')

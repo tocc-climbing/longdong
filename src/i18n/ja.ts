@@ -114,6 +114,8 @@ export const ja: Messages = {
   'myloc.accuracy': '誤差 約 ±{m} m · {time} 更新',
   'myloc.poor': '誤差が大きめです。開けた場所で自動更新されます',
   'map.north': '北を上にする',
+  'map.rotateLeft': '左に回転',
+  'map.rotateRight': '右に回転',
   'map.locate': '現在地',
   'map.report': '報告',
   'map.outside': '龍洞の地図の範囲外です（最寄りの救助地点まで {dist}）',
