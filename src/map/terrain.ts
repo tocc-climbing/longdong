@@ -62,19 +62,20 @@ export function terrainView(p: Pt, z: number, angle: number, pitch = 60): Pt {
 }
 
 /** 在投影後選取景方向，讓完整地形盡量大；不能先依平面岩壁選方向再壓縮高度。 */
-export function terrainHeroFit(t: Terrain, points: Pt[], box: FitBox, options: { angle?: number; spread: number; minSpan: number }) {
+export function terrainHeroFit(t: Terrain, points: Pt[], box: FitBox, options: { angle?: number; pitch?: number; spread: number; minSpan: number }) {
+  const tilt = (options.pitch ?? 60)*Math.PI/180
   const samples = points.flatMap((p) => {
     const z = elevation(t, p)
-    return z === undefined ? [] : [{ x: p[0], y: p[1], rise: z*Math.sin(Math.PI/3) }]
+    return z === undefined ? [] : [{ x: p[0], y: p[1], rise: z*Math.sin(tilt) }]
   })
   if (!samples.length) return undefined
   let best: ReturnType<typeof heroFit>
   for (const angle of options.angle === undefined ? HERO_ANGLES : [options.angle]) {
     const radians = angle*Math.PI/180, c = Math.cos(radians), s = Math.sin(radians)
     let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
-    // 60 度投影與 terrainView 一致；每個方向只累計邊界，不配置整批投影點陣列。
+    // 傾角投影與 terrainView 一致；每個方向只累計邊界，不配置整批投影點陣列。
     for (const p of samples) {
-      const x = p.x*c-p.y*s, y = (p.x*s+p.y*c)*Math.cos(Math.PI/3)-p.rise
+      const x = p.x*c-p.y*s, y = (p.x*s+p.y*c)*Math.cos(tilt)-p.rise
       left = Math.min(left, x); right = Math.max(right, x)
       top = Math.min(top, y); bottom = Math.max(bottom, y)
     }
@@ -90,7 +91,7 @@ export interface TerrainWall { lines: Pt[][]; color: string; strong: boolean }
 const pair = (p: Pt) => p.map((n) => n.toFixed(1)).join(',')
 
 /** 同色、同明暗的三角形合成 path，限制 SVG 節點數；overview 使用 40m LOD。 */
-export function terrainMesh(t: Terrain, angle: number, box: [number, number, number, number], stride: 1 | 2) {
+export function terrainMesh(t: Terrain, angle: number, box: [number, number, number, number], stride: 1 | 2, pitch = 60) {
   const sea = new Uint8Array(t.heights.length)
   for (const [start, length] of t.waterRuns ?? []) sea.fill(1, start, start+length)
   const paths = new Map<string, string[]>()
@@ -99,7 +100,7 @@ export function terrainMesh(t: Terrain, angle: number, box: [number, number, num
     paths.get(key)!.push(d)
   }
   const [left, top, width, height] = box
-  const { firstCol, lastCol, firstRow, lastRow } = terrainGridBounds(t, angle, box, stride)
+  const { firstCol, lastCol, firstRow, lastRow } = terrainGridBounds(t, angle, box, stride, pitch)
   let triangles = 0
   for (let row = firstRow; row <= lastRow; row += stride) {
     for (let col = firstCol; col <= lastCol; col += stride) {
@@ -112,7 +113,7 @@ export function terrainMesh(t: Terrain, angle: number, box: [number, number, num
       for (const ids of [[0, 1, 2], [1, 3, 2]]) {
         const vs = ids.map((i) => vertices[i])
         if (vs.some((v) => v.z === undefined)) continue
-        const screen = vs.map((v) => terrainView(v.p, v.z!, angle))
+        const screen = vs.map((v) => terrainView(v.p, v.z!, angle, pitch))
         if (screen.every(([x]) => x < left) || screen.every(([x]) => x > left+width)) continue
         if (screen.every(([, y]) => y < top) || screen.every(([, y]) => y > top+height)) continue
         const a = vs[0], b = vs[1], c = vs[2]

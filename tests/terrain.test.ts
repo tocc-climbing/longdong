@@ -26,6 +26,23 @@ describe('20m DTM 地形', () => {
       expect((y-fit.viewBox[1])*scale).toBeLessThanOrEqual(box.h-box.bottom)
     }
   })
+  it('橫向首頁依指定的 80 度方向與 30 度傾角完整取景', () => {
+    const t = { ...grid, columns: 10, rows: 10, heights: Array(100).fill(100) }
+    const points: [number, number][] = [[10, 10], [170, 10], [170, 90], [10, 90]]
+    const box = { w: 600, h: 180, top: 8, right: 8, bottom: 8, left: 8 }
+    const fit = terrainHeroFit(t, points, box, { angle: 80, pitch: 30, spread: 1.05, minSpan: 0 })!
+    expect(fit.angle).toBe(80)
+    for (const [x, y] of points) {
+      const angle = 80*Math.PI/180
+      const px = x*Math.cos(angle)-y*Math.sin(angle)
+      const py = (x*Math.sin(angle)+y*Math.cos(angle))*Math.sqrt(3)/2-5
+      const scale = box.w/fit.viewBox[2]
+      expect((px-fit.viewBox[0])*scale).toBeGreaterThanOrEqual(box.left)
+      expect((px-fit.viewBox[0])*scale).toBeLessThanOrEqual(box.w-box.right)
+      expect((py-fit.viewBox[1])*scale).toBeGreaterThanOrEqual(box.top)
+      expect((py-fit.viewBox[1])*scale).toBeLessThanOrEqual(box.h-box.bottom)
+    }
+  })
   it('地面虛線跨節點保持 8m 分段，隧道只接合 15m 內道路', () => {
     // 突變：每個原始節點重設分段、略過入口接合、把遠處入口也拉過去。
     const dashed = terrainDashLines([[[0, 0], [5, 0], [25, 0]]], 8, 8)

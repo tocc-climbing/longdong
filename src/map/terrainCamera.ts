@@ -1,6 +1,9 @@
 import { rotate, type Pt } from './heroFit'
 import { terrainView } from './terrain'
 
+/** 與垂直俯視的夾角；首頁總覽與地圖共用預設傾角。 */
+export const DEFAULT_TERRAIN_PITCH = 30
+
 export type TerrainBox = [number, number, number, number]
 
 export const normalizeBearing = (angle: number) => ((angle+180)%360+360)%360-180

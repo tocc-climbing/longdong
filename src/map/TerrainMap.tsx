@@ -15,7 +15,7 @@ import { BOUNDS, EXTENT, inMapBounds } from './bounds'
 import { layoutTerrainLabels, type TerrainLabel, type LabelRect } from './terrainMapLabels'
 import { TerrainMapMarker } from './TerrainMapMarker'
 import { loadTerrainOrtho, terrainOrthoOverview, terrainOrthoPlan, type TerrainOrtho } from './terrainOrtho'
-import { normalizeBearing, reorientTerrainBox, terrainGround, touchRotation } from './terrainCamera'
+import { DEFAULT_TERRAIN_PITCH, normalizeBearing, reorientTerrainBox, terrainGround, touchRotation } from './terrainCamera'
 
 type Box = [number, number, number, number]
 type PhotoFrame = { atlas: TerrainOrtho; box: Box; size: { w: number; h: number }; pitch: number; bearing: number }
@@ -51,8 +51,8 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
   const { lang, t } = useLang()
   const svg = useRef<SVGSVGElement>(null)
   const liveCanvas = useRef<HTMLCanvasElement>(null)
-  const [pitch, setPitch] = useState(30)
-  const pitchNow = useRef(30)
+  const [pitch, setPitch] = useState(DEFAULT_TERRAIN_PITCH)
+  const pitchNow = useRef(DEFAULT_TERRAIN_PITCH)
   const [bearing, setBearing] = useState(normalizeBearing(savedView?.current?.rotation ?? 0))
   const bearingNow = useRef(bearing)
   const mouseRotation = useRef<number>(undefined)
@@ -190,10 +190,10 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
   const box = view ?? geometry?.initial
   useEffect(() => {
     if (!ortho || !terrain) { setOverview(undefined); return }
-    const controller = new AbortController(), box = terrainOrthoOverview(terrain, 30)
+    const controller = new AbortController(), box = terrainOrthoOverview(terrain, DEFAULT_TERRAIN_PITCH)
     const size = { w: 768, h: 768*box[3]/box[2] }
-    loadTerrainOrtho(terrainOrthoPlan(terrain, box, size.w, 1, 4, 30), controller.signal).then((atlas) => {
-      if (!controller.signal.aborted) setOverview({ atlas, box, size, pitch: 30, bearing: 0 })
+    loadTerrainOrtho(terrainOrthoPlan(terrain, box, size.w, 1, 4, DEFAULT_TERRAIN_PITCH), controller.signal).then((atlas) => {
+      if (!controller.signal.aborted) setOverview({ atlas, box, size, pitch: DEFAULT_TERRAIN_PITCH, bearing: 0 })
     }, (error: Error) => {
       if (!controller.signal.aborted) { controller.abort(); setPhotoError(error.message) }
     })
@@ -300,11 +300,11 @@ export function TerrainMap({ map, data, here, marks, selected, onWallTap, onArea
     clearTimeout(timer.current)
     if (touchFrame.current !== undefined) cancelAnimationFrame(touchFrame.current)
     touchFrame.current = undefined; gesture.current = undefined
-    if (primarySurface && (pitchNow.current !== 30 || bearingNow.current !== 0)) setShowLive(true)
-    pitchNow.current = 30; bearingNow.current = 0; setBearing(0); setPitch(30); setOrienting(false)
+    if (primarySurface && (pitchNow.current !== DEFAULT_TERRAIN_PITCH || bearingNow.current !== 0)) setShowLive(true)
+    pitchNow.current = DEFAULT_TERRAIN_PITCH; bearingNow.current = 0; setBearing(0); setPitch(DEFAULT_TERRAIN_PITCH); setOrienting(false)
     setView(undefined)
     if (world) {
-      const center = terrainView(world.anchor, world.anchorHeight, 0, 30)
+      const center = terrainView(world.anchor, world.anchorHeight, 0, DEFAULT_TERRAIN_PITCH)
       const initial: Box = [world.initial[0], center[1]-world.initial[3]/2, world.initial[2], world.initial[3]]
       current.current = initial; displayView(initial)
     }

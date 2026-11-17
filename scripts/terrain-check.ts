@@ -103,9 +103,11 @@ try {
   assert.equal(await page.locator('[data-terrain-island="coast-island-12"]').getAttribute('fill'), '#287fc0', '長巷海角仍使用陰影下過暗的深藍')
   // 實際畫面檢核：新端部要顯示，海灣仍透明。海陸在曲面上依精細遮罩收邊。
   const bearing = Number(await page.locator('.terrain-hero').getAttribute('data-bearing'))
+  assert.equal(bearing, 80, '首頁橫向卡面應固定水平旋轉 80 度')
+  assert.equal(await page.locator('.terrain-hero').getAttribute('data-pitch'), '30', '首頁應沿用地圖預設 30 度傾角')
   const probes = [{ name: '校門北端', p: [175, -780], land: true }, { name: '後門小半島', p: [365, 380], land: true }, { name: '後門左上多餘邊角', p: [220, 355], land: false }, { name: '外海', p: [409.8, -131.8], land: false }].map(({ name, p, land }) => {
     const angle = bearing*Math.PI/180, z = land ? elevation(terrain, [p[0], p[1]])! : 0
-    return { name, land, x: p[0]*Math.cos(angle)-p[1]*Math.sin(angle), y: (p[0]*Math.sin(angle)+p[1]*Math.cos(angle))*0.5-z*Math.sqrt(3)/2 }
+    return { name, land, x: p[0]*Math.cos(angle)-p[1]*Math.sin(angle), y: (p[0]*Math.sin(angle)+p[1]*Math.cos(angle))*Math.sqrt(3)/2-z*0.5 }
   })
   const painted = await page.evaluate(`(async () => {
     const svg = document.querySelector('.terrain-hero'), copy = svg.cloneNode(true), rect = svg.getBoundingClientRect(), box = svg.viewBox.baseVal
@@ -146,6 +148,8 @@ try {
           if (path === '/' || path.startsWith('/area/')) await checkHeroFrame(page, `${path}/${lang}/${theme}/${width}×${height}`)
           await checkHeroWalls(page, `${path}/${lang}/${theme}/${width}×${height}`)
           if (path === '/') {
+            assert.equal(await page.locator('.terrain-hero').getAttribute('data-bearing'), '80')
+            assert.equal(await page.locator('.terrain-hero').getAttribute('data-pitch'), '30')
             const source = (await page.locator('image[data-surface="all"]').getAttribute('href'))!
             const raster = await loadImage(Buffer.from(source.split(',')[1], 'base64'))
             assert(raster.width >= rect.w*1.99 && raster.height >= rect.h*1.99, `首頁輸出解析度不足：${JSON.stringify({ width, height, raster: [raster.width, raster.height], rect })}`)
