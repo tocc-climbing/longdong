@@ -1,5 +1,5 @@
 {
-  "action": "check",
+  "action": "deploy",
   "environment": "dev",
-  "requestedAt": "2026-11-13T00:56:56.994Z"
+  "requestedAt": "2026-11-17 02:23:16 UTC"
 }
