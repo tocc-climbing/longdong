@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { validate, type Layer, type PhotoView, type Position } from '../vendor/climbio-format/format'
 import { areaSet, cragSet, fileId, globalId, topo, type TopoInput } from '../scripts/lib/climbio'
-import { longdongMap } from '../scripts/lib/climbioMap'
+import { longdongMap, mapPlaces } from '../scripts/lib/climbioMap'
 import type { Dataset } from '../src/data/schema'
 import type { MapShapes } from '../src/map/shapes'
 
@@ -88,6 +88,35 @@ describe('出口的岩場地圖', () => {
     expect(of('longdong/school-gate-g6qhy9')).toBeUndefined()
     expect(map.marks!.find((m) => m.props?.kind === 'trail')!.geometry.coordinates).toEqual([lngLat])
     expect(map.t).toBe(1893456000000)
+  })
+})
+
+describe('節點的位置與朝向（從岩場地圖算）', () => {
+  const places = mapPlaces(ownMap, dataset.crag.id)
+  const withPlaces = { ...common, places }
+
+  it('岩場、每個區域、每個有岩壁的分區都有位置點；組合仍通過官方驗證', () => {
+    const crag = cragSet(dataset, ownMap, withPlaces)
+    expect(validate(crag)).toEqual([])
+    expect(crag.nodes![0].geo?.type).toBe('Point')
+    const walled = new Set(ownMap.nodes!.filter((n) => n.type === 'sector').map((n) => n.id))
+    for (const area of dataset.areas) {
+      const doc = areaSet(dataset, area, { topos: [] }, withPlaces)
+      expect([area.id, validate(doc)]).toEqual([area.id, []])
+      const missing = doc.nodes!.filter((n) => (n.type === 'area' || walled.has(n.id)) && !n.geo).map((n) => n.props?.code)
+      expect([area.id, missing]).toEqual([area.id, []])
+    }
+  })
+
+  it('分區的朝向：岩壁面朝牆線的右手邊；線反過來朝向轉 180 度；位置點在牆線上', () => {
+    const line: [number, number][] = [[25.112, 121.921], [25.112, 121.9215]]   // 向東畫：右手邊是南
+    const sector = (l: [number, number][]) => {
+      const map = longdongMap(dataset, { areas: {}, walls: { 'longdong/school-gate-ppyc81': [l] }, lines: {}, versions: {} }, false)
+      return mapPlaces(map, dataset.crag.id).get(globalId('longdong/school-gate-ppyc81'))!
+    }
+    expect(sector(line).aspect).toBe(180)
+    expect(sector([...line].reverse()).aspect).toBe(0)
+    expect(sector(line).geo.coordinates).toEqual([121.92125, 25.112])
   })
 })
 

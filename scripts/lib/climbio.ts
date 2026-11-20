@@ -6,6 +6,7 @@ import { toTopoLayer, toTopoView } from '../../src/core/format/topo'
 import type { Crop, Marks } from '../../src/core/topo/geometry'
 import type { Shot } from '../../src/core/topo/shot'
 import type { Area, Dataset, LocalizedName, Route, RouteStatus } from '../../src/data/schema'
+import type { Place } from './climbioMap'
 
 /**
  * 岩場站出口：路線資料、Topo、岩場地圖換成 Climbio 公開格式 v2（vendor/climbio-format），放在網站的 /climbio/，
@@ -74,6 +75,15 @@ function routeNode(route: Route, parent: string): Node {
 export interface Common {
   /** 路線資料的網址（source.url） */
   dataUrl: string
+  /** 岩場、區域、分區節點的位置與朝向（從岩場地圖算出，scripts/lib/climbioMap.ts 的 mapPlaces） */
+  places?: Map<string, Place>
+}
+
+/** 節點加上位置（geo）與朝向（props.aspect）；地圖上沒有的節點不加 */
+const placed = (node: Node, c: Common): Node => {
+  const p = c.places?.get(node.id)
+  if (!p) return node
+  return { ...node, geo: p.geo, ...(p.aspect === undefined ? {} : { props: { ...node.props, aspect: p.aspect } }) }
 }
 
 const datasetT = (d: Dataset) => Date.parse(d.updatedAt)
@@ -96,7 +106,7 @@ export function cragSet(d: Dataset, map: MapView, c: Common, photos = 0): Set {
     attribution: d.source.attribution,
     source: datasetSource(d, c),
     items: [{ href: `${map.id}.json`, id: map.id, t: map.t }, ...d.areas.map((a) => ({ href: `${fileId(a.id, 'set')}.json`, id: fileId(a.id, 'set'), name: text(a.name) }))],
-    nodes: [{ id: globalId(d.crag.id), type: 'crag', name: text(d.crag.name), props: { code: d.crag.id, 'longdong:hardware': d.hardware } }],
+    nodes: [placed({ id: globalId(d.crag.id), type: 'crag', name: text(d.crag.name), props: { code: d.crag.id, 'longdong:hardware': d.hardware } }, c)],
     props: { pack: { href: PACK_FILE }, ...(photos ? { preview: previewProps(photos) } : {}) },
   }
 }
@@ -125,10 +135,10 @@ export function areaSet(d: Dataset, area: Area, items: AreaItems, c: Common): Se
       ]),
     ],
     nodes: [
-      { id, type: 'area', parent: globalId(d.crag.id), name: text(area.name), props: { code: area.id } },
+      placed({ id, type: 'area', parent: globalId(d.crag.id), name: text(area.name), props: { code: area.id } }, c),
       ...area.sectors.flatMap((s) => {
         const sid = globalId(s.id)
-        return [{ id: sid, type: 'sector', parent: id, name: text(s.name), props: { code: s.id } }, ...s.routes.map((r) => routeNode(r, sid))]
+        return [placed({ id: sid, type: 'sector', parent: id, name: text(s.name), props: { code: s.id } }, c), ...s.routes.map((r) => routeNode(r, sid))]
       }),
     ],
   }

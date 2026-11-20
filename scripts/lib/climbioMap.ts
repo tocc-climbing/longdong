@@ -3,6 +3,8 @@ import polygonClipping, { type MultiPolygon } from 'polygon-clipping'
 import type { Mark, MapView, Node, Position, Text } from '../../vendor/climbio-format/format'
 import { RESCUE_POINTS } from '../../src/data/rescue'
 import type { Dataset, LocalizedName } from '../../src/data/schema'
+import type { LatLng } from '../../src/geo'
+import { meanFacing, wallFaces } from '../../src/map/aspect'
 import { BOUNDS } from '../../src/map/bounds'
 import { EXTENT_LATLNG } from '../../src/map/extent'
 import { unproject } from '../../src/map/mapData'
@@ -144,4 +146,60 @@ export function longdongMap(dataset: Dataset, shapes: MapShapes = NO_EDITS, osm 
     nodes,
     marks,
   }
+}
+
+/** 節點的位置與朝向：組合裡的岩場、區域、分區節點用（清單、搜尋顯示「在哪裡」，分區的 props.aspect） */
+export interface Place {
+  geo: { type: 'Point'; coordinates: Position }
+  aspect?: number
+}
+
+/**
+ * 從地圖畫面算出各節點的位置點：岩場是一開始畫面（props.home）的中心、區域是多邊形的面積重心、分區是岩壁線長度的中點（點在牆上）；
+ * 分區的朝向由牆線的畫線方向算（src/map/aspect.ts：岩壁面朝右手邊），四捨五入到整數度。
+ */
+export function mapPlaces(map: MapView, cragId: string): Map<string, Place> {
+  const places = new Map<string, Place>()
+  const point = (p: Pos): Place['geo'] => ({ type: 'Point', coordinates: round(p) })
+  const [w, s, e, n] = map.props!.home as [number, number, number, number]
+  places.set(globalId(cragId), { geo: point([(w + e) / 2, (s + n) / 2]) })
+  for (const m of map.marks ?? []) {
+    if (!m.node) continue
+    const g = m.geometry
+    if (g.type === 'MultiPolygon') places.set(m.node, { geo: point(centroid(g.coordinates as Pos[][][])) })
+    else if (g.type === 'MultiLineString') {
+      const lines = g.coordinates as Pos[][]
+      const aspect = meanFacing(lines.flatMap((l) => wallFaces(l.map(([lng, lat]): LatLng => [lat, lng]))))
+      places.set(m.node, { geo: point(alongMiddle(lines)), ...(aspect === undefined ? {} : { aspect: Math.round(aspect) % 360 }) })
+    }
+  }
+  return places
+}
+
+/** 多塊多邊形（只看外圈）的面積重心 */
+function centroid(polys: Pos[][][]): Pos {
+  let a = 0, x = 0, y = 0
+  for (const [ring] of polys) {
+    for (let i = 0; i < ring.length - 1; i++) {
+      const [x0, y0] = ring[i], [x1, y1] = ring[i + 1]
+      const c = x0 * y1 - x1 * y0
+      a += c
+      x += (x0 + x1) * c
+      y += (y0 + y1) * c
+    }
+  }
+  return [x / (3 * a), y / (3 * a)]
+}
+
+/** 幾條線接起來的總長度一半處的點 */
+function alongMiddle(lines: Pos[][]): Pos {
+  const segs = lines.flatMap((l) => l.slice(1).map((b, i): [Pos, Pos] => [l[i], b]))
+  const len = ([a, b]: [Pos, Pos]) => Math.hypot(b[0] - a[0], (b[1] - a[1]))
+  let left = segs.reduce((t, sg) => t + len(sg), 0) / 2
+  for (const sg of segs) {
+    const l = len(sg)
+    if (left <= l && l > 0) return [sg[0][0] + ((sg[1][0] - sg[0][0]) * left) / l, sg[0][1] + ((sg[1][1] - sg[0][1]) * left) / l]
+    left -= l
+  }
+  return segs.at(-1)?.[1] ?? lines[0][0]
 }

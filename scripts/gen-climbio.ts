@@ -17,7 +17,7 @@ import { decodeEdit, imageUrl, type StoredEdit, type TopoPhoto } from '../src/to
 import { PREVIEW } from '../vendor/climbio-sourcekit/preview-layout.js'
 import { areaSet, CRAG_FILE, cragSet, PACK_FILE, topo, type AreaItems, type TopoInput } from './lib/climbio'
 import { previewSheet, shrinkForExport } from './lib/climbioPhotos'
-import { longdongMap } from './lib/climbioMap'
+import { longdongMap, mapPlaces } from './lib/climbioMap'
 import { SITE_URL } from './sheet.config'
 
 const OUT = 'dist/climbio'
@@ -25,7 +25,6 @@ const site = process.env.VITE_CHANNEL === 'dev' ? 'https://longdong-dev.web.app/
 
 const dataset = JSON.parse(readFileSync('dist/data/longdong.json', 'utf8')) as Dataset
 const { sectorById } = indexDataset(dataset)
-const common = { dataUrl: `${site}data/longdong.json` }
 
 async function json<T>(path: string): Promise<T | null> {
   const res = await fetch(`${DB_URL}/${path}.json`)
@@ -40,6 +39,9 @@ const [photos, edits, mapEdits, profiles] = await Promise.all([
   json<Record<string, { name: string }>>('v2/profiles'),
 ])
 const nameOf = (uid: string) => profiles?.[uid]?.name ?? uid
+// 岩場地圖：原始版套上地圖編輯的最新版本，只有龍洞自己的（不含 OpenStreetMap）；岩場、區域、分區節點的位置與朝向從它算
+const map = longdongMap(dataset, decodeMapEdits(mapEdits), false)
+const common = { dataUrl: `${site}data/longdong.json`, places: mapPlaces(map, dataset.crag.id) }
 
 mkdirSync(OUT, { recursive: true })
 // 寫出的每份文件也收進合併檔（pack.json）：紅點貓一個請求讀完，不用逐檔下載
@@ -93,8 +95,6 @@ for (const [key, p] of Object.entries(photos ?? {})) {
 }
 
 for (const area of dataset.areas) write(areaSet(dataset, area, items.get(area.id)!, common))
-// 岩場地圖：原始版套上地圖編輯的最新版本，只有龍洞自己的（不含 OpenStreetMap）
-const map = longdongMap(dataset, decodeMapEdits(mapEdits), false)
 write(map)
 const root = cragSet(dataset, map, common, sheetPhotos.length)
 write(root, CRAG_FILE)
