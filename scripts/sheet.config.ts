@@ -33,7 +33,7 @@ export const STATS_GID = '2004465247'
 
 export const DATA_LICENSE = 'CC BY-SA 4.0'
 
-export const DATA_ATTRIBUTION = '臺灣戶外攀岩協會（TOCC）固定點更新計畫'
+export const DATA_ATTRIBUTION = '龍洞攀岩資料庫'
 
 export const PROJECT_URL = 'https://www.tocc-climbing.org/rebolting-project'
 
